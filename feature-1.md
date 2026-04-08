@@ -1,0 +1,13 @@
+Kaza tutanağını ekle
+Kaza ile alakalı bilidiride hasar ekliyor ise bir buton ile bunu seçebilmeli.
+Eğer onu seçerse kza anı ile ilgili biligileri detaylı şekilde girip anında hasar teklifine dönüştürebileceği bir sistem kurgulanmalı.
+Yani hikayenin reklamı şu: KAza yaptınız ne yapacağınızı bilmiyorsanız uygulamadaki talimatları izleyin.
+Uygulamada kza ile alakalı adım adım gireceği evreklar, e devletten veya fotoğraf çekebileceği ve yanındaki bilgi butonuna basıldığında açılan "Kaza tutanacağı kazayı iki tarafın da onayıyla anlattığı detaylı ve kaza ile ilgili önemli bilgileri içeren tutanaaktır. Bir kırtasiyeden bile ulaşılabilir olup, ıslak imzalı şekilde doldurulmaldıır. Dilerse kişiler e devlet üzerinden karşılıklı onay ile de doldurabilir" şeklinde bir bilgilendirmenin üzerinden e devletten veya fotoğraf çekerek ekleyebilmesi iiçin iki güzel buton olmalı.
+Bu adımlar apple ayarlar menüsüne benzeyebilir. Göz alışkın, açılır menüler, öenlilelrin yıldızlandığı her adımın anonda uygulama içerisine kaydedildiği bir altyapı mimarisi de tabi ki.
+
+Bu sistemin amacı kaza anında ne yapacağını bilmeyen kişilerin panik yapmadan adım adım ilerleyerek hem kaza tutanağını doldurmasını sağlamak hem de bu tutanağı anında hasar teklifine dönüştürerek süreci hızlandırmak.
+
+Its incredible...
+Its beautiful...
+Its revolutionary...
+Its the future of car repair...

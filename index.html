@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>Sanayi — Araç Servis Yönetimi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+    <!-- Mobile Frame -->
+    <div class="phone-frame">
+
+        <!-- Active Vehicle Top Bar -->
+        <header class="vehicle-bar" id="vehicleBar">
+            <div class="vehicle-bar__info">
+                <span class="vehicle-bar__plate">34 ABC 42</span>
+                <span class="vehicle-bar__model">BMW 3 Serisi · 2019</span>
+            </div>
+            <button class="vehicle-bar__switch" onclick="openVehicleSwitcher()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            </button>
+        </header>
+
+        <!-- Screen Container -->
+        <main class="screen-container" id="screenContainer">
+
+            <!-- 1. ANA SAYFA -->
+            <section class="screen active" id="screen-home">
+                <div class="screen-scroll">
+
+                    <!-- Status Cards -->
+                    <div class="home-top-row">
+                        <div class="section-title" style="margin-bottom:0">Aktif Durumlar</div>
+                        <button class="notif-bell" onclick="navigate('screen-bildirimler')">
+                            🔔
+                            <span class="notif-bell__badge">2</span>
+                        </button>
+                    </div>
+                    <div class="cards-row">
+                        <div class="status-card status-card--warning" onclick="navigate('screen-hasar-detail')">
+                            <div class="status-card__icon">⚠️</div>
+                            <div class="status-card__label">Açık Hasar</div>
+                            <div class="status-card__value">Motor Sesi</div>
+                            <div class="status-card__sub">3 teklif bekleniyor</div>
+                        </div>
+                        <div class="status-card status-card--info" onclick="navigate('screen-kayitlar')">
+                            <div class="status-card__icon">🔧</div>
+                            <div class="status-card__label">Yaklaşan Bakım</div>
+                            <div class="status-card__value">Yağ Değişimi</div>
+                            <div class="status-card__sub">~1.200 km kaldı</div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Feed -->
+                    <div class="section-title mt-20">Son Aktiviteler</div>
+                    <div class="activity-feed">
+                        <div class="activity-item" onclick="navigate('screen-teklif')">
+                            <div class="activity-item__icon act-green">💬</div>
+                            <div class="activity-item__body">
+                                <div class="activity-item__title">Yeni Teklif Geldi</div>
+                                <div class="activity-item__desc">AutoPro Servis — ₺2.400 · Güvence belgeli</div>
+                            </div>
+                            <div class="activity-item__time">2d</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-item__icon act-blue">🧾</div>
+                            <div class="activity-item__body">
+                                <div class="activity-item__title">Fatura Eklendi</div>
+                                <div class="activity-item__desc">Ön Fren Balataları — ₺850</div>
+                            </div>
+                            <div class="activity-item__time">5g</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-item__icon act-purple">📁</div>
+                            <div class="activity-item__body">
+                                <div class="activity-item__title">Belge Yüklendi</div>
+                                <div class="activity-item__desc">Ekspertiz Raporu 2024</div>
+                            </div>
+                            <div class="activity-item__time">12g</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-item__icon act-orange">🛠️</div>
+                            <div class="activity-item__body">
+                                <div class="activity-item__title">Bakım Tamamlandı</div>
+                                <div class="activity-item__desc">Periyodik Bakım — Mobilservis Güngören</div>
+                            </div>
+                            <div class="activity-item__time">1ay</div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="section-title mt-20">Hızlı Erişim</div>
+                    <div class="quick-grid">
+                        <button class="quick-btn" onclick="navigate('screen-hasar-flow')">
+                            <span class="quick-btn__icon">🚨</span>
+                            <span>Hasar Bildir</span>
+                        </button>
+                        <button class="quick-btn" onclick="navigate('screen-bakim-flow')">
+                            <span class="quick-btn__icon">🔧</span>
+                            <span>Bakım Talebi</span>
+                        </button>
+                        <button class="quick-btn" onclick="navigate('screen-ustalar')">
+                            <span class="quick-btn__icon">🏪</span>
+                            <span>Usta Bul</span>
+                        </button>
+                        <button class="quick-btn" onclick="navigate('screen-cekici')">
+                            <span class="quick-btn__icon">🚛</span>
+                            <span>Çekici Çağır</span>
+                        </button>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 2. KAYITLAR -->
+            <section class="screen" id="screen-kayitlar">
+                <div class="screen-scroll">
+                    <div class="tab-bar">
+                        <button class="tab-btn active" onclick="switchTab(this,'tab-bakim')">Bakım</button>
+                        <button class="tab-btn" onclick="switchTab(this,'tab-hasar')">Hasar</button>
+                        <button class="tab-btn" onclick="switchTab(this,'tab-fatura')">Fatura</button>
+                        <button class="tab-btn" onclick="switchTab(this,'tab-belge')">Belgeler</button>
+                    </div>
+
+                    <div class="tab-content active" id="tab-bakim">
+                        <div class="record-card">
+                            <div class="record-card__header">
+                                <span class="record-badge badge-green">Tamamlandı</span>
+                                <span class="record-date">14 Mar 2026</span>
+                            </div>
+                            <div class="record-card__title">Periyodik Bakım</div>
+                            <div class="record-card__desc">Yağ filtresi, hava filtresi, buji değişimi · Mobilservis
+                                Güngören</div>
+                            <div class="record-card__footer">
+                                <span class="record-amount">₺2.850</span>
+                                <span class="record-km">87.400 km</span>
+                            </div>
+                        </div>
+                        <div class="record-card">
+                            <div class="record-card__header">
+                                <span class="record-badge badge-green">Tamamlandı</span>
+                                <span class="record-date">2 Oca 2026</span>
+                            </div>
+                            <div class="record-card__title">Fren Bakımı</div>
+                            <div class="record-card__desc">Ön fren balataları değişimi · AutoPro Servis</div>
+                            <div class="record-card__footer">
+                                <span class="record-amount">₺850</span>
+                                <span class="record-km">85.100 km</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-hasar">
+                        <div class="record-card" onclick="navigate('screen-hasar-detail')">
+                            <div class="record-card__header">
+                                <span class="record-badge badge-orange">Açık</span>
+                                <span class="record-date">5 Nis 2026</span>
+                            </div>
+                            <div class="record-card__title">Motor Sesi — Vuruntu</div>
+                            <div class="record-card__desc">Soğuk çalıştırmada metal ses. 3 teklif bekleniyor.</div>
+                        </div>
+                        <div class="record-card">
+                            <div class="record-card__header">
+                                <span class="record-badge badge-green">Kapatıldı</span>
+                                <span class="record-date">Nov 2025</span>
+                            </div>
+                            <div class="record-card__title">Arka Sol Kapı Çizik</div>
+                            <div class="record-card__desc">Kaporta boya · Serbestoğlu Kaporta</div>
+                            <div class="record-card__footer">
+                                <span class="record-amount">₺3.200</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-fatura">
+                        <div class="record-card">
+                            <div class="record-card__header">
+                                <span class="record-badge badge-blue">Fatura</span>
+                                <span class="record-date">14 Mar 2026</span>
+                            </div>
+                            <div class="record-card__title">Mobilservis Güngören</div>
+                            <div class="record-card__desc">Periyodik bakım + yedek parça</div>
+                            <div class="record-card__footer">
+                                <span class="record-amount">₺2.850</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-belge">
+                        <div class="record-card">
+                            <div class="record-card__header">
+                                <span class="record-badge badge-purple">PDF</span>
+                                <span class="record-date">2024</span>
+                            </div>
+                            <div class="record-card__title">Ekspertiz Raporu</div>
+                            <div class="record-card__desc">Araç alım öncesi ekspertiz</div>
+                        </div>
+                        <div class="record-card">
+                            <div class="record-card__header">
+                                <span class="record-badge badge-purple">Görsel</span>
+                                <span class="record-date">2024</span>
+                            </div>
+                            <div class="record-card__title">Ruhsat Fotokopisi</div>
+                            <div class="record-card__desc">Araç tescil belgesi</div>
+                        </div>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 3. USTALAR -->
+            <section class="screen" id="screen-ustalar">
+                <div class="screen-scroll">
+                    <div class="search-bar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input type="text" placeholder="Servis adı veya uzmanlık ara…" />
+                    </div>
+                    <div class="filter-chips">
+                        <button class="chip active">Tümü</button>
+                        <button class="chip">Motor</button>
+                        <button class="chip">Kaporta</button>
+                        <button class="chip">Fren</button>
+                        <button class="chip">Lastik</button>
+                        <button class="chip">Elektrik</button>
+                    </div>
+
+                    <div class="usta-card" onclick="navigate('screen-usta-profil')">
+                        <div class="usta-card__avatar">AP</div>
+                        <div class="usta-card__body">
+                            <div class="usta-card__name">AutoPro Servis <span class="badge-verify">✓</span></div>
+                            <div class="usta-card__tags">Motor · Elektrik · BMW</div>
+                            <div class="usta-card__meta">
+                                <span>⭐ 4.8 (127)</span>
+                                <span>📍 2.1 km</span>
+                                <span class="open-tag">Açık</span>
+                            </div>
+                        </div>
+                        <div class="usta-card__price">₺1.800–3.200</div>
+                    </div>
+
+                    <div class="usta-card" onclick="navigate('screen-usta-profil')">
+                        <div class="usta-card__avatar">MG</div>
+                        <div class="usta-card__body">
+                            <div class="usta-card__name">Mobilservis Güngören</div>
+                            <div class="usta-card__tags">Bakım · Fren · Yağ</div>
+                            <div class="usta-card__meta">
+                                <span>⭐ 4.6 (89)</span>
+                                <span>📍 3.8 km</span>
+                                <span class="open-tag">Açık</span>
+                            </div>
+                        </div>
+                        <div class="usta-card__price">₺800–2.500</div>
+                    </div>
+
+                    <div class="usta-card" onclick="navigate('screen-usta-profil')">
+                        <div class="usta-card__avatar">SK</div>
+                        <div class="usta-card__body">
+                            <div class="usta-card__name">Serbestoğlu Kaporta <span class="badge-verify">✓</span></div>
+                            <div class="usta-card__tags">Kaporta · Boya · Hasar</div>
+                            <div class="usta-card__meta">
+                                <span>⭐ 4.9 (214)</span>
+                                <span>📍 5.5 km</span>
+                                <span class="open-tag open-tag--closed">Kapalı</span>
+                            </div>
+                        </div>
+                        <div class="usta-card__price">₺2.000–8.000</div>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 4. PROFİL -->
+            <section class="screen" id="screen-profil">
+                <div class="screen-scroll">
+                    <div class="profil-header">
+                        <div class="profil-avatar">AF</div>
+                        <div class="profil-info">
+                            <div class="profil-name">Alfonso Rivera</div>
+                            <div class="profil-phone">+90 532 000 00 00</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-group__title">Araçlarım</div>
+                        <div class="settings-item" onclick="navigate('screen-arac-list')">
+                            <span>🚗</span><span>Kayıtlı Araçlar</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                        <div class="settings-item" onclick="navigate('screen-arac-ekle')">
+                            <span>➕</span><span>Yeni Araç Ekle</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-group__title">Hesap</div>
+                        <div class="settings-item">
+                            <span>👤</span><span>Kişisel Bilgiler</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                        <div class="settings-item">
+                            <span>🔔</span><span>Bildirim Tercihleri</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                        <div class="settings-item">
+                            <span>💳</span><span>Ödeme Yöntemleri</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-group__title">Destek</div>
+                        <div class="settings-item" onclick="navigate('screen-destek')">
+                            <span>💬</span><span>Yardım Merkezi</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                        <div class="settings-item">
+                            <span>⭐</span><span>Uygulamayı Değerlendir</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 5. HASAR DETAY -->
+            <section class="screen screen--sub" id="screen-hasar-detail">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Hasar Vakası</span>
+                    <button class="sub-header__action">Düzenle</button>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="hasar-status-pill pill-orange">Açık · Teklif Bekleniyor</div>
+                    <h2 class="hasar-title">Motor Sesi — Soğuk Çalıştırma Vuruntası</h2>
+                    <div class="hasar-meta">5 Nisan 2026 · 34 ABC 42 · BMW 3 Serisi</div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Açıklama</div>
+                        <p class="detail-block__text">Soğuk havalarda ilk çalıştırmada motor bölgesinden metal vuruntu
+                            sesi geliyor. Yaklaşık 2-3 dakika sonra ses azalıyor. Isındıkça tamamen kayboluyor.</p>
+                    </div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Medya (2)</div>
+                        <div class="media-row">
+                            <div class="media-thumb">🎥</div>
+                            <div class="media-thumb">📷</div>
+                            <button class="media-add">+ Ekle</button>
+                        </div>
+                    </div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Teklifler (3)</div>
+                        <div class="teklif-mini" onclick="navigate('screen-teklif')">
+                            <div class="teklif-mini__name">AutoPro Servis</div>
+                            <div class="teklif-mini__price">₺2.400</div>
+                            <span class="badge-green-sm">Yeni</span>
+                        </div>
+                        <div class="teklif-mini">
+                            <div class="teklif-mini__name">Mobilservis Güngören</div>
+                            <div class="teklif-mini__price">₺1.900</div>
+                        </div>
+                        <div class="teklif-mini">
+                            <div class="teklif-mini__name">Engin Oto</div>
+                            <div class="teklif-mini__price">₺2.750</div>
+                        </div>
+                    </div>
+
+                    <button class="cta-btn" onclick="navigate('screen-eslestir')">
+                        <span>Eşleşme Ekranına Geç →</span>
+                    </button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 6. EŞLEŞTİR (SWIPE) -->
+            <!-- 6. EŞLEŞME / KAYDIRMA EKRANI — Premium Swipe Experience -->
+            <!--
+              ┌─────────────────────────────────────────────────────┐
+              │ FEATURE NOTES (for future backend integration):     │
+              │                                                     │
+              │ • Swipe RIGHT = "Eşleş" → Randevu onay ekranı.     │
+              │   Usta tarafına hasar/bakım talebi olarak iletilir. │
+              │                                                     │
+              │ • Swipe UP = Detay sheet açılır, servis profili     │
+              │   tam bilgi ile gösterilir.                          │
+              │                                                     │
+              │ • Kartlar 3 kategoride gelir:                        │
+              │   1. "Sana Önerilen" — algoritma eşleşmesi          │
+              │   2. "Sana Teklif Gönderdi" — usta'nın aktif teklifi│
+              │   3. "Sponsorlu" — premium servis reklamı            │
+              │                                                     │
+              │ • Sağa kaydırma → randevu/eşleşme onayı             │
+              │   usta tarafına "Yeni Talep" olarak push edilir.     │
+              │                                                     │
+              │ • Kısa listeye ekleme (yıldız) → batch karşılaştırma│
+              │   ekranına materyal toplar.                          │
+              │                                                     │
+              │ • Geri al butonu → son swipe aksiyonunu geri alır.   │
+              └─────────────────────────────────────────────────────┘
+            -->
+            <section class="screen screen--sub screen--swipe" id="screen-eslestir">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Usta Bul</span>
+                    <button class="sub-header__action" onclick="navigate('screen-ustalar')">☰ Liste</button>
+                </div>
+
+                <!-- Context bar -->
+                <div class="swipe-context">
+                    <span class="swipe-context__label">Motor Sesi Vakası için eşleşiyorsunuz</span>
+                </div>
+
+                <!-- Swipe Area -->
+                <div class="swipe-area" id="swipeArea">
+                    <!-- Directional Labels (appear on drag) -->
+                    <div class="swipe-label swipe-label--no" id="labelNo">GEÇ ✕</div>
+                    <div class="swipe-label swipe-label--yes" id="labelYes">EŞLEŞ ✓</div>
+
+                    <!-- Main Card -->
+                    <div class="swipe-card" id="swipeCard">
+                        <!-- Card badge (algorithm/teklif/sponsor) -->
+                        <div class="swipe-card__badge-row">
+                            <span class="swipe-card__badge-tag badge-algo">📍 Sana Önerilen</span>
+                        </div>
+                        <div class="swipe-card__top">
+                            <div class="swipe-card__avatar-lg">AP</div>
+                            <div>
+                                <div class="swipe-card__name">AutoPro Servis</div>
+                                <div class="swipe-card__verify">✓ Doğrulanmış Servis</div>
+                            </div>
+                        </div>
+                        <div class="swipe-card__body">
+                            <div class="swipe-card__tags">Motor · Elektrik · BMW Uzmanı</div>
+                            <div class="swipe-card__stats">
+                                <div class="swipe-stat"><span class="swipe-stat__val">4.8</span><span
+                                        class="swipe-stat__lbl">Puan</span></div>
+                                <div class="swipe-stat"><span class="swipe-stat__val">2.1km</span><span
+                                        class="swipe-stat__lbl">Mesafe</span></div>
+                                <div class="swipe-stat"><span class="swipe-stat__val">~2g</span><span
+                                        class="swipe-stat__lbl">Cevap</span></div>
+                            </div>
+                            <div class="swipe-card__price">Tahmini: ₺1.800 – ₺3.200</div>
+                            <div class="swipe-card__note">"BMW motor arızalarında 8 yıllık deneyim. Teşhis ücretsiz."
+                            </div>
+                        </div>
+                        <!-- Swipe up hint -->
+                        <div class="swipe-up-hint" id="swipeUpHint">
+                            <div class="swipe-up-hint__chevron">‹</div>
+                            <span>Yukarı kaydır — servis detayları</span>
+                        </div>
+                    </div>
+                    <!-- Behind card (stack effect) -->
+                    <div class="swipe-card swipe-card--behind"></div>
+                </div>
+
+                <!-- Actions -->
+                <div class="swipe-actions">
+                    <button class="swipe-btn swipe-btn--undo" onclick="undoSwipe()" id="undoBtn"
+                        style="opacity:0.3;pointer-events:none" title="Geri Al">↺</button>
+                    <button class="swipe-btn swipe-btn--no" onclick="swipeAction('no')" title="Geç">✕</button>
+                    <button class="swipe-btn swipe-btn--star" onclick="swipeAction('star')"
+                        title="Kısa Listeye Ekle">★</button>
+                    <button class="swipe-btn swipe-btn--yes" onclick="swipeAction('yes')" title="Eşleş">✓</button>
+                </div>
+            </section>
+
+            <!-- SWIPE-UP DETAIL SHEET (slides over card) -->
+            <div class="detail-sheet" id="detailSheet">
+                <div class="detail-sheet__handle" onclick="closeDetailSheet()"></div>
+                <div class="detail-sheet__scroll">
+                    <div class="detail-sheet__hero">
+                        <div class="profil-servis-avatar">AP</div>
+                        <div>
+                            <div class="profil-servis-name" id="detailName">AutoPro Servis <span
+                                    class="badge-verify">✓</span></div>
+                            <div class="profil-servis-meta">⭐ 4.8 · 127 yorum · 📍 Güngören</div>
+                            <div class="profil-servis-meta">🕐 08:00–18:00 · <span style="color:var(--green)">Şu an
+                                    açık</span></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Uzmanlık Alanları</div>
+                        <div class="tag-cloud">
+                            <span class="tag">Motor Tanı</span><span class="tag">Elektrik</span>
+                            <span class="tag">BMW</span><span class="tag">Mercedes</span>
+                            <span class="tag">Şanzıman</span><span class="tag">Turbo</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Bu Talep İçin Tahmini</div>
+                        <div class="summary-card" style="margin-bottom:0">
+                            <div class="summary-row"><span class="summary-label">Fiyat Bandı</span><span>₺1.800 –
+                                    ₺3.200</span></div>
+                            <div class="summary-row"><span class="summary-label">Tahmini Süre</span><span>1–2 gün</span>
+                            </div>
+                            <div class="summary-row"><span class="summary-label">Garanti</span><span>6 ay / 10.000
+                                    km</span></div>
+                            <div class="summary-row"><span class="summary-label">Çekici</span><span
+                                    style="color:var(--green)">Ücretsiz</span></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Son Yorumlar</div>
+                        <div class="yorum-card">
+                            <div class="yorum-star">⭐⭐⭐⭐⭐</div>
+                            <div class="yorum-text">"Motor teşhisini çok hızlı yaptılar. Dürüst ve profesyonel."</div>
+                            <div class="yorum-meta">Ahmet K. · 2 hafta önce</div>
+                        </div>
+                        <div class="yorum-card">
+                            <div class="yorum-star">⭐⭐⭐⭐</div>
+                            <div class="yorum-text">"BMW 320i motor titreşimi çözdüler. Fiyat makuldü."</div>
+                            <div class="yorum-meta">Merve T. · 1 ay önce</div>
+                        </div>
+                    </div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Galeri</div>
+                        <div class="media-row">
+                            <div class="media-thumb">🏪</div>
+                            <div class="media-thumb">🔧</div>
+                            <div class="media-thumb">📷</div>
+                        </div>
+                    </div>
+
+                    <div class="action-row mt-20">
+                        <button class="cta-btn" onclick="closeDetailSheet(); swipeAction('yes')">Eşleş & Hizmet Talep
+                            Et</button>
+                    </div>
+                    <button class="cta-btn cta-btn--outline mt-16" onclick="closeDetailSheet()">Geri Dön</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </div>
+
+            <!-- MATCH CELEBRATION OVERLAY -->
+            <div class="match-overlay" id="matchOverlay">
+                <div class="match-content">
+                    <div class="match-confetti">🎉</div>
+                    <div class="match-title">Eşleşme Tamamlandı!</div>
+                    <div class="match-subtitle" id="matchServisName">AutoPro Servis</div>
+                    <div class="match-desc">Talebiniz ustaya iletildi. Randevunuz onay bekliyor.</div>
+
+                    <div class="match-summary">
+                        <div class="summary-row"><span class="summary-label">Hasar</span><span>Motor Sesi</span></div>
+                        <div class="summary-row"><span class="summary-label">Usta</span><span id="matchUstaName">AutoPro
+                                Servis</span></div>
+                        <div class="summary-row"><span class="summary-label">Tahmini Fiyat</span><span
+                                id="matchPrice">₺1.800 – ₺3.200</span></div>
+                        <div class="summary-row"><span class="summary-label">Cevap Süresi</span><span>~2 gün</span>
+                        </div>
+                    </div>
+
+                    <!--
+                      FEATURE NOTE: Bu buton PartType=APPOINTMENT tetikler.
+                      Usta tarafına push notification + in-app "Yeni Talep" olarak iletilir.
+                      Usta onayladığında kullanıcıya "Randevu Onaylandı" bildirimi gelir.
+                    -->
+                    <button class="cta-btn mt-20" onclick="navigate('screen-servis-takip'); closeMatch();">Süreci Takip
+                        Et →</button>
+                    <button class="cta-btn cta-btn--outline mt-16" onclick="closeMatch(); swipeAction('continue');">Daha
+                        Fazla Usta Gör</button>
+                    <button class="cta-btn cta-btn--outline mt-16"
+                        onclick="closeMatch(); navTo('screen-home', document.querySelector('.nav-btn'))">Ana
+                        Sayfa</button>
+                </div>
+            </div>
+
+            <!-- 7. USTA PROFİL -->
+            <section class="screen screen--sub" id="screen-usta-profil">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Servis Profili</span>
+                    <span></span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="profil-servis-header">
+                        <div class="profil-servis-avatar">AP</div>
+                        <div>
+                            <div class="profil-servis-name">AutoPro Servis <span class="badge-verify">✓</span></div>
+                            <div class="profil-servis-meta">⭐ 4.8 · 127 yorum · 📍 Güngören, İstanbul</div>
+                            <div class="profil-servis-meta">🕐 08:00–18:00 · <span style="color:var(--green)">Şu an
+                                    açık</span></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Uzmanlık Alanları</div>
+                        <div class="tag-cloud">
+                            <span class="tag">Motor Tanı</span><span class="tag">Elektrik</span>
+                            <span class="tag">BMW</span><span class="tag">Mercedes</span>
+                            <span class="tag">Şanzıman</span><span class="tag">Turbo</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-block">
+                        <div class="detail-block__title">Yorumlar</div>
+                        <div class="yorum-card">
+                            <div class="yorum-star">⭐⭐⭐⭐⭐</div>
+                            <div class="yorum-text">"Motor teşhisini çok hızlı yaptılar, fiyat makul ve dürüst
+                                çalışıyorlar."</div>
+                            <div class="yorum-meta">Ahmet K. · 2 hafta önce</div>
+                        </div>
+                        <div class="yorum-card">
+                            <div class="yorum-star">⭐⭐⭐⭐</div>
+                            <div class="yorum-text">"İşini biliyor ama bekleme süresi uzun oldu."</div>
+                            <div class="yorum-meta">Selin M. · 1 ay önce</div>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="cta-btn cta-btn--outline" onclick="navigate('screen-teklif')">Teklifi
+                            Gör</button>
+                        <button class="cta-btn" onclick="navigate('screen-eslestir')">Kısa Listeye Ekle ★</button>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 8. TEKLİF KARŞILAŞTIRMA -->
+            <section class="screen screen--sub" id="screen-teklif">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Teklifler</span>
+                    <span></span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="teklif-card teklif-card--featured">
+                        <div class="teklif-card__badge">⭐ En İyi Eşleşme</div>
+                        <div class="teklif-card__header">
+                            <span class="teklif-card__name">AutoPro Servis</span>
+                            <span class="teklif-card__price">₺2.400</span>
+                        </div>
+                        <div class="teklif-row"><span>Kapsam</span><span>Motor teşhis + parça dahil</span></div>
+                        <div class="teklif-row"><span>Süre</span><span>1–2 iş günü</span></div>
+                        <div class="teklif-row"><span>Garanti</span><span>6 ay</span></div>
+                        <div class="teklif-row"><span>Çekici</span><span>Dahil değil</span></div>
+                        <button class="cta-btn mt-16" onclick="navigate('screen-servis-takip')">Teklifi Kabul Et
+                            →</button>
+                    </div>
+
+                    <div class="teklif-card">
+                        <div class="teklif-card__header">
+                            <span class="teklif-card__name">Mobilservis Güngören</span>
+                            <span class="teklif-card__price">₺1.900</span>
+                        </div>
+                        <div class="teklif-row"><span>Kapsam</span><span>Teşhis + yağ sistemi</span></div>
+                        <div class="teklif-row"><span>Süre</span><span>Aynı gün</span></div>
+                        <div class="teklif-row"><span>Garanti</span><span>3 ay</span></div>
+                        <button class="cta-btn cta-btn--outline mt-16">Teklifi Kabul Et</button>
+                    </div>
+
+                    <div class="teklif-card">
+                        <div class="teklif-card__header">
+                            <span class="teklif-card__name">Engin Oto</span>
+                            <span class="teklif-card__price">₺2.750</span>
+                        </div>
+                        <div class="teklif-row"><span>Kapsam</span><span>Komple motor revizyonu</span></div>
+                        <div class="teklif-row"><span>Süre</span><span>3–5 iş günü</span></div>
+                        <div class="teklif-row"><span>Garanti</span><span>12 ay</span></div>
+                        <button class="cta-btn cta-btn--outline mt-16">Teklifi Kabul Et</button>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 9. SERVİS TAKİP -->
+            <section class="screen screen--sub" id="screen-servis-takip">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Servis Takibi</span>
+                    <span></span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="takip-card">
+                        <div class="takip-header">
+                            <div class="takip-servis">AutoPro Servis</div>
+                            <div class="takip-hasar">Motor Sesi Vakası</div>
+                        </div>
+                        <div class="timeline">
+                            <div class="timeline-item done">
+                                <div class="timeline-dot done"></div>
+                                <div class="timeline-body">
+                                    <div class="timeline-title">Talep Oluşturuldu</div>
+                                    <div class="timeline-date">5 Nis 2026, 10:32</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item done">
+                                <div class="timeline-dot done"></div>
+                                <div class="timeline-body">
+                                    <div class="timeline-title">Teklif Kabul Edildi</div>
+                                    <div class="timeline-date">7 Nis 2026, 14:10</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item active">
+                                <div class="timeline-dot active"></div>
+                                <div class="timeline-body">
+                                    <div class="timeline-title">Araç Teslim Alındı</div>
+                                    <div class="timeline-date">8 Nis 2026, 09:00 · Bugün</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item pending">
+                                <div class="timeline-dot pending"></div>
+                                <div class="timeline-body">
+                                    <div class="timeline-title">İşlem Sürüyor</div>
+                                    <div class="timeline-date">—</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item pending">
+                                <div class="timeline-dot pending"></div>
+                                <div class="timeline-body">
+                                    <div class="timeline-title">Tamamlandı</div>
+                                    <div class="timeline-date">—</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="takip-note">
+                            <div class="takip-note__label">Servis Notu</div>
+                            <div class="takip-note__text">"Araç incelendi, timing zinciri yayı şüpheli. Ek parçalar için
+                                onay bekliyoruz."</div>
+                        </div>
+                        <button class="cta-btn mt-16">Onay Ver →</button>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 10. HASAR BILDIRME AKIŞI -->
+            <section class="screen screen--sub" id="screen-hasar-flow">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Hasar Bildir</span>
+                    <span class="sub-header__step">1 / 4</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:25%"></div>
+                    </div>
+                    <h3 class="flow-title">Hasar türünü seçin</h3>
+                    <div class="option-grid">
+                        <button class="option-card selected">
+                            <span class="option-icon">🔊</span>
+                            <span>Ses / Titreşim</span>
+                        </button>
+                        <button class="option-card">
+                            <span class="option-icon">💥</span>
+                            <span>Kaza / Çarpma</span>
+                        </button>
+                        <button class="option-card">
+                            <span class="option-icon">⚡</span>
+                            <span>Elektrik Arızası</span>
+                        </button>
+                        <button class="option-card">
+                            <span class="option-icon">💧</span>
+                            <span>Sıvı Kaçağı</span>
+                        </button>
+                        <button class="option-card">
+                            <span class="option-icon">🌡️</span>
+                            <span>Isınma Sorunu</span>
+                        </button>
+                        <button class="option-card">
+                            <span class="option-icon">❓</span>
+                            <span>Diğer</span>
+                        </button>
+                    </div>
+                    <div class="form-group mt-20">
+                        <label class="form-label">Araç sürülebilir mi?</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active">Evet</button>
+                            <button class="toggle-btn">Hayır, çekici lazım</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Kısa açıklama</label>
+                        <textarea class="form-textarea" placeholder="Sorunu kısaca anlatın…"></textarea>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-hasar-flow-2')">Devam Et →</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 11. BAKIM FLOW -->
+            <section class="screen screen--sub" id="screen-bakim-flow">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Bakım Talebi</span>
+                    <span class="sub-header__step">1 / 3</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:33%"></div>
+                    </div>
+                    <h3 class="flow-title">Bakım türünü seçin</h3>
+                    <div class="option-list">
+                        <button class="option-row selected">
+                            <span>🔧</span>
+                            <div>
+                                <div class="option-row__title">Periyodik Bakım</div>
+                                <div class="option-row__desc">Yağ, filtreler, genel kontrol</div>
+                            </div>
+                            <span class="checkmark">✓</span>
+                        </button>
+                        <button class="option-row">
+                            <span>💧</span>
+                            <div>
+                                <div class="option-row__title">Yağ Değişimi</div>
+                                <div class="option-row__desc">Motor yağı + filtre</div>
+                            </div>
+                            <span></span>
+                        </button>
+                        <button class="option-row">
+                            <span>🛞</span>
+                            <div>
+                                <div class="option-row__title">Lastik</div>
+                                <div class="option-row__desc">Değişim, rot-balans, rot-balans</div>
+                            </div>
+                            <span></span>
+                        </button>
+                        <button class="option-row">
+                            <span>🔴</span>
+                            <div>
+                                <div class="option-row__title">Fren Sistemi</div>
+                                <div class="option-row__desc">Balata, disk, hidrolik</div>
+                            </div>
+                            <span></span>
+                        </button>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-bakim-flow-2')">Devam Et →</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 12. ÇEKİCİ -->
+            <section class="screen screen--sub" id="screen-cekici">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Çekici Çağır</span>
+                    <span></span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="urgency-banner">
+                        <span>🚨</span>
+                        <span>Çekici talebi acil olarak işlenir.</span>
+                    </div>
+                    <div class="map-placeholder">
+                        <div class="map-placeholder__dot">📍</div>
+                        <div class="map-placeholder__label">Konumunuz alınıyor…</div>
+                    </div>
+                    <div class="form-group mt-20">
+                        <label class="form-label">Mevcut konum</label>
+                        <input class="form-input" type="text" value="Güngören, İstanbul (Otomatik)" readonly />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Götürülecek yer (opsiyonel)</label>
+                        <input class="form-input" type="text" placeholder="Hedef servis veya adres…" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Not ekle (opsiyonel)</label>
+                        <textarea class="form-textarea" placeholder="Araç durumu veya ekstra bilgi…"></textarea>
+                    </div>
+                    <button class="cta-btn cta-btn--urgent mt-20">🚛 Çekici Talep Et</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 13. HASAR FLOW STEP 2 — Medya -->
+            <section class="screen screen--sub" id="screen-hasar-flow-2">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Hasar Bildir</span>
+                    <span class="sub-header__step">2 / 4</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:50%"></div>
+                    </div>
+                    <h3 class="flow-title">Fotoğraf veya video ekleyin</h3>
+                    <p class="detail-block__text" style="margin-bottom:16px">Hasarın görselini eklemeniz ustanın daha
+                        doğru teklif vermesini sağlar.</p>
+                    <div class="media-upload-grid">
+                        <div class="media-upload-box">
+                            <span class="media-upload-icon">📷</span>
+                            <span>Fotoğraf Çek</span>
+                        </div>
+                        <div class="media-upload-box">
+                            <span class="media-upload-icon">🎥</span>
+                            <span>Video Çek</span>
+                        </div>
+                        <div class="media-upload-box">
+                            <span class="media-upload-icon">🎙️</span>
+                            <span>Ses Kaydı</span>
+                        </div>
+                        <div class="media-upload-box">
+                            <span class="media-upload-icon">📁</span>
+                            <span>Galeriden Seç</span>
+                        </div>
+                    </div>
+                    <div class="uploaded-preview">
+                        <div class="uploaded-item">📷 hasar_1.jpg <button class="remove-x">✕</button></div>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-hasar-flow-3')">Devam Et →</button>
+                    <button class="cta-btn cta-btn--outline mt-16"
+                        onclick="navigate('screen-hasar-flow-3')">Atla</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 14. HASAR FLOW STEP 3 — Detay -->
+            <section class="screen screen--sub" id="screen-hasar-flow-3">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Hasar Bildir</span>
+                    <span class="sub-header__step">3 / 4</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:75%"></div>
+                    </div>
+                    <h3 class="flow-title">Detayları derinleştirin</h3>
+                    <p class="detail-block__text" style="margin-bottom:16px">Bu alanlar opsiyoneldir. Bildiğiniz
+                        kadarıyla doldurun.</p>
+                    <div class="form-group">
+                        <label class="form-label">Sorun ne zaman başladı?</label>
+                        <input class="form-input" type="text" placeholder="Ör: 2 hafta önce" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Hangi koşulda artıyor?</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active">Soğukta</button>
+                            <button class="toggle-btn">Sıcakta</button>
+                            <button class="toggle-btn">Sürekli</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Uyarı lambası yanıyor mu?</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn">Evet</button>
+                            <button class="toggle-btn active">Hayır</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Daha önce benzer sorun yaşandı mı?</label>
+                        <textarea class="form-textarea" placeholder="Opsiyonel…"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Servis tercihi</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active">Fark etmez</button>
+                            <button class="toggle-btn">Yakın olsun</button>
+                            <button class="toggle-btn">Ucuz olsun</button>
+                        </div>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-hasar-flow-4')">Devam Et →</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 15. HASAR FLOW STEP 4 — Özet & Onay -->
+            <section class="screen screen--sub" id="screen-hasar-flow-4">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Hasar Bildir</span>
+                    <span class="sub-header__step">4 / 4</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:100%"></div>
+                    </div>
+                    <h3 class="flow-title">Özet & Onay</h3>
+                    <div class="summary-card">
+                        <div class="summary-row"><span class="summary-label">Araç</span><span>34 ABC 42 · BMW 3
+                                Serisi</span></div>
+                        <div class="summary-row"><span class="summary-label">Hasar Tipi</span><span>Ses /
+                                Titreşim</span></div>
+                        <div class="summary-row"><span class="summary-label">Sürülebilir</span><span>Evet</span></div>
+                        <div class="summary-row"><span class="summary-label">Medya</span><span>1 fotoğraf</span></div>
+                        <div class="summary-row"><span class="summary-label">Koşul</span><span>Soğukta artıyor</span>
+                        </div>
+                        <div class="summary-row"><span class="summary-label">Tercih</span><span>Fark etmez</span></div>
+                    </div>
+                    <div class="success-message" style="display:none" id="hasarSuccess">
+                        <div class="success-icon">✅</div>
+                        <div class="success-title">Hasar Vakası Oluşturuldu!</div>
+                        <div class="success-text">Talebin sisteme düştü. Şimdi uygun ustalarla eşleşebilirsin.</div>
+                    </div>
+                    <button class="cta-btn mt-20" id="hasarSubmitBtn" onclick="submitHasar()">Hasarı Bildir ✓</button>
+                    <button class="cta-btn mt-16" id="hasarSwipeBtn" style="display:none"
+                        onclick="navigate('screen-eslestir')">Usta Seçmeye Geç →</button>
+                    <button class="cta-btn cta-btn--outline mt-16" id="hasarHomeBtn" style="display:none"
+                        onclick="navTo('screen-home', document.querySelector('.nav-btn'))">Ana Sayfaya Dön</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 16. BAKIM FLOW STEP 2 — Detay & Tercih -->
+            <section class="screen screen--sub" id="screen-bakim-flow-2">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Bakım Talebi</span>
+                    <span class="sub-header__step">2 / 3</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:66%"></div>
+                    </div>
+                    <h3 class="flow-title">Araç bilgileri & tercihler</h3>
+                    <div class="form-group">
+                        <label class="form-label">Güncel kilometre</label>
+                        <input class="form-input" type="text" placeholder="Ör: 87500" value="87.400" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Son bakım tarihi</label>
+                        <input class="form-input" type="text" placeholder="Ör: Mart 2026" value="Mart 2026" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tercih edilen tarih aralığı</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active">Bu hafta</button>
+                            <button class="toggle-btn">Önümüzdeki hafta</button>
+                            <button class="toggle-btn">Esnek</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Parça tercihi</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn">Orijinal</button>
+                            <button class="toggle-btn active">Fark etmez</button>
+                            <button class="toggle-btn">Eşdeğer</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ek not (opsiyonel)</label>
+                        <textarea class="form-textarea" placeholder="Ör: Klima bakımı da yapılabilir…"></textarea>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-bakim-flow-3')">Devam Et →</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 17. BAKIM FLOW STEP 3 — Özet & Gönder -->
+            <section class="screen screen--sub" id="screen-bakim-flow-3">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Bakım Talebi</span>
+                    <span class="sub-header__step">3 / 3</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:100%"></div>
+                    </div>
+                    <h3 class="flow-title">Özet & Gönder</h3>
+                    <div class="summary-card">
+                        <div class="summary-row"><span class="summary-label">Araç</span><span>34 ABC 42 · BMW 3
+                                Serisi</span></div>
+                        <div class="summary-row"><span class="summary-label">Bakım Tipi</span><span>Periyodik
+                                Bakım</span></div>
+                        <div class="summary-row"><span class="summary-label">Kilometre</span><span>87.400 km</span>
+                        </div>
+                        <div class="summary-row"><span class="summary-label">Son Bakım</span><span>Mart 2026</span>
+                        </div>
+                        <div class="summary-row"><span class="summary-label">Tarih</span><span>Bu hafta</span></div>
+                        <div class="summary-row"><span class="summary-label">Parça</span><span>Fark etmez</span></div>
+                    </div>
+                    <div class="success-message" style="display:none" id="bakimSuccess">
+                        <div class="success-icon">✅</div>
+                        <div class="success-title">Bakım Talebi Gönderildi!</div>
+                        <div class="success-text">Uygun servisler tekliflerini iletecek. Swipe ekranından da usta
+                            seçebilirsin.</div>
+                    </div>
+                    <button class="cta-btn mt-20" id="bakimSubmitBtn" onclick="submitBakim()">Talebi Gönder ✓</button>
+                    <button class="cta-btn mt-16" id="bakimSwipeBtn" style="display:none"
+                        onclick="navigate('screen-eslestir')">Usta Seçmeye Geç →</button>
+                    <button class="cta-btn cta-btn--outline mt-16" id="bakimHomeBtn" style="display:none"
+                        onclick="navTo('screen-home', document.querySelector('.nav-btn'))">Ana Sayfaya Dön</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 18. ARAÇ EKLEME -->
+            <section class="screen screen--sub" id="screen-arac-ekle">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Yeni Araç Ekle</span>
+                    <span class="sub-header__step">1 / 4</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:25%"></div>
+                    </div>
+                    <h3 class="flow-title">Temel Araç Bilgileri</h3>
+                    <div class="form-group">
+                        <label class="form-label">Plaka *</label>
+                        <input class="form-input" type="text" placeholder="Ör: 34 XYZ 123" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Marka *</label>
+                        <input class="form-input" type="text" placeholder="Ör: BMW" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Model *</label>
+                        <input class="form-input" type="text" placeholder="Ör: 3 Serisi" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Yıl</label>
+                        <input class="form-input" type="text" placeholder="Ör: 2019" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Yakıt tipi</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active">Benzin</button>
+                            <button class="toggle-btn">Dizel</button>
+                            <button class="toggle-btn">LPG</button>
+                            <button class="toggle-btn">Elektrik</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vites</label>
+                        <div class="toggle-group">
+                            <button class="toggle-btn active">Otomatik</button>
+                            <button class="toggle-btn">Manuel</button>
+                        </div>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-arac-ekle-2')">Devam Et →</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 19. ARAÇ EKLEME STEP 2 — Kullanım -->
+            <section class="screen screen--sub" id="screen-arac-ekle-2">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Yeni Araç Ekle</span>
+                    <span class="sub-header__step">2 / 4</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:50%"></div>
+                    </div>
+                    <h3 class="flow-title">Kullanım bilgileri</h3>
+                    <div class="form-group">
+                        <label class="form-label">Güncel kilometre</label>
+                        <input class="form-input" type="text" placeholder="Ör: 87500" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Son bakım tarihi</label>
+                        <input class="form-input" type="text" placeholder="Ör: Mart 2026" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bilinen kronik sorunlar</label>
+                        <textarea class="form-textarea" placeholder="Ör: Soğukta çalıştırmada ses yapıyor"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Değişen büyük parçalar</label>
+                        <textarea class="form-textarea" placeholder="Ör: 2023'te turbo değiştirildi"></textarea>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-arac-ekle-3')">Devam Et →</button>
+                    <button class="cta-btn cta-btn--outline mt-16"
+                        onclick="navigate('screen-arac-ekle-3')">Atla</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 20. ARAÇ EKLEME STEP 3 — Medya & Belge -->
+            <section class="screen screen--sub" id="screen-arac-ekle-3">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Yeni Araç Ekle</span>
+                    <span class="sub-header__step">3 / 4</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:75%"></div>
+                    </div>
+                    <h3 class="flow-title">Fotoğraf & belgeler</h3>
+                    <p class="detail-block__text" style="margin-bottom:16px">Araç fotoğrafları, ruhsat ve ekspertiz
+                        raporu yükleyin.</p>
+                    <div class="media-upload-grid">
+                        <div class="media-upload-box">
+                            <span class="media-upload-icon">📷</span>
+                            <span>Araç Fotoğrafı</span>
+                        </div>
+                        <div class="media-upload-box">
+                            <span class="media-upload-icon">📄</span>
+                            <span>Ruhsat</span>
+                        </div>
+                        <div class="media-upload-box">
+                            <span class="media-upload-icon">📋</span>
+                            <span>Ekspertiz</span>
+                        </div>
+                        <div class="media-upload-box">
+                            <span class="media-upload-icon">📁</span>
+                            <span>Diğer Belge</span>
+                        </div>
+                    </div>
+                    <div class="form-group mt-20">
+                        <label class="form-label">Kişisel notlar</label>
+                        <textarea class="form-textarea"
+                            placeholder="Arka sol kapıda küçük çizik var gibi sadece sizin göreceğiniz notlar…"></textarea>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-arac-ekle-4')">Devam Et →</button>
+                    <button class="cta-btn cta-btn--outline mt-16"
+                        onclick="navigate('screen-arac-ekle-4')">Atla</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 21. ARAÇ EKLEME STEP 4 — Özet -->
+            <section class="screen screen--sub" id="screen-arac-ekle-4">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Yeni Araç Ekle</span>
+                    <span class="sub-header__step">4 / 4</span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="flow-progress">
+                        <div class="flow-progress__bar" style="width:100%"></div>
+                    </div>
+                    <h3 class="flow-title">Özet & Kaydet</h3>
+                    <div class="summary-card">
+                        <div class="summary-row"><span class="summary-label">Plaka</span><span>—</span></div>
+                        <div class="summary-row"><span class="summary-label">Marka/Model</span><span>—</span></div>
+                        <div class="summary-row"><span class="summary-label">Yıl</span><span>—</span></div>
+                        <div class="summary-row"><span class="summary-label">Yakıt</span><span>Benzin</span></div>
+                        <div class="summary-row"><span class="summary-label">Kilometre</span><span>—</span></div>
+                        <div class="summary-row"><span class="summary-label">Belgeler</span><span>0 eklendi</span></div>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="goBack()">Aracı Kaydet ✓</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 22. ARAÇ YÖNETİM (Profil sayfası — Araç Detay) -->
+            <section class="screen screen--sub" id="screen-arac-yonetim">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Araç Yönetimi</span>
+                    <button class="sub-header__action">Düzenle</button>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="arac-hero">
+                        <div class="arac-hero__plate">34 ABC 42</div>
+                        <div class="arac-hero__model">BMW 3 Serisi · 2019</div>
+                        <div class="arac-hero__km">87.400 km · <span style="color:var(--green)">Aktif</span></div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-group__title">Teknik Bilgiler</div>
+                        <div class="info-row"><span>Yakıt</span><span>Benzin</span></div>
+                        <div class="info-row"><span>Vites</span><span>Otomatik</span></div>
+                        <div class="info-row"><span>Motor</span><span>2.0L Turbo</span></div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-group__title">Bakım Alışkanlıkları</div>
+                        <div class="info-row"><span>Son Bakım</span><span>14 Mar 2026</span></div>
+                        <div class="info-row"><span>Düzenli Servis</span><span>Mobilservis Güngören</span></div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-group__title">Kronik Notlar</div>
+                        <div class="teklif-mini">
+                            <div class="teklif-mini__name" style="color:var(--text-2);font-size:13px">Soğukta
+                                çalıştırmada vuruntu sesi</div>
+                        </div>
+                        <div class="teklif-mini">
+                            <div class="teklif-mini__name" style="color:var(--text-2);font-size:13px">Arka sol kapıda
+                                küçük çizik</div>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-group__title">Araç Geçmişi</div>
+                        <div class="settings-item" onclick="navigate('screen-kayitlar')">
+                            <span>🔧</span><span>Son Bakım: Periyodik — Mar 2026</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                        <div class="settings-item" onclick="navigate('screen-hasar-detail')">
+                            <span>⚠️</span><span>Son Hasar: Motor Sesi — Açık</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                        <div class="settings-item" onclick="navigate('screen-fatura-detay')">
+                            <span>🧾</span><span>Son Fatura: ₺2.850 — Mar 2026</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 23. ARAÇ LİSTESİ -->
+            <section class="screen screen--sub" id="screen-arac-list">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Kayıtlı Araçlar</span>
+                    <span></span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="vehicle-list-card" onclick="navigate('screen-arac-yonetim')">
+                        <div class="vehicle-list-avatar">🚙</div>
+                        <div class="vehicle-list-body">
+                            <div class="vehicle-list-plate">34 ABC 42</div>
+                            <div class="vehicle-list-model">BMW 3 Serisi · 2019</div>
+                            <div class="vehicle-list-meta">
+                                <span class="record-badge badge-orange" style="font-size:10px">1 açık hasar</span>
+                                <span style="font-size:11px;color:var(--text-3)">Son bakım: Mar 2026</span>
+                            </div>
+                        </div>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" style="color:var(--text-3)">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                    </div>
+                    <div class="vehicle-list-card" onclick="navigate('screen-arac-yonetim')">
+                        <div class="vehicle-list-avatar">🚗</div>
+                        <div class="vehicle-list-body">
+                            <div class="vehicle-list-plate">06 XYZ 77</div>
+                            <div class="vehicle-list-model">Toyota Corolla · 2021</div>
+                            <div class="vehicle-list-meta">
+                                <span style="font-size:11px;color:var(--text-3)">Son bakım: Oca 2026</span>
+                            </div>
+                        </div>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" style="color:var(--text-3)">
+                            <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                    </div>
+                    <button class="cta-btn mt-20" onclick="navigate('screen-arac-ekle')">+ Yeni Araç Ekle</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 24. BİLDİRİMLER -->
+            <section class="screen screen--sub" id="screen-bildirimler">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Bildirimler</span>
+                    <button class="sub-header__action">Okundu</button>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="notif-card notif-card--unread" onclick="navigate('screen-teklif')">
+                        <div class="notif-dot"></div>
+                        <div class="activity-item__icon act-green" style="width:36px;height:36px;font-size:16px">💬
+                        </div>
+                        <div style="flex:1;min-width:0">
+                            <div class="activity-item__title">Yeni Teklif — AutoPro Servis</div>
+                            <div class="activity-item__desc">Motor Sesi vakası için ₺2.400 teklif gönderildi.</div>
+                            <div class="notif-time">2 dakika önce</div>
+                        </div>
+                    </div>
+                    <div class="notif-card notif-card--unread" onclick="navigate('screen-servis-takip')">
+                        <div class="notif-dot"></div>
+                        <div class="activity-item__icon act-blue" style="width:36px;height:36px;font-size:16px">🔄</div>
+                        <div style="flex:1;min-width:0">
+                            <div class="activity-item__title">Servis Durum Güncellendi</div>
+                            <div class="activity-item__desc">AutoPro: "Araç teslim alındı."</div>
+                            <div class="notif-time">Bugün 09:00</div>
+                        </div>
+                    </div>
+                    <div class="notif-card" onclick="navigate('screen-kayitlar')">
+                        <div class="activity-item__icon act-orange" style="width:36px;height:36px;font-size:16px">🔔
+                        </div>
+                        <div style="flex:1;min-width:0">
+                            <div class="activity-item__title">Bakım Hatırlatma</div>
+                            <div class="activity-item__desc">Yağ değişimi için ~1.200 km kaldı.</div>
+                            <div class="notif-time">Dün</div>
+                        </div>
+                    </div>
+                    <div class="notif-card">
+                        <div class="activity-item__icon act-purple" style="width:36px;height:36px;font-size:16px">🧾
+                        </div>
+                        <div style="flex:1;min-width:0">
+                            <div class="activity-item__title">Fatura Eklendi</div>
+                            <div class="activity-item__desc">Ön Fren Balataları — ₺850.</div>
+                            <div class="notif-time">5 gün önce</div>
+                        </div>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 25. DESTEK MERKEZİ -->
+            <section class="screen screen--sub" id="screen-destek">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Yardım Merkezi</span>
+                    <span></span>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="search-bar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input type="text" placeholder="Sorununuzu arayın…" />
+                    </div>
+                    <div class="section-title">Sık Sorulan Sorular</div>
+                    <div class="faq-item">
+                        <div class="faq-q">Hasar bildirimi nasıl oluşturulur?</div>
+                        <div class="faq-a">Ana sayfadaki + butonuna veya hızlı erişimdeki "Hasar Bildir" butonuna
+                            basarak 4 adımlı akışı başlatabilirsiniz.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-q">Teklif kabul ettikten sonra iptal edebilir miyim?</div>
+                        <div class="faq-a">Servis süreci başlamadan önce teklifi iptal edebilirsiniz. Servis
+                            sürecindeyken destek ekibimizle iletişime geçmeniz gerekmektedir.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-q">Çekici ücretli mi?</div>
+                        <div class="faq-a">Çekici ücretlendirmesi hizmet sağlayıcıya bağlıdır ve talep sırasında
+                            gösterilir.</div>
+                    </div>
+                    <div class="faq-item">
+                        <div class="faq-q">Ustanın puanı nasıl hesaplanıyor?</div>
+                        <div class="faq-a">Puanlar tamamlanmış işler sonrası kullanıcı değerlendirmelerinin
+                            ortalamasından oluşur.</div>
+                    </div>
+                    <div class="section-title mt-20">Destek Talebi Aç</div>
+                    <div class="form-group">
+                        <label class="form-label">Konu</label>
+                        <input class="form-input" type="text" placeholder="Sorunun ne hakkında?" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Açıklama</label>
+                        <textarea class="form-textarea" placeholder="Detayları yazın…"></textarea>
+                    </div>
+                    <button class="cta-btn mt-16">Destek Talebi Gönder</button>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+            <!-- 26. FATURA DETAY -->
+            <section class="screen screen--sub" id="screen-fatura-detay">
+                <div class="sub-header">
+                    <button class="back-btn" onclick="goBack()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <polyline points="15 18 9 12 15 6" />
+                        </svg>
+                    </button>
+                    <span class="sub-header__title">Fatura Detay</span>
+                    <button class="sub-header__action">PDF İndir</button>
+                </div>
+                <div class="screen-scroll screen-scroll--sub">
+                    <div class="fatura-header">
+                        <div class="fatura-tarih">14 Mart 2026</div>
+                        <div class="fatura-servis">Mobilservis Güngören</div>
+                        <div class="fatura-arac">34 ABC 42 · BMW 3 Serisi</div>
+                    </div>
+                    <div class="section-title mt-20">İş Kalemleri</div>
+                    <div class="fatura-item">
+                        <span>Motor yağı değişimi</span>
+                        <span>₺600</span>
+                    </div>
+                    <div class="fatura-item">
+                        <span>Yağ filtresi</span>
+                        <span>₺180</span>
+                    </div>
+                    <div class="fatura-item">
+                        <span>Hava filtresi</span>
+                        <span>₺250</span>
+                    </div>
+                    <div class="fatura-item">
+                        <span>Buji seti (4 adet)</span>
+                        <span>₺720</span>
+                    </div>
+                    <div class="fatura-item">
+                        <span>İşçilik</span>
+                        <span>₺1.100</span>
+                    </div>
+                    <div class="fatura-total">
+                        <span>Toplam</span>
+                        <span>₺2.850</span>
+                    </div>
+                    <div class="detail-block mt-20">
+                        <div class="detail-block__title">İlgili Kayıt</div>
+                        <div class="teklif-mini" onclick="navigate('screen-kayitlar')">
+                            <div class="teklif-mini__name">Periyodik Bakım — 14 Mar 2026</div>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" style="color:var(--text-3)">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="detail-block">
+                        <div class="detail-block__title">Not</div>
+                        <p class="detail-block__text">Sonraki bakımda V kayışı kontrol edilecek.</p>
+                    </div>
+                    <div class="bottom-spacer"></div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav" id="bottomNav">
+            <button class="nav-btn active" onclick="navTo('screen-home', this)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                <span>Ana Sayfa</span>
+            </button>
+            <button class="nav-btn" onclick="navTo('screen-kayitlar', this)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span>Kayıtlar</span>
+            </button>
+            <button class="nav-btn nav-btn--fab" onclick="toggleFab()">
+                <div class="fab-inner">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                </div>
+            </button>
+            <button class="nav-btn" onclick="navTo('screen-ustalar', this)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                        d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0l-.77.78-.77-.78a5.4 5.4 0 0 0-7.65 7.65l.77.77L12 21.23l7.65-7.65.77-.77a5.4 5.4 0 0 0 0-7.23z" />
+                </svg>
+                <span>Ustalar</span>
+            </button>
+            <button class="nav-btn" onclick="navTo('screen-profil', this)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span>Profil</span>
+            </button>
+        </nav>
+
+        <!-- FAB Overlay -->
+        <div class="fab-overlay" id="fabOverlay" onclick="toggleFab()">
+            <div class="fab-menu glass" onclick="event.stopPropagation()">
+                <div class="fab-menu__title">Ne yapmak istersiniz?</div>
+                <button class="fab-action fab-action--hero" onclick="fabGo('screen-eslestir')">
+                    <span class="fab-action__icon">👆</span>
+                    <div>
+                        <div class="fab-action__title">Kaydır & Usta Bul</div>
+                        <div class="fab-action__desc">Sana önerilen ustaları kaydırarak keşfet</div>
+                    </div>
+                </button>
+                <button class="fab-action" onclick="fabGo('screen-hasar-flow')">
+                    <span class="fab-action__icon">🚨</span>
+                    <div>
+                        <div class="fab-action__title">Hasar Bildir</div>
+                        <div class="fab-action__desc">Yeni bir hasar vakası oluştur</div>
+                    </div>
+                </button>
+                <button class="fab-action" onclick="fabGo('screen-bakim-flow')">
+                    <span class="fab-action__icon">🔧</span>
+                    <div>
+                        <div class="fab-action__title">Bakım Talebi Aç</div>
+                        <div class="fab-action__desc">Periyodik bakım veya özel işlem</div>
+                    </div>
+                </button>
+                <button class="fab-action" onclick="fabGo('screen-cekici')">
+                    <span class="fab-action__icon">🚛</span>
+                    <div>
+                        <div class="fab-action__title">Çekici / Yol Yardımı</div>
+                        <div class="fab-action__desc">Acil yol yardımı talep et</div>
+                    </div>
+                </button>
+                <button class="fab-action" onclick="fabGo('screen-kayitlar')">
+                    <span class="fab-action__icon">📁</span>
+                    <div>
+                        <div class="fab-action__title">Belge / Fatura Yükle</div>
+                        <div class="fab-action__desc">Kayıtlarına dosya ekle</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Vehicle Switcher Panel -->
+        <div class="bottom-sheet" id="vehicleSwitcher" onclick="closeVehicleSwitcher()">
+            <div class="bottom-sheet__panel glass" onclick="event.stopPropagation()">
+                <div class="bottom-sheet__handle"></div>
+                <div class="bottom-sheet__title">Araç Seç</div>
+                <div class="vehicle-item vehicle-item--active">
+                    <div class="vehicle-item__plate">34 ABC 42</div>
+                    <div class="vehicle-item__model">BMW 3 Serisi · 2019</div>
+                    <div class="vehicle-item__badge">Aktif ✓</div>
+                </div>
+                <div class="vehicle-item" onclick="switchVehicle(this, '06 XYZ 77', 'Toyota Corolla · 2021')">
+                    <div class="vehicle-item__plate">06 XYZ 77</div>
+                    <div class="vehicle-item__model">Toyota Corolla · 2021</div>
+                </div>
+                <button class="cta-btn cta-btn--outline mt-16" onclick="closeVehicleSwitcher()">+ Yeni Araç
+                    Ekle</button>
+            </div>
+        </div>
+
+    </div><!-- /phone-frame -->
+
+    <script src="app.js"></script>
+</body>
+
+</html>
