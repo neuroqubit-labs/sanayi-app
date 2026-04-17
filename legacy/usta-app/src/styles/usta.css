@@ -1,0 +1,2633 @@
+/* ══════════════════════════════════════════════════════════
+   USTA APP — Usta-specific styles
+   Shared styles imported via @shared/styles/ in main.jsx
+   ══════════════════════════════════════════════════════════ */
+
+/* ─── Usta Home Hero ─── */
+.usta-home-hero {
+    background: linear-gradient(135deg, rgba(79, 142, 247, 0.15) 0%, rgba(52, 208, 122, 0.08) 100%);
+    padding: 24px 16px 20px;
+    position: relative;
+}
+
+.usta-home-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+}
+
+.usta-home-hero__greeting {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.usta-home-hero__avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.usta-home-hero__name {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-1);
+}
+
+.usta-home-hero__subtitle {
+    font-size: 13px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+
+.usta-home-hero__stats {
+    display: flex;
+    gap: 8px;
+}
+
+/* ─── Stat Card ─── */
+.usta-stat-card {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 12px;
+    text-align: center;
+}
+
+.usta-stat-card__value {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text-1);
+}
+
+.usta-stat-card__label {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+
+/* ─── Request Banner ─── */
+.usta-request-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 16px;
+    padding: 12px 16px;
+    background: rgba(79, 142, 247, 0.12);
+    border: 1px solid rgba(79, 142, 247, 0.25);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    width: calc(100% - 32px);
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--accent);
+    text-align: left;
+}
+
+.usta-request-banner__icon { font-size: 18px; }
+.usta-request-banner__text { flex: 1; font-weight: 500; }
+.usta-request-banner__action { font-weight: 600; white-space: nowrap; }
+
+/* ─── Collection Banner ─── */
+.usta-collection-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 16px;
+    padding: 12px 16px;
+    background: rgba(255, 159, 67, 0.1);
+    border: 1px solid rgba(255, 159, 67, 0.25);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    width: calc(100% - 32px);
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--orange);
+    text-align: left;
+}
+
+.usta-collection-banner__text { flex: 1; font-weight: 500; }
+
+/* ─── Section ─── */
+.usta-section {
+    padding: 0 16px;
+    margin-top: 16px;
+}
+
+.usta-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.usta-section__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+}
+
+.usta-section__link {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* ─── Job Card (Home) ─── */
+.usta-job-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    color: var(--text-1);
+    position: relative;
+    overflow: hidden;
+}
+
+.usta-job-card__accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+}
+
+.usta-job-card__body {
+    flex: 1;
+    padding-left: 4px;
+}
+
+.usta-job-card__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 3px;
+}
+
+.usta-job-card__meta {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-bottom: 8px;
+}
+
+.usta-job-card__progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.usta-job-card__progress-track {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.usta-job-card__progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+.usta-job-card__progress-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-3);
+    min-width: 28px;
+}
+
+/* ─── Job Card — Embedded Appointment ─── */
+.usta-job-card__apt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-2);
+    padding: 5px 8px;
+    background: var(--card);
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+}
+
+.usta-job-card__apt--today {
+    background: rgba(255, 59, 48, 0.08);
+    border-color: rgba(255, 59, 48, 0.2);
+    color: var(--text-1);
+    font-weight: 500;
+}
+
+.usta-job-card__apt-icon {
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+/* ─── Job Card — Action / Waiting Indicators ─── */
+.usta-job-card__action {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.usta-job-card__action::before {
+    content: '⚡';
+    font-size: 11px;
+}
+
+.usta-job-card__waiting {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-3);
+}
+
+/* ─── Pending Quote Row ─── */
+.usta-pending-quote {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    margin: 0 16px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+
+.usta-pending-quote__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.usta-pending-quote__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+}
+
+.usta-pending-quote__meta {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+
+/* ─── Appointment Row ─── */
+.usta-appointment-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.usta-appointment-row:last-child { border-bottom: none; }
+
+.usta-appointment-row__time {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 50px;
+}
+
+.usta-appointment-row__body { flex: 1; }
+
+.usta-appointment-row__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+}
+
+.usta-appointment-row__meta {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+
+/* ─── Screen Header ─── */
+.usta-screen-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 16px 12px;
+}
+
+.usta-screen-header__title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-1);
+}
+
+.usta-screen-header__badge {
+    background: var(--accent);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+/* ─── Request Card ─── */
+.usta-request-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.usta-request-card__header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.usta-request-card__icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.usta-request-card__title-row { flex: 1; }
+
+.usta-request-card__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 4px;
+}
+
+.usta-request-card__vehicle {
+    font-size: 12px;
+    color: var(--text-3);
+}
+
+.usta-request-card__insights {
+    background: rgba(79, 142, 247, 0.06);
+    border: 1px solid rgba(79, 142, 247, 0.15);
+    border-radius: var(--r-sm);
+    padding: 10px;
+    margin-bottom: 12px;
+}
+
+.usta-request-card__insight-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-bottom: 4px;
+    color: var(--text-2);
+}
+
+.usta-request-card__insight-label { color: var(--text-3); }
+
+.usta-request-card__insight-score {
+    font-weight: 700;
+    color: var(--green);
+}
+
+.usta-request-card__insight-summary {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+.usta-request-card__customer {
+    margin-bottom: 12px;
+}
+
+.usta-request-card__meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.usta-request-card__media {
+    font-size: 11px;
+    color: var(--text-3);
+}
+
+.usta-request-card__note {
+    font-size: 12px;
+    color: var(--text-2);
+    font-style: italic;
+    padding-left: 8px;
+    border-left: 2px solid var(--border);
+}
+
+.usta-request-card__actions {
+    display: flex;
+    gap: 8px;
+}
+
+.usta-request-card__actions .cta-btn { flex: 1; height: 40px; font-size: 13px; }
+
+/* ─── Sent Quote Card ─── */
+.usta-sent-quote-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.usta-sent-quote-card:last-child { border-bottom: none; }
+
+.usta-sent-quote-card__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+}
+
+.usta-sent-quote-card__meta {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+
+.usta-sent-quote-card__right {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+.usta-sent-quote-card__amount {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* ─── Empty State ─── */
+.usta-empty {
+    text-align: center;
+    padding: 48px 16px;
+}
+
+.usta-empty__icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+}
+
+.usta-empty__text {
+    font-size: 14px;
+    color: var(--text-2);
+    font-weight: 500;
+}
+
+.usta-empty__hint {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 6px;
+}
+
+/* ─── Quote Form ─── */
+.usta-quote-summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 14px;
+}
+
+.usta-quote-summary__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 4px;
+}
+
+.usta-quote-summary__meta {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-bottom: 8px;
+}
+
+.usta-quote-summary__ai {
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(79, 142, 247, 0.08);
+    padding: 6px 8px;
+    border-radius: var(--r-sm);
+}
+
+.usta-quote-item-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.usta-quote-item-row__name { flex: 2; }
+.usta-quote-item-row__price { flex: 1; }
+
+.usta-quote-item-row__remove {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+
+.usta-quote-add-item {
+    width: 100%;
+    padding: 10px;
+    border: 1px dashed var(--border);
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 4px;
+}
+
+.usta-quote-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0 0;
+    margin-top: 12px;
+    border-top: 2px solid var(--border);
+    font-size: 15px;
+    color: var(--text-1);
+}
+
+.usta-quote-total strong {
+    font-size: 18px;
+    color: var(--accent);
+}
+
+.usta-customer-slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.usta-customer-slot-chip {
+    background: rgba(79, 142, 247, 0.1);
+    border: 1px solid rgba(79, 142, 247, 0.2);
+    border-radius: var(--r-sm);
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--accent);
+    display: flex;
+    gap: 6px;
+}
+
+.usta-customer-note {
+    font-size: 12px;
+    color: var(--text-2);
+    font-style: italic;
+    padding: 8px;
+    background: var(--surface);
+    border-radius: var(--r-sm);
+    border-left: 2px solid var(--accent);
+}
+
+/* ─── Revenue Strip (MyJobs) ─── */
+.usta-revenue-strip {
+    display: flex;
+    align-items: center;
+    margin: 0 16px 8px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+
+.usta-revenue-strip__item {
+    flex: 1;
+    text-align: center;
+}
+
+.usta-revenue-strip__divider {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+    margin: 0 12px;
+}
+
+.usta-revenue-strip__label {
+    font-size: 11px;
+    color: var(--text-3);
+    display: block;
+}
+
+.usta-revenue-strip__value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--green);
+}
+
+/* ─── Job Revenue ─── */
+.usta-job-revenue {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 500;
+}
+
+/* ─── Completed Job Card ─── */
+.completed-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    width: 100%;
+    padding: 14px 14px 14px 18px;
+    margin-bottom: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    color: var(--text-1);
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.completed-card:active {
+    border-color: var(--accent);
+}
+
+.completed-card__accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+}
+
+.completed-card__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.completed-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.completed-card__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 2px;
+}
+
+.completed-card__vehicle {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-bottom: 8px;
+}
+
+.completed-card__steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.completed-card__step-chip {
+    font-size: 10px;
+    color: var(--text-2);
+    background: var(--card);
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.completed-card__summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.completed-card__net {
+    color: var(--green);
+    font-weight: 600;
+}
+
+.completed-card__duration,
+.completed-card__step-count {
+    color: var(--text-3);
+}
+
+.completed-card__review {
+    padding: 8px 10px;
+    background: rgba(255, 193, 7, 0.06);
+    border: 1px solid rgba(255, 193, 7, 0.15);
+    border-radius: var(--r-sm);
+}
+
+.completed-card__review-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.completed-card__reviewer {
+    font-size: 12px;
+    color: var(--text-3);
+}
+
+.completed-card__review-text {
+    font-size: 12px;
+    color: var(--text-2);
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.completed-card__payment-warning {
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--orange);
+}
+
+.completed-card__chevron {
+    flex-shrink: 0;
+    color: var(--text-3);
+    margin-left: 8px;
+    margin-top: 12px;
+}
+
+.completed-total {
+    font-size: 12px;
+    color: var(--text-3);
+}
+
+/* ─── Star Rating ─── */
+.usta-stars {
+    display: inline-flex;
+    gap: 1px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.usta-stars__filled {
+    color: #FFC107;
+}
+
+.usta-stars__empty {
+    color: var(--border);
+}
+
+/* ─── Usta Mode Badge ─── */
+.usta-mode-badge {
+    background: rgba(79, 142, 247, 0.15);
+    color: var(--accent);
+    padding: 4px 10px;
+    border-radius: var(--r-sm);
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid rgba(79, 142, 247, 0.3);
+}
+
+/* ─── Owner Hint ─── */
+.usta-owner-hint {
+    font-size: 11px;
+    color: var(--text-3);
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: var(--r-sm);
+    border: 1px dashed var(--border);
+    text-align: center;
+}
+
+/* ─── Customer Info ─── */
+.usta-customer-info {
+    margin: 16px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+
+.usta-customer-info__title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.usta-customer-info__row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-2);
+    padding: 4px 0;
+}
+
+/* ─── Revenue Screen ─── */
+.usta-revenue-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 16px;
+}
+
+.usta-revenue-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 14px;
+    text-align: center;
+}
+
+.usta-revenue-stat__label {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-bottom: 4px;
+}
+
+.usta-revenue-stat__value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-1);
+}
+
+.usta-revenue-record {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.usta-revenue-record:last-child { border-bottom: none; }
+
+.usta-revenue-record__body { flex: 1; }
+
+.usta-revenue-record__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 3px;
+}
+
+.usta-revenue-record__meta {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-bottom: 6px;
+}
+
+.usta-revenue-record__amounts {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-3);
+}
+
+.usta-revenue-record__net {
+    font-weight: 600;
+    color: var(--green);
+}
+
+.usta-revenue-record__right {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.usta-revenue-record__pending {
+    font-size: 11px;
+    color: var(--orange);
+    font-weight: 500;
+}
+
+.usta-revenue-footer {
+    text-align: center;
+    padding: 16px;
+    font-size: 12px;
+    color: var(--text-3);
+}
+
+/* ─── Gallery Grid ─── */
+.usta-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.usta-gallery-item {
+    aspect-ratio: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.usta-gallery-item--add {
+    border-style: dashed;
+    color: var(--accent);
+    font-size: 28px;
+    cursor: pointer;
+}
+
+/* ─── Profile — Specialty Tags ─── */
+.profil-specialties {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 16px 12px;
+}
+
+.profil-specialty {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+}
+
+.profil-specialty__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+}
+
+/* ─── Profile — Performance Metrics Grid ─── */
+.profil-metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 0 16px 12px;
+}
+
+.profil-metric {
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    text-align: center;
+}
+
+.profil-metric__value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+.profil-metric__label {
+    font-size: 11px;
+    color: var(--text-2);
+    margin-top: 2px;
+}
+
+.profil-metric__hint {
+    font-size: 10px;
+    color: var(--text-3);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   USTA BUSINESS PROFILE — Vitrin & Düzenleme Katmanı
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Hero ek bloklar ─── */
+.profil-hero__identity {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.profil-hero__owner {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+
+.profil-hero__location {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-2);
+    margin-top: 6px;
+}
+
+.profil-hero__tagline {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--r-md);
+    font-size: 13px;
+    font-style: italic;
+    color: var(--text-1);
+    line-height: 1.5;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.profil-hero__tagline--empty {
+    font-style: normal;
+    color: var(--text-3);
+    border-style: dashed;
+    cursor: pointer;
+}
+
+.profil-hero__tagline-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.profil-hero__tagline-edit {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+/* ─── Müsaitlik / Durum Toggle ─── */
+.availability-toggle {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    margin: 0 16px;
+}
+
+.availability-toggle__btn {
+    flex: 1;
+    padding: 8px 10px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s;
+}
+
+.availability-toggle__btn--active {
+    color: var(--text-1);
+    background: var(--surface-hover);
+    box-shadow: 0 0 0 1px var(--border);
+}
+
+.availability-toggle__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.availability-toggle__dot--open    { background: var(--green); }
+.availability-toggle__dot--busy    { background: var(--orange); }
+.availability-toggle__dot--closed  { background: var(--text-3); }
+
+/* ─── Profil Tamamlanma Barı ─── */
+.profil-completion {
+    margin: 16px 16px 0;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+
+.profil-completion__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+}
+
+.profil-completion__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.profil-completion__value {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+.profil-completion__bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.profil-completion__bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--purple));
+    border-radius: 999px;
+    transition: width 0.3s;
+}
+
+.profil-completion__hints {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.profil-completion__hint {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--orange-bg);
+    color: var(--orange);
+    border: 1px solid rgba(255, 147, 64, 0.25);
+}
+
+/* ─── Önizleme / Vitrin Aksiyon Barı ─── */
+.profil-preview-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 14px 16px 0;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, rgba(79,142,247,0.10), rgba(167,139,250,0.06));
+    border: 1px solid rgba(79,142,247,0.20);
+    border-radius: var(--r-md);
+}
+
+.profil-preview-bar__text {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-2);
+}
+
+.profil-preview-bar__text strong {
+    color: var(--text-1);
+    font-weight: 700;
+    display: block;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+
+.profil-preview-bar__btn {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--r-sm);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ─── Section Header (düzenlenebilir bölüm) ─── */
+.profil-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 8px;
+}
+
+.profil-section-head__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-1);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.profil-section-head__edit {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--r-xs, 6px);
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.profil-section-head__edit:active {
+    background: rgba(79,142,247,0.10);
+}
+
+/* ─── Galeri iyileştirme ─── */
+.usta-gallery-grid {
+    padding: 0 16px 12px;
+}
+
+.usta-gallery-item {
+    position: relative;
+    overflow: hidden;
+}
+
+.usta-gallery-item__cover {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(79,142,247,0.15), rgba(167,139,250,0.10));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.usta-gallery-item__caption {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 4px 6px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.65));
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-align: left;
+}
+
+.usta-gallery-item--featured::after {
+    content: '★';
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    color: #ffd24a;
+    font-size: 12px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+/* ─── Section içi boş-durum uyarısı ─── */
+.profil-empty-note {
+    margin: 0 16px 12px;
+    padding: 10px 12px;
+    border: 1px dashed var(--border);
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    color: var(--text-3);
+    line-height: 1.4;
+}
+
+/* ─── Vitrin (müşteri) önizleme overlay ─── */
+.preview-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 60;
+    animation: fadeIn 0.18s ease-out;
+}
+
+.preview-overlay__panel {
+    background: var(--bg);
+    width: 100%;
+    max-width: 480px;
+    max-height: 92vh;
+    border-radius: 18px 18px 0 0;
+    padding: 16px 0 8px;
+    overflow-y: auto;
+    animation: slideUp 0.22s ease-out;
+    border-top: 1px solid var(--border);
+}
+
+.preview-overlay__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+}
+
+.preview-overlay__eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.preview-overlay__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-top: 2px;
+}
+
+.preview-overlay__close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--text-3);
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   POOL SCREEN — İş Havuzu Marketplace
+   ══════════════════════════════════════════════════════════ */
+
+/* ─── Pool Header ─── */
+.pool-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 20px 16px 8px;
+}
+
+.pool-header__title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-1);
+}
+
+.pool-header__count {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* ─── Filters ─── */
+.pool-filters {
+    padding: 0 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pool-category-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.pool-category-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.pool-cat-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pool-cat-btn--active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.pool-sort {
+    display: flex;
+    gap: 4px;
+    align-self: flex-end;
+}
+
+.pool-sort-btn {
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pool-sort-btn--active {
+    background: rgba(79, 142, 247, 0.15);
+    color: var(--accent);
+}
+
+/* ─── Pool Card ─── */
+.pool-list {
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pool-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.pool-card:active {
+    background: var(--surface);
+    border-color: var(--accent);
+}
+
+.pool-card__top {
+    display: flex;
+    gap: 10px;
+}
+
+.pool-card__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.pool-card__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pool-card__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    line-height: 1.3;
+}
+
+.pool-card__vehicle {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+
+/* ─── Match Bar ─── */
+.pool-card__meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pool-card__match-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.pool-card__meta-label {
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+    display: block;
+}
+
+.pool-match {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pool-match__track {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--surface);
+    overflow: hidden;
+}
+
+.pool-match__fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.pool-match__label {
+    font-size: 13px;
+    font-weight: 700;
+    min-width: 32px;
+    text-align: right;
+}
+
+.pool-card__meta-chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.pool-card__chip {
+    font-size: 11px;
+    color: var(--text-3);
+    background: var(--surface);
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+/* ─── AI Insight ─── */
+.pool-card__insight {
+    background: rgba(79, 142, 247, 0.06);
+    border: 1px solid rgba(79, 142, 247, 0.12);
+    border-radius: var(--r-sm);
+    padding: 8px 10px;
+}
+
+.pool-card__insight-category {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.pool-card__insight-text {
+    font-size: 12px;
+    color: var(--text-2);
+    line-height: 1.4;
+}
+
+.pool-card__insight-cost {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 4px;
+}
+
+/* ─── Footer ─── */
+.pool-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.pool-card__quotes {
+    font-size: 11px;
+    color: var(--text-3);
+}
+
+.cta-btn--sm {
+    height: 32px;
+    padding: 0 14px;
+    font-size: 12px;
+    border-radius: var(--r-sm);
+}
+
+/* ══════════════════════════════════════════════════════════
+   POOL JOB DETAIL SCREEN
+   ══════════════════════════════════════════════════════════ */
+
+/* ─── Detail Hero ─── */
+.pool-detail-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 16px;
+    background: linear-gradient(135deg, rgba(79, 142, 247, 0.08) 0%, rgba(52, 208, 122, 0.04) 100%);
+    border-bottom: 1px solid var(--border);
+}
+
+.pool-detail-hero__left {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.pool-detail-hero__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--r-md);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.pool-detail-hero__category {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-1);
+    margin-bottom: 6px;
+}
+
+.pool-detail-hero__meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.pool-detail-hero__chip {
+    font-size: 11px;
+    color: var(--text-3);
+    background: var(--surface);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.pool-detail-hero__quotes {
+    font-size: 12px;
+    color: var(--orange);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ─── Description ─── */
+.pool-detail-desc {
+    font-size: 14px;
+    color: var(--text-1);
+    line-height: 1.6;
+    padding: 0 16px 4px;
+}
+
+/* ─── Media Grid ─── */
+.pool-detail-media {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    padding: 0 16px 4px;
+}
+
+.pool-detail-media__item {
+    aspect-ratio: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+/* ─── AI Ring ─── */
+.pool-detail-ai {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 0 16px 4px;
+}
+
+.pool-detail-ring {
+    position: relative;
+    width: 88px;
+    height: 88px;
+    flex-shrink: 0;
+}
+
+.pool-detail-ring__value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.pool-detail-ai__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.pool-detail-ai__label {
+    font-size: 11px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.pool-detail-ai__text {
+    font-size: 13px;
+    color: var(--text-1);
+    line-height: 1.5;
+}
+
+.pool-detail-ai__cost {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    margin-top: 6px;
+}
+
+/* ─── Customer Slots ─── */
+.pool-detail-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 16px 4px;
+}
+
+.pool-detail-slot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: var(--r-sm);
+}
+
+.pool-detail-slot__day {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+}
+
+.pool-detail-slot__ranges {
+    font-size: 12px;
+    color: var(--text-2);
+}
+
+/* ─── Customer Note ─── */
+.pool-detail-note {
+    font-size: 13px;
+    color: var(--text-2);
+    font-style: italic;
+    line-height: 1.5;
+    padding: 0 16px 4px;
+}
+
+/* ─── CTA ─── */
+.pool-detail-cta {
+    padding: 20px 16px;
+}
+
+.pool-detail-cta .cta-btn {
+    width: 100%;
+    height: 48px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* ══════════════════════════════════════════════════════════
+   USTA — Süreç Yönetimi Panelleri
+   ══════════════════════════════════════════════════════════ */
+
+/* ─── Trust Score Bar ─── */
+.trust-score-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(79, 142, 247, 0.12), rgba(52, 208, 122, 0.1));
+    border: 1px solid rgba(79, 142, 247, 0.25);
+    margin-top: 12px;
+}
+
+.trust-score-bar__ring {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-strong, #fff);
+    background: conic-gradient(var(--accent) calc(var(--score, 0) * 1%), rgba(255, 255, 255, 0.08) 0);
+}
+
+.trust-score-bar__ring::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: rgba(15, 17, 28, 0.9);
+}
+
+.trust-score-bar__ring span {
+    position: relative;
+    z-index: 1;
+}
+
+.trust-score-bar__copy {
+    flex: 1;
+    min-width: 0;
+}
+
+.trust-score-bar__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.trust-score-bar__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-strong, #fff);
+    margin-top: 2px;
+}
+
+/* ─── Evidence Upload Panel ─── */
+.evidence-upload-panel {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--surface, rgba(255,255,255,0.06));
+    border: 1px solid var(--border, rgba(255,255,255,0.1));
+}
+
+.evidence-upload-panel__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-strong, #fff);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.evidence-upload-panel__count {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-weight: 600;
+}
+
+.evidence-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.evidence-checklist__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border, rgba(255,255,255,0.08));
+}
+
+.evidence-checklist__item--done {
+    background: rgba(52, 208, 122, 0.08);
+    border-color: rgba(52, 208, 122, 0.3);
+}
+
+.evidence-checklist__item--missing {
+    border-style: dashed;
+}
+
+.evidence-checklist__dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong, rgba(255,255,255,0.18));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.evidence-checklist__item--done .evidence-checklist__dot {
+    background: #34d07a;
+    border-color: #34d07a;
+    color: #02160a;
+}
+
+.evidence-checklist__label {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-soft);
+}
+
+.evidence-checklist__item--done .evidence-checklist__label {
+    color: var(--text-strong, #fff);
+    font-weight: 600;
+}
+
+.evidence-checklist__action {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    background: var(--surface-hover, rgba(255,255,255,0.08));
+    color: var(--text-strong, #fff);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* ─── Collection Panel (Usta tahsilat) ─── */
+.collection-panel {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(52, 208, 122, 0.08), rgba(52, 208, 122, 0.02));
+    border: 1px solid rgba(52, 208, 122, 0.3);
+}
+
+.collection-panel__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-strong, #fff);
+    margin-bottom: 10px;
+}
+
+.collection-panel__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 12px;
+    color: var(--text-soft);
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+.collection-panel__row:last-of-type {
+    border-bottom: none;
+}
+
+.collection-panel__row strong {
+    color: var(--text-strong, #fff);
+}
+
+.collection-panel__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.collection-panel__actions button {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(52, 208, 122, 0.35);
+    background: rgba(52, 208, 122, 0.12);
+    color: #bff5d6;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.collection-panel__actions button.is-primary {
+    background: linear-gradient(135deg, #34d07a, #4F8EF7);
+    border-color: transparent;
+    color: #02160a;
+}
+
+/* ─── Add Cost Form ─── */
+.add-cost-form {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(255, 147, 64, 0.08);
+    border: 1px solid rgba(255, 147, 64, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.add-cost-form__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffd1a8;
+}
+
+.add-cost-form__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.add-cost-form input,
+.add-cost-form textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    background: rgba(15, 17, 28, 0.6);
+    color: var(--text-strong, #fff);
+    font: inherit;
+    font-size: 13px;
+}
+
+.add-cost-form textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.add-cost-form__actions {
+    display: flex;
+    gap: 8px;
+}
+
+.add-cost-form__actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 147, 64, 0.35);
+    background: rgba(255, 147, 64, 0.12);
+    color: #ffd1a8;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.add-cost-form__actions button.is-primary {
+    background: linear-gradient(135deg, #ff9340, #ff6f4f);
+    border-color: transparent;
+    color: #25120a;
+}
+
+/* ─── Step Score Preview ─── */
+.step-score-preview {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(79, 142, 247, 0.1), rgba(123, 92, 247, 0.08));
+    border: 1px solid rgba(79, 142, 247, 0.25);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.step-score-ring {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-strong, #fff);
+    background: conic-gradient(var(--accent) calc(var(--score, 0) * 1%), rgba(255, 255, 255, 0.08) 0);
+    flex-shrink: 0;
+}
+
+.step-score-ring::before {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    background: rgba(15, 17, 28, 0.95);
+}
+
+.step-score-ring span {
+    position: relative;
+    z-index: 1;
+}
+
+.step-score-preview__copy {
+    flex: 1;
+    min-width: 0;
+}
+
+.step-score-preview__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.step-score-preview__hint {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-soft);
+    margin-top: 4px;
+}
+
+/* ─── Usta Confirm Hint ─── */
+.usta-confirm-hint {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 147, 64, 0.08);
+    border: 1px dashed rgba(255, 147, 64, 0.35);
+    font-size: 12px;
+    line-height: 1.45;
+    color: #ffd1a8;
+}
+
+.usta-confirm-hint strong {
+    color: #fff;
+}
+
+/* ─── Payment Bar additions ─── */
+.payment-bar__extras {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #ffd1a8;
+    font-weight: 600;
+}
+
+
+
+/* =========================================================
+   FAB Availability segmented control
+   ========================================================= */
+.fab-availability {
+    margin: 4px 0 14px;
+    padding: 12px;
+    border-radius: var(--r-md);
+    background: rgba(255, 255, 255, 0.04);
+}
+.fab-availability__label {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-bottom: 8px;
+    text-align: center;
+    font-weight: 600;
+}
+.fab-availability__pills {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+.fab-availability__pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 6px;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.fab-availability__pill--active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+/* =========================================================
+   Campaign Create — icon picker
+   ========================================================= */
+.usta-campaign-icon-picker {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+.usta-campaign-icon-picker__current {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    flex-shrink: 0;
+}
+.usta-campaign-icon-picker__grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+}
+.usta-campaign-icon-picker__btn {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: all 0.12s;
+}
+.usta-campaign-icon-picker__btn.is-active {
+    background: rgba(79, 142, 247, 0.18);
+    border-color: var(--accent);
+}
+
+/* =========================================================
+   Campaign Create — category chips
+   ========================================================= */
+.usta-campaign-cat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+.usta-campaign-cat-chip {
+    padding: 10px;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-2);
+    cursor: pointer;
+    text-align: center;
+    font-weight: 500;
+}
+.usta-campaign-cat-chip.is-active {
+    background: rgba(79, 142, 247, 0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* =========================================================
+   Campaign Create — pricing
+   ========================================================= */
+.usta-campaign-price-row {
+    display: flex;
+    gap: 10px;
+}
+.usta-campaign-price-row__field {
+    flex: 1;
+    margin-bottom: 0;
+}
+.usta-campaign-discount-preview {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: rgba(52, 208, 122, 0.10);
+    border: 1px solid rgba(52, 208, 122, 0.25);
+    border-radius: var(--r-sm);
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* =========================================================
+   Campaign Create — included items editor
+   ========================================================= */
+.usta-campaign-item-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+.usta-campaign-item-row__icon {
+    width: 48px;
+    text-align: center;
+    font-size: 16px;
+    padding: 10px 4px;
+    flex-shrink: 0;
+}
+.usta-campaign-item-row__label {
+    flex: 1;
+}
+.usta-campaign-item-row__remove {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+.usta-campaign-item-add {
+    width: 100%;
+    padding: 10px;
+    border-radius: var(--r-sm);
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+/* =========================================================
+   Campaign Create — tag chips
+   ========================================================= */
+.usta-campaign-tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.usta-campaign-tag-chip {
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-2);
+    cursor: pointer;
+    font-weight: 500;
+}
+.usta-campaign-tag-chip.is-active {
+    background: rgba(79, 142, 247, 0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+}
+
+/* =========================================================
+   My Campaigns — list CTA & card
+   ========================================================= */
+.usta-campaign-cta {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px;
+    border-radius: var(--r-md);
+    background: linear-gradient(135deg, rgba(79, 142, 247, 0.14), rgba(167, 139, 250, 0.08));
+    border: 1.5px solid rgba(79, 142, 247, 0.3);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.usta-campaign-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 14px;
+    margin-bottom: 12px;
+}
+.usta-campaign-card__status {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.2px;
+}
+.usta-campaign-card__status--active {
+    background: rgba(52, 208, 122, 0.15);
+    color: var(--green);
+}
+.usta-campaign-card__status--upcoming {
+    background: rgba(247, 168, 79, 0.15);
+    color: var(--orange);
+}
+.usta-campaign-card__status--ended {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-3);
+}
+
+.usta-campaign-card__head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding-right: 80px;
+}
+.usta-campaign-card__icon {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: rgba(79, 142, 247, 0.12);
+    border-radius: var(--r-sm);
+    flex-shrink: 0;
+}
+.usta-campaign-card__heading {
+    min-width: 0;
+}
+.usta-campaign-card__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+    line-height: 1.3;
+}
+.usta-campaign-card__category {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+}
+.usta-campaign-card__desc {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-top: 8px;
+    line-height: 1.4;
+}
+
+.usta-campaign-card__price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 10px;
+}
+.usta-campaign-card__price-old {
+    font-size: 13px;
+    color: var(--text-3);
+    text-decoration: line-through;
+}
+.usta-campaign-card__price-new {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--green);
+}
+.usta-campaign-card__price-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(52, 208, 122, 0.15);
+    color: var(--green);
+}
+
+.usta-campaign-card__items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+.usta-campaign-card__item-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--r-sm);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-2);
+}
+.usta-campaign-card__item-chip--more {
+    color: var(--text-3);
+    font-weight: 600;
+}
+
+.usta-campaign-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+.usta-campaign-card__tag {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(79, 142, 247, 0.12);
+    color: var(--accent);
+}
+
+.usta-campaign-card__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 11px;
+    color: var(--text-3);
+}
+.usta-campaign-card__meta-item {
+    font-weight: 500;
+}
+.usta-campaign-card__dates {
+    font-weight: 500;
+}
+
+/* =========================================================
+   My Campaigns — empty state
+   ========================================================= */
+.usta-campaign-empty {
+    text-align: center;
+    padding: 48px 24px 16px;
+}
+.usta-campaign-empty__icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+}
+.usta-campaign-empty__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-2);
+    margin-bottom: 4px;
+}
+.usta-campaign-empty__sub {
+    font-size: 13px;
+    color: var(--text-3);
+    line-height: 1.4;
+}
+
+/* =========================================================
+   Home availability badge
+   ========================================================= */
+.usta-avail-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    letter-spacing: 0.2px;
+}
+.usta-avail-badge__dot {
+    font-size: 8px;
+    line-height: 1;
+}
+.usta-avail-badge--open {
+    color: var(--green);
+    border-color: rgba(52, 208, 122, 0.3);
+}
+.usta-avail-badge--busy {
+    color: var(--orange);
+    border-color: rgba(247, 168, 79, 0.3);
+}
+.usta-avail-badge--closed {
+    color: var(--text-3);
+}

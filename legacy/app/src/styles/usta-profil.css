@@ -1,0 +1,214 @@
+/* ══════════════════════════════════════════════════════════
+   Usta / Servis Profil Ekrani
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Hero Section ── */
+.usta-profil-hero {
+  background: linear-gradient(135deg, rgba(79,142,247,0.10) 0%, rgba(167,139,250,0.06) 100%);
+  border: 1px solid rgba(79,142,247,0.15);
+  border-radius: var(--r-xl);
+  padding: 28px 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.usta-profil-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--purple), var(--accent));
+  opacity: 0.4;
+}
+
+.usta-profil-hero__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 auto 12px;
+}
+
+.usta-profil-hero__name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.usta-profil-hero__name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+.usta-profil-hero__verified {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.usta-profil-hero__stats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+
+.usta-profil-hero__tags {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.usta-profil-hero__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.usta-profil-hero__status--open {
+  color: var(--green);
+}
+
+.usta-profil-hero__status--closed {
+  color: var(--text-3);
+}
+
+/* ── About ── */
+.usta-profil-about {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+/* ── Packages ── */
+.usta-profil-packages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.usta-profil-package {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--green);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.usta-profil-package:active {
+  transform: scale(0.98);
+  background: var(--surface-hover);
+}
+
+.usta-profil-package__icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.usta-profil-package__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.usta-profil-package__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.usta-profil-package__desc {
+  font-size: 12px;
+  color: var(--text-3);
+  display: block;
+}
+
+.usta-profil-package__price-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.usta-profil-package__old-price {
+  font-size: 11px;
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.usta-profil-package__price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+}
+
+.usta-profil-package__arrow {
+  font-size: 16px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* ── Reviews ── */
+.usta-profil-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.usta-profil-review {
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.usta-profil-review__stars {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.usta-profil-review__text {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  font-style: italic;
+}

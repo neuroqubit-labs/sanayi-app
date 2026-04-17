@@ -1,0 +1,17 @@
+:root {
+  --surface-2: rgba(255, 255, 255, 0.09);
+  --surface-3: rgba(255, 255, 255, 0.14);
+  --surface-elevated: rgba(17, 19, 29, 0.84);
+  --surface-panel: rgba(12, 14, 22, 0.92);
+  --text-strong: #fafbff;
+  --text-soft: rgba(240, 240, 244, 0.72);
+  --text-faint: rgba(240, 240, 244, 0.48);
+  --accent-2: #7d65ff;
+  --accent-soft: rgba(79, 142, 247, 0.18);
+  --success-soft: rgba(52, 208, 122, 0.16);
+  --warning-soft: rgba(255, 147, 64, 0.16);
+  --shadow-soft: 0 14px 32px rgba(0, 0, 0, 0.22);
+  --shadow-hero: 0 24px 60px rgba(0, 0, 0, 0.42);
+  --ring-accent: 0 0 0 1px rgba(79, 142, 247, 0.42);
+  --ring-success: 0 0 0 1px rgba(52, 208, 122, 0.24);
+}

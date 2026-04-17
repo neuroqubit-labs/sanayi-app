@@ -2558,6 +2558,574 @@ body {
   height: 24px;
 }
 
+/* ── Kaza Flow: Track Selection ── */
+.track-select-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.hasar-track-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  text-align: center;
+  color: var(--text);
+}
+
+.hasar-track-card:hover {
+  border-color: var(--accent);
+  background: var(--blue-bg);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(79, 142, 247, 0.15);
+}
+
+.hasar-track-card--kaza {
+  border-color: rgba(255, 79, 79, 0.2);
+  background: linear-gradient(135deg, rgba(255, 79, 79, 0.05), transparent);
+}
+
+.hasar-track-card--kaza:hover {
+  border-color: var(--red);
+  background: rgba(255, 79, 79, 0.1);
+  box-shadow: 0 8px 30px rgba(255, 79, 79, 0.15);
+}
+
+.hasar-track-card__icon {
+  font-size: 36px;
+}
+
+.hasar-track-card__label {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.hasar-track-card__desc {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.track-back-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0 0 12px;
+  font-family: inherit;
+}
+
+/* ── Kaza Flow: Emergency Panel ── */
+.emergency-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 20px 20px;
+}
+
+.emergency-panel__icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: pulse-scale 2s infinite;
+}
+
+@keyframes pulse-scale {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.emergency-panel__title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.emergency-panel__helper {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 28px;
+  max-width: 300px;
+}
+
+.emergency-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.emergency-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 2px solid transparent;
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  color: #fff;
+  width: 100%;
+  text-align: left;
+}
+
+.emergency-btn--ambulance {
+  background: linear-gradient(135deg, #FF4F4F, #CC2222);
+  border-color: rgba(255, 79, 79, 0.5);
+  box-shadow: 0 4px 20px rgba(255, 79, 79, 0.3);
+}
+
+.emergency-btn--ambulance:hover {
+  box-shadow: 0 6px 30px rgba(255, 79, 79, 0.45);
+  transform: translateY(-1px);
+}
+
+.emergency-btn--tow {
+  background: linear-gradient(135deg, rgba(255, 147, 64, 0.7), rgba(255, 120, 20, 0.5));
+  border-color: rgba(255, 147, 64, 0.4);
+  box-shadow: 0 4px 20px rgba(255, 147, 64, 0.2);
+}
+
+.emergency-btn--tow:hover {
+  box-shadow: 0 6px 30px rgba(255, 147, 64, 0.35);
+  transform: translateY(-1px);
+}
+
+.emergency-btn--activated {
+  opacity: 0.6;
+  position: relative;
+}
+
+.emergency-btn--activated::after {
+  content: '✓';
+  position: absolute;
+  right: 16px;
+  font-size: 18px;
+}
+
+.emergency-btn--continue {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+  justify-content: center;
+}
+
+.emergency-btn--continue:hover {
+  background: var(--surface-hover);
+}
+
+.emergency-btn--inline {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.emergency-btn__icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.emergency-btn__label {
+  flex: 1;
+}
+
+.emergency-btn__sub {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* ── Kaza Flow: Photo Guide ── */
+.photo-guide-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.photo-guide-step__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.photo-guide-step__icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.photo-guide-step__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.required-dot {
+  color: var(--red);
+  margin-left: 4px;
+}
+
+.photo-guide-step__instruction {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.photo-guide-step__grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.photo-guide-step__thumb {
+  width: 52px;
+  height: 52px;
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  position: relative;
+}
+
+.photo-guide-step__thumb .remove-x {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--red);
+  border: none;
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-guide-step__add {
+  width: 52px;
+  height: 52px;
+  border: 1px dashed var(--accent);
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--accent);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: background 0.18s;
+}
+
+.photo-guide-step__add:hover {
+  background: var(--blue-bg);
+}
+
+.photo-guide-step__counter {
+  font-size: 9px;
+  font-weight: 600;
+  margin-top: -2px;
+}
+
+/* ── Kaza Flow: Traffic Alert ── */
+.traffic-alert {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(52, 208, 122, 0.08);
+  border: 1px solid rgba(52, 208, 122, 0.25);
+  border-radius: var(--r-md);
+  margin-bottom: 16px;
+}
+
+.traffic-alert__icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.traffic-alert__text {
+  font-size: 13px;
+  color: var(--green);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Kaza Flow: Tutanak Options ── */
+.tutanak-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tutanak-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all 0.18s;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text);
+}
+
+.tutanak-option-card:hover {
+  background: var(--surface-hover);
+}
+
+.tutanak-option-card--selected {
+  border-color: var(--accent);
+  background: var(--blue-bg);
+}
+
+.tutanak-option-card__icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.tutanak-option-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tutanak-option-card__label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tutanak-option-card__desc {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+/* ── Kaza Flow: Document Upload ── */
+.evrak-section {
+  margin-bottom: 20px;
+}
+
+.evrak-section__title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.document-upload-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: all 0.18s;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  width: 100%;
+  text-align: left;
+}
+
+.document-upload-card:hover {
+  background: var(--surface-hover);
+}
+
+.document-upload-card--done {
+  border-color: rgba(52, 208, 122, 0.3);
+}
+
+.document-upload-card__icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.document-upload-card__label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.document-upload-card__status {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status--done {
+  color: var(--green);
+}
+
+.status--missing {
+  color: var(--text-3);
+}
+
+/* ── Kaza Flow: Insurance Toggles ── */
+.insurance-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.insurance-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.insurance-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.insurance-toggle__label {
+  font-weight: 500;
+}
+
+.insurance-options .form-input {
+  margin-top: 8px;
+  margin-left: 30px;
+  width: calc(100% - 30px);
+}
+
+/* ── Kaza Flow: Preview Sections ── */
+.preview-section {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.preview-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.preview-section__body {
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.preview-photo-grid {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.missing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.missing-badge {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 4px 0;
+}
+
+.preview-complete {
+  font-size: 13px;
+  color: var(--green);
+  margin: 0;
+}
+
+.preview-text {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Kaza Flow: Skip Link ── */
+.skip-link {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px 0;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.skip-link:hover {
+  color: var(--accent);
+}
+
+/* ── Kaza Flow: Media upload done state ── */
+.media-upload-box--done {
+  border-color: rgba(52, 208, 122, 0.3);
+  background: rgba(52, 208, 122, 0.05);
+}
+
+.flow-info-panel--open {
+  margin-bottom: 16px;
+}
+
+.flow-info-panel__body--dim {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
 /* ── Responsive: full-screen on small displays ── */
 @media (max-width: 440px) {
   body {

@@ -1,0 +1,1403 @@
+/* ═════════════════════════════════════════════════
+   Kaza Flow — Emergency, Photos, Tutanak, Docs, Insurance, Preview
+   ═════════════════════════════════════════════════ */
+
+/* ── Track Selection ── */
+.track-select-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hasar-track-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 30px 20px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    text-align: center;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hasar-track-card:hover,
+.hasar-track-card:active {
+    transform: translateY(-2px);
+    border-color: rgba(79, 142, 247, 0.42);
+    box-shadow: 0 12px 32px rgba(79, 142, 247, 0.14);
+}
+
+.hasar-track-card--kaza {
+    background: linear-gradient(180deg, rgba(255, 79, 79, 0.1), rgba(255, 255, 255, 0.02));
+    border-color: rgba(255, 79, 79, 0.18);
+}
+
+.hasar-track-card--kaza:hover,
+.hasar-track-card--kaza:active {
+    border-color: rgba(255, 79, 79, 0.5);
+    box-shadow: 0 12px 32px rgba(255, 79, 79, 0.14);
+}
+
+.hasar-track-card__icon {
+    font-size: 38px;
+}
+
+.hasar-track-card__label {
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+.hasar-track-card__desc {
+    font-size: 13px;
+    color: var(--text-soft);
+    line-height: 1.5;
+}
+
+.track-back-link {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 4px;
+}
+
+/* ── Emergency Panel ── */
+.emergency-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px 0 0;
+}
+
+.emergency-panel__icon {
+    font-size: 52px;
+    margin-bottom: 16px;
+    animation: kaza-pulse 2s ease-in-out infinite;
+}
+
+@keyframes kaza-pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.12);
+    }
+}
+
+.emergency-panel__title {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+}
+
+.emergency-panel__helper {
+    font-size: 14px;
+    color: var(--text-soft);
+    line-height: 1.6;
+    margin-bottom: 28px;
+    max-width: 300px;
+}
+
+.emergency-panel__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.emergency-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
+    border-radius: 22px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    width: 100%;
+    text-align: left;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.emergency-btn:active {
+    transform: scale(0.97);
+}
+
+.emergency-btn--ambulance {
+    background: linear-gradient(135deg, #FF4F4F, #D12828);
+    border-color: rgba(255, 79, 79, 0.5);
+    box-shadow: 0 8px 24px rgba(255, 79, 79, 0.28);
+}
+
+.emergency-btn--ambulance:hover {
+    box-shadow: 0 12px 32px rgba(255, 79, 79, 0.38);
+}
+
+.emergency-btn--tow {
+    background: linear-gradient(135deg, #FF9340, #E07820);
+    border-color: rgba(255, 147, 64, 0.5);
+    box-shadow: 0 8px 24px rgba(255, 147, 64, 0.22);
+}
+
+.emergency-btn--tow:hover {
+    box-shadow: 0 12px 32px rgba(255, 147, 64, 0.32);
+}
+
+.emergency-btn--activated {
+    opacity: 0.55;
+    pointer-events: none;
+    position: relative;
+}
+
+.emergency-btn--activated::after {
+    content: '✓ Cagirildi';
+    position: absolute;
+    right: 18px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.emergency-btn--continue {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text);
+    font-weight: 600;
+    justify-content: center;
+}
+
+.emergency-btn--continue:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.emergency-btn--inline {
+    justify-content: center;
+}
+
+.emergency-btn__icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.emergency-btn__label {
+    flex: 1;
+}
+
+.emergency-btn__sub {
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0.7;
+}
+
+/* ── Photo Guide ── */
+.photo-guide-step {
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.photo-guide-step__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.photo-guide-step__icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.photo-guide-step__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.required-dot {
+    color: #FF4F4F;
+    margin-left: 4px;
+}
+
+.photo-guide-step__instruction {
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.5;
+    margin-top: 4px;
+}
+
+.photo-guide-step__grid {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.photo-guide-step__thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    position: relative;
+}
+
+.photo-guide-step__thumb .remove-x {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #FF4F4F;
+    border: 2px solid rgba(10, 11, 16, 0.9);
+    color: #fff;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.photo-guide-step__add {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    border: 1px dashed rgba(79, 142, 247, 0.42);
+    background: rgba(79, 142, 247, 0.06);
+    color: var(--accent);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font: inherit;
+    transition: background 0.18s;
+}
+
+.photo-guide-step__add:hover {
+    background: rgba(79, 142, 247, 0.12);
+}
+
+.photo-guide-step__counter {
+    font-size: 9px;
+    font-weight: 700;
+    margin-top: -2px;
+    color: var(--text-faint);
+}
+
+/* ── Traffic Alert ── */
+.traffic-alert {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 18px;
+    background: rgba(52, 208, 122, 0.08);
+    border: 1px solid rgba(52, 208, 122, 0.22);
+}
+
+.traffic-alert__icon {
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.traffic-alert__text {
+    font-size: 13px;
+    color: #bff5d6;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ── Tutanak Options ── */
+.tutanak-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tutanak-option-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    color: var(--text);
+    transition: transform 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.tutanak-option-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.tutanak-option-card--selected {
+    border-color: rgba(79, 142, 247, 0.42);
+    background: rgba(79, 142, 247, 0.1);
+    box-shadow: var(--ring-accent);
+}
+
+.tutanak-option-card__icon {
+    font-size: 26px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.tutanak-option-card__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.tutanak-option-card__label {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.tutanak-option-card__desc {
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.5;
+}
+
+/* ── Document Upload ── */
+.evrak-section {
+    margin-bottom: 16px;
+}
+
+.evrak-section__title {
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    color: var(--text);
+    letter-spacing: 0.02em;
+}
+
+.document-upload-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    margin-bottom: 6px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    color: var(--text);
+    width: 100%;
+    text-align: left;
+    transition: background 0.18s;
+}
+
+.document-upload-card:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.document-upload-card--done {
+    border-color: rgba(52, 208, 122, 0.26);
+    background: rgba(52, 208, 122, 0.06);
+}
+
+.document-upload-card__icon {
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.document-upload-card__label {
+    flex: 1;
+    font-weight: 600;
+}
+
+.document-upload-card__status {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.status--done {
+    color: #bff5d6;
+}
+
+.status--missing {
+    color: var(--text-faint);
+}
+
+/* ── Insurance Toggles ── */
+.insurance-options {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.insurance-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--text);
+}
+
+.insurance-toggle input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.insurance-toggle__label {
+    font-weight: 600;
+}
+
+.insurance-options .form-input {
+    margin-top: 10px;
+    margin-left: 34px;
+    width: calc(100% - 34px);
+}
+
+/* ── Preview Sections ── */
+.preview-section {
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+}
+
+.preview-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.preview-section__body {
+    padding: 14px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.preview-photo-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.missing-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.missing-badge {
+    font-size: 12px;
+    color: var(--text-faint);
+    padding: 4px 0;
+}
+
+.preview-complete {
+    font-size: 13px;
+    color: #bff5d6;
+    margin: 0;
+}
+
+.preview-text {
+    font-size: 13px;
+    color: var(--text-soft);
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ── Skip Link ── */
+.skip-link {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 8px 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.18s;
+}
+
+.skip-link:hover {
+    color: var(--accent);
+}
+
+/* ── Media Upload Box ── */
+.media-upload-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px dashed rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-soft);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.18s, border-color 0.18s;
+}
+
+.media-upload-box:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(79, 142, 247, 0.3);
+}
+
+.media-upload-box--done {
+    border-style: solid;
+    border-color: rgba(52, 208, 122, 0.26);
+    background: rgba(52, 208, 122, 0.06);
+    color: #bff5d6;
+}
+
+.media-upload-icon {
+    font-size: 20px;
+}
+
+/* ── Flow Info Panel dark-adapted ── */
+.flow-info-panel--open {
+    margin-bottom: 4px;
+}
+
+.flow-info-panel__body--dim {
+    color: var(--text-faint);
+    font-size: 12px;
+}
+
+/* ── Extra progress bar widths for kaza 7-step ── */
+.flow-progress__bar--17 {
+    width: 17%;
+}
+
+.flow-progress__bar--34 {
+    width: 34%;
+}
+
+.flow-progress__bar--67 {
+    width: 67%;
+}
+
+.flow-progress__bar--83 {
+    width: 83%;
+}
+
+/* ── Çekici Panel (arıza variant) ── */
+.cekici-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 16px 0 0;
+}
+
+.cekici-panel__icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+.cekici-panel__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+/* ── Arıza Media Hint ── */
+.ariza-media-hint {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(79, 142, 247, 0.08);
+    border: 1px solid rgba(79, 142, 247, 0.18);
+}
+
+.ariza-media-hint__icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.ariza-media-hint__text {
+    font-size: 13px;
+    color: #bfd5ff;
+    line-height: 1.55;
+    margin: 0;
+}
+
+.ariza-hint--urgent {
+    background: rgba(255, 79, 79, 0.08);
+    border-color: rgba(255, 79, 79, 0.22);
+}
+
+.ariza-hint--urgent .ariza-media-hint__text {
+    color: #ffcccc;
+}
+
+.ariza-hint--warning {
+    background: rgba(255, 147, 64, 0.08);
+    border-color: rgba(255, 147, 64, 0.22);
+}
+
+.ariza-hint--warning .ariza-media-hint__text {
+    color: #ffd1a8;
+}
+
+.ariza-hint--diagnostic {
+    background: rgba(52, 208, 122, 0.08);
+    border-color: rgba(52, 208, 122, 0.18);
+}
+
+.ariza-hint--diagnostic .ariza-media-hint__text {
+    color: #bff5d6;
+}
+
+/* ── Media button highlight (first/priority) ── */
+.media-upload-box--highlight {
+    border-color: rgba(79, 142, 247, 0.34);
+    background: rgba(79, 142, 247, 0.06);
+    color: var(--text);
+}
+
+.media-upload-box--highlight:hover {
+    background: rgba(79, 142, 247, 0.12);
+    border-color: rgba(79, 142, 247, 0.5);
+}
+
+/* ── Extra progress bar widths ── */
+.flow-progress__bar--66 {
+    width: 66%;
+}
+
+/* ═══════════════════════════════════════════
+   Bakım Flow — Sub-items, Suggestion, Preview
+   ═══════════════════════════════════════════ */
+
+/* ── Km Suggestion Card ── */
+.km-suggestion-card {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(79, 142, 247, 0.10), rgba(52, 208, 122, 0.06));
+    border: 1px solid rgba(79, 142, 247, 0.22);
+}
+
+.km-suggestion-card__icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.km-suggestion-card__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.km-suggestion-card__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 4px;
+}
+
+.km-suggestion-card__desc {
+    font-size: 12px;
+    color: var(--text-soft);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── Sub-Item List ── */
+.bakim-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.bakim-item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    transition: background 0.18s;
+}
+
+.bakim-item-row--active {
+    background: rgba(79, 142, 247, 0.06);
+}
+
+.bakim-item-row__check {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.bakim-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    background: transparent;
+    font-size: 13px;
+    font-weight: 800;
+    color: transparent;
+    transition: all 0.18s;
+}
+
+.bakim-check--on {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+}
+
+.bakim-item-row__icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.bakim-item-row__label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bakim-item-row__part-select {
+    flex-shrink: 0;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-soft);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+}
+
+.bakim-item-row__part-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* ── Preview List (Step 3) ── */
+.bakim-preview-list {
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+}
+
+.bakim-preview-list__title {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-soft);
+    padding: 12px 16px 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bakim-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.bakim-preview-item__icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.bakim-preview-item__label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.bakim-preview-item__part {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-faint);
+    padding: 4px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* ═══════════════════════════════════════════
+   Çekici Flow — Uber-Style Tow Truck Screen
+   ═══════════════════════════════════════════ */
+
+.cekici-screen {
+    padding-top: 0 !important;
+}
+
+/* ── Map Placeholder ── */
+.cekici-map {
+    position: relative;
+    width: 100%;
+    height: 240px;
+    background: linear-gradient(180deg, #0d1117 0%, #161b22 60%, #1c2333 100%);
+    overflow: hidden;
+}
+
+.cekici-map__grid {
+    position: absolute;
+    inset: 0;
+}
+
+.cekici-map__road {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.cekici-map__road--h {
+    width: 100%;
+    height: 2px;
+}
+
+.cekici-map__road--v {
+    height: 100%;
+    width: 2px;
+}
+
+/* Markers */
+.cekici-map__marker {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+}
+
+.cekici-map__pin {
+    font-size: 28px;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+}
+
+.cekici-map__pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(79, 142, 247, 0.15);
+    animation: cekici-pulse 2s ease-out infinite;
+}
+
+@keyframes cekici-pulse {
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1.8);
+        opacity: 0;
+    }
+}
+
+/* Route line */
+.cekici-map__route {
+    position: absolute;
+    top: 35%;
+    left: 30%;
+    width: 45%;
+    height: 30%;
+    border: 2px dashed rgba(79, 142, 247, 0.4);
+    border-radius: 0 40px 40px 0;
+    border-left: none;
+    z-index: 1;
+}
+
+/* Search overlay */
+.cekici-map__searching {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 5;
+}
+
+.cekici-map__radar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 2px solid rgba(79, 142, 247, 0.3);
+    animation: radar-sweep 1.5s ease-out infinite;
+}
+
+@keyframes radar-sweep {
+    0% {
+        transform: scale(0.3);
+        opacity: 1;
+        border-color: rgba(79, 142, 247, 0.6);
+    }
+
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+.cekici-map__searching-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 12px;
+}
+
+/* Matched overlay */
+.cekici-map__matched {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+}
+
+.cekici-map__tow-icon {
+    font-size: 52px;
+    animation: tow-arrive 0.6s ease-out;
+}
+
+@keyframes tow-arrive {
+    0% {
+        transform: translateX(80px) scale(0.6);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateX(0) scale(1);
+        opacity: 1;
+    }
+}
+
+/* ── Body ── */
+.cekici-body {
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Context badge */
+.cekici-context-badge {
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255, 79, 79, 0.08);
+    border: 1px solid rgba(255, 79, 79, 0.22);
+    color: #ffb3b3;
+    text-align: center;
+}
+
+/* ── Location Card ── */
+.cekici-location-card {
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+}
+
+.cekici-location-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+}
+
+.cekici-location-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.cekici-location-dot--green {
+    background: #34d07a;
+    box-shadow: 0 0 8px rgba(52, 208, 122, 0.4);
+}
+
+.cekici-location-dot--red {
+    background: #FF4F4F;
+    box-shadow: 0 0 8px rgba(255, 79, 79, 0.4);
+}
+
+.cekici-location-input {
+    flex: 1;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    background: none;
+    border: none;
+    outline: none;
+    min-width: 0;
+}
+
+.cekici-location-input::placeholder {
+    color: var(--text-faint);
+    font-weight: 500;
+}
+
+.cekici-location-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin-left: 40px;
+}
+
+/* ── Timing Toggle ── */
+.cekici-timing {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.cekici-timing__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 12px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-soft);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+}
+
+.cekici-timing__btn--active {
+    border-color: rgba(79, 142, 247, 0.42);
+    background: rgba(79, 142, 247, 0.1);
+    color: var(--text);
+    box-shadow: var(--ring-accent);
+}
+
+.cekici-timing__icon {
+    font-size: 18px;
+}
+
+/* ── Price Estimate ── */
+.cekici-estimate {
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 16px;
+}
+
+.cekici-estimate__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.cekici-estimate__row--total {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin-top: 6px;
+    padding-top: 12px;
+}
+
+.cekici-estimate__label {
+    font-size: 14px;
+    color: var(--text-soft);
+}
+
+.cekici-estimate__value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.cekici-estimate__value--price {
+    font-size: 20px;
+    font-weight: 900;
+    color: #34d07a;
+}
+
+.cekici-estimate__note {
+    font-size: 11px;
+    color: var(--text-faint);
+    line-height: 1.5;
+    margin: 10px 0 0;
+}
+
+/* ── CTA Button ── */
+.cekici-cta {
+    width: 100%;
+    padding: 18px;
+    border-radius: 22px;
+    border: none;
+    background: linear-gradient(135deg, #4F8EF7, #3A6FD8);
+    color: #fff;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(79, 142, 247, 0.28);
+    transition: transform 0.18s, box-shadow 0.18s;
+}
+
+.cekici-cta:active {
+    transform: scale(0.97);
+}
+
+.cekici-cta:hover {
+    box-shadow: 0 12px 32px rgba(79, 142, 247, 0.38);
+}
+
+.cekici-cta--secondary {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text);
+    box-shadow: none;
+    font-weight: 700;
+}
+
+.cekici-cta--secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+}
+
+.cekici-back-link {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 0;
+    text-align: center;
+    width: 100%;
+}
+
+/* ── Confirm Phase ── */
+.cekici-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.cekici-confirm__title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    text-align: center;
+}
+
+.cekici-confirm__summary {
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    padding: 4px 0;
+}
+
+.cekici-confirm__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.cekici-confirm__row--price {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    color: #34d07a;
+    font-weight: 800;
+}
+
+/* ── Status Phase ── */
+.cekici-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    padding: 20px 0;
+}
+
+.cekici-status__spinner {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 3px solid rgba(79, 142, 247, 0.2);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.cekici-status__icon {
+    font-size: 48px;
+    animation: pop-in 0.4s ease-out;
+}
+
+@keyframes pop-in {
+    0% {
+        transform: scale(0);
+    }
+
+    70% {
+        transform: scale(1.2);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.cekici-status__title {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.cekici-status__text {
+    font-size: 14px;
+    color: var(--text-soft);
+    line-height: 1.5;
+    max-width: 280px;
+}
+
+/* ── Driver Card ── */
+.cekici-driver-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(52, 208, 122, 0.22);
+    background: rgba(52, 208, 122, 0.06);
+    width: 100%;
+    text-align: left;
+    margin-top: 8px;
+}
+
+.cekici-driver-card__avatar {
+    font-size: 36px;
+    flex-shrink: 0;
+}
+
+.cekici-driver-card__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.cekici-driver-card__name {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.cekici-driver-card__vehicle {
+    font-size: 13px;
+    color: var(--text-soft);
+    margin-top: 2px;
+}
+
+.cekici-driver-card__rating {
+    font-size: 12px;
+    color: #bff5d6;
+    margin-top: 4px;
+}
+
+.cekici-driver-card__call {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: #34d07a;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(52, 208, 122, 0.3);
+    transition: transform 0.18s;
+    flex-shrink: 0;
+}
+
+.cekici-driver-card__call:active {
+    transform: scale(0.92);
+}
