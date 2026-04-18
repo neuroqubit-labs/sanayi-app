@@ -1,59 +1,78 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button, FormField, Screen, Text } from "@naro/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useForm } from "react-hook-form";
+import { View } from "react-native";
+import { z } from "zod";
 
 import { authApi } from "@/services/auth/api";
 import { useAuthStore } from "@/services/auth/store";
-import { Button } from "@/shared/ui/Button";
+
+const VerifyFormSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(4, "Kod en az 4 haneli olmalı")
+    .max(8, "Kod en fazla 8 haneli olabilir"),
+});
+
+type VerifyFormValues = z.infer<typeof VerifyFormSchema>;
 
 export default function VerifyScreen() {
   const router = useRouter();
   const { deliveryId } = useLocalSearchParams<{ deliveryId: string }>();
   const setTokens = useAuthStore((s) => s.setTokens);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<VerifyFormValues>({
+    resolver: zodResolver(VerifyFormSchema),
+    defaultValues: { code: "" },
+  });
 
-  async function onSubmit() {
+  async function onSubmit(values: VerifyFormValues) {
     if (!deliveryId) return;
-    setLoading(true);
-    setError(null);
+    setSubmitError(null);
     try {
-      const tokens = await authApi.verifyOtp({ delivery_id: deliveryId, code });
+      const tokens = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
       await setTokens(tokens.access_token, tokens.refresh_token);
       router.replace("/(tabs)");
     } catch {
-      setError("Kod geçersiz veya süresi dolmuş");
-    } finally {
-      setLoading(false);
+      setSubmitError("Kod geçersiz veya süresi dolmuş");
     }
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-1 px-6 pt-12 gap-6">
-        <Text className="text-3xl font-bold text-neutral-900">Kodu gir</Text>
-        <Text className="text-neutral-600">Telefonuna gelen 6 haneli kodu gir.</Text>
+    <Screen>
+      <View className="gap-6">
+        <View className="gap-2">
+          <Text variant="h1">Kodu gir</Text>
+          <Text tone="calm">Telefonuna gelen 6 haneli kodu gir.</Text>
+        </View>
 
-        <TextInput
-          value={code}
-          onChangeText={setCode}
+        <FormField
+          control={control}
+          name="code"
           placeholder="------"
           keyboardType="number-pad"
           maxLength={6}
-          className="border border-neutral-300 rounded-xl px-4 py-3 text-2xl text-center tracking-widest"
+          inputClassName="text-2xl text-center tracking-widest"
         />
 
-        {error && <Text className="text-red-600">{error}</Text>}
+        {submitError ? <Text tone="panic">{submitError}</Text> : null}
 
         <Button
-          label={loading ? "Doğrulanıyor..." : "Devam"}
-          disabled={loading || code.length < 4}
-          onPress={onSubmit}
+          label={isSubmitting ? "Doğrulanıyor..." : "Devam"}
+          loading={isSubmitting}
+          onPress={handleSubmit(onSubmit)}
+          fullWidth
+          size="lg"
         />
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
