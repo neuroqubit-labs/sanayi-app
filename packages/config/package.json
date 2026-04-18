@@ -1,0 +1,28 @@
+{
+  "name": "@naro/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paylaşılan eslint / tsconfig / tailwind preset'leri — naro-app ve naro-service-app'in ortak konfigürasyonu.",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tailwind.preset": "./tailwind.preset.js",
+    "./eslint-preset": "./eslint-preset.js"
+  },
+  "files": [
+    "tsconfig.base.json",
+    "tailwind.preset.js",
+    "eslint-preset.js",
+    "README.md"
+  ],
+  "dependencies": {
+    "@eslint/compat": "^1.2.0",
+    "@eslint/eslintrc": "^3.1.0",
+    "eslint-config-expo": "~8.0.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0",
+    "nativewind": "^4.0.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.0.0"
+  }
+}

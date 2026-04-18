@@ -83,15 +83,15 @@ importers:
       '@babel/core':
         specifier: ^7.25.0
         version: 7.29.0
+      '@naro/config':
+        specifier: workspace:*
+        version: link:../packages/config
       '@types/react':
         specifier: ~18.3.0
         version: 18.3.28
       eslint:
         specifier: ^9.13.0
         version: 9.39.4(jiti@1.21.7)
-      eslint-config-expo:
-        specifier: ~8.0.0
-        version: 8.0.1(eslint@9.39.4(jiti@1.21.7))(typescript@5.6.3)
       prettier:
         specifier: ^3.3.0
         version: 3.8.3
@@ -183,15 +183,15 @@ importers:
       '@babel/core':
         specifier: ^7.25.0
         version: 7.29.0
+      '@naro/config':
+        specifier: workspace:*
+        version: link:../packages/config
       '@types/react':
         specifier: ~18.3.0
         version: 18.3.28
       eslint:
         specifier: ^9.13.0
         version: 9.39.4(jiti@1.21.7)
-      eslint-config-expo:
-        specifier: ~8.0.0
-        version: 8.0.1(eslint@9.39.4(jiti@1.21.7))(typescript@5.6.3)
       prettier:
         specifier: ^3.3.0
         version: 3.8.3
@@ -200,6 +200,30 @@ importers:
         version: 0.6.14(prettier@3.8.3)
       typescript:
         specifier: ~5.6.0
+        version: 5.6.3
+
+  packages/config:
+    dependencies:
+      '@eslint/compat':
+        specifier: ^1.2.0
+        version: 1.4.1(eslint@9.39.4(jiti@1.21.7))
+      '@eslint/eslintrc':
+        specifier: ^3.1.0
+        version: 3.3.5
+      eslint:
+        specifier: ^9.0.0
+        version: 9.39.4(jiti@1.21.7)
+      eslint-config-expo:
+        specifier: ~8.0.0
+        version: 8.0.1(eslint@9.39.4(jiti@1.21.7))(typescript@5.6.3)
+      nativewind:
+        specifier: ^4.0.0
+        version: 4.2.3(react-native-reanimated@3.16.7(@babel/core@7.29.0)(react-native@0.76.0(@babel/core@7.29.0)(@babel/preset-env@7.29.2(@babel/core@7.29.0))(@types/react@18.3.28)(react@18.3.1))(react@18.3.1))(react-native-safe-area-context@4.12.0(react-native@0.76.0(@babel/core@7.29.0)(@babel/preset-env@7.29.2(@babel/core@7.29.0))(@types/react@18.3.28)(react@18.3.1))(react@18.3.1))(react-native@0.76.0(@babel/core@7.29.0)(@babel/preset-env@7.29.2(@babel/core@7.29.0))(@types/react@18.3.28)(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.19)
+      tailwindcss:
+        specifier: ^3.4.0
+        version: 3.4.19
+      typescript:
+        specifier: ^5.0.0
         version: 5.6.3
 
 packages:
@@ -959,6 +983,15 @@ packages:
   '@eslint-community/regexpp@4.12.2':
     resolution: {integrity: sha512-EriSTlt5OC9/7SXkRSCAhfSxxoSUgBm33OH+IkwbdpgoqsSsUg7y3uh+IICI/Qg4BBWr3U2i39RpmycbxMq4ew==}
     engines: {node: ^12.0.0 || ^14.0.0 || >=16.0.0}
+
+  '@eslint/compat@1.4.1':
+    resolution: {integrity: sha512-cfO82V9zxxGBxcQDr1lfaYB7wykTa0b00mGa36FrJl7iTFd0Z2cHfEYuxcBRP/iNijCsWsEkA+jzT8hGYmv33w==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    peerDependencies:
+      eslint: ^8.40 || 9
+    peerDependenciesMeta:
+      eslint:
+        optional: true
 
   '@eslint/config-array@0.21.2':
     resolution: {integrity: sha512-nJl2KGTlrf9GjLimgIru+V/mzgSK0ABCDQRvxw5BjURL7WfH5uoWmizbH7QB6MmnMBd8cIC9uceWnezL1VZWWw==}
@@ -5889,6 +5922,12 @@ snapshots:
       eslint-visitor-keys: 3.4.3
 
   '@eslint-community/regexpp@4.12.2': {}
+
+  '@eslint/compat@1.4.1(eslint@9.39.4(jiti@1.21.7))':
+    dependencies:
+      '@eslint/core': 0.17.0
+    optionalDependencies:
+      eslint: 9.39.4(jiti@1.21.7)
 
   '@eslint/config-array@0.21.2':
     dependencies:

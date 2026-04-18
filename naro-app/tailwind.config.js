@@ -4,11 +4,11 @@ module.exports = {
     "./app/**/*.{js,jsx,ts,tsx}",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
-  presets: [require("nativewind/preset")],
+  presets: [require("@naro/config/tailwind.preset")],
   theme: {
     extend: {
       colors: {
-        // Naro brand palette — sonra design sistem ile geni\u015fletilecek
+        // Naro müşteri brand palette — mavi
         brand: {
           50: "#f0f9ff",
           500: "#0ea5e9",

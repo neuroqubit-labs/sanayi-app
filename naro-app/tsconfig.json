@@ -1,16 +1,10 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "@naro/config/tsconfig.base.json",
   "compilerOptions": {
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@/app/*": [
-        "./app/*"
-      ]
+      "@/*": ["./src/*"],
+      "@/app/*": ["./app/*"]
     }
   },
   "include": [

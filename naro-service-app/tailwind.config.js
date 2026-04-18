@@ -4,11 +4,11 @@ module.exports = {
     "./app/**/*.{js,jsx,ts,tsx}",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
-  presets: [require("nativewind/preset")],
+  presets: [require("@naro/config/tailwind.preset")],
   theme: {
     extend: {
       colors: {
-        // Service tarafı için ayrı palette — brand tutarlı, aksan farklı
+        // Naro servis brand palette — turuncu
         brand: {
           50: "#fef3f2",
           500: "#ef6c4a",
