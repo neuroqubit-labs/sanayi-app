@@ -16,7 +16,7 @@ export default function LoginScreen() {
     setLoading(true);
     setError(null);
     try {
-      const res = await authApi.requestOtp({ channel: "sms", phone, role: "customer" });
+      const res = await authApi.requestOtp({ channel: "sms", phone });
       router.push({ pathname: "/(auth)/verify", params: { deliveryId: res.delivery_id } });
     } catch {
       setError("Kod gönderilemedi, tekrar deneyin");
