@@ -1,0 +1,53 @@
+# Naro Baseline — Faz 0
+# Date: 2026-04-17T23:59:43Z
+# Format: <sha256>  <lines>  <path>
+
+00d4f11700540658    49  naro-app/package.json
+6cffa97c0205bb85    51  naro-service-app/package.json
+115a441c96f275cd    31  naro-app/app.json
+0b81a2fd7fd2b12f    33  naro-service-app/app.json
+50bf1818503fa307     6  naro-app/metro.config.js
+50bf1818503fa307     6  naro-service-app/metro.config.js
+bfab7dc5cc4cde21     9  naro-app/babel.config.js
+bfab7dc5cc4cde21     9  naro-service-app/babel.config.js
+b42cc36bfc7a631b    22  naro-app/tailwind.config.js
+7c4b837914508c14    22  naro-service-app/tailwind.config.js
+91176c221f08399a    13  naro-app/tsconfig.json
+91176c221f08399a    13  naro-service-app/tsconfig.json
+cc1a7ad0d019ddb1     3  naro-app/global.css
+cc1a7ad0d019ddb1     3  naro-service-app/global.css
+
+## src trees
+41897f8b9a071913    32  naro-app/src/services/auth/api.ts
+afad0273ba4c4e6e    39  naro-app/src/services/auth/store.ts
+068fcb985d06e342    36  naro-app/src/shared/lib/api.ts
+7280d42af057edbb    10  naro-app/src/shared/lib/query.ts
+ed571e004f31fc58     7  naro-app/src/shared/lib/storage.ts
+c846dc5281f3a7bb    33  naro-app/src/shared/ui/Button.tsx
+1a82a7f39a18048e    31  naro-service-app/src/services/auth/api.ts
+7ef02f6bd86dbf83    45  naro-service-app/src/services/auth/store.ts
+068fcb985d06e342    36  naro-service-app/src/shared/lib/api.ts
+7280d42af057edbb    10  naro-service-app/src/shared/lib/query.ts
+ed571e004f31fc58     7  naro-service-app/src/shared/lib/storage.ts
+a47b0b6534a47a85    29  naro-service-app/src/shared/ui/Button.tsx
+
+## app/ (expo-router screens)
+ec03cd29223ad026     5  naro-app/app/(auth)/_layout.tsx
+4993d02db5c884b1    49  naro-app/app/(auth)/login.tsx
+7de0628f10ae532c    59  naro-app/app/(auth)/verify.tsx
+0195414956f6e14a    10  naro-app/app/(tabs)/_layout.tsx
+e506a1a64d745d60    13  naro-app/app/(tabs)/index.tsx
+2e0d146436cf151d    25  naro-app/app/(tabs)/profile.tsx
+8118e78351890536    30  naro-app/app/_layout.tsx
+254e6e9cd3d7c9df     9  naro-app/app/index.tsx
+ec03cd29223ad026     5  naro-service-app/app/(auth)/_layout.tsx
+66fcc65aea249f17    55  naro-service-app/app/(auth)/login.tsx
+1771adef15177dec    62  naro-service-app/app/(auth)/verify.tsx
+7217b4075d3d2972     5  naro-service-app/app/(onboarding)/_layout.tsx
+6f41f2ec04280e3b    34  naro-service-app/app/(onboarding)/pending.tsx
+224f32234c79ff24    11  naro-service-app/app/(tabs)/_layout.tsx
+1b98bbfe1b68f862    13  naro-service-app/app/(tabs)/earnings.tsx
+19d4c6a0c4e2a6fd    13  naro-service-app/app/(tabs)/index.tsx
+2e0d146436cf151d    25  naro-service-app/app/(tabs)/profile.tsx
+8118e78351890536    30  naro-service-app/app/_layout.tsx
+c7157299f8412b0b    11  naro-service-app/app/index.tsx

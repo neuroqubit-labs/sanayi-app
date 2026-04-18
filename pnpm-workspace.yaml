@@ -1,0 +1,4 @@
+packages:
+  - "naro-app"
+  - "naro-service-app"
+  - "packages/*"

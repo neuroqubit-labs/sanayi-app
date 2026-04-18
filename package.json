@@ -1,0 +1,17 @@
+{
+  "name": "naro-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev:app": "pnpm --filter naro-app start",
+    "dev:service": "pnpm --filter naro-service-app start",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "lint": "pnpm -r --parallel lint",
+    "format": "pnpm -r --parallel format"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
