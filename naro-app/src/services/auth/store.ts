@@ -1,9 +1,13 @@
 import { create } from "zustand";
 
+import { IS_MOCK_AUTH } from "@/shared/lib/mock";
 import { secureStorage } from "@/shared/lib/storage";
 
 const ACCESS_KEY = "naro.access_token";
 const REFRESH_KEY = "naro.refresh_token";
+
+const MOCK_ACCESS_TOKEN = "mock-access-token-customer";
+const MOCK_REFRESH_TOKEN = "mock-refresh-token-customer";
 
 type AuthState = {
   accessToken: string | null;
@@ -23,6 +27,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       secureStorage.get(ACCESS_KEY),
       secureStorage.get(REFRESH_KEY),
     ]);
+    if (!access && !refresh && IS_MOCK_AUTH) {
+      set({
+        accessToken: MOCK_ACCESS_TOKEN,
+        refreshToken: MOCK_REFRESH_TOKEN,
+        hydrated: true,
+      });
+      return;
+    }
     set({ accessToken: access, refreshToken: refresh, hydrated: true });
   },
   setTokens: async (access, refresh) => {
