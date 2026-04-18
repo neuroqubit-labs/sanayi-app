@@ -1,49 +1,73 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button, FormField, Screen, Text } from "@naro/ui";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useForm } from "react-hook-form";
+import { View } from "react-native";
+import { z } from "zod";
 
 import { authApi } from "@/services/auth/api";
-import { Button } from "@/shared/ui/Button";
+
+const LoginFormSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .min(10, "Telefon numarası en az 10 karakter olmalı")
+    .max(16, "Çok uzun"),
+});
+
+type LoginFormValues = z.infer<typeof LoginFormSchema>;
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [phone, setPhone] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  async function onSubmit() {
-    setLoading(true);
-    setError(null);
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(LoginFormSchema),
+    defaultValues: { phone: "" },
+  });
+
+  async function onSubmit(values: LoginFormValues) {
+    setSubmitError(null);
     try {
-      const res = await authApi.requestOtp({ channel: "sms", phone });
+      const res = await authApi.requestOtp({ channel: "sms", phone: values.phone });
       router.push({ pathname: "/(auth)/verify", params: { deliveryId: res.delivery_id } });
     } catch {
-      setError("Kod gönderilemedi, tekrar deneyin");
-    } finally {
-      setLoading(false);
+      setSubmitError("Kod gönderilemedi, tekrar deneyin");
     }
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-1 px-6 pt-12 gap-6">
-        <Text className="text-3xl font-bold text-neutral-900">Naro'ya hoş geldin</Text>
-        <Text className="text-neutral-600">Telefon numaranı gir, SMS ile kod gönderelim.</Text>
+    <Screen>
+      <View className="gap-6">
+        <View className="gap-2">
+          <Text variant="h1">Naro'ya hoş geldin</Text>
+          <Text tone="calm">Telefon numaranı gir, SMS ile kod gönderelim.</Text>
+        </View>
 
-        <TextInput
-          value={phone}
-          onChangeText={setPhone}
+        <FormField
+          control={control}
+          name="phone"
+          label="Telefon"
           placeholder="+905551112233"
           keyboardType="phone-pad"
           autoComplete="tel"
-          className="border border-neutral-300 rounded-xl px-4 py-3 text-base"
         />
 
-        {error && <Text className="text-red-600">{error}</Text>}
+        {submitError ? <Text tone="panic">{submitError}</Text> : null}
 
-        <Button label={loading ? "Gönderiliyor..." : "Kod gönder"} disabled={loading || !phone} onPress={onSubmit} />
+        <Button
+          label={isSubmitting ? "Gönderiliyor..." : "Kod gönder"}
+          loading={isSubmitting}
+          onPress={handleSubmit(onSubmit)}
+          fullWidth
+          size="lg"
+        />
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
