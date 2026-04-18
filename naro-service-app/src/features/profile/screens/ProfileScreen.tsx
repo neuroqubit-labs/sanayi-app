@@ -4,7 +4,7 @@ import { View } from "react-native";
 
 import { useAuthStore } from "@/services/auth/store";
 
-export default function Profile() {
+export function ProfileScreen() {
   const router = useRouter();
   const clear = useAuthStore((s) => s.clear);
 
@@ -16,7 +16,9 @@ export default function Profile() {
   return (
     <Screen>
       <View className="gap-4">
-        <Text variant="h2">Profil</Text>
+        <Text variant="h2">İşletme Profili</Text>
+        <Text tone="calm">İşletme bilgileri, usta ekibi, hizmetler ve belgeler burada yönetilecek.</Text>
+        <View className="flex-1" />
         <Button label="Çıkış yap" variant="secondary" onPress={onLogout} fullWidth size="lg" />
       </View>
     </Screen>
