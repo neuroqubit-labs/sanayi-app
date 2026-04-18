@@ -68,7 +68,7 @@ const SCREEN_MAP = {
 // Main tab screens have special wrapper
 const MAIN_TABS = ['screen-home', 'screen-kayitlar', 'screen-ustalar', 'screen-profil'];
 
-function ScreenContainer() {
+function ScreenContainer({ capturePreset }) {
     const { currentScreen } = useApp();
     const ScreenComponent = SCREEN_MAP[currentScreen] || HomeScreen;
     const isMainTab = MAIN_TABS.includes(currentScreen);
@@ -76,7 +76,13 @@ function ScreenContainer() {
     const showBottomNav = isMainTab;
 
     return (
-        <div className="app-shell">
+        <div
+            className="app-shell"
+            data-capture-active={capturePreset ? 'true' : undefined}
+            data-capture-mode={capturePreset?.captureMode}
+            data-capture-preset={capturePreset?.id}
+            data-capture-screen={currentScreen}
+        >
             {showVehicleBar && <VehicleBar />}
             <main className={`screen-main ${isMainTab ? '' : 'screen-main--sub'}`}>
                 <ScreenComponent key={currentScreen} />
@@ -88,10 +94,10 @@ function ScreenContainer() {
     );
 }
 
-export default function App() {
+export default function App({ initialState = null, capturePreset = null }) {
     return (
-        <AppProvider>
-            <ScreenContainer />
+        <AppProvider initialState={initialState}>
+            <ScreenContainer capturePreset={capturePreset} />
         </AppProvider>
     );
 }

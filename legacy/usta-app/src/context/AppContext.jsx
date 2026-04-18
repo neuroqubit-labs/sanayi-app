@@ -4,12 +4,12 @@ const AppContext = createContext();
 
 const MAIN_TABS = ['screen-usta-home', 'screen-my-jobs', 'screen-pool', 'screen-business-profile'];
 
-export function AppProvider({ children }) {
-    const [currentScreen, setCurrentScreen] = useState('screen-usta-home');
-    const [activeTab, setActiveTab] = useState('screen-usta-home');
-    const [fabOpen, setFabOpen] = useState(false);
-    const [availability, setAvailability] = useState('open');
-    const [campaigns, setCampaigns] = useState([]);
+export function AppProvider({ children, initialState = null }) {
+    const [currentScreen, setCurrentScreen] = useState(initialState?.currentScreen || 'screen-usta-home');
+    const [activeTab, setActiveTab] = useState(initialState?.activeTab || 'screen-usta-home');
+    const [fabOpen, setFabOpen] = useState(Boolean(initialState?.fabOpen));
+    const [availability, setAvailability] = useState(initialState?.availability || 'open');
+    const [campaigns, setCampaigns] = useState(initialState?.campaigns || []);
     const historyRef = useRef([]);
 
     const addCampaign = useCallback((campaign) => {

@@ -6,9 +6,13 @@
   "scripts": {
     "dev:app": "pnpm --filter naro-app start",
     "dev:service": "pnpm --filter naro-service-app start",
+    "capture:legacy-screens": "node scripts/capture-legacy-screens.mjs",
     "typecheck": "pnpm -r --parallel typecheck",
     "lint": "pnpm -r --parallel lint",
     "format": "pnpm -r --parallel format"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1"
   },
   "engines": {
     "node": ">=20.0.0",

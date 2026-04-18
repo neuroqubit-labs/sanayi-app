@@ -37,3 +37,13 @@ Müşteri ve servis sağlayıcı tamamen farklı mental model, farklı sıklık,
 - Matching algoritması, KYC workflow, iş akışı (teklif → onay → gerçekleştirme → ödeme → puan) backend'de ve app'larda implement edilmeli.
 - Anti-disintermediation stratejisi: maskelenmiş iletişim, escrow, puan/reputation bağlama.
 - Offline/düşük-bağlantı deneyimi (çekici usta sahada).
+
+## Geliştirme Yaklaşımı (2026-04-18 itibarıyla)
+**Arayüz önce, backend sonra.** Sıra:
+1. Mobil app ekranları + akışlar + state, **mock veriyle** uçtan uca kurulur (query fonksiyonları sahte array döner).
+2. Akışlar oturunca `@naro/domain` şemaları bu arayüzden türetilir — ekranın ihtiyacı olan alanlar, fazlası değil.
+3. Backend (DB, API, DTO, validasyon) domain şemalarından türetilir.
+
+Önceki plan (Faz 6 backend önce) iptal. Faz 3'teki `packages/domain` içindeki `Vehicle`, `Job`, `Quote` iskeletleri varsayım — arayüz netleşince baştan yazılacak. `packages/config` + `packages/ui` + `packages/domain/auth.ts` + `packages/domain/user.ts` sağlam kalır.
+
+Kullanıcı rolü: müşteri (ürün sahibi) — ekranları o anlatır, AI uygular. Over-engineering yasak; "ileride lazım olur" gerekçesiyle kod yazılmaz.

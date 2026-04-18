@@ -4,13 +4,14 @@ const AppContext = createContext();
 
 const MAIN_TABS = ['screen-home', 'screen-kayitlar', 'screen-ustalar', 'screen-profil'];
 const NO_VEHICLE_BAR = ['screen-profil', 'screen-destek', 'screen-bildirimler'];
+const DEFAULT_VEHICLE = { plate: '34 ABC 42', model: 'BMW 3 Serisi · 2019' };
 
-export function AppProvider({ children }) {
-    const [currentScreen, setCurrentScreen] = useState('screen-home');
-    const [activeTab, setActiveTab] = useState('screen-home');
-    const [fabOpen, setFabOpen] = useState(false);
-    const [vehicleSwitcherOpen, setVehicleSwitcherOpen] = useState(false);
-    const [vehicle, setVehicle] = useState({ plate: '34 ABC 42', model: 'BMW 3 Serisi · 2019' });
+export function AppProvider({ children, initialState = null }) {
+    const [currentScreen, setCurrentScreen] = useState(initialState?.currentScreen || 'screen-home');
+    const [activeTab, setActiveTab] = useState(initialState?.activeTab || 'screen-home');
+    const [fabOpen, setFabOpen] = useState(Boolean(initialState?.fabOpen));
+    const [vehicleSwitcherOpen, setVehicleSwitcherOpen] = useState(Boolean(initialState?.vehicleSwitcherOpen));
+    const [vehicle, setVehicle] = useState({ ...DEFAULT_VEHICLE, ...(initialState?.vehicle || {}) });
     const historyRef = useRef([]);
 
     const navigate = useCallback((screenId) => {

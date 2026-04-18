@@ -4065,6 +4065,56 @@ body {
   font-weight: 700;
 }
 
+html[data-capture-active="true"],
+html[data-capture-active="true"] body,
+html[data-capture-active="true"] #root {
+  min-height: 100%;
+}
+
+html[data-capture-active="true"] body {
+  align-items: flex-start;
+  overflow-y: auto;
+}
+
+html[data-capture-active="true"] *,
+html[data-capture-active="true"] *::before,
+html[data-capture-active="true"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-capture-active="true"] .app-shell {
+  margin: 24px auto;
+}
+
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] {
+  height: auto;
+  min-height: 844px;
+  overflow: visible;
+}
+
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .screen-main,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .screen-scroll,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .search-screen,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .search-content,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .swipe-screen-wrapper,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .swipe-area,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .swipe-card,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .swipe-card__scroll {
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .screen-main,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .screen-scroll,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .search-screen,
+html[data-capture-active="true"] .app-shell[data-capture-mode="full"] .swipe-screen-wrapper {
+  flex: 0 0 auto;
+}
+
 .timeline-item-v3:active .timeline-card-v3 {
   transform: scale(0.97);
   background: var(--surface-hover);
