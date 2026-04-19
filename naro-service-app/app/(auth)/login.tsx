@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
+import { telemetry } from "@/runtime";
 import { authApi } from "@/services/auth/api";
 
 const LoginFormSchema = z.object({
@@ -35,8 +36,10 @@ export default function LoginScreen() {
     setSubmitError(null);
     try {
       const res = await authApi.requestOtp({ channel: "sms", phone: values.phone });
+      telemetry.track("auth_otp_requested", { app: "service" });
       router.push({ pathname: "/(auth)/verify", params: { deliveryId: res.delivery_id } });
-    } catch {
+    } catch (error) {
+      telemetry.captureError(error, { app: "service", stage: "request_otp" });
       setSubmitError("Kod gönderilemedi, tekrar deneyin");
     }
   }

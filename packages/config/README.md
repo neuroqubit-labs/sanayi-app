@@ -1,6 +1,8 @@
 # @naro/config
 
-Paylaşılan konfigürasyon preset'leri. App'lar bu paketi `workspace:*` olarak devDependency'e alır ve kendi config dosyalarından bağlar.
+Paylaşılan konfigürasyon preset ve factory'leri. Expo default davranışını bozmadan monorepo uyumlu ortak config üretmek için kullanılır.
+
+## Kullanım
 
 ## TypeScript
 
@@ -20,28 +22,38 @@ Paylaşılan konfigürasyon preset'leri. App'lar bu paketi `workspace:*` olarak 
 
 `tsconfig.base.json` kendisi `expo/tsconfig.base` zincirini kurar; böylece Expo'nun JSX / module ayarları korunur, ortak katkılar (strict, noUncheckedIndexedAccess, moduleResolution bundler) üstüne eklenir.
 
+## Babel
+
+```js
+// app/babel.config.js
+const createExpoBabelConfig = require("@naro/config/create-babel-config");
+
+module.exports = createExpoBabelConfig();
+```
+
+## Metro
+
+```js
+// app/metro.config.js
+const createExpoMetroConfig = require("@naro/config/create-metro-config");
+
+module.exports = createExpoMetroConfig(__dirname);
+```
+
+Factory Expo'nun default Metro config'ini baz alır ve `unstable_enablePackageExports` ile monorepo paket çözümünü açar. NativeWind entegrasyonu da burada standartlaştırılır.
+
 ## Tailwind
 
 ```js
 // app/tailwind.config.js
-module.exports = {
-  presets: [require("@naro/config/tailwind.preset")],
-  content: ["./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}", "../packages/ui/src/**/*.{ts,tsx}"],
-  theme: {
-    extend: {
-      colors: {
-        brand: { 50: "#...", 500: "#...", 600: "#...", 900: "#..." },
-      },
-    },
-  },
-};
+const createTailwindConfig = require("@naro/config/create-tailwind-config");
+
+module.exports = createTailwindConfig({
+  brandColors: { 50: "#...", 500: "#...", 600: "#...", 900: "#..." },
+});
 ```
 
-Preset `nativewind/preset`'i kendi içinde barındırır — app'ta ayrıca listeleme.
-
-Brand renkleri app-özel; preset'te sabit renk yok.
-
-Content path'leri app'ın kendi config'inde; preset'te content tanımlamak yanlış dizinleri tarar.
+Factory `nativewind/preset` ve ortak content path'lerini içerir. App tarafında yalnızca brand paleti verilir.
 
 ## ESLint (flat config, v9)
 

@@ -1,57 +1,74 @@
 # naro-service-app
 
-Usta (servis sağlayıcı) mobil uygulaması. React Native + Expo + TypeScript + NativeWind.
+Servis sağlayıcı mobil uygulaması. Customer app ile aynı shared runtime omurgasını kullanır; approval/onboarding akışları app'e özeldir.
 
 ## Kurulum
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env
-npx expo start
+pnpm start
 ```
 
-Önce `naro-backend` ayakta olmalı (`docker compose up` — 8000 portu). Fiziksel cihazdan test için `EXPO_PUBLIC_API_URL`'deki `localhost`'u makinenizin LAN IP'si ile değiştirin.
+Monorepo kökünden:
 
-## Dizin yapısı
-
-```
-app/
-├── _layout.tsx                provider'lar, splash logic
-├── index.tsx                  auth + onay durumuna göre yönlendirme
-├── (auth)/
-│   ├── login.tsx              telefon girişi
-│   └── verify.tsx             OTP doğrulama (technician rolüyle)
-├── (onboarding)/
-│   └── pending.tsx            onay bekliyor ekranı (KYC sonra)
-└── (tabs)/
-    ├── _layout.tsx
-    ├── index.tsx              iş teklifleri
-    ├── earnings.tsx           kazançlar
-    └── profile.tsx
-src/
-├── features/                  iş mantığına özel modüller (jobs, kyc, earnings)
-├── shared/ui/                 Button vs.
-├── shared/lib/                api, storage, query
-└── services/auth/             tokens + approval status store
+```bash
+pnpm dev:service
 ```
 
-## Akış
+Backend erişimi için `EXPO_PUBLIC_API_URL` değerini cihazın görebileceği hosta ayarla.
 
-1. Login → telefon ile OTP iste (rol: `technician`)
-2. Verify → kod doğrula, backend `pending` statüsünde user oluşturur
-3. Onboarding → belge yükleme + KYC (sonra eklenecek)
-4. Admin onayı sonrası → iş teklifleri ekranı açılır
+## Çalışma modeli
 
-## Paket ID
+- `app/`: auth, onboarding ve tabs route shell'leri
+- `src/features/`: servis sağlayıcıya özel ekranlar
+- `src/runtime.ts`: env, auth/session, telemetry ve query wiring
+- `bootstrapState`: `anonymous | authenticated | blocked | hydrating`
 
-`com.naro.service` — değiştirmeyin.
+## Onboarding akışı
+
+1. Login
+2. OTP verify
+3. Pending approval ekranı
+4. Admin onayı sonrası tabs erişimi
+
+Mock modda bu akış `EXPO_PUBLIC_MOCK_APPROVAL=pending|active|suspended` ile taklit edilir.
+
+## Env değişkenleri
+
+```bash
+EXPO_PUBLIC_API_URL=
+EXPO_PUBLIC_APP_ENV=development
+EXPO_PUBLIC_MOCK_AUTH=true
+EXPO_PUBLIC_MOCK_APPROVAL=active
+EXPO_PUBLIC_SENTRY_DSN=
+EXPO_PUBLIC_POSTHOG_KEY=
+EXPO_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+```
 
 ## Komutlar
 
 ```bash
-npm start          # Expo dev server
-npm run android
-npm run ios
-npm run typecheck
-npm run lint
+pnpm start
+pnpm android
+pnpm ios
+pnpm web
+pnpm export:web
+pnpm typecheck
+pnpm lint
+pnpm doctor
 ```
+
+## EAS
+
+`eas.json` içinde `development`, `preview`, `production` profilleri hazırdır:
+
+```bash
+pnpm exec eas build --platform android --profile preview
+```
+
+Gerçek EAS Update/submit kullanımı için Expo hesabında proje eşlemesi ve environment secrets tanımlanmalıdır.
+
+## Paket kimliği
+
+`com.naro.service`

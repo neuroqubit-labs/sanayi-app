@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
+import { telemetry } from "@/runtime";
 import { authApi } from "@/services/auth/api";
 import { useAuthStore } from "@/services/auth/store";
 
@@ -42,9 +43,11 @@ export default function VerifyScreen() {
       await setTokens(tokens.access_token, tokens.refresh_token);
       // Yeni technician kayıtları backend tarafında "pending" olarak oluşturulur.
       // Gerçek akışta /users/me çağırıp status alınmalı; şimdilik varsayılan pending.
-      setApprovalStatus("pending");
+      await setApprovalStatus("pending");
+      telemetry.track("auth_verified", { app: "service", approvalStatus: "pending" });
       router.replace("/(onboarding)/pending");
-    } catch {
+    } catch (error) {
+      telemetry.captureError(error, { app: "service", stage: "verify_otp" });
       setSubmitError("Kod geçersiz veya süresi dolmuş");
     }
   }

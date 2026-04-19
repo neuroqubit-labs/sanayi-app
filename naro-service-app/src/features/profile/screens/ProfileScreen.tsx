@@ -2,6 +2,7 @@ import { Button, Screen, Text } from "@naro/ui";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 
+import { telemetry } from "@/runtime";
 import { useAuthStore } from "@/services/auth/store";
 
 export function ProfileScreen() {
@@ -10,6 +11,7 @@ export function ProfileScreen() {
 
   async function onLogout() {
     await clear();
+    telemetry.track("auth_logout", { app: "service" });
     router.replace("/(auth)/login");
   }
 

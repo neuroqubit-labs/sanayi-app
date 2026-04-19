@@ -1,63 +1,64 @@
 # naro-app
 
-Müşteri mobil uygulaması. React Native + Expo + TypeScript + NativeWind.
+Müşteri mobil uygulaması. Expo Router yüzeyi app içinde kalır; auth, storage, api, query ve telemetry bootstrap'ı `@naro/mobile-core` üzerinden gelir.
 
 ## Kurulum
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env
-npx expo start
+pnpm start
 ```
 
-Önce `naro-backend` ayakta olmalı (`docker compose up` — 8000 portu). Fiziksel cihazdan test için `EXPO_PUBLIC_API_URL`'deki `localhost`'u makinenizin LAN IP'si ile değiştirin.
+Monorepo kökünden çalıştırmak istersen:
 
-## Dizin yapısı
-
+```bash
+pnpm dev:app
 ```
-app/                        expo-router (dosya tabanlı routing)
-├── _layout.tsx             provider'lar, splash logic
-├── index.tsx               auth state'e göre yönlendirme
-├── (auth)/
-│   ├── login.tsx           telefon girişi, OTP iste
-│   └── verify.tsx          kodu doğrula, token al
-└── (tabs)/
-    ├── _layout.tsx         bottom tab bar
-    ├── index.tsx           anasayfa
-    └── profile.tsx         profil + çıkış
-src/
-├── features/               feature-based modüller (vehicle, matching, quote)
-├── shared/
-│   ├── ui/                 Button gibi UI primitive'leri
-│   ├── lib/                api, storage, query client
-│   ├── hooks/
-│   └── theme/
-├── services/               auth, notifications, deep-linking
-└── types/
+
+Önce `naro-backend` ayakta olmalı. Fiziksel cihazdan testte `EXPO_PUBLIC_API_URL` değerindeki `localhost` yerine makinenin erişilebilir IP'sini ver.
+
+## Çalışma modeli
+
+- `app/`: ince route shell dosyaları
+- `src/features/`: müşteriye özel ekranlar ve akışlar
+- `src/runtime.ts`: env, storage, auth, api, telemetry wiring
+- `src/shared/lib/*`: geriye dönük import yüzeyleri; gerçek implementasyon shared core'dan gelir
+
+## Önemli env değişkenleri
+
+```bash
+EXPO_PUBLIC_API_URL=
+EXPO_PUBLIC_APP_ENV=development
+EXPO_PUBLIC_MOCK_AUTH=true
+EXPO_PUBLIC_SENTRY_DSN=
+EXPO_PUBLIC_POSTHOG_KEY=
+EXPO_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
 ## Komutlar
 
 ```bash
-npm start          # Expo dev server
-npm run android    # Android cihaz/emulatör
-npm run ios        # iOS simulator (macOS)
-npm run typecheck  # TS
-npm run lint       # ESLint
+pnpm start
+pnpm android
+pnpm ios
+pnpm web
+pnpm export:web
+pnpm typecheck
+pnpm lint
+pnpm doctor
 ```
 
-## Play Store build
+## EAS
 
-EAS Build ile:
+`eas.json` içinde `development`, `preview`, `production` profilleri tanımlıdır. Preview build örneği:
 
 ```bash
-npm i -g eas-cli
-eas login
-eas build --platform android --profile preview
+pnpm exec eas build --platform android --profile preview
 ```
 
-`eas.json` sonra eklenecek.
+EAS Update ve production build için Expo projesinin `projectId` ve ilgili environment/secrets değerleri hesapta tanımlanmalıdır.
 
-## Paket ID
+## Paket kimliği
 
-`com.naro.app` — değiştirmeyin, Play Store'da kalıcıdır.
+`com.naro.app`

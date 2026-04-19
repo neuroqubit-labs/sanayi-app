@@ -18,6 +18,7 @@ export type ButtonProps = Omit<PressableProps, "children"> & {
   loading?: boolean;
   leftIcon?: ReactNode;
   fullWidth?: boolean;
+  className?: string;
 };
 
 const CONTAINER_BASE = "flex-row items-center justify-center rounded-xl";

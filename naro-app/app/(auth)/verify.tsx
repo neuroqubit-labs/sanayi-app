@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
+import { telemetry } from "@/runtime";
 import { authApi } from "@/services/auth/api";
 import { useAuthStore } from "@/services/auth/store";
 
@@ -40,8 +41,10 @@ export default function VerifyScreen() {
     try {
       const tokens = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
       await setTokens(tokens.access_token, tokens.refresh_token);
+      telemetry.track("auth_verified", { app: "customer" });
       router.replace("/(tabs)");
-    } catch {
+    } catch (error) {
+      telemetry.captureError(error, { app: "customer", stage: "verify_otp" });
       setSubmitError("Kod geçersiz veya süresi dolmuş");
     }
   }

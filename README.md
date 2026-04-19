@@ -1,39 +1,65 @@
 # Naro
 
-Araç servis eşleştirme platformu. Üç bağımsız proje tek repoda tutulur; her birinin kendi toolchain'i, kendi build/test akışı vardır. İleride ayrı GitHub repolarına bölmek isterseniz `git subtree split` ile mümkündür.
+Araç servis eşleştirme platformunun monorepo'su. Mobil tarafta iki ayrı Expo uygulaması aynı tasarım sistemi ve aynı runtime omurgasını paylaşır; backend ise ayrı servis olarak yaşar.
 
-## Yapı
+## Monorepo yapısı
 
-```
+```text
 .
-├── naro-app/              Müşteri mobil uygulaması  (React Native + Expo + TS)
-├── naro-service-app/      Usta mobil uygulaması     (React Native + Expo + TS)
-├── naro-backend/          API + iş mantığı          (FastAPI + Postgres + Redis)
-├── docs/                  Ürün tasarımı, mimari notlar, feature dokümanları
-└── legacy/                Eski web prototipi (referans — yeni kodda kullanılmaz)
+├── naro-app/              Müşteri mobil uygulaması
+├── naro-service-app/      Servis sağlayıcı mobil uygulaması
+├── naro-backend/          FastAPI tabanlı API
+├── packages/
+│   ├── config/            Paylaşılan Expo / TS / Tailwind konfigürasyonu
+│   ├── domain/            Ortak domain tipleri ve şemaları
+│   ├── mobile-core/       Auth, storage, api, query, telemetry, bootstrap
+│   └── ui/                Ortak NativeWind UI primitive'leri
+└── docs/                  Mimari ve ürün dokümantasyonu
 ```
 
-## Başlangıç
+## Hızlı başlangıç
 
-Her alt projenin kendi README'si kurulumu ve komutları açıklar:
+```bash
+pnpm install
+cp naro-app/.env.example naro-app/.env
+cp naro-service-app/.env.example naro-service-app/.env
+pnpm dev:app
+```
 
-- [naro-backend/README.md](naro-backend/README.md) — Docker Compose ile ayağa kalkar
-- [naro-app/README.md](naro-app/README.md) — Expo ile başlar
-- [naro-service-app/README.md](naro-service-app/README.md) — Expo ile başlar
+Backend ile birlikte çalışmak için ayrıca [naro-backend/README.md](naro-backend/README.md) içindeki kurulumun tamamlanmış olması gerekir. Fiziksel cihazdan testte `EXPO_PUBLIC_API_URL` için `localhost` yerine makinenin erişilebilir IP'sini kullanın.
 
-## Teknoloji
+## Mobil platform prensipleri
 
-| Alan | Seçim |
-|---|---|
-| Mobil | React Native + Expo (SDK 52+), TypeScript, NativeWind, expo-router, TanStack Query, Zustand, Zod |
-| Backend | FastAPI, Python 3.12, SQLAlchemy 2.x (async), Alembic, Pydantic v2, ARQ (Redis job queue) |
-| DB | PostgreSQL 16 |
-| Cache / Queue | Redis 7 |
-| SMS | Twilio (abstract `SmsProvider` interface — dev'de console'a basar) |
-| Auth | JWT, OTP tabanlı (email/SMS) |
-| Paket | npm (mobil), uv (backend) |
-| Lint / Format | ESLint + Prettier (mobil), Ruff + mypy (backend) |
+- İki ayrı app korunur: müşteri ve servis sağlayıcı farklı store kimliği ve navigation ile yaşar.
+- Ortak runtime kodu `packages/mobile-core` içinde tutulur.
+- Route dosyaları thin shell kalır; business logic `src/features` altında yaşar.
+- Web yalnızca geliştirme smoke yüzeyi olarak desteklenir.
+- Observability için Sentry ve PostHog shared adapter katmanından bağlanır.
 
-## Legacy
+Detaylı mimari notlar için [docs/mobile-platform.md](docs/mobile-platform.md) dosyasına bakın.
 
-`legacy/` eski web prototipini barındırır. Yeni mobil app'ler geliştirilirken ekran tasarımları buradan referans alınır. Zamanla küçültülüp kaldırılacaktır.
+## Komutlar
+
+```bash
+pnpm dev:app          # müşteri uygulaması
+pnpm dev:service      # servis sağlayıcı uygulaması
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm doctor
+pnpm ci:mobile
+```
+
+## CI ve release hattı
+
+- Pull request kalite kapısı: install, lint, typecheck, test, expo-doctor, web export smoke
+- `main` branch: iki app için Android preview build tetiklenir
+- EAS profilleri her app içinde `development`, `preview`, `production` olarak tanımlıdır
+
+## Alt proje dokümanları
+
+- [naro-app/README.md](naro-app/README.md)
+- [naro-service-app/README.md](naro-service-app/README.md)
+- [naro-backend/README.md](naro-backend/README.md)
+- [packages/config/README.md](packages/config/README.md)
+- [packages/mobile-core/README.md](packages/mobile-core/README.md)

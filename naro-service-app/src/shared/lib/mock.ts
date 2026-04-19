@@ -1,21 +1,9 @@
-/**
- * Mock helper — geliştirmede API çağrısı taklidi için.
- *
- * Gerçek backend gelince feature api.ts dosyaları mock delay yerine
- * gerçek fetch çağırır; feature hook imzaları değişmez.
- */
+import { mockDelay } from "@naro/mobile-core";
 
-export const IS_MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
+import { env, type ApprovalStatus } from "@/runtime";
 
-export const MOCK_APPROVAL: "pending" | "active" =
-  process.env.EXPO_PUBLIC_MOCK_APPROVAL === "pending" ? "pending" : "active";
+export const IS_MOCK_AUTH = env.mockAuth;
 
-function randomDelay(min: number, max: number): number {
-  return Math.floor(min + Math.random() * (max - min));
-}
+export const MOCK_APPROVAL: ApprovalStatus = env.mockApproval;
 
-export function mockDelay<T>(value: T, min = 200, max = 500): Promise<T> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(value), randomDelay(min, max));
-  });
-}
+export { mockDelay };

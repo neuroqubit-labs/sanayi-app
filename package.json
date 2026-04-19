@@ -7,11 +7,17 @@
     "dev:app": "pnpm --filter naro-app start",
     "dev:service": "pnpm --filter naro-service-app start",
     "capture:legacy-screens": "node scripts/capture-legacy-screens.mjs",
-    "typecheck": "pnpm -r --parallel typecheck",
-    "lint": "pnpm -r --parallel lint",
-    "format": "pnpm -r --parallel format"
+    "test": "pnpm -r --parallel --if-present test",
+    "typecheck": "pnpm -r --parallel --if-present typecheck",
+    "lint": "pnpm -r --parallel --if-present lint",
+    "doctor": "pnpm --filter naro-app doctor && pnpm --filter naro-service-app doctor",
+    "ci:mobile": "pnpm lint && pnpm typecheck && pnpm test && pnpm doctor",
+    "format": "pnpm -r --parallel --if-present format"
   },
   "devDependencies": {
+    "@types/node": "^24.10.1",
+    "expo-doctor": "^1.18.18",
+    "vitest": "^2.1.8",
     "playwright": "^1.59.1"
   },
   "engines": {

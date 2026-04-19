@@ -6,6 +6,7 @@ export type TextTone = "panic" | "calm" | "neutral" | "muted";
 export type TextProps = RNTextProps & {
   variant?: TextVariant;
   tone?: TextTone;
+  className?: string;
 };
 
 const VARIANT_CLASS: Record<TextVariant, string> = {

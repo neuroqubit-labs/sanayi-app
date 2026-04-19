@@ -1,11 +1,20 @@
+import { resolveBootstrapHref } from "@naro/mobile-core";
 import { Redirect } from "expo-router";
 
 import { useAuthStore } from "@/services/auth/store";
 
 export default function Index() {
-  const { accessToken, approvalStatus, hydrated } = useAuthStore();
-  if (!hydrated) return null;
-  if (!accessToken) return <Redirect href="/(auth)/login" />;
-  if (approvalStatus === "pending") return <Redirect href="/(onboarding)/pending" />;
-  return <Redirect href="/(tabs)" />;
+  const bootstrapState = useAuthStore((state) => state.bootstrapState);
+  const href = resolveBootstrapHref({
+    anonymousHref: "/(auth)/login",
+    authenticatedHref: "/(tabs)",
+    blockedHref: "/(onboarding)/pending",
+    bootstrapState,
+  });
+
+  if (!href) {
+    return null;
+  }
+
+  return <Redirect href={href as never} />;
 }

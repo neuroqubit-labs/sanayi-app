@@ -6,12 +6,18 @@
   "exports": {
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./tailwind.preset": "./tailwind.preset.js",
-    "./eslint-preset": "./eslint-preset.js"
+    "./eslint-preset": "./eslint-preset.js",
+    "./create-babel-config": "./create-babel-config.js",
+    "./create-metro-config": "./create-metro-config.js",
+    "./create-tailwind-config": "./create-tailwind-config.js"
   },
   "files": [
     "tsconfig.base.json",
     "tailwind.preset.js",
     "eslint-preset.js",
+    "create-babel-config.js",
+    "create-metro-config.js",
+    "create-tailwind-config.js",
     "README.md"
   ],
   "dependencies": {
@@ -21,6 +27,7 @@
   },
   "peerDependencies": {
     "eslint": "^9.0.0",
+    "expo": ">=52.0.0",
     "nativewind": "^4.0.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.0.0"

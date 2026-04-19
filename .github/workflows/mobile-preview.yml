@@ -1,0 +1,50 @@
+name: Mobile Preview Build
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "naro-app/**"
+      - "naro-service-app/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/mobile-preview.yml"
+  workflow_dispatch:
+
+jobs:
+  android-preview:
+    if: ${{ secrets.EXPO_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - naro-app
+          - naro-service-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Trigger Android preview build
+        run: pnpm --filter ${{ matrix.app }} exec eas build --platform android --profile preview --non-interactive --no-wait
