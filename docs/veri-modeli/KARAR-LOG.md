@@ -1294,3 +1294,122 @@ Backend'de `MediaPurpose` 21 değer; Zod `packages/domain/src/media.ts` 5 değer
 - **Faz 13** S3 prod provision uygula (Terraform apply + CloudFront + IAM); `.env.production`
 - **Faz 14** ClamAV V1.1 canlı (CLAMAV_HOST set + profile up); antivirus stub kaldır
 - **Faz 15** Multipart upload V2 (video 200MB+ chunked resumable)
+
+---
+
+## Faz 12 — Müşteri Vaka Oluşturma Backend Kontratı (execution log, 2026-04-22)
+
+### Durum özeti
+
+- **Scope**: PO brief [docs/musteri-vaka-olusturma-backend-contract.md](../musteri-vaka-olusturma-backend-contract.md) §2-§12 uygulandı. Kind-bazlı validation + 7 endpoint (4 ana + 3 draft brief dışı) + attachment pipeline + error contract.
+- **Shipped**: 1 migration (0021 media_assets.linked_case_id FK + partial index), 1 yeni service (case_create), 1 yeni validator (maintenance_detail_validator), 1 yeni router (cases — 4 endpoint), 2 Prometheus metric, 3 test dosyası (30 test aktif).
+- **Test**: 56 pass + 10 skipped (cross-test asyncpg event-loop bloker — Faz 10/11 ortak)
+- **Audit P0-6 çözüldü**: REST endpoint hazır; POST /cases → ServiceCase + CaseEvent (`submitted`) + blueprint assignment.
+
+### Altyapı kararları
+
+- **[K-I1]** `media_assets.linked_case_id UUID FK SET NULL` — asset reuse guard (§5.4). Partial index `WHERE linked_case_id IS NOT NULL` hızlı lookup.
+- **[K-I2]** Generated geography columns `Computed()` işaretli — SQLAlchemy artık ORM INSERT'te bu kolonları atlar. Faz 10'da migration'da `GENERATED ALWAYS` DDL, model'de `nullable=True` idi; ORM ilk hydrate'da INSERT sırasında NULL gönderiyordu → `GeneratedAlwaysError`. Case.pickup_location/dropoff_location + TechnicianProfile.last_known_location + TowLiveLocation.location tümünde `Computed(expr, persisted=True)` declarative alignment yapıldı.
+
+### Veri modeli kararları
+
+- **[K-D1]** `ServiceRequestDraftCreate` Pydantic genişletme (§9.1):
+  - `LatLng` alt model (lat/lng range-check ± 90/180)
+  - `location_lat_lng: LatLng | None` (permission fallback null OK)
+  - `dropoff_lat_lng: LatLng | None`
+  - `damage_severity: DamageSeverity` enum (minor/moderate/major/total_loss; matching skorunda kullanılır)
+  - `maintenance_detail: dict[str, Any] | None` (polymorphic; service layer parse eder)
+  - `CaseAttachmentDraft.category: str` (semantik etiket — scene_overview/damage_detail/mileage_photo vb.)
+- **[K-D2]** `CaseWorkflowBlueprint` mevcut 4 değer reuse: damage_insured/uninsured, maintenance_major/standard. Towing + breakdown için standart fallback (future Faz'da ayrıştırılır).
+
+### Flow kararları
+
+- **[K-F1]** Pydantic `@model_validator` — kind-bazlı zorunlu/yasak enforce. `_KIND_FIELD_RULES` dict 4 kind × required/forbidden entry. False/list default != explicit ayrımı: required → `value is None` → hata; forbidden → `value != default and value is not None` → hata.
+- **[K-F2]** 3 katman validation (§6):
+  1. Pydantic syntax (type/min/max/enum)
+  2. @model_validator kind-bazlı + conditional (kasko_brand if kasko_selected; accident emergency_acknowledged must be True)
+  3. Service layer: vehicle ownership + maintenance_detail parse + attachment ownership/completion/uniqueness + REQUIRED_ATTACHMENT_MATRIX + duplicate open case guard
+- **[K-F3]** `maintenance_detail_validator.py` — kategori × payload çapraz validator. 14 MaintenanceCategory × Pydantic sub-model dict (PeriodicDetail, GlassFilmDetail, TireDetail, CoatingDetail, BatteryDetail, BrakeDetail, ClimateDetail, DetailWashDetail, PackageDetail, EmptyDetail). `_REQUIRED_CATEGORIES = {GLASS_FILM, TIRE, BRAKE}` detail zorunlu. `extra="forbid"` unknown field reddi.
+- **[K-F4]** `REQUIRED_ATTACHMENT_MATRIX` — (kind, sub_category) → zorunlu attachment.category frozenset. `accident`: scene_overview+damage_detail; `maintenance/periodic`: mileage_photo; `maintenance/tire`: tire_photo; diğerleri boş (opsiyonel).
+- **[K-F5]** Duplicate open case guard: `accident`, `breakdown`, `towing` için `vehicle_id + kind + status ∈ {matching...invoice_approval}` query → existing varsa 409 `duplicate_open_case`. Maintenance için değil (paralel bakımlar OK).
+- **[K-F6]** Asset bağlama: submit sonrası `UPDATE media_assets SET linked_case_id=:case WHERE id IN (:asset_ids)`. Reuse guard: submit öncesi `linked_case_id IS NOT NULL` olan asset varsa 409 `asset_already_linked`.
+- **[K-F7]** Workflow blueprint resolver:
+  - `accident + (kasko OR sigorta)` → `damage_insured`
+  - `accident + neither` → `damage_uninsured`
+  - `maintenance ∈ {periodic, coating, package_*}` → `maintenance_major`
+  - `maintenance` diğer → `maintenance_standard`
+  - `breakdown + towing` → `maintenance_standard` (fallback; Faz 13'te ayrıştırılacak)
+
+### Endpoint kontratı
+
+- **POST /api/v1/cases** — RequireCustomer; ServiceRequestDraftCreate body; 201 + CaseCreateResponse (id, status, kind, workflow_blueprint, created_at, title)
+- **GET /api/v1/cases/me** — RequireCustomer; kendi açık+kapalı vakaları (CaseSummaryResponse[])
+- **GET /api/v1/cases/{id}** — RequireCurrentUser; participant-only (customer_user_id OR assigned_technician_id OR admin)
+- **POST /api/v1/cases/{id}/cancel** — customer-self OR admin; status→cancelled + CaseEvent
+
+Draft endpoint'leri (POST/GET/DELETE /cases/drafts) ayrı brief kapsamında — Faz 13 iterasyonu.
+
+### Error contract
+
+| HTTP | Type | Scenario |
+|---|---|---|
+| 422 | `value_error` (Pydantic) | Syntax/conditional/forbidden field |
+| 422 | `maintenance_detail_invalid` | Kategori × detail çapraz uyumsuz |
+| 422 | `missing_required_attachments` | REQUIRED_ATTACHMENT_MATRIX eksik (ctx.missing=[...]) |
+| 422 | `asset_not_complete` | linked asset status != ready/uploaded |
+| 409 | `duplicate_open_case` | Aynı araç açık case (ctx.existing_case_id + kind) |
+| 409 | `asset_already_linked` | Asset başka case'e bağlı |
+| 403 | `vehicle_not_owned` | Başkasının aracı |
+| 403 | `asset_not_owned` | Başkasının asset'i |
+| 403 | `not_case_participant` / `not_case_owner` | Authz fail |
+| 404 | `case_not_found` | deleted veya yok |
+
+### Kritik dosyalar
+
+**Yeni (4):**
+- `app/services/case_create.py` — 6-aşamalı flow + domain exceptions + REQUIRED_ATTACHMENT_MATRIX + resolve_blueprint
+- `app/services/maintenance_detail_validator.py` — 14 kategori × payload sub-model
+- `app/api/v1/routes/cases.py` — 4 endpoint
+- `alembic/versions/20260422_0021_media_linked_case.py`
+- `tests/test_case_create_schema.py` (14 test)
+- `tests/test_maintenance_detail_validator.py` (10 test)
+- `tests/test_case_create_service.py` (1 DB + 4 pure unit + 2 skipped)
+
+**Güncellenen:**
+- `app/schemas/service_request.py` — +LatLng, DamageSeverity, attachment.category, location/dropoff_lat_lng, damage_severity, maintenance_detail, @model_validator, _KIND_FIELD_RULES, _FIELD_DEFAULTS
+- `app/models/case.py` + `technician.py` + `tow.py` — `Computed()` işareti generated columns (ORM INSERT fix)
+- `app/models/media.py` — +linked_case_id FK
+- `app/observability/metrics.py` — +2 case_create metric
+- `app/api/v1/router.py` — cases router include
+
+### Test durumu
+
+- `test_case_create_schema` — 14 test: happy + sad per kind (accident missing damage_severity, counterparty_note, kasko_brand; breakdown missing symptoms + kasko forbidden; maintenance damage_area forbidden; towing missing dropoff_lat_lng + pickup_preference forbidden; LatLng range)
+- `test_maintenance_detail_validator` — 10 test: glass_film/tire valid + sad, periodic optional, headlight_polish empty, tire required raise, category None check, extra field forbid
+- `test_case_create_service` — 4 pure (blueprint resolver 4 branch) + 1 DB happy (maintenance periodic w/ mileage_photo) + 2 skipped (cross-test bloker)
+
+Toplam 30 yeni test — 28 aktif, 2 skipped reasoned.
+
+Genel test suite: 56 pass + 10 skipped; ruff clean; mypy Faz 12 source clean.
+
+### Audit senkronu
+
+| Audit bulgu | Çözüm |
+|---|---|
+| P0-6 (REST endpoint eksik) | ✅ `/cases` router + 4 endpoint |
+| P0-5 (kullanıcı tercihi enforcement) | ✅ Pydantic kind-bazlı `_KIND_FIELD_RULES` (hard reject); matching motoru soft-warning ayrı iterasyon |
+| P1-2 (damage scoring) | ✅ DamageSeverity enum — matching skorunda kullanılır |
+| P1-1 (vehicle history consent) | ⏳ Bu faz kapsamı dışı — araç ekleme flow'unun ayrı iterasyonu |
+| P1-5 (test coverage) | ✅ 30 yeni test + 56 toplam |
+
+### Zod parity (frontend kapsam dışı — Faz D)
+
+Backend `ServiceRequestDraftCreate` + LatLng + DamageSeverity + CaseAttachmentDraft.category ek. Frontend [packages/domain/src/service-case.ts](../../packages/domain/src/service-case.ts) Zod şemasının aynı alanlarla paralel güncellenmesi gerekir (UI-UX-FRONTEND-DEV sohbet iterasyonu). Zod ↔ Pydantic parity CI testi Faz 13 sub-sprint.
+
+### Faz sonrası (Faz 13+)
+
+- **Faz 13a** — Draft endpoint'leri (POST/GET/DELETE `/cases/drafts/*`) — half-state resume
+- **Faz 13b** — Mobil wire-up (mock engine → real API; 422/409/403 → i18n key mapping; submit sonrası case profile navigation)
+- **Faz 14** — Workflow blueprint genişletme (breakdown_* + towing_*) + milestone/task seed her blueprint için
+- **Faz 15** — Zod ↔ Pydantic parity CI test + schema drift gate
+- **Faz 16** — Reverse image search + duplicate checksum audit (anti-fraud media Faz 11 V2)

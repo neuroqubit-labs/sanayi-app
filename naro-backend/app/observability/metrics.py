@@ -107,6 +107,21 @@ media_retention_deleted_total = Counter(
     registry=registry,
 )
 
+# ─── Faz 12 — Case create metrics ──────────────────────────────────────────
+
+case_create_total = Counter(
+    "naro_case_create_total",
+    "Case create submissions",
+    labelnames=("kind", "status"),
+    registry=registry,
+)
+case_create_validation_fail_total = Counter(
+    "naro_case_create_validation_fail_total",
+    "Case create validation failures",
+    labelnames=("kind", "reason"),
+    registry=registry,
+)
+
 
 def render_metrics() -> tuple[bytes, str]:
     return generate_latest(registry), "text/plain; version=0.0.4"

@@ -9,10 +9,10 @@ Mobil kaynak: [packages/domain/src/service-case.ts::ServiceRequestDraftSchema](p
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.case import ServiceRequestKind, ServiceRequestUrgency
 
@@ -76,7 +76,25 @@ class CaseAttachmentKind(StrEnum):
     LOCATION = "location"
 
 
+class DamageSeverity(StrEnum):
+    """Kaza hasar derecesi — §4.2. Matching motoru skorunda kullanılır."""
+
+    MINOR = "minor"
+    MODERATE = "moderate"
+    MAJOR = "major"
+    TOTAL_LOSS = "total_loss"
+
+
 # ─── Alt modeller ──────────────────────────────────────────────────────────
+
+
+class LatLng(BaseModel):
+    """Konum (WGS84)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lat: Annotated[float, Field(ge=-90, le=90)]
+    lng: Annotated[float, Field(ge=-180, le=180)]
 
 
 class CaseAttachmentDraft(BaseModel):
@@ -90,17 +108,20 @@ class CaseAttachmentDraft(BaseModel):
     subtitle: str | None = None
     status_label: str | None = Field(default=None, alias="statusLabel")
     asset_id: UUID | None = None  # media_assets.id varsa
+    # Semantik etiket: scene_overview, damage_detail, counterparty_plate,
+    # mileage_photo, tire_photo, glass_current_view, ... (§5.2)
+    category: str | None = Field(default=None, max_length=64)
 
 
 # ─── Ana Model ─────────────────────────────────────────────────────────────
 
 
 class ServiceRequestDraftCreate(BaseModel):
-    """Vaka açılışındaki tam talep payload'u (32 alan + schema_version).
+    """Vaka açılışındaki tam talep payload'u (32 alan + schema_version + §3 ek).
 
-    Faz 7+ için top-level lift'lenecek alanlar (breakdown_category,
-    maintenance_category, kasko_selected, towing_required, on_site_repair)
-    şu an JSONB içinde saklanır; create'te top-level kolona da yazılacak.
+    Kind-bazlı zorunluluk/yasak `@model_validator` ile enforce edilir.
+    Service layer ayrıca attachment ownership + required matrix + duplicate
+    guard katmanlarını uygular.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -114,10 +135,12 @@ class ServiceRequestDraftCreate(BaseModel):
     urgency: ServiceRequestUrgency
 
     # Metin + konum
-    summary: str = Field(min_length=1)
-    location_label: str = Field(min_length=1)
-    dropoff_label: str | None = None
-    notes: str | None = None
+    summary: str = Field(min_length=1, max_length=500)
+    location_label: str = Field(min_length=1, max_length=255)
+    location_lat_lng: LatLng | None = None  # permission denied fallback → null
+    dropoff_label: str | None = Field(default=None, max_length=255)
+    dropoff_lat_lng: LatLng | None = None
+    notes: str | None = Field(default=None, max_length=2000)
 
     # Ek + kayıtlar
     attachments: list[CaseAttachmentDraft] = Field(default_factory=list)
@@ -136,6 +159,7 @@ class ServiceRequestDraftCreate(BaseModel):
     counterparty_note: str | None = None
     counterparty_vehicle_count: int | None = Field(default=None, ge=0)
     damage_area: str | None = None
+    damage_severity: DamageSeverity | None = None
     valet_requested: bool = False
     report_method: AccidentReportMethod | None = None
     kasko_selected: bool = False
@@ -152,4 +176,142 @@ class ServiceRequestDraftCreate(BaseModel):
 
     # Bakım-spesifik
     maintenance_category: MaintenanceCategory | None = None
+    maintenance_detail: dict[str, Any] | None = None
     maintenance_tier: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_kind_consistency(self) -> ServiceRequestDraftCreate:
+        """§3 + §6.2 — kind-bazlı zorunlu/yasak + conditional alanlar."""
+        rules = _KIND_FIELD_RULES.get(self.kind, {})
+        errors: list[str] = []
+        for field_name, rule in rules.items():
+            value = getattr(self, field_name, None)
+            # Required: None → missing. False/0/'' explicit değerdir; kabul.
+            # Forbidden: default-dışı değer → hata. bool default False; True → hata.
+            #            list default []; non-empty → hata. str default None; non-None → hata.
+            if rule == "required":
+                if value is None:
+                    errors.append(
+                        f"kind={self.kind.value} için '{field_name}' zorunlu"
+                    )
+            elif rule == "forbidden":
+                default = _FIELD_DEFAULTS.get(field_name)
+                is_explicit = value != default and value is not None
+                if is_explicit:
+                    errors.append(
+                        f"kind={self.kind.value} için '{field_name}' gönderilemez"
+                    )
+        # Conditional: counterparty_note ↔ counterparty_vehicle_count
+        if (
+            self.kind == ServiceRequestKind.ACCIDENT
+            and (self.counterparty_vehicle_count or 0) >= 1
+            and not self.counterparty_note
+        ):
+            errors.append(
+                "kind=accident + counterparty_vehicle_count>=1 iken 'counterparty_note' zorunlu"
+            )
+        # kasko_brand required when kasko_selected
+        if self.kasko_selected and not self.kasko_brand:
+            errors.append("kasko_selected=true iken 'kasko_brand' zorunlu")
+        if self.sigorta_selected and not self.sigorta_brand:
+            errors.append("sigorta_selected=true iken 'sigorta_brand' zorunlu")
+        # breakdown requires symptoms
+        if self.kind == ServiceRequestKind.BREAKDOWN and not self.symptoms:
+            errors.append("kind=breakdown için en az 1 'symptoms' girişi zorunlu")
+        # Kaza: emergency_acknowledged True olmalı (sadece present değil)
+        if (
+            self.kind == ServiceRequestKind.ACCIDENT
+            and self.emergency_acknowledged is not True
+        ):
+            errors.append(
+                "kind=accident için 'emergency_acknowledged' True olmalı"
+            )
+        if errors:
+            raise ValueError(" | ".join(errors))
+        return self
+
+
+# Default değerler — forbidden enforce için "kullanıcı explicit set etti mi"
+# check'inde kullanılır. bool default=False; list default=[]; str default=None.
+_FIELD_DEFAULTS: dict[str, object] = {
+    "towing_required": False,
+    "valet_requested": False,
+    "kasko_selected": False,
+    "sigorta_selected": False,
+    "ambulance_contacted": False,
+    "emergency_acknowledged": False,
+    "on_site_repair": False,
+}
+
+
+# §3 — Kind-bazlı alan kuralları
+# required: değer dolu olmalı (None/False/[]/"" → hata)
+# forbidden: değer boş olmalı (yazılırsa hata)
+_KIND_FIELD_RULES: dict[ServiceRequestKind, dict[str, Literal["required", "forbidden"]]] = {
+    ServiceRequestKind.ACCIDENT: {
+        "counterparty_vehicle_count": "required",
+        "damage_area": "required",
+        "damage_severity": "required",
+        "report_method": "required",
+        "emergency_acknowledged": "required",
+        # Kazada anlamsız alanlar
+        "on_site_repair": "forbidden",
+        "valet_requested": "forbidden",
+        "pickup_preference": "forbidden",
+        "breakdown_category": "forbidden",
+        "maintenance_category": "forbidden",
+        "maintenance_detail": "forbidden",
+        "maintenance_tier": "forbidden",
+    },
+    ServiceRequestKind.BREAKDOWN: {
+        "breakdown_category": "required",
+        # Arıza'da anlamsız
+        "kasko_selected": "forbidden",
+        "kasko_brand": "forbidden",
+        "sigorta_selected": "forbidden",
+        "sigorta_brand": "forbidden",
+        "report_method": "forbidden",
+        "damage_area": "forbidden",
+        "damage_severity": "forbidden",
+        "ambulance_contacted": "forbidden",
+        "emergency_acknowledged": "forbidden",
+        "counterparty_note": "forbidden",
+        "counterparty_vehicle_count": "forbidden",
+        "maintenance_category": "forbidden",
+        "maintenance_detail": "forbidden",
+        "maintenance_tier": "forbidden",
+    },
+    ServiceRequestKind.MAINTENANCE: {
+        "maintenance_category": "required",
+        # Bakımda anlamsız
+        "kasko_selected": "forbidden",
+        "kasko_brand": "forbidden",
+        "sigorta_selected": "forbidden",
+        "sigorta_brand": "forbidden",
+        "report_method": "forbidden",
+        "damage_area": "forbidden",
+        "damage_severity": "forbidden",
+        "counterparty_note": "forbidden",
+        "counterparty_vehicle_count": "forbidden",
+        "ambulance_contacted": "forbidden",
+        "emergency_acknowledged": "forbidden",
+        "breakdown_category": "forbidden",
+    },
+    ServiceRequestKind.TOWING: {
+        "dropoff_label": "required",
+        "dropoff_lat_lng": "required",
+        "vehicle_drivable": "required",
+        # Towing'de anlamsız
+        "on_site_repair": "forbidden",
+        "valet_requested": "forbidden",
+        "pickup_preference": "forbidden",
+        "counterparty_note": "forbidden",
+        "counterparty_vehicle_count": "forbidden",
+        "damage_area": "forbidden",
+        "damage_severity": "forbidden",
+        "breakdown_category": "forbidden",
+        "maintenance_category": "forbidden",
+        "maintenance_detail": "forbidden",
+        "maintenance_tier": "forbidden",
+    },
+}

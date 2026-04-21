@@ -125,5 +125,9 @@ class MediaAsset(UUIDPkMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
+    # Faz 12 — case bind (owner_id'den farklı: owner semantic; linked = reuse guard)
+    linked_case_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("service_cases.id", ondelete="SET NULL"), nullable=True
+    )
     uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

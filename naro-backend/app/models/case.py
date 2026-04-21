@@ -15,7 +15,7 @@ from enum import StrEnum
 from uuid import UUID
 
 from geoalchemy2 import Geography
-from sqlalchemy import DateTime, Float, ForeignKey, Numeric, String, Text
+from sqlalchemy import Computed, DateTime, Float, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -199,12 +199,25 @@ class ServiceCase(UUIDPkMixin, TimestampMixin, Base):
     dropoff_lng: Mapped[float | None] = mapped_column(Float)
     dropoff_address: Mapped[str | None] = mapped_column(String(500))
     tow_fare_quote: Mapped[dict[str, object] | None] = mapped_column(JSONB)
-    # Generated columns — read-only
+    # Generated columns — read-only (DB computed; INSERT/UPDATE yasak).
+    # SQLAlchemy `Computed` işareti ile ORM DML'lerden hariç tutulur.
+    _PICKUP_LOC_EXPR = (
+        "CASE WHEN pickup_lng IS NOT NULL AND pickup_lat IS NOT NULL "
+        "THEN ST_SetSRID(ST_MakePoint(pickup_lng, pickup_lat), 4326)::geography "
+        "ELSE NULL END"
+    )
+    _DROPOFF_LOC_EXPR = (
+        "CASE WHEN dropoff_lng IS NOT NULL AND dropoff_lat IS NOT NULL "
+        "THEN ST_SetSRID(ST_MakePoint(dropoff_lng, dropoff_lat), 4326)::geography "
+        "ELSE NULL END"
+    )
     pickup_location: Mapped[str | None] = mapped_column(
         Geography(geometry_type="POINT", srid=4326),
+        Computed(_PICKUP_LOC_EXPR, persisted=True),
         nullable=True,
     )
     dropoff_location: Mapped[str | None] = mapped_column(
         Geography(geometry_type="POINT", srid=4326),
+        Computed(_DROPOFF_LOC_EXPR, persisted=True),
         nullable=True,
     )

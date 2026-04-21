@@ -17,6 +17,7 @@ from geoalchemy2 import Geography
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Computed,
     DateTime,
     Float,
     ForeignKey,
@@ -145,6 +146,12 @@ class TechnicianProfile(UUIDPkMixin, TimestampMixin, Base):
     last_known_location_lng: Mapped[float | None] = mapped_column(Float)
     last_known_location: Mapped[str | None] = mapped_column(
         Geography(geometry_type="POINT", srid=4326),
+        Computed(
+            "CASE WHEN last_known_location_lng IS NOT NULL AND last_known_location_lat IS NOT NULL "
+            "THEN ST_SetSRID(ST_MakePoint(last_known_location_lng, last_known_location_lat), 4326)::geography "
+            "ELSE NULL END",
+            persisted=True,
+        ),
         nullable=True,
     )
     last_location_at: Mapped[datetime | None] = mapped_column(

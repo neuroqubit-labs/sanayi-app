@@ -22,6 +22,7 @@ from uuid import UUID
 from geoalchemy2 import Geography
 from sqlalchemy import (
     CheckConstraint,
+    Computed,
     DateTime,
     Float,
     ForeignKey,
@@ -165,6 +166,10 @@ class TowLiveLocation(Base):
     lng: Mapped[float] = mapped_column(Float, nullable=False)
     location: Mapped[str | None] = mapped_column(
         Geography(geometry_type="POINT", srid=4326),
+        Computed(
+            "ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography",
+            persisted=True,
+        ),
         nullable=True,
     )
     heading_deg: Mapped[int | None] = mapped_column(SmallInteger)
