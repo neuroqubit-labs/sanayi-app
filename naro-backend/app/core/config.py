@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, computed_field
+from pydantic import PostgresDsn, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
+
+    aws_region: str = "us-east-1"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_s3_endpoint_url: str = ""
+    s3_private_bucket: str = "development-naro-media-private"
+    s3_public_bucket: str = "development-naro-media-public"
+    cloudfront_public_base_url: str = ""
+    media_upload_url_ttl_seconds: int = 600
+    media_download_url_ttl_seconds: int = 900
 
     @computed_field  # type: ignore[prop-decorator]
     @property

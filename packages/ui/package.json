@@ -10,6 +10,8 @@
   },
   "peerDependencies": {
     "@hookform/resolvers": "^3.9.0",
+    "@naro/domain": "workspace:*",
+    "@naro/mobile-core": "workspace:*",
     "lucide-react-native": "^0.453.0",
     "nativewind": "^4.0.0",
     "react": "18.3.1",

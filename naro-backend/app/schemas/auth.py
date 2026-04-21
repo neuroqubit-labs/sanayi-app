@@ -1,4 +1,6 @@
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -6,8 +8,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class OtpRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    channel: Literal["sms", "email"]
-    phone: str | None = Field(default=None, description="E.164 formatında (ör. +905551112233)")
+    channel: Literal["sms", "email", "console", "whatsapp"]
+    phone: str | None = Field(default=None, description="E.164 formatinda (orn. +905551112233)")
     email: EmailStr | None = None
     role: Literal["customer", "technician"] = "customer"
 
@@ -32,3 +34,18 @@ class TokenPair(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class SessionResponse(BaseModel):
+    """Active refresh-token session — returned by GET /auth/sessions."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    device_label: str | None
+    ip_address: str | None
+    user_agent: str | None
+    issued_at: datetime
+    expires_at: datetime
+    last_used_at: datetime | None
+    revoked_at: datetime | None

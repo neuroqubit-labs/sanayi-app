@@ -3,6 +3,7 @@ import {
   createApiClient,
   createAuthStore,
   createExpoPublicEnv,
+  createMediaApi,
   createOtpAuthApi,
   createPlatformStorageAdapter,
   createPostHogRuntime,
@@ -78,6 +79,8 @@ export const apiClient = createApiClient({
   getIsOnline,
   telemetry,
 });
+
+export const mediaApi = createMediaApi(apiClient);
 
 export const authApi = createOtpAuthApi({
   apiClient,

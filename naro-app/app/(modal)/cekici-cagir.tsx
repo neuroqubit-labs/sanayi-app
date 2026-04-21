@@ -1,14 +1,5 @@
-import { Truck } from "lucide-react-native";
-
-import { PlaceholderFlow } from "@/shared/components/PlaceholderFlow";
+import { Redirect, type Href } from "expo-router";
 
 export default function CekiciCagirModal() {
-  return (
-    <PlaceholderFlow
-      icon={Truck}
-      title="Çekici Çağır"
-      description="Konum seçimi, hemen/randevu tercihi ve not eklemek buradan yapılacak."
-      showBack
-    />
-  );
+  return <Redirect href={"/(modal)/talep/towing" as Href} />;
 }

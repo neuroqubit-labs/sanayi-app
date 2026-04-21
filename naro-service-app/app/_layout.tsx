@@ -6,6 +6,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import "../global.css";
 
+import { HasarSourceSheet } from "@/features/insurance-claim";
+import { TechnicianEvidenceUploadSheet } from "@/features/jobs/components/TechnicianEvidenceUploadSheet";
+import { OfferSubmissionSheet } from "@/features/pool";
 import { useInitializeRuntime } from "@/runtime";
 import { queryClient } from "@/shared/lib/query";
 
@@ -18,6 +21,9 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <StatusBar style="auto" />
           <Stack screenOptions={{ headerShown: false }} />
+          <OfferSubmissionSheet />
+          <TechnicianEvidenceUploadSheet />
+          <HasarSourceSheet />
         </SafeAreaProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

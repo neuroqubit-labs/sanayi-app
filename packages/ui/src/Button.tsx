@@ -2,13 +2,22 @@ import { forwardRef, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  type PressableStateCallbackType,
   Text as RNText,
   View,
   type PressableProps,
+  type StyleProp,
   type View as ViewType,
+  type ViewStyle,
 } from "react-native";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "danger"
+  | "surface"
+  | "outline";
 export type ButtonSize = "sm" | "md" | "lg" | "xl";
 
 export type ButtonProps = Omit<PressableProps, "children"> & {
@@ -19,15 +28,19 @@ export type ButtonProps = Omit<PressableProps, "children"> & {
   leftIcon?: ReactNode;
   fullWidth?: boolean;
   className?: string;
+  labelClassName?: string;
 };
 
-const CONTAINER_BASE = "flex-row items-center justify-center rounded-xl";
+const CONTAINER_BASE =
+  "relative overflow-hidden flex-row items-center justify-center rounded-xl";
 
 const VARIANT_CONTAINER: Record<ButtonVariant, string> = {
-  primary: "bg-brand-600 active:bg-brand-900",
+  primary: "border border-[#8de6ff]/25 bg-[#1398e7]",
   secondary: "bg-neutral-200 active:bg-neutral-300",
   ghost: "bg-transparent border border-neutral-300 active:bg-neutral-100",
   danger: "bg-red-600 active:bg-red-800",
+  surface: "bg-app-surface-2 border border-app-outline active:bg-app-surface-3",
+  outline: "bg-transparent border border-app-outline active:bg-app-surface",
 };
 
 const VARIANT_LABEL: Record<ButtonVariant, string> = {
@@ -35,6 +48,8 @@ const VARIANT_LABEL: Record<ButtonVariant, string> = {
   secondary: "text-neutral-900 font-semibold",
   ghost: "text-neutral-900 font-semibold",
   danger: "text-white font-semibold",
+  surface: "text-app-text font-semibold",
+  outline: "text-app-text font-semibold",
 };
 
 const SIZE_CONTAINER: Record<ButtonSize, string> = {
@@ -56,6 +71,81 @@ const SPINNER_COLOR: Record<ButtonVariant, string> = {
   secondary: "#111827",
   ghost: "#111827",
   danger: "#ffffff",
+  surface: "#f5f7ff",
+  outline: "#f5f7ff",
+};
+
+const PRIMARY_BUTTON_STYLE: ViewStyle = {
+  shadowColor: "#021c34",
+  shadowOffset: { width: 0, height: 14 },
+  shadowOpacity: 0.3,
+  shadowRadius: 18,
+  elevation: 12,
+};
+
+const PRIMARY_BUTTON_PRESSED_STYLE: ViewStyle = {
+  shadowOffset: { width: 0, height: 7 },
+  shadowOpacity: 0.18,
+  shadowRadius: 10,
+  elevation: 6,
+  transform: [{ translateY: 2 }, { scale: 0.992 }],
+};
+
+const PRIMARY_SURFACE_STYLE: ViewStyle = {
+  position: "absolute",
+  inset: 1,
+  borderRadius: 11,
+  backgroundColor: "#159be9",
+};
+
+const PRIMARY_TOP_HIGHLIGHT_STYLE: ViewStyle = {
+  position: "absolute",
+  left: 7,
+  right: 7,
+  top: 4,
+  height: "50%",
+  borderRadius: 999,
+  backgroundColor: "rgba(255,255,255,0.16)",
+};
+
+const PRIMARY_BOTTOM_DEPTH_STYLE: ViewStyle = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  height: "44%",
+  borderBottomLeftRadius: 12,
+  borderBottomRightRadius: 12,
+  backgroundColor: "rgba(3,72,123,0.34)",
+};
+
+const PRIMARY_DIAGONAL_SHEEN_STYLE: ViewStyle = {
+  position: "absolute",
+  left: 18,
+  top: -10,
+  width: 170,
+  height: 46,
+  borderRadius: 28,
+  backgroundColor: "rgba(255,255,255,0.12)",
+  transform: [{ rotate: "-7deg" }],
+};
+
+const PRIMARY_AURA_STYLE: ViewStyle = {
+  position: "absolute",
+  right: -18,
+  bottom: -18,
+  width: 110,
+  height: 74,
+  borderRadius: 999,
+  backgroundColor: "rgba(111,221,255,0.16)",
+};
+
+const PRIMARY_INNER_EDGE_STYLE: ViewStyle = {
+  position: "absolute",
+  inset: 1,
+  borderRadius: 11,
+  borderWidth: 1,
+  borderColor: "rgba(255,255,255,0.08)",
 };
 
 export const Button = forwardRef<ViewType, ButtonProps>(function Button(
@@ -68,6 +158,8 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
     fullWidth = false,
     disabled,
     className,
+    labelClassName,
+    style,
     ...rest
   },
   ref,
@@ -84,7 +176,27 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
     .filter(Boolean)
     .join(" ");
 
-  const labelClass = [VARIANT_LABEL[variant], SIZE_LABEL[size]].join(" ");
+  const labelClass = [
+    VARIANT_LABEL[variant],
+    SIZE_LABEL[size],
+    labelClassName ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const pressableStyle = (
+    state: PressableStateCallbackType,
+  ): StyleProp<ViewStyle> => {
+    const incomingStyle = typeof style === "function" ? style(state) : style;
+
+    return [
+      incomingStyle,
+      variant === "primary" ? PRIMARY_BUTTON_STYLE : null,
+      variant === "primary" && state.pressed
+        ? PRIMARY_BUTTON_PRESSED_STYLE
+        : null,
+    ];
+  };
 
   return (
     <Pressable
@@ -92,14 +204,26 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
       accessibilityRole="button"
       disabled={isDisabled}
       className={containerClass}
+      style={pressableStyle}
       {...rest}
     >
+      {variant === "primary" ? (
+        <View pointerEvents="none" style={PRIMARY_SURFACE_STYLE}>
+          <View style={PRIMARY_TOP_HIGHLIGHT_STYLE} />
+          <View style={PRIMARY_BOTTOM_DEPTH_STYLE} />
+          <View style={PRIMARY_DIAGONAL_SHEEN_STYLE} />
+          <View style={PRIMARY_AURA_STYLE} />
+          <View style={PRIMARY_INNER_EDGE_STYLE} />
+        </View>
+      ) : null}
       {loading ? (
-        <ActivityIndicator size="small" color={SPINNER_COLOR[variant]} />
+        <View className="relative z-10">
+          <ActivityIndicator size="small" color={SPINNER_COLOR[variant]} />
+        </View>
       ) : (
         <>
-          {leftIcon ? <View>{leftIcon}</View> : null}
-          <RNText className={labelClass}>{label}</RNText>
+          {leftIcon ? <View className="relative z-10">{leftIcon}</View> : null}
+          <RNText className={`${labelClass} relative z-10`}>{label}</RNText>
         </>
       )}
     </Pressable>

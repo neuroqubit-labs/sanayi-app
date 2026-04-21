@@ -1,14 +1,5 @@
-import { AlertTriangle } from "lucide-react-native";
-
-import { PlaceholderFlow } from "@/shared/components/PlaceholderFlow";
+import { Redirect, type Href } from "expo-router";
 
 export default function KazaBildirModal() {
-  return (
-    <PlaceholderFlow
-      icon={AlertTriangle}
-      title="Kaza Bildir"
-      description="Acil eylem, kaza bilgileri, fotoğraflar, tutanak ve evraklar — bu akış adım adım burada yer alacak."
-      showBack
-    />
-  );
+  return <Redirect href={"/(modal)/talep/accident" as Href} />;
 }

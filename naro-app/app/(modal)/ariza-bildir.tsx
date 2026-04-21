@@ -1,14 +1,5 @@
-import { Wrench } from "lucide-react-native";
-
-import { PlaceholderFlow } from "@/shared/components/PlaceholderFlow";
+import { Redirect, type Href } from "expo-router";
 
 export default function ArizaBildirModal() {
-  return (
-    <PlaceholderFlow
-      icon={Wrench}
-      title="Arıza Bildir"
-      description="Sürülebilir bir arıza için adım adım ses/titreşim tanımı, medya ve tercihler buradan alınacak."
-      showBack
-    />
-  );
+  return <Redirect href={"/(modal)/talep/breakdown" as Href} />;
 }

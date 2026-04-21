@@ -6,6 +6,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import "../global.css";
 
+import { UstaPreviewSheet } from "@/features/ustalar";
+import { VehicleSwitcherSheet } from "@/features/vehicles";
 import { useInitializeRuntime } from "@/runtime";
 import { queryClient } from "@/shared/lib/query";
 
@@ -18,6 +20,8 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <StatusBar style="auto" />
           <Stack screenOptions={{ headerShown: false }} />
+          <VehicleSwitcherSheet />
+          <UstaPreviewSheet />
         </SafeAreaProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

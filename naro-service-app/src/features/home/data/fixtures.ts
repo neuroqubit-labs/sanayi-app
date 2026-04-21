@@ -7,5 +7,6 @@ export const mockBusinessSummary: BusinessSummary = {
     activeJobs: 2,
     upcoming: 6,
     weeklyJobs: 60,
+    dailyEarningsLabel: "₺2.450",
   },
 };

@@ -1,6 +1,7 @@
 from arq.connections import RedisSettings
 
 from app.core.config import get_settings
+from app.workers.media import process_media_asset
 
 
 def redis_settings() -> RedisSettings:
@@ -17,7 +18,7 @@ async def shutdown(ctx: dict[str, object]) -> None: ...
 class WorkerSettings:
     """ARQ worker config. Çalıştırmak için: `arq app.workers.settings.WorkerSettings`."""
 
-    functions: list[object] = []  # görev fonksiyonları buraya eklenecek
+    functions: list[object] = [process_media_asset]
     on_startup = startup
     on_shutdown = shutdown
 

@@ -1,14 +1,5 @@
-import { Sparkles } from "lucide-react-native";
-
-import { PlaceholderFlow } from "@/shared/components/PlaceholderFlow";
+import { Redirect } from "expo-router";
 
 export default function KaydirUstaBulModal() {
-  return (
-    <PlaceholderFlow
-      icon={Sparkles}
-      title="Kaydır ve Usta Bul"
-      description="Aracına uygun ustaları kart kart keşfet, profili aç, teklif iste."
-      showBack
-    />
-  );
+  return <Redirect href="/(tabs)/carsi" />;
 }

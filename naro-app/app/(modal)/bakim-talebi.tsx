@@ -1,14 +1,5 @@
-import { Heart } from "lucide-react-native";
-
-import { PlaceholderFlow } from "@/shared/components/PlaceholderFlow";
+import { Redirect, type Href } from "expo-router";
 
 export default function BakimTalebiModal() {
-  return (
-    <PlaceholderFlow
-      icon={Heart}
-      title="Bakım Talebi"
-      description="Periyodik bakım, iş kalemleri seçimi ve tercih edilen tarih aralığı burada yer alacak."
-      showBack
-    />
-  );
+  return <Redirect href={"/(modal)/talep/maintenance" as Href} />;
 }

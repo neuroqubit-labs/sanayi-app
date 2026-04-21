@@ -1,53 +1,53 @@
-import { Icon } from "@naro/ui";
 import { Tabs } from "expo-router";
-import { FileText, Home, User, Wrench } from "lucide-react-native";
-import { View } from "react-native";
+import { Vibration } from "react-native";
 
-import { QuickActionsFab } from "@/shared/components/QuickActionsFab";
-
-const BRAND_ACTIVE = "#0284c7";
-const NEUTRAL_INACTIVE = "#6b7280";
+import { useVehicleSwitcherStore } from "@/features/vehicles";
+import { CustomerTabBar } from "@/shared/navigation/tab-bar/CustomerTabBar";
 
 export default function TabsLayout() {
+  const openVehicleSwitcher = useVehicleSwitcherStore((state) => state.open);
+
   return (
-    <View className="flex-1">
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: BRAND_ACTIVE,
-          tabBarInactiveTintColor: NEUTRAL_INACTIVE,
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: { backgroundColor: "#060915" },
+        tabBarHideOnKeyboard: true,
+      }}
+      tabBar={(props) => <CustomerTabBar {...props} />}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "Ana Sayfa",
         }}
-      >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: "Ana Sayfa",
-            tabBarIcon: ({ color, size }) => <Icon icon={Home} color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="kayitlar"
-          options={{
-            title: "Kayıtlar",
-            tabBarIcon: ({ color, size }) => <Icon icon={FileText} color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="ustalar"
-          options={{
-            title: "Ustalar",
-            tabBarIcon: ({ color, size }) => <Icon icon={Wrench} color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="profil"
-          options={{
-            title: "Profil",
-            tabBarIcon: ({ color, size }) => <Icon icon={User} color={color} size={size} />,
-          }}
-        />
-      </Tabs>
-      <QuickActionsFab />
-    </View>
+      />
+      <Tabs.Screen
+        name="carsi"
+        options={{
+          title: "Çarşı",
+        }}
+      />
+      <Tabs.Screen
+        name="kayitlar"
+        options={{
+          title: "Kayıtlar",
+        }}
+      />
+      <Tabs.Screen
+        name="profil"
+        options={{
+          title: "Profil",
+          tabBarAccessibilityLabel:
+            "Profil. Basılı tutarsan araç seçiciyi açar.",
+        }}
+        listeners={{
+          tabLongPress: () => {
+            Vibration.vibrate(15);
+            openVehicleSwitcher();
+          },
+        }}
+      />
+    </Tabs>
   );
 }

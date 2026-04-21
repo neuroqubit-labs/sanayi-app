@@ -1,0 +1,13 @@
+# BD data — ham + büyük dosyalar commit edilmez
+raw/
+*.parquet
+*.xlsx
+*.pdf
+*.tmp
+*.bak
+*.log
+
+# README dosyaları her zaman commit
+!**/README.md
+!**/.source.md
+!**/.gitkeep

@@ -21,6 +21,8 @@ dependencies = [
     "twilio>=9.3.0",
     "email-validator>=2.2.0",
     "structlog>=24.4.0",
+    "boto3>=1.35.0",
+    "pillow>=11.0.0",
 ]
 
 [project.optional-dependencies]
@@ -48,7 +50,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
-ignore = ["E501"]
+# RUF001/002/003: Turkish ı/ğ/ş vb. ambiguous Unicode — codebase Türkçe docstring kullanıyor
+ignore = ["E501", "RUF001", "RUF002", "RUF003"]
 
 [tool.mypy]
 python_version = "3.12"

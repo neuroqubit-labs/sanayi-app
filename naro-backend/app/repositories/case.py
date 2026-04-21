@@ -1,0 +1,219 @@
+"""ServiceCase repository — CRUD + pool + assign + search.
+
+Status makinesi `app/services/case_lifecycle.py` içinde; burada yalnızca
+basit atama ve filtre helper'ları. Pool feed `pool_matching.KIND_PROVIDER_MAP`
+ile birleştirilir.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Literal
+from uuid import UUID
+
+from sqlalchemy import and_, or_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.case import (
+    CaseOrigin,
+    ServiceCase,
+    ServiceCaseStatus,
+    ServiceRequestKind,
+    ServiceRequestUrgency,
+)
+from app.models.technician import ProviderType
+from app.services.pool_matching import kinds_for_provider
+
+POOL_VISIBLE_STATUSES: tuple[ServiceCaseStatus, ...] = (
+    ServiceCaseStatus.MATCHING,
+    ServiceCaseStatus.OFFERS_READY,
+)
+
+
+async def get_case(session: AsyncSession, case_id: UUID) -> ServiceCase | None:
+    return await session.get(ServiceCase, case_id)
+
+
+async def create_case(
+    session: AsyncSession,
+    *,
+    vehicle_id: UUID,
+    customer_user_id: UUID,
+    kind: ServiceRequestKind,
+    title: str,
+    request_draft: dict[str, object],
+    workflow_blueprint: str,
+    urgency: ServiceRequestUrgency = ServiceRequestUrgency.PLANNED,
+    origin: CaseOrigin = CaseOrigin.CUSTOMER,
+    subtitle: str | None = None,
+    summary: str | None = None,
+    location_label: str | None = None,
+    preferred_technician_id: UUID | None = None,
+    estimate_amount: Decimal | None = None,
+) -> ServiceCase:
+    case = ServiceCase(
+        vehicle_id=vehicle_id,
+        customer_user_id=customer_user_id,
+        kind=kind,
+        urgency=urgency,
+        origin=origin,
+        title=title,
+        subtitle=subtitle,
+        summary=summary,
+        location_label=location_label,
+        preferred_technician_id=preferred_technician_id,
+        workflow_blueprint=workflow_blueprint,
+        request_draft=request_draft,
+        estimate_amount=estimate_amount,
+    )
+    session.add(case)
+    await session.flush()
+    return case
+
+
+async def list_pool_cases(
+    session: AsyncSession,
+    provider_type: ProviderType,
+    *,
+    limit: int = 50,
+) -> list[ServiceCase]:
+    kinds = kinds_for_provider(provider_type)
+    if not kinds:
+        return []
+    stmt = (
+        select(ServiceCase)
+        .where(
+            and_(
+                ServiceCase.status.in_(POOL_VISIBLE_STATUSES),
+                ServiceCase.kind.in_(kinds),
+                ServiceCase.deleted_at.is_(None),
+            )
+        )
+        .order_by(ServiceCase.urgency.desc(), ServiceCase.created_at.desc())
+        .limit(limit)
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def list_cases_for_customer(
+    session: AsyncSession, customer_user_id: UUID
+) -> list[ServiceCase]:
+    stmt = (
+        select(ServiceCase)
+        .where(
+            and_(
+                ServiceCase.customer_user_id == customer_user_id,
+                ServiceCase.deleted_at.is_(None),
+            )
+        )
+        .order_by(ServiceCase.created_at.desc())
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def list_cases_for_technician(
+    session: AsyncSession, technician_user_id: UUID
+) -> list[ServiceCase]:
+    stmt = (
+        select(ServiceCase)
+        .where(
+            and_(
+                or_(
+                    ServiceCase.assigned_technician_id == technician_user_id,
+                    ServiceCase.preferred_technician_id == technician_user_id,
+                ),
+                ServiceCase.deleted_at.is_(None),
+            )
+        )
+        .order_by(ServiceCase.updated_at.desc())
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def list_cases_for_vehicle(
+    session: AsyncSession, vehicle_id: UUID
+) -> list[ServiceCase]:
+    stmt = (
+        select(ServiceCase)
+        .where(ServiceCase.vehicle_id == vehicle_id)
+        .order_by(ServiceCase.created_at.desc())
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def assign_technician(
+    session: AsyncSession,
+    case_id: UUID,
+    technician_user_id: UUID,
+) -> None:
+    await session.execute(
+        update(ServiceCase)
+        .where(ServiceCase.id == case_id)
+        .values(assigned_technician_id=technician_user_id)
+    )
+
+
+async def clear_assigned_technician(
+    session: AsyncSession, case_id: UUID
+) -> None:
+    await session.execute(
+        update(ServiceCase)
+        .where(ServiceCase.id == case_id)
+        .values(assigned_technician_id=None)
+    )
+
+
+async def mark_seen(
+    session: AsyncSession,
+    case_id: UUID,
+    actor: Literal["customer", "technician"],
+) -> None:
+    column = (
+        ServiceCase.last_seen_by_customer
+        if actor == "customer"
+        else ServiceCase.last_seen_by_technician
+    )
+    await session.execute(
+        update(ServiceCase)
+        .where(ServiceCase.id == case_id)
+        .values({column: datetime.now(UTC)})
+    )
+
+
+async def soft_delete_case(
+    session: AsyncSession, case_id: UUID
+) -> None:
+    await session.execute(
+        update(ServiceCase)
+        .where(ServiceCase.id == case_id)
+        .values(deleted_at=datetime.now(UTC))
+    )
+
+
+async def update_financials(
+    session: AsyncSession,
+    case_id: UUID,
+    *,
+    total_amount: Decimal | None = None,
+    estimate_amount: Decimal | None = None,
+) -> None:
+    values: dict[str, object] = {}
+    if total_amount is not None:
+        values["total_amount"] = total_amount
+    if estimate_amount is not None:
+        values["estimate_amount"] = estimate_amount
+    if not values:
+        return
+    await session.execute(
+        update(ServiceCase).where(ServiceCase.id == case_id).values(**values)
+    )
+
+
+async def count_cases_for_vehicle(
+    session: AsyncSession, vehicle_id: UUID
+) -> int:
+    """Vehicle dossier için — Faz 3'teki vehicle repo burayı çağırır."""
+    stmt = select(ServiceCase).where(ServiceCase.vehicle_id == vehicle_id)
+    result = await session.execute(stmt)
+    return len(list(result.scalars().all()))

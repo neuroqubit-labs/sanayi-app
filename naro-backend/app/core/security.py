@@ -49,3 +49,10 @@ def decode_token(token: str) -> dict[str, Any]:
         return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except JWTError as e:
         raise ValueError(f"invalid token: {e}") from e
+
+
+def validate_access_token(token: str) -> dict[str, Any]:
+    payload = decode_token(token)
+    if payload.get("type") != "access":
+        raise ValueError("invalid token: expected access token")
+    return payload

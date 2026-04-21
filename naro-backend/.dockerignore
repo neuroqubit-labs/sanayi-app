@@ -9,5 +9,4 @@ __pycache__
 htmlcov
 .git
 .gitignore
-README.md
 tests

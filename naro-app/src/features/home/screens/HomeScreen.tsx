@@ -1,24 +1,78 @@
 import { Screen, Text } from "@naro/ui";
-import { View } from "react-native";
+import { useMemo } from "react";
+import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
 
-import { ActiveProcessBanner } from "../components/ActiveProcessBanner";
-import { SectionPlaceholder } from "../components/SectionPlaceholder";
-import { VehicleSelectorCard } from "../components/VehicleSelectorCard";
+import { useHomeSummary } from "../api";
+import { FeedItemView } from "../components/FeedRenderer";
+import { HomeHeader } from "../components/HomeHeader";
+import { useHomeFeed, type FeedItem } from "../feed";
 
 export function HomeScreen() {
-  return (
-    <Screen scroll>
-      <View className="gap-4">
-        <VehicleSelectorCard />
-        <ActiveProcessBanner />
-        <SectionPlaceholder title="Son Aktivite" hint="Teklifler, servis güncellemeleri ve faturalar burada." />
-        <SectionPlaceholder title="Sana Özel Ustalar" hint="Aracına uygun usta önerileri." />
-        <SectionPlaceholder title="Bakım Kampanyaları" hint="Sana özel fırsatlar." />
-        <SectionPlaceholder title="Yakındaki Servisler" hint="Konumuna yakın ustalar." />
-        <Text tone="muted" variant="caption" className="pt-4 text-center">
-          Ana sayfa iskelet — Faz M2 sonrası her kart gerçek içerikle dolacak.
+  const summary = useHomeSummary();
+  const feed = useHomeFeed();
+
+  const feedItems: FeedItem[] = useMemo(
+    () => feed.data?.pages.flatMap((page) => page.items) ?? [],
+    [feed.data],
+  );
+
+  if (summary.isPending) {
+    return (
+      <Screen backgroundClassName="bg-app-bg" className="flex-1 justify-center">
+        <ActivityIndicator color="#83a7ff" />
+        <Text tone="muted" className="mt-3 text-center text-app-text-muted">
+          Ana sayfa hazırlanıyor…
         </Text>
-      </View>
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen backgroundClassName="bg-app-bg" padded={false} className="flex-1">
+      <FlatList<FeedItem>
+        data={feedItems}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <FeedItemView item={item} />}
+        ItemSeparatorComponent={FeedSeparator}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 20,
+          paddingBottom: 140,
+        }}
+        ListHeaderComponent={
+          <View className="pb-5">
+            <HomeHeader />
+          </View>
+        }
+        ListFooterComponent={
+          feed.isFetchingNextPage ? (
+            <View className="items-center py-6">
+              <ActivityIndicator color="#83a7ff" />
+            </View>
+          ) : null
+        }
+        onEndReached={() => {
+          if (feed.hasNextPage && !feed.isFetchingNextPage) {
+            feed.fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.4}
+        refreshControl={
+          <RefreshControl
+            refreshing={feed.isRefetching}
+            onRefresh={() => {
+              summary.refetch();
+              feed.refetch();
+            }}
+            tintColor="#83a7ff"
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      />
     </Screen>
   );
+}
+
+function FeedSeparator() {
+  return <View style={{ height: 24 }} />;
 }

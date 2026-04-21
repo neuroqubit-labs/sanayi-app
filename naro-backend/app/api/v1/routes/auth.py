@@ -61,6 +61,7 @@ async def verify_otp(payload: OtpVerify, otp: OtpDep, db: DbDep) -> TokenPair:
             user = await users.create(role=role, phone=result["target"])
         else:
             user = await users.create(role=role, email=result["target"])
+        await db.commit()
 
     return TokenPair(
         access_token=create_token(str(user.id), "access", {"role": user.role.value}),

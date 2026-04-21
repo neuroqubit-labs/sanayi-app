@@ -7,6 +7,7 @@ export type ScreenProps = {
   scroll?: boolean;
   padded?: boolean;
   className?: string;
+  backgroundClassName?: string;
   /** SafeArea edge'leri. Default: top+bottom. */
   edges?: Array<"top" | "bottom" | "left" | "right">;
 };
@@ -16,17 +17,21 @@ export function Screen({
   scroll = false,
   padded = true,
   className,
+  backgroundClassName,
   edges = ["top", "bottom"],
 }: ScreenProps) {
-  const base = "flex-1 bg-white";
+  const background = backgroundClassName ?? "bg-white";
+  const base = ["flex-1", background].filter(Boolean).join(" ");
   const padding = padded ? "px-6 pt-6" : "";
-  const composed = [base, padding, className ?? ""].filter(Boolean).join(" ");
+  const composed = [padding, className ?? ""].filter(Boolean).join(" ");
 
   if (scroll) {
     return (
       <SafeAreaView edges={edges} className={base}>
         <ScrollView
-          contentContainerClassName={[padding, "gap-4"].filter(Boolean).join(" ")}
+          contentContainerClassName={[padding, "gap-4", className ?? ""]
+            .filter(Boolean)
+            .join(" ")}
           keyboardShouldPersistTaps="handled"
         >
           {children}
