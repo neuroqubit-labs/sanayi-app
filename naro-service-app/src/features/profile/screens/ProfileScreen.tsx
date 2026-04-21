@@ -41,11 +41,11 @@ import {
   ProfileEditSheet,
   type ProfileEditTarget,
 } from "@/features/profile/components/ProfileEditSheet";
+import { useShellConfig } from "@/features/shell";
 import {
   type GalleryItem,
   MONTHLY_STATS,
   getProviderTypeMeta,
-  resolveCampaignVisibility,
   useTechnicianProfileStore,
 } from "@/features/technicians";
 import { telemetry } from "@/runtime";
@@ -67,8 +67,10 @@ export function ProfileScreen() {
     (state) => state.setAvailability,
   );
 
-  const providerMeta = getProviderTypeMeta(profile.provider_type);
-  const campaignsVisible = resolveCampaignVisibility(profile.provider_type);
+  const shellConfig = useShellConfig();
+  const providerMeta = getProviderTypeMeta(shellConfig.active_provider_type);
+  const campaignsVisible =
+    shellConfig.enabled_capabilities.includes("campaigns");
 
   const updateField = useTechnicianProfileStore((s) => s.updateField);
   const updateBusiness = useTechnicianProfileStore((s) => s.updateBusiness);

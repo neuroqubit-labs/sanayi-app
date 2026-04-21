@@ -2,6 +2,8 @@ import type {
   BrandCoverage,
   Drivetrain,
   ProcedureBinding,
+  ProviderMode,
+  ProviderType,
   ServiceArea,
   ServiceDomain,
   StaffCapacity,
@@ -62,6 +64,11 @@ type TechnicianProfileStore = TechnicianProfileState & {
   // V2 — capacity
   setCapacity: (capacity: StaffCapacity) => void;
   updateCapacity: (patch: Partial<StaffCapacity>) => void;
+
+  // Shell rol/mode kontrolü
+  setProviderMode: (mode: ProviderMode) => void;
+  setActiveProviderType: (type: ProviderType) => void;
+  bumpRoleConfigVersion: () => void;
 };
 
 export const useTechnicianProfileStore = create<TechnicianProfileStore>(
@@ -193,6 +200,20 @@ export const useTechnicianProfileStore = create<TechnicianProfileStore>(
     setCapacity: (capacity) => set({ capacity }),
     updateCapacity: (patch) =>
       set((state) => ({ capacity: { ...state.capacity, ...patch } })),
+
+    // shell rol/mode
+    setProviderMode: (mode) =>
+      set((state) => ({
+        provider_mode: mode,
+        role_config_version: state.role_config_version + 1,
+      })),
+    setActiveProviderType: (type) =>
+      set((state) => ({
+        active_provider_type: type,
+        role_config_version: state.role_config_version + 1,
+      })),
+    bumpRoleConfigVersion: () =>
+      set((state) => ({ role_config_version: state.role_config_version + 1 })),
   }),
 );
 

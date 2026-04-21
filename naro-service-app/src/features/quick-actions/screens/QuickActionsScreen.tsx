@@ -1,3 +1,4 @@
+import type { QuickAction } from "@naro/domain";
 import {
   ActionSheetSurface,
   Avatar,
@@ -9,15 +10,19 @@ import {
 } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import {
+  BarChart3,
   ChevronRight,
   ClipboardList,
+  FileCheck,
+  Layers,
   List,
   MapPinned,
+  MessageSquare,
   Power,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
   Truck,
+  User,
   Wrench,
   type LucideIcon,
 } from "lucide-react-native";
@@ -31,40 +36,49 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useClaimSourceSheetStore } from "@/features/insurance-claim";
-import {
-  resolveCampaignVisibility,
-  resolveInsuranceCreationVisibility,
-  useTechnicianProfileStore,
-} from "@/features/technicians";
+import { useShellConfig } from "@/features/shell";
+import { useTechnicianProfileStore } from "@/features/technicians";
 
-import {
-  buildTechnicianQuickActionTags,
-  resolveTechnicianQuickActionMode,
-  type ServiceQuickActionKey,
-} from "../model";
+type ActionTone = "accent" | "success" | "warning" | "info" | "neutral";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  power: Power,
+  truck: Truck,
+  layers: Layers,
+  folder: ClipboardList,
+  "shield-check": ShieldCheck,
+  megaphone: Sparkles,
+  sparkles: List,
+  "bar-chart": BarChart3,
+  "message-square": MessageSquare,
+  "file-check": FileCheck,
+  user: User,
+  pool: Wrench,
+  "map-pin": MapPinned,
+};
+
+const TONE_BY_ID: Record<string, ActionTone> = {
+  availability: "success",
+  active_job: "accent",
+  pool: "accent",
+  records: "neutral",
+  insurance: "info",
+  campaign_create: "warning",
+  campaigns: "warning",
+  revenue: "success",
+  reviews: "neutral",
+  certificate: "info",
+  profile: "neutral",
+};
 
 export function QuickActionsScreen() {
   const router = useRouter();
+  const shellConfig = useShellConfig();
   const profile = useTechnicianProfileStore();
   const openHasarSheet = useClaimSourceSheetStore((s) => s.show);
   const setAvailability = useTechnicianProfileStore(
     (state) => state.setAvailability,
   );
-
-  const mode = resolveTechnicianQuickActionMode(profile);
-  const tags = buildTechnicianQuickActionTags(profile);
-  const campaignsVisible = resolveCampaignVisibility(profile.provider_type);
-  const insuranceVisible = resolveInsuranceCreationVisibility(
-    profile.provider_type,
-  );
-
-  const filterVisibleActions = (keys: ServiceQuickActionKey[]) =>
-    keys.filter((k) => {
-      if (!campaignsVisible && (k === "campaign_create" || k === "campaigns"))
-        return false;
-      if (!insuranceVisible && k === "insurance") return false;
-      return true;
-    });
 
   const availabilityTone =
     profile.availability === "available"
@@ -79,108 +93,50 @@ export function QuickActionsScreen() {
         ? "Yoğun"
         : "Çevrimdışı";
 
-  const actionMap: Record<ServiceQuickActionKey, ActionCardProps> = {
-    availability: {
-      label:
-        profile.availability === "available"
-          ? "Müsaitliği Durdur"
-          : "Müsaitliği Aç",
-      description:
-        profile.availability === "available"
-          ? "Yeni iş teklifleri kısa süreli durur."
-          : "Havuz ve teklif akışları tekrar açılır.",
-      icon: Power,
-      tone: profile.availability === "available" ? "success" : "warning",
-      onPress: () =>
-        setAvailability(
-          profile.availability === "available" ? "busy" : "available",
-        ),
-    },
-    insurance: {
-      label: "Hasar Dosyası Aç",
-      description: "Sigorta iletimine uygun yeni tamir dosyası başlat.",
-      icon: ShieldCheck,
-      tone: "info",
-      onPress: () => {
-        router.back();
-        // Small delay so the sheet overlays the host page, not the quick-actions modal
-        setTimeout(() => openHasarSheet(), 150);
-      },
-    },
-    pool: {
-      label:
-        mode.key === "towing"
-          ? "Yol Yardımı Havuzu"
-          : mode.key === "mobile"
-            ? "Saha İşlerini Aç"
-            : "Havuzu Aç",
-      description:
-        mode.key === "towing"
-          ? "Transfer ve çekici taleplerini tek yerde gör."
-          : mode.key === "mobile"
-            ? "Yerinde çözülebilecek işleri öne al."
-            : "Yeni talepleri ve uygun vakaları taramaya başla.",
-      icon: mode.key === "towing" ? Truck : Wrench,
-      tone: "accent",
-      onPress: () => router.replace("/(tabs)/havuz" as Href),
-    },
-    records: {
-      label:
-        mode.key === "insurance" || mode.key === "full_service"
-          ? "Aktif Dosyalar"
-          : "Aktif İşler",
-      description:
-        mode.key === "insurance" || mode.key === "full_service"
-          ? "Devam eden işler, hasarlar ve müşteri bekleyen dosyalar."
-          : "Açık işlerini ve teslim adımlarını gözden geçir.",
-      icon: ClipboardList,
-      tone: "neutral",
-      onPress: () => router.replace("/(tabs)/islerim" as Href),
-    },
-    campaign_create: {
-      label:
-        mode.key === "full_service" ? "Paket veya Kampanya" : "Yeni Kampanya",
-      description:
-        mode.key === "mobile"
-          ? "Saha servis paketi veya bakım teklifi hazırla."
-          : "Servisini öne çıkaran yeni teklif veya paket tanımla.",
-      icon: Sparkles,
-      tone: "warning",
-      onPress: () => router.replace("/(modal)/kampanya-olustur"),
-    },
-    campaigns: {
-      label: "Kampanyalarım",
-      description: "Yayındaki ve taslaktaki kampanyaları düzenle.",
-      icon: List,
-      tone: "warning",
-      onPress: () => router.replace("/(modal)/kampanyalarim"),
-    },
-    revenue: {
-      label: "Gelir Özeti",
-      description: "Net, komisyon ve bekleyen tahsilatları kontrol et.",
-      icon: TrendingUp,
-      tone: "success",
-      onPress: () => router.replace("/(modal)/gelir-ozeti"),
-    },
-    profile: {
-      label: "Profili Aç",
-      description: "Uzmanlık, bölge ve yetkinlik ayarlarını gözden geçir.",
-      icon: MapPinned,
-      tone: "neutral",
-      onPress: () => router.replace("/(tabs)/profil" as Href),
-    },
+  const layoutTitle: Record<typeof shellConfig.home_layout, string> = {
+    tow_focused: "Çekici hızlı erişim",
+    full: "Hızlı erişim",
+    business_lite: "Günlük işler",
+    minimal: "Hızlı erişim",
+    damage_shop: "Hasar operasyonu",
+  };
+  const layoutDescription: Record<typeof shellConfig.home_layout, string> = {
+    tow_focused: "Aktif iş, müsaitlik, havuz ve kazanç tek yerde.",
+    full: "Müsaitlik, kampanyalar, gelir ve havuz kısayolları.",
+    business_lite: "İşletme günlük operasyonu için kısayollar.",
+    minimal: "Günlük temel aksiyonlar.",
+    damage_shop: "Kaza/hasar operasyonu için odaklanmış kısayollar.",
   };
 
-  const primaryActions = filterVisibleActions(mode.primary).map((actionKey) => ({
-    actionKey,
-    ...actionMap[actionKey],
-  }));
-  const secondaryActions = filterVisibleActions(mode.secondary).map(
-    (actionKey) => ({
-      actionKey,
-      ...actionMap[actionKey],
-    }),
-  );
+  const handlePress = (action: { id: string; route: string }) => {
+    if (action.id === "availability") {
+      setAvailability(
+        profile.availability === "available" ? "busy" : "available",
+      );
+      return;
+    }
+    if (action.id === "insurance") {
+      router.back();
+      setTimeout(() => openHasarSheet(), 150);
+      return;
+    }
+    router.replace(action.route as Href);
+  };
+
+  const actions = shellConfig.quick_action_set.map((action) => {
+    const disabled =
+      action.requires_capability !== null &&
+      !shellConfig.enabled_capabilities.includes(action.requires_capability);
+    return {
+      ...action,
+      disabled,
+      icon: ICON_MAP[action.icon] ?? Wrench,
+      tone: TONE_BY_ID[action.id] ?? "neutral",
+    };
+  });
+
+  const primaryActions = actions.slice(0, 3);
+  const secondaryActions = actions.slice(3);
 
   return (
     <View className="flex-1 justify-end">
@@ -197,7 +153,10 @@ export function QuickActionsScreen() {
           entering={FadeInDown.duration(shellMotion.slow)}
           exiting={FadeOutDown.duration(shellMotion.base)}
         >
-          <ActionSheetSurface title={mode.title} description={mode.description}>
+          <ActionSheetSurface
+            title={layoutTitle[shellConfig.home_layout]}
+            description={layoutDescription[shellConfig.home_layout]}
+          >
             <View className="gap-3">
               <View className="gap-3 rounded-[26px] border border-white/8 bg-[#10192b] px-4 py-4">
                 <View className="flex-row items-center gap-3">
@@ -207,7 +166,10 @@ export function QuickActionsScreen() {
                       <Text variant="h3" tone="inverse">
                         {profile.name}
                       </Text>
-                      <TrustBadge label={mode.eyebrow} tone="accent" />
+                      <TrustBadge
+                        label={shellConfig.active_provider_type}
+                        tone="accent"
+                      />
                     </View>
                     <Text
                       tone="muted"
@@ -222,31 +184,27 @@ export function QuickActionsScreen() {
                     tone={availabilityTone}
                   />
                 </View>
-
-                {tags.length > 0 ? (
-                  <View className="flex-row flex-wrap gap-2">
-                    {tags.map((tag) => (
-                      <TrustBadge
-                        key={`${tag.tone}-${tag.label}`}
-                        label={tag.label}
-                        tone={tag.tone}
-                      />
-                    ))}
-                  </View>
-                ) : null}
               </View>
 
               {primaryActions[0] ? (
-                <PrimaryActionCard {...primaryActions[0]} />
+                <PrimaryActionCard
+                  action={primaryActions[0]}
+                  onPress={() => handlePress(primaryActions[0]!)}
+                />
               ) : null}
 
-              <View className="flex-row gap-3">
-                {primaryActions.slice(1, 3).map((action) => (
-                  <View key={action.actionKey} className="flex-1">
-                    <PrimaryActionCard {...action} />
-                  </View>
-                ))}
-              </View>
+              {primaryActions.length > 1 ? (
+                <View className="flex-row gap-3">
+                  {primaryActions.slice(1).map((action) => (
+                    <View key={action.id} className="flex-1">
+                      <PrimaryActionCard
+                        action={action}
+                        onPress={() => handlePress(action)}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
 
               {secondaryActions.length > 0 ? (
                 <View className="gap-2 pt-1">
@@ -254,7 +212,11 @@ export function QuickActionsScreen() {
                     Diğer Araçlar
                   </Text>
                   {secondaryActions.map((action) => (
-                    <SecondaryActionRow key={action.actionKey} {...action} />
+                    <SecondaryActionRow
+                      key={action.id}
+                      action={action}
+                      onPress={() => handlePress(action)}
+                    />
                   ))}
                 </View>
               ) : null}
@@ -266,14 +228,10 @@ export function QuickActionsScreen() {
   );
 }
 
-type ActionTone = "accent" | "success" | "warning" | "info" | "neutral";
-
-type ActionCardProps = {
-  label: string;
-  description: string;
+type ResolvedAction = Omit<QuickAction, "icon"> & {
+  disabled: boolean;
   icon: LucideIcon;
   tone: ActionTone;
-  onPress: () => void;
 };
 
 const ACTION_TONE_STYLE: Record<
@@ -312,22 +270,24 @@ const ACTION_TONE_STYLE: Record<
 };
 
 function PrimaryActionCard({
-  label,
-  description,
-  icon,
-  tone,
+  action,
   onPress,
-}: ActionCardProps) {
-  const style = ACTION_TONE_STYLE[tone];
-
+}: {
+  action: ResolvedAction;
+  onPress: () => void;
+}) {
+  const style = ACTION_TONE_STYLE[action.tone];
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={action.label}
+      accessibilityState={{ disabled: action.disabled }}
+      disabled={action.disabled}
       onPress={onPress}
       className={[
-        "min-h-[112px] gap-3 rounded-[24px] border px-4 py-4 active:opacity-90",
+        "min-h-[112px] gap-3 rounded-[24px] border px-4 py-4",
         style.surface,
+        action.disabled ? "opacity-50" : "active:opacity-90",
       ].join(" ")}
     >
       <View
@@ -336,42 +296,44 @@ function PrimaryActionCard({
           style.iconSurface,
         ].join(" ")}
       >
-        <Icon icon={icon} size={20} color={style.iconColor} />
+        <Icon icon={action.icon} size={20} color={style.iconColor} />
       </View>
       <View className="gap-1">
-        <Text
-          variant="h3"
-          tone="inverse"
-          className="text-[17px] leading-[21px]"
-        >
-          {label}
+        <Text variant="h3" tone="inverse" className="text-[17px] leading-[21px]">
+          {action.label}
         </Text>
-        <Text
-          tone="muted"
-          className="text-[13px] leading-[18px] text-app-text-muted"
-        >
-          {description}
-        </Text>
+        {action.disabled ? (
+          <Text
+            tone="muted"
+            className="text-[12px] leading-[17px] text-app-text-muted"
+          >
+            Yetkin değil — sertifika veya rol gerekli
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
 }
 
 function SecondaryActionRow({
-  label,
-  description,
-  icon,
-  tone,
+  action,
   onPress,
-}: ActionCardProps) {
-  const style = ACTION_TONE_STYLE[tone];
-
+}: {
+  action: ResolvedAction;
+  onPress: () => void;
+}) {
+  const style = ACTION_TONE_STYLE[action.tone];
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={action.label}
+      accessibilityState={{ disabled: action.disabled }}
+      disabled={action.disabled}
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3 active:opacity-90"
+      className={[
+        "flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3",
+        action.disabled ? "opacity-50" : "active:opacity-90",
+      ].join(" ")}
     >
       <View
         className={[
@@ -379,15 +341,21 @@ function SecondaryActionRow({
           style.iconSurface,
         ].join(" ")}
       >
-        <Icon icon={icon} size={18} color={style.iconColor} />
+        <Icon icon={action.icon} size={18} color={style.iconColor} />
       </View>
       <View className="flex-1 gap-0.5">
         <Text variant="label" tone="inverse">
-          {label}
+          {action.label}
         </Text>
-        <Text tone="muted" variant="caption" className="text-app-text-muted">
-          {description}
-        </Text>
+        {action.disabled ? (
+          <Text
+            tone="muted"
+            variant="caption"
+            className="text-app-text-muted"
+          >
+            Yetkin değil
+          </Text>
+        ) : null}
       </View>
       <Icon icon={ChevronRight} size={16} color="#7f8ba5" />
     </Pressable>

@@ -7,16 +7,12 @@ import {
   BadgeCheck,
   FileCheck2,
   FileWarning,
-  IdCard,
-  Landmark,
-  Receipt,
-  ShieldCheck,
-  Truck,
   Upload,
-  Wrench,
   type LucideIcon,
 } from "lucide-react-native";
 import { Pressable, View } from "react-native";
+
+import { ALL_CERT_KINDS, CERT_KIND_META } from "../certCatalog";
 
 type CertificateKindMeta = {
   kind: TechnicianCertificateKind;
@@ -25,62 +21,32 @@ type CertificateKindMeta = {
   icon: LucideIcon;
 };
 
-const CERTIFICATE_KINDS: CertificateKindMeta[] = [
-  {
-    kind: "identity",
-    label: "Kimlik / Ehliyet",
-    description: "Başvuran kişinin resmi kimliği",
-    icon: IdCard,
-  },
-  {
-    kind: "tax_registration",
-    label: "Vergi Levhası",
-    description: "Güncel yıla ait vergi kaydı",
-    icon: Receipt,
-  },
-  {
-    kind: "trade_registry",
-    label: "Ticaret / Oda Sicili",
-    description: "Oda veya sicil kaydı belgesi",
-    icon: Landmark,
-  },
-  {
-    kind: "insurance",
-    label: "Mesleki Sigorta",
-    description: "İş yeri veya mesleki sorumluluk sigortası",
-    icon: ShieldCheck,
-  },
-  {
-    kind: "technical",
-    label: "Teknik Yeterlilik",
-    description: "MYK, TSE veya marka yetki belgesi",
-    icon: Wrench,
-  },
-  {
-    kind: "vehicle_license",
-    label: "Araç Ruhsatı",
-    description: "Çekici / hizmet aracı ruhsatı",
-    icon: Truck,
-  },
-];
-
 type Props = {
   certificates: TechnicianCertificate[];
   onUpload: (kind: TechnicianCertificateKind) => void;
   onManage?: (cert: TechnicianCertificate) => void;
+  kinds?: TechnicianCertificateKind[];
 };
 
-export function CertificateSection({ certificates, onUpload, onManage }: Props) {
+export function CertificateSection({
+  certificates,
+  onUpload,
+  onManage,
+  kinds,
+}: Props) {
+  const visibleKinds = kinds ?? ALL_CERT_KINDS;
   return (
     <View className="gap-2 px-4">
-      {CERTIFICATE_KINDS.map((meta) => {
-        const cert = certificates.find((c) => c.kind === meta.kind);
+      {visibleKinds.map((kind) => {
+        const meta = CERT_KIND_META[kind];
+        if (!meta) return null;
+        const cert = certificates.find((c) => c.kind === kind);
         return (
           <CertificateRow
-            key={meta.kind}
+            key={kind}
             meta={meta}
             certificate={cert}
-            onUpload={() => onUpload(meta.kind)}
+            onUpload={() => onUpload(kind)}
             onManage={cert && onManage ? () => onManage(cert) : undefined}
           />
         );
@@ -212,5 +178,4 @@ function formatDate(iso: string): string {
   });
 }
 
-export { CERTIFICATE_KINDS };
 export type { CertificateKindMeta };

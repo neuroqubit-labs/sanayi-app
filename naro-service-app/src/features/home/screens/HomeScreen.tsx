@@ -7,15 +7,21 @@ import { Pressable, ScrollView, View } from "react-native";
 import { useCasePool, useIncomingAppointments, useJobsFeed } from "@/features/jobs";
 import { PoolCaseCard } from "@/features/pool";
 import { useOfferSheetStore } from "@/features/pool";
+import { useShellConfig } from "@/features/shell";
 
-import { BusinessSummaryCard } from "../components/BusinessSummaryCard";
 import { HomeActionCard } from "../components/HomeActionCard";
 import { HomeCaseRow } from "../components/HomeCaseRow";
 import { HomeHeader } from "../components/HomeHeader";
 import { HomeHeroCard } from "../components/HomeHeroCard";
+import { BusinessLiteLayout } from "../layouts/BusinessLiteLayout";
+import { DamageShopLayout } from "../layouts/DamageShopLayout";
+import { FullLayout } from "../layouts/FullLayout";
+import { MinimalLayout } from "../layouts/MinimalLayout";
+import { TowFocusedLayout } from "../layouts/TowFocusedLayout";
 
 export function HomeScreen() {
   const router = useRouter();
+  const shellConfig = useShellConfig();
   const { data: jobs = [] } = useJobsFeed();
   const { data: pool = [] } = useCasePool();
   const { data: incomingAppointments = [] } = useIncomingAppointments();
@@ -48,6 +54,12 @@ export function HomeScreen() {
   const heroAppointment = incomingAppointments[0];
   const extraAppointments = incomingAppointments.length - 1;
 
+  const hasTowCapability = shellConfig.enabled_capabilities.includes("tow");
+  const hasMobileService = shellConfig.enabled_capabilities.includes(
+    "on_site_repair",
+  );
+  const hasCampaigns = shellConfig.enabled_capabilities.includes("campaigns");
+
   return (
     <Screen scroll backgroundClassName="bg-app-bg" className="gap-6 pb-28">
       <HomeHeader />
@@ -75,7 +87,11 @@ export function HomeScreen() {
         </View>
       ) : null}
 
-      <BusinessSummaryCard />
+      {renderLayoutHero(shellConfig.home_layout, {
+        hasTowCapability,
+        hasMobileService,
+        hasCampaigns,
+      })}
 
       {urgent.length > 0 ? (
         <View className="gap-4">
@@ -171,4 +187,31 @@ export function HomeScreen() {
       ) : null}
     </Screen>
   );
+}
+
+function renderLayoutHero(
+  layout: ReturnType<typeof useShellConfig>["home_layout"],
+  flags: {
+    hasTowCapability: boolean;
+    hasMobileService: boolean;
+    hasCampaigns: boolean;
+  },
+) {
+  switch (layout) {
+    case "tow_focused":
+      return <TowFocusedLayout />;
+    case "full":
+      return (
+        <FullLayout
+          showTowCapability={flags.hasTowCapability}
+          showMobileService={flags.hasMobileService}
+        />
+      );
+    case "business_lite":
+      return <BusinessLiteLayout showCampaigns={flags.hasCampaigns} />;
+    case "minimal":
+      return <MinimalLayout />;
+    case "damage_shop":
+      return <DamageShopLayout />;
+  }
 }

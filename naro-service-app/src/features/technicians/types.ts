@@ -4,6 +4,7 @@ import type {
   MediaAsset,
   PerformanceSnapshot,
   ProcedureBinding,
+  ProviderMode,
   ProviderType,
   ServiceArea,
   ServiceDomain,
@@ -44,6 +45,9 @@ export type TechnicianProfileState = {
   verified_level: TechnicianVerifiedLevel;
   provider_type: ProviderType;
   secondary_provider_types: ProviderType[];
+  provider_mode: ProviderMode;
+  active_provider_type: ProviderType | null;
+  role_config_version: number;
   business: BusinessInfo;
   /** @deprecated Use `working_schedule` instead. Kept for backward compatibility. */
   working_hours: string;

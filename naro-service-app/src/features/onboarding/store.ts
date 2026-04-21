@@ -2,6 +2,7 @@ import type {
   BrandCoverage,
   Drivetrain,
   ProcedureBinding,
+  ProviderMode,
   ProviderType,
   ServiceArea,
   ServiceDomain,
@@ -26,6 +27,7 @@ type OnboardingBusiness = Partial<BusinessInfo> & {
 type OnboardingState = {
   step: number;
   provider_type: ProviderType | null;
+  provider_mode: ProviderMode | null;
   business: OnboardingBusiness;
   capabilities: Partial<TechnicianCapability>;
   certificates: TechnicianCertificate[];
@@ -47,6 +49,7 @@ type OnboardingState = {
   capacity: StaffCapacity;
 
   setProviderType: (type: ProviderType) => void;
+  setProviderMode: (mode: ProviderMode) => void;
   updateBusiness: (patch: OnboardingBusiness) => void;
   toggleCapability: (key: keyof TechnicianCapability) => void;
   addCertificate: (cert: TechnicianCertificate) => void;
@@ -76,6 +79,7 @@ const INITIAL: Pick<
   OnboardingState,
   | "step"
   | "provider_type"
+  | "provider_mode"
   | "business"
   | "capabilities"
   | "certificates"
@@ -90,6 +94,7 @@ const INITIAL: Pick<
 > = {
   step: 0,
   provider_type: null,
+  provider_mode: null,
   business: {},
   capabilities: {},
   certificates: [],
@@ -107,6 +112,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   ...INITIAL,
 
   setProviderType: (type) => set({ provider_type: type }),
+  setProviderMode: (mode) => set({ provider_mode: mode }),
   updateBusiness: (patch) =>
     set((state) => ({ business: { ...state.business, ...patch } })),
   toggleCapability: (key) =>

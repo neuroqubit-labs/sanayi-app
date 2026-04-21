@@ -2,7 +2,7 @@ import type { AppointmentSlot } from "@naro/domain";
 import { BackButton, Button, Icon, SectionHeader, Text, TrustBadge } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { CalendarClock, Lock, ShieldCheck, Timer } from "lucide-react-native";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { VakaCard } from "@/features/cases";
@@ -46,44 +46,27 @@ export function AppointmentRequestDetailScreen() {
     : null;
   const isPending = appointment?.status === "pending";
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!appointment) return;
-    Alert.alert(
-      "Randevu onaylansın mı?",
-      "Müşteri anında bilgilendirilir ve servis süreci başlar.",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        {
-          text: "Onayla",
-          onPress: async () => {
-            await approve.mutateAsync(caseItem.id);
-            router.replace("/(tabs)/islerim");
-          },
-        },
-      ],
-    );
+    try {
+      await approve.mutateAsync(caseItem.id);
+      router.replace("/(tabs)/islerim");
+    } catch (err) {
+      console.warn("appointment approve failed", err);
+    }
   };
 
-  const handleDecline = () => {
+  const handleDecline = async () => {
     if (!appointment) return;
-    Alert.alert(
-      "Randevu reddedilsin mi?",
-      "Müşteri alternatif ustalara yönlendirilir.",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        {
-          text: "Reddet",
-          style: "destructive",
-          onPress: async () => {
-            await decline.mutateAsync({
-              caseId: caseItem.id,
-              reason: "Usta müsait değil",
-            });
-            router.back();
-          },
-        },
-      ],
-    );
+    try {
+      await decline.mutateAsync({
+        caseId: caseItem.id,
+        reason: "Usta müsait değil",
+      });
+      router.back();
+    } catch (err) {
+      console.warn("appointment decline failed", err);
+    }
   };
 
   return (

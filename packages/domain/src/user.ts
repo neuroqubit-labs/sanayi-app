@@ -54,6 +54,7 @@ export const TechnicianCertificateKindSchema = z.enum([
   "insurance",
   "technical",
   "vehicle_license",
+  "tow_operator",
 ]);
 export type TechnicianCertificateKind = z.infer<
   typeof TechnicianCertificateKindSchema

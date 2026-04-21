@@ -3,17 +3,14 @@ import { getTrackingVehicleMeta } from "@naro/mobile-core";
 import { Avatar, Button, Icon, StatusChip, Text, TrustBadge } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import { CalendarClock, ChevronRight } from "lucide-react-native";
-import { Alert, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import {
   BREAKDOWN_LABEL,
   CASE_KIND_META,
   DAMAGE_AREA_LABEL,
 } from "@/features/cases";
-import {
-  useApproveIncomingAppointment,
-  useDeclineIncomingAppointment,
-} from "@/features/jobs/api";
+import { useDeclineIncomingAppointment } from "@/features/jobs/api";
 
 import { maskCustomerName } from "./helpers";
 
@@ -34,7 +31,6 @@ export function HomeHeroCard({ caseItem }: Props) {
   const vehicle = getTrackingVehicleMeta(caseItem.vehicle_id);
   const appointment = caseItem.appointment;
   const firstPhoto = caseItem.attachments.find((a) => a.kind === "photo");
-  const approve = useApproveIncomingAppointment();
   const decline = useDeclineIncomingAppointment();
   const isPending = appointment?.status === "pending";
 
@@ -65,40 +61,15 @@ export function HomeHeroCard({ caseItem }: Props) {
   const openDetail = () => router.push(`/randevu/${caseItem.id}` as Href);
   const openVakaProfile = () => router.push(`/vaka/${caseItem.id}` as Href);
 
-  const handleApprove = () => {
-    Alert.alert(
-      "Randevu onaylansın mı?",
-      "Müşteri anında bilgilendirilir ve servis süreci başlar.",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        {
-          text: "Onayla",
-          onPress: async () => {
-            await approve.mutateAsync(caseItem.id);
-          },
-        },
-      ],
-    );
-  };
-
-  const handleDecline = () => {
-    Alert.alert(
-      "Randevu reddedilsin mi?",
-      "Müşteri alternatif ustalara yönlendirilir.",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        {
-          text: "Reddet",
-          style: "destructive",
-          onPress: async () => {
-            await decline.mutateAsync({
-              caseId: caseItem.id,
-              reason: "Usta müsait değil",
-            });
-          },
-        },
-      ],
-    );
+  const handleQuickDecline = async () => {
+    try {
+      await decline.mutateAsync({
+        caseId: caseItem.id,
+        reason: "Usta müsait değil",
+      });
+    } catch (err) {
+      console.warn("appointment decline failed", err);
+    }
   };
 
   return (
@@ -200,7 +171,7 @@ export function HomeHeroCard({ caseItem }: Props) {
         ) : null}
       </Pressable>
 
-      {/* Footer — direct actions if appointment pending */}
+      {/* Footer — Home özet: detaya götür + hızlı ret */}
       {isPending ? (
         <View className="flex-row gap-2 border-t border-app-outline bg-app-surface px-4 py-3">
           <View className="flex-1">
@@ -208,17 +179,16 @@ export function HomeHeroCard({ caseItem }: Props) {
               label="Reddet"
               variant="outline"
               size="md"
-              onPress={handleDecline}
+              onPress={handleQuickDecline}
               loading={decline.isPending}
               fullWidth
             />
           </View>
           <View className="flex-1">
             <Button
-              label="Randevu ver"
+              label="Detay + Onayla"
               size="md"
-              onPress={handleApprove}
-              loading={approve.isPending}
+              onPress={openDetail}
               fullWidth
             />
           </View>

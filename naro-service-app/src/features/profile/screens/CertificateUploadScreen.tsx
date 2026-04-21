@@ -17,10 +17,8 @@ import { FileText, Image as ImageIcon, Upload } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, Pressable, TextInput, View } from "react-native";
 
-import {
-  CERTIFICATE_KINDS,
-  type CertificateKindMeta,
-} from "@/features/profile/components/CertificateSection";
+import type { CertificateKindMeta } from "@/features/profile/components/CertificateSection";
+import { ALL_CERT_KINDS, CERT_KIND_META } from "@/features/profile/certCatalog";
 import { useOnboardingStore } from "@/features/onboarding";
 import { useTechnicianProfileStore } from "@/features/technicians";
 import { useServiceMediaUpload } from "@/shared/media/useServiceMediaUpload";
@@ -46,7 +44,7 @@ export function CertificateUploadScreen() {
 
   const [kind, setKind] = useState<TechnicianCertificateKind>(initialKind);
   const [title, setTitle] = useState(
-    CERTIFICATE_KINDS.find((m) => m.kind === initialKind)?.label ?? "",
+    CERT_KIND_META[initialKind]?.label ?? "",
   );
   const [expires, setExpires] = useState("");
   const [file, setFile] = useState<FileChoice | null>(null);
@@ -128,19 +126,27 @@ export function CertificateUploadScreen() {
           description="Hangi doğrulama belgesini yüklüyorsun?"
         />
         <View className="gap-2">
-          {CERTIFICATE_KINDS.map((meta) => (
-            <KindRow
-              key={meta.kind}
-              meta={meta}
-              active={kind === meta.kind}
-              onPress={() => {
-                setKind(meta.kind);
-                if (!title || CERTIFICATE_KINDS.some((m) => m.label === title)) {
-                  setTitle(meta.label);
-                }
-              }}
-            />
-          ))}
+          {ALL_CERT_KINDS.map((k) => {
+            const meta = CERT_KIND_META[k];
+            return (
+              <KindRow
+                key={k}
+                meta={meta}
+                active={kind === k}
+                onPress={() => {
+                  setKind(k);
+                  const isLabelStale =
+                    !title ||
+                    ALL_CERT_KINDS.some(
+                      (other) => CERT_KIND_META[other]?.label === title,
+                    );
+                  if (isLabelStale) {
+                    setTitle(meta.label);
+                  }
+                }}
+              />
+            );
+          })}
         </View>
       </View>
 

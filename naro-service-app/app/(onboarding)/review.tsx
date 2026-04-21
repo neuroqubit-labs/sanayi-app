@@ -16,6 +16,10 @@ export default function ReviewStep() {
   const updateBusiness = useTechnicianProfileStore((s) => s.updateBusiness);
   const setCapability = useTechnicianProfileStore((s) => s.setCapability);
   const addCertificate = useTechnicianProfileStore((s) => s.addCertificate);
+  const setProviderMode = useTechnicianProfileStore((s) => s.setProviderMode);
+  const setActiveProviderType = useTechnicianProfileStore(
+    (s) => s.setActiveProviderType,
+  );
   const reset = useOnboardingStore((s) => s.reset);
 
   const meta = onboarding.provider_type
@@ -25,6 +29,10 @@ export default function ReviewStep() {
   const handleSubmit = () => {
     if (!onboarding.provider_type) return;
     updateField("provider_type", onboarding.provider_type);
+    setActiveProviderType(onboarding.provider_type);
+    if (onboarding.provider_mode) {
+      setProviderMode(onboarding.provider_mode);
+    }
     if (onboarding.business.legal_name || onboarding.business.address) {
       updateBusiness({
         legal_name: onboarding.business.legal_name ?? "",
@@ -55,7 +63,7 @@ export default function ReviewStep() {
         <BackButton onPress={() => router.back()} />
         <View className="flex-1 gap-1">
           <Text variant="eyebrow" tone="subtle">
-            Adım 5 / 5 · Özet
+            Adım 6 / 6 · Özet
           </Text>
           <Text variant="h2" tone="inverse">
             Başvurunu gözden geçir

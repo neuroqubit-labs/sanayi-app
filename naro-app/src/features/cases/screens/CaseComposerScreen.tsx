@@ -15,6 +15,7 @@ import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTechnicianCooldownStore } from "@/features/cases/cooldown-store";
+import { TOW_DEFAULT_PICKUP, useTowStore } from "@/features/tow";
 import { useTechnicianProfile } from "@/features/ustalar/api";
 import {
   useActiveVehicle,
@@ -156,14 +157,43 @@ export function CaseComposerScreen() {
   };
 
   async function handleSubmit() {
+    if (!activeVehicle) return;
+
+    if (kind === "towing") {
+      const isImmediate = draft.urgency === "urgent";
+      const createTowCase = useTowStore.getState();
+      const baseTowInput = {
+        pickup_lat_lng: TOW_DEFAULT_PICKUP.lat_lng,
+        pickup_label: draft.location_label.trim() || TOW_DEFAULT_PICKUP.label,
+        dropoff_lat_lng: null,
+        dropoff_label: draft.dropoff_label?.trim() || null,
+        vehicle_id: activeVehicle.id,
+        incident_reason: "not_running" as const,
+        required_equipment: "flatbed" as const,
+        kasko: {
+          has_kasko: false,
+          pre_auth_on_customer_card: true,
+        },
+        attachments: [],
+      };
+      const created = isImmediate
+        ? createTowCase.createImmediate(baseTowInput)
+        : createTowCase.createScheduled({
+            ...baseTowInput,
+            scheduled_at:
+              draft.preferred_window ?? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          });
+      resetDraft();
+      router.replace(`/cekici/${created.id}` as Href);
+      return;
+    }
+
     const createdCase = await submitMutation.mutateAsync();
     resetDraft();
     const nextRoute =
-      kind === "towing"
-        ? `/cekici-takip/${createdCase.id}`
-        : technicianId && canFastTrackToAppointment
-          ? `/randevu/${technicianId}?caseId=${createdCase.id}`
-          : `/vaka/${createdCase.id}`;
+      technicianId && canFastTrackToAppointment
+        ? `/randevu/${technicianId}?caseId=${createdCase.id}`
+        : `/vaka/${createdCase.id}`;
     router.replace(nextRoute as Href);
   }
 

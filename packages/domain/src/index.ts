@@ -6,3 +6,5 @@ export * from "./media";
 export * from "./service-case";
 export * from "./taxonomy";
 export * from "./technician";
+export * from "./tow";
+export * from "./shell-config";

@@ -19,7 +19,7 @@ export default function BusinessStep() {
         <BackButton onPress={() => router.back()} />
         <View className="flex-1 gap-1">
           <Text variant="eyebrow" tone="subtle">
-            Adım 2 / 5 · İşletme
+            Adım 3 / 6 · İşletme
           </Text>
           <Text variant="h2" tone="inverse">
             İşletme bilgileri
