@@ -1,11 +1,11 @@
-import type { MediaAsset, MediaPurpose } from "@naro/domain";
+import type { MediaAsset, MediaOwnerKind, MediaPurpose } from "@naro/domain";
 import {
   createExpoMediaPickerAdapter,
-  uploadAsset,
+  useMediaUpload,
 } from "@naro/mobile-core";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import { mediaApi } from "@/runtime";
 
@@ -20,73 +20,83 @@ export type UploadedServiceMedia = {
   asset: MediaAsset;
 };
 
-const picker = createExpoMediaPickerAdapter({
-  documentPicker: DocumentPicker,
-  imagePicker: ImagePicker,
-});
+type PickAndUploadParams = {
+  purpose: MediaPurpose;
+  ownerKind?: MediaOwnerKind;
+  ownerRef: string;
+  selection: UploadSelectionKind;
+  fallbackName: string;
+  documentTypes?: string[];
+  maxDurationSec?: number;
+};
 
 export function useServiceMediaUpload() {
-  const [isUploading, setIsUploading] = useState(false);
-
-  const pickAndUpload = useCallback(
-    async (params: {
-      purpose: MediaPurpose;
-      ownerRef: string;
-      selection: UploadSelectionKind;
-      fallbackName: string;
-      documentTypes?: string[];
-      maxDurationSec?: number;
-    }): Promise<UploadedServiceMedia | null> => {
-      setIsUploading(true);
-
-      try {
-        const picks =
-          params.selection === "photo"
-            ? await picker.pickPhoto({ max: 1 })
-            : params.selection === "video"
-              ? await picker.pickVideo({ maxDurationSec: params.maxDurationSec })
-              : await picker.pickDocument({
-                  multiple: false,
-                  types:
-                    params.selection === "audio"
-                      ? ["audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"]
-                      : params.documentTypes ?? ["application/pdf"],
-                });
-
-        const picked = picks[0];
-        if (!picked) {
-          return null;
-        }
-
-        const uploaded = await uploadAsset({
-          mediaApi,
-          purpose: params.purpose,
-          ownerRef: params.ownerRef,
-          source: {
-            uri: picked.uri,
-            name: picked.name ?? params.fallbackName,
-            mimeType: picked.mimeType ?? "application/octet-stream",
-            sizeBytes: picked.sizeBytes,
-          },
-        });
-
-        return {
-          localUri: picked.uri,
-          name: picked.name ?? params.fallbackName,
-          mimeType: uploaded.asset.mime_type,
-          sizeBytes: picked.sizeBytes,
-          durationSec: picked.durationSec,
-          asset: uploaded.asset,
-        };
-      } finally {
-        setIsUploading(false);
-      }
-    },
+  const picker = useMemo(
+    () =>
+      createExpoMediaPickerAdapter({
+        documentPicker: DocumentPicker,
+        imagePicker: ImagePicker,
+      }),
     [],
   );
+  const upload = useMediaUpload({ mediaApi, picker });
+
+  const pickAndUpload = useCallback(
+    async (
+      params: PickAndUploadParams,
+    ): Promise<UploadedServiceMedia | null> => {
+      const pickOptions =
+        params.selection === "photo"
+          ? { max: 1 }
+          : params.selection === "video"
+            ? { maxDurationSec: params.maxDurationSec }
+            : params.selection === "document"
+              ? {
+                  multiple: false,
+                  types: params.documentTypes ?? ["application/pdf"],
+                }
+              : {
+                  multiple: false,
+                  types: ["audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"],
+                };
+
+      const outcome = await upload.pickAndUpload({
+        purpose: params.purpose,
+        ownerKind: params.ownerKind,
+        ownerId: params.ownerRef,
+        selection: params.selection === "audio" ? "document" : params.selection,
+        pickOptions,
+        fallbackName: params.fallbackName,
+      });
+
+      if (!outcome || !outcome.pick) return null;
+
+      return {
+        localUri: outcome.pick.uri,
+        name: outcome.pick.name ?? params.fallbackName,
+        mimeType: outcome.result.asset.mime_type,
+        sizeBytes: outcome.pick.sizeBytes,
+        durationSec: outcome.pick.durationSec,
+        asset: outcome.result.asset,
+      };
+    },
+    [upload],
+  );
+
+  const isUploading =
+    upload.status === "picking" ||
+    upload.status === "validating" ||
+    upload.status === "compressing" ||
+    upload.status === "intent" ||
+    upload.status === "transfer" ||
+    upload.status === "complete";
 
   return {
     isUploading,
+    error: upload.error,
+    progress: upload.progress,
+    cancel: upload.cancel,
+    retry: upload.retry,
     pickAndUpload,
   };
 }

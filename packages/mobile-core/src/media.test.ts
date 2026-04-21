@@ -16,7 +16,7 @@ describe("createMediaApi", () => {
 
     const mediaApi = createMediaApi(apiClient as never);
     const intent = await mediaApi.createUploadIntent({
-      purpose: "case_attachment",
+      purpose: "case_evidence_photo",
       owner_ref: "draft-1",
       filename: "photo.jpg",
       mime_type: "image/jpeg",
@@ -66,22 +66,30 @@ describe("uploadAsset", () => {
       }),
       completeUpload: vi.fn().mockResolvedValue({
         id: "asset-1",
-        purpose: "case_attachment",
+        purpose: "case_evidence_photo",
+        owner_kind: "service_case",
+        owner_id: "draft-1",
         visibility: "private",
         status: "ready",
         mime_type: "image/jpeg",
         size_bytes: 4,
         checksum_sha256: null,
+        dimensions: null,
+        duration_sec: null,
         preview_url: "https://download.example.com/preview",
         download_url: "https://download.example.com/original",
         created_at: "2026-04-20T11:58:00.000Z",
         uploaded_at: "2026-04-20T11:59:00.000Z",
+        exif_stripped_at: null,
+        antivirus_scanned_at: null,
       }),
+      getAsset: vi.fn(),
+      deleteAsset: vi.fn(),
     };
 
     const result = await uploadAsset({
       mediaApi,
-      purpose: "case_attachment",
+      purpose: "case_evidence_photo",
       ownerRef: "draft-1",
       source: {
         uri: "file:///photo.jpg",
@@ -114,6 +122,8 @@ describe("uploadAsset", () => {
     await expect(
       uploadAsset({
         mediaApi: {
+          getAsset: vi.fn(),
+          deleteAsset: vi.fn(),
           createUploadIntent: vi.fn().mockResolvedValue({
             upload_id: "upload-1",
             asset_id: "asset-1",
@@ -125,7 +135,7 @@ describe("uploadAsset", () => {
           }),
           completeUpload: vi.fn(),
         },
-        purpose: "case_attachment",
+        purpose: "case_evidence_photo",
         ownerRef: "draft-1",
         source: {
           uri: "file:///photo.jpg",

@@ -4,14 +4,15 @@ import {
   Button,
   FlowProgress,
   FlowScreen,
+  Icon,
   StackedActions,
   Text,
   TrustBadge,
-  VehicleContextBar,
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
+import { CarFront, ChevronDown } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTechnicianCooldownStore } from "@/features/cases/cooldown-store";
@@ -99,9 +100,14 @@ export function CaseComposerScreen() {
     preferredTechnician.availability === "available" &&
     !isTechnicianInCooldown,
   );
-  const screenDescription = preferredTechnician
-    ? `${flow.description} Talep ${preferredTechnician.name} önceliğiyle açılır.`
-    : flow.description;
+  const compactShell = flow.progressVariant === "bar-thin";
+  // Compact shell body zaten adım başlığını taşıyor — shell description boş geçilir,
+  // böylece step adı progress bar label'ından (Adım X / N · Title) okunur.
+  const screenDescription = compactShell
+    ? ""
+    : preferredTechnician
+      ? `${flow.description} Talep ${preferredTechnician.name} önceliğiyle açılır.`
+      : flow.description;
 
   useDraftGuard({
     enabled: Boolean(draft && hasMeaningfulDraft(draft)),
@@ -197,13 +203,21 @@ export function CaseComposerScreen() {
     router.replace(nextRoute as Href);
   }
 
+  const handleClose = () => {
+    router.back();
+  };
+
   return (
     <FlowScreen
-      eyebrow={flow.eyebrow}
-      title={flow.title}
+      eyebrow={compactShell ? undefined : flow.eyebrow}
+      title={compactShell ? flow.title : flow.title}
       description={screenDescription}
-      onBack={goBack}
-      backVariant={stepIndex === 0 ? "close" : "back"}
+      onBack={compactShell ? handleClose : goBack}
+      backVariant={compactShell || stepIndex === 0 ? "close" : "back"}
+      compact={compactShell}
+      trailingAction={
+        compactShell ? <DraftSaveAction onPress={handleClose} /> : undefined
+      }
       progress={
         flow.steps.length <= 1 ? undefined : (
           <FlowProgress
@@ -246,7 +260,16 @@ export function CaseComposerScreen() {
       }
     >
       <View className="gap-2">
-        <TrustBadge label={getCaseKindLabel(kind)} tone="accent" />
+        {compactShell && stepIndex === 0 ? (
+          <View className="items-center">
+            <VehiclePlateChip
+              plate={activeVehicle.plate}
+              onPress={openVehicleSwitcher}
+            />
+          </View>
+        ) : !compactShell ? (
+          <TrustBadge label={getCaseKindLabel(kind)} tone="accent" />
+        ) : null}
         {preferredTechnician ? (
           <View className="rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5">
             <View className="flex-row items-center gap-3">
@@ -275,17 +298,49 @@ export function CaseComposerScreen() {
             </Text>
           </View>
         ) : null}
-        {stepIndex === 0 ? (
-          <VehicleContextBar
-            plate={activeVehicle.plate}
-            vehicle={`${activeVehicle.make} ${activeVehicle.model} · ${activeVehicle.year}`}
-            subtitle={activeVehicle.note}
-            onPress={openVehicleSwitcher}
-          />
-        ) : null}
       </View>
 
       {currentStep.render({ kind, draft, updateDraft, goNext })}
     </FlowScreen>
+  );
+}
+
+function VehiclePlateChip({
+  plate,
+  onPress,
+}: {
+  plate: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Aracı değiştir — ${plate}`}
+      onPress={onPress}
+      className="flex-row items-center gap-1.5 rounded-full border border-app-outline bg-app-surface px-3 py-1.5 active:bg-app-surface-2"
+    >
+      <Icon icon={CarFront} size={12} color="#83a7ff" />
+      <Text variant="label" tone="inverse" className="text-[12px]">
+        {plate}
+      </Text>
+      <Icon icon={ChevronDown} size={11} color="#83a7ff" />
+    </Pressable>
+  );
+}
+
+function DraftSaveAction({ onPress }: { onPress: () => void }) {
+  // V1: "Taslak kaydet" pattern UI slot'u — gerçek persist sonraki brief'te.
+  // Şimdilik çıkış onayı gibi davranıyor (router.back).
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Taslak kaydet"
+      onPress={onPress}
+      className="rounded-full border border-app-outline bg-app-surface px-3 py-1.5 active:bg-app-surface-2"
+    >
+      <Text variant="caption" tone="accent" className="text-[11px]">
+        Taslak kaydet
+      </Text>
+    </Pressable>
   );
 }

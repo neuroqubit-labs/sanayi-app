@@ -304,8 +304,8 @@ function buildFirstPage(ctx: FeedContext): FeedItem[] {
     items.push({
       kind: "technician_rail",
       id: "rail-ustalar-top",
-      title: "Sana özel ustalar",
-      description: "Aracına ve açık vakana göre güvenli adaylar.",
+      title: "Sizin için",
+      description: "Aracına uygun ve vaka profilini anlamış ustalar.",
       technicians: ctx.suggestions,
     });
   }

@@ -60,7 +60,7 @@ export type ComposerFlow = {
   description: string;
   steps: ComposerStep[];
   /** Progress variant for this flow. Defaults to "rail". */
-  progressVariant?: "rail" | "bar";
+  progressVariant?: "rail" | "bar" | "bar-thin";
   /** Override the footer primary label on the terminal step. */
   submitLabel?: string;
 };

@@ -11,7 +11,7 @@ export type FlowProgressStep = {
 export type FlowProgressProps = {
   steps: ReadonlyArray<FlowProgressStep>;
   activeIndex: number;
-  variant?: "rail" | "bar";
+  variant?: "rail" | "bar" | "bar-thin";
   onStepPress?: (index: number) => void;
   className?: string;
 };
@@ -23,6 +23,30 @@ export function FlowProgress({
   onStepPress,
   className,
 }: FlowProgressProps) {
+  if (variant === "bar-thin") {
+    const safeTotal = Math.max(1, steps.length);
+    const percent = Math.min(1, Math.max(0, (activeIndex + 1) / safeTotal));
+    const activeTitle = steps[activeIndex]?.title ?? "";
+    return (
+      <View className={["gap-1.5", className ?? ""].filter(Boolean).join(" ")}>
+        <View className="h-0.5 w-full overflow-hidden rounded-full bg-app-surface-2">
+          <View
+            className="h-full rounded-full bg-brand-500"
+            style={{ width: `${percent * 100}%` }}
+          />
+        </View>
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted text-[11px]"
+        >
+          Adım {activeIndex + 1} / {steps.length}
+          {activeTitle ? ` · ${activeTitle}` : ""}
+        </Text>
+      </View>
+    );
+  }
+
   if (variant === "bar") {
     const safeTotal = Math.max(1, steps.length);
     const percent = Math.min(1, Math.max(0, (activeIndex + 1) / safeTotal));

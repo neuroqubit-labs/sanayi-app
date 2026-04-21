@@ -6,6 +6,8 @@ export * from "./error";
 export * from "./feature-flags";
 export * from "./mock";
 export * from "./media";
+export * from "./media/compressor";
+export * from "./media/useMediaUpload";
 export * from "./network";
 export * from "./platform-storage";
 export * from "./posthog";

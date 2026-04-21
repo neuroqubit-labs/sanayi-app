@@ -23,9 +23,10 @@ const SLOT_LABEL: Record<string, string> = {
 
 type Props = {
   caseItem: ServiceCase;
+  totalPendingCount?: number;
 };
 
-export function HomeHeroCard({ caseItem }: Props) {
+export function HomeHeroCard({ caseItem, totalPendingCount }: Props) {
   const router = useRouter();
   const kindMeta = CASE_KIND_META[caseItem.kind];
   const vehicle = getTrackingVehicleMeta(caseItem.vehicle_id);
@@ -87,6 +88,21 @@ export function HomeHeroCard({ caseItem }: Props) {
         className="gap-3 px-5 pb-4 pt-5 active:opacity-95"
         style={{ backgroundColor: `${kindMeta.iconColor}14` }}
       >
+        <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center gap-1 rounded-full border border-app-warning/40 bg-app-warning-soft px-2.5 py-1">
+            <View className="h-1.5 w-1.5 rounded-full bg-app-warning" />
+            <Text
+              variant="caption"
+              tone="warning"
+              className="text-[11px]"
+            >
+              {totalPendingCount && totalPendingCount > 1
+                ? `${totalPendingCount} talep yanıt bekliyor`
+                : "1 talep yanıt bekliyor"}
+            </Text>
+          </View>
+        </View>
+
         <View className="flex-row items-start gap-3">
           <Pressable
             accessibilityRole="button"

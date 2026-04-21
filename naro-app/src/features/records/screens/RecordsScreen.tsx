@@ -6,7 +6,15 @@ import {
   TrustBadge,
 } from "@naro/ui";
 import { Href, useRouter } from "expo-router";
-import { AlertTriangle, ChevronDown, Heart, Truck, Wrench } from "lucide-react-native";
+import {
+  AlertTriangle,
+  ArrowRight,
+  ChevronDown,
+  Heart,
+  Sparkles,
+  Truck,
+  Wrench,
+} from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, View } from "react-native";
 
@@ -165,18 +173,26 @@ export function RecordsScreen() {
                     {totalCompleted} kayıt
                   </Text>
                 </View>
-                <View className="flex-row flex-wrap gap-2">
-                  {ARCHIVE_FILTERS.map((item) => (
-                    <ToggleChip
-                      key={item.key}
-                      label={item.label}
-                      selected={filter === item.key}
-                      onPress={() => setFilter(item.key)}
-                      size="sm"
-                    />
-                  ))}
-                </View>
+                {totalCompleted >= 2 ? (
+                  <View className="flex-row flex-wrap gap-2">
+                    {ARCHIVE_FILTERS.map((item) => (
+                      <ToggleChip
+                        key={item.key}
+                        label={item.label}
+                        selected={filter === item.key}
+                        onPress={() => setFilter(item.key)}
+                        size="sm"
+                      />
+                    ))}
+                  </View>
+                ) : null}
               </View>
+            ) : null}
+
+            {!isEmpty && totalCompleted <= 1 ? (
+              <GuidanceCard
+                onAction={(route) => router.push(route as Href)}
+              />
             ) : null}
           </View>
         }
@@ -205,6 +221,75 @@ export function RecordsScreen() {
 type EmptyStateProps = {
   onAction: (route: string) => void;
 };
+
+const GUIDANCE_ACTIONS = [
+  {
+    key: "maintenance",
+    title: "Bakım planla",
+    hint: "Periyodik bakım veya paket",
+    route: "/(modal)/talep/maintenance",
+    icon: Heart,
+  },
+  {
+    key: "accident",
+    title: "Hasar bildir",
+    hint: "Kaza, darbe, cam kırığı",
+    route: "/(modal)/talep/accident",
+    icon: AlertTriangle,
+  },
+  {
+    key: "towing",
+    title: "Çekici çağır",
+    hint: "Anında veya randevulu",
+    route: "/(modal)/talep/towing",
+    icon: Truck,
+  },
+];
+
+function GuidanceCard({ onAction }: EmptyStateProps) {
+  return (
+    <View className="gap-3 overflow-hidden rounded-[24px] border border-brand-500/20 bg-app-surface-2 px-4 py-4">
+      <View className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-500/10" />
+      <View className="flex-row items-center gap-2">
+        <Icon icon={Sparkles} size={13} color="#83a7ff" />
+        <Text variant="eyebrow" tone="subtle" className="text-[10px]">
+          Öneri ve talep
+        </Text>
+      </View>
+      <Text variant="h3" tone="inverse" className="text-[15px] leading-[19px]">
+        Daha fazla geçmiş için
+      </Text>
+      <View className="gap-2">
+        {GUIDANCE_ACTIONS.map((action) => (
+          <Pressable
+            key={action.key}
+            accessibilityRole="button"
+            accessibilityLabel={action.title}
+            onPress={() => onAction(action.route)}
+            className="flex-row items-center gap-3 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-2"
+          >
+            <View className="h-8 w-8 items-center justify-center rounded-full bg-brand-500/10">
+              <Icon icon={action.icon} size={14} color="#83a7ff" />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text variant="label" tone="inverse" className="text-[13px]">
+                {action.title}
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[11px]"
+              >
+                {action.hint}
+              </Text>
+            </View>
+            <Icon icon={ArrowRight} size={12} color="#83a7ff" />
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 function EmptyState({ onAction }: EmptyStateProps) {
   return (

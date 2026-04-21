@@ -3,7 +3,6 @@ export {
   setAttachmentPickerAdapter,
   type AttachmentPickerAdapter,
 } from "./useAttachmentPicker";
-export { uploadAttachment } from "./uploader";
 export {
   ATTACHMENT_KIND_LABEL,
   type AttachmentDraft,

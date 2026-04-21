@@ -165,7 +165,7 @@ function ActiveProcessPinned({
 
       <View className="gap-1.5">
         <Text variant="eyebrow" tone="subtle">
-          Odak penceresi
+          Şu an odağında
         </Text>
         <Text variant="h3" tone="inverse">
           {servisAd}
@@ -188,8 +188,8 @@ function ActiveProcessPinned({
       </View>
 
       <View className="flex-row gap-2">
-        <MetricPill value={priceLabel} label="Güncel tutar" />
-        <MetricPill value={nextStepLabel} label="Sıradaki eşik" />
+        <MetricPill value={priceLabel} label="Şu ana kadar" />
+        <MetricPill value={nextStepLabel} label="Sıradaki adım" />
       </View>
 
       {primaryLabel && onPrimary ? (

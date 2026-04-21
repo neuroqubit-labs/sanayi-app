@@ -3,13 +3,7 @@ import type {
   PricePreference,
   ServiceRequestDraft,
 } from "@naro/domain";
-import {
-  Icon,
-  StatusChip,
-  Text,
-  ToggleChip,
-  TrustBadge,
-} from "@naro/ui";
+import { Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
 import {
   Camera,
   Check,
@@ -26,11 +20,10 @@ import {
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 
-import { useActiveVehicle } from "@/features/vehicles";
-
 import { CategoryTile } from "./components/CategoryTile";
 import { ComposerSection } from "./components/ComposerSection";
 import { EvidenceStepCard } from "./components/EvidenceStepCard";
+import { LocationPicker } from "./components/LocationPicker";
 import { QuestionDispatcher } from "./components/questionFields";
 import {
   MAINTENANCE_CATEGORY_LABEL,
@@ -83,15 +76,14 @@ function CategoryStep({ draft, updateDraft, goNext }: ComposerStepRenderProps) {
   return (
     <View className="gap-5">
       <View className="gap-1">
-        <Text variant="eyebrow" tone="subtle">
-          Adım 1
-        </Text>
         <Text variant="h3" tone="inverse">
           Aracına ne yapılsın?
         </Text>
-        <Text tone="muted" className="text-app-text-muted leading-5">
-          Paketler birden fazla işi bir seferde alır. Tek işler için alttaki
-          listeden birini seç.
+        <Text
+          tone="muted"
+          className="text-app-text-muted text-[12px] leading-[16px]"
+        >
+          Paketler tek seferde birden çok iş alır. Tekli işler listeden.
         </Text>
       </View>
 
@@ -137,7 +129,6 @@ function CategoryStep({ draft, updateDraft, goNext }: ComposerStepRenderProps) {
 }
 
 function DetailStep({ draft, updateDraft }: ComposerStepRenderProps) {
-  const { data: vehicle } = useActiveVehicle();
   const category = draft.maintenance_category;
   if (!category) {
     return (
@@ -150,52 +141,33 @@ function DetailStep({ draft, updateDraft }: ComposerStepRenderProps) {
   }
 
   const template = MAINTENANCE_TEMPLATES[category];
-  const categoryLabel = MAINTENANCE_CATEGORY_LABEL[category];
   const HeroIcon = template.hero.icon;
   const estimate = estimatePriceRange(draft);
 
   return (
     <View className="gap-4">
-      <View className="gap-3 rounded-[24px] border border-brand-500/30 bg-brand-500/10 px-4 py-4">
-        <View className="flex-row items-center gap-3">
-          <View className="h-11 w-11 items-center justify-center rounded-[16px] bg-brand-500/20">
-            <Icon icon={HeroIcon} size={20} color="#0ea5e9" />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text variant="eyebrow" tone="subtle">
-              {categoryLabel}
-            </Text>
-            <Text variant="h3" tone="inverse">
-              {template.hero.title}
-            </Text>
-          </View>
+      {/* Tek hero — eyebrow + title çift yazımı temizlendi, araç info satırı kaldırıldı */}
+      <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
+        <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
+          <Icon icon={HeroIcon} size={18} color="#0ea5e9" />
         </View>
-        <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
-          {template.hero.subtitle}
-        </Text>
+        <View className="flex-1 gap-0.5">
+          <Text
+            variant="h3"
+            tone="inverse"
+            className="text-[15px] leading-[19px]"
+          >
+            {template.hero.title}
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[12px] leading-[16px]"
+          >
+            {template.hero.subtitle}
+          </Text>
+        </View>
       </View>
-
-      {vehicle ? (
-        <View className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface-2 px-4 py-3">
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-app-surface">
-            <Icon icon={Info} size={14} color="#83a7ff" />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text variant="eyebrow" tone="subtle">
-              Araç bilgisi
-            </Text>
-            <Text variant="caption" tone="muted" className="text-app-text-muted">
-              {vehicle.plate} · {vehicle.make} {vehicle.model}
-              {vehicle.mileageKm
-                ? ` · ${vehicle.mileageKm.toLocaleString("tr-TR")} km`
-                : ""}
-              {vehicle.lastServiceLabel
-                ? ` · Son bakım: ${vehicle.lastServiceLabel}`
-                : ""}
-            </Text>
-          </View>
-        </View>
-      ) : null}
 
       {template.questions.map((question) => (
         <QuestionDispatcher
@@ -252,32 +224,38 @@ function MediaStep({ draft, updateDraft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
-      <View className="gap-3 rounded-[28px] border border-brand-500/30 bg-brand-500/10 px-4 py-4">
-        <View className="flex-row items-center gap-2">
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-brand-500/20">
-            <Icon icon={Camera} size={16} color="#0ea5e9" />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text variant="eyebrow" tone="subtle">
-              {MAINTENANCE_CATEGORY_LABEL[category]} · kanıt
-            </Text>
-            <Text variant="h3" tone="inverse">
-              Usta için bağlam
-            </Text>
-          </View>
-          <View className="items-end gap-0.5">
-            <Text variant="label" tone="accent">
-              {mediaCount}
-            </Text>
-            <Text variant="caption" tone="muted" className="text-app-text-muted">
-              Medya
-            </Text>
-          </View>
+      <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
+        <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
+          <Icon icon={Camera} size={18} color="#0ea5e9" />
         </View>
-        <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
-          Kilometre, mevcut parça veya istek referansı — teklifin kalitesini
-          doğrudan etkiler.
-        </Text>
+        <View className="flex-1 gap-0.5">
+          <Text
+            variant="h3"
+            tone="inverse"
+            className="text-[15px] leading-[19px]"
+          >
+            Usta için bağlam
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[12px] leading-[16px]"
+          >
+            Fotoğraf ve notlar teklifin kalitesini doğrudan etkiler.
+          </Text>
+        </View>
+        <View className="items-end gap-0.5">
+          <Text variant="label" tone="accent">
+            {mediaCount}
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-subtle text-[10px]"
+          >
+            Medya
+          </Text>
+        </View>
       </View>
 
       {evidence.map((step) => (
@@ -322,15 +300,11 @@ function LogisticsStep({ draft, updateDraft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
-      <ComposerSection title="Konum" description={locationDescription}>
-        <TextInput
-          value={draft.location_label}
-          onChangeText={(value) => updateDraft({ location_label: value })}
-          placeholder="Örn: Maslak / Sarıyer"
-          placeholderTextColor="#6f7b97"
-          className={INPUT_CLASS}
-        />
-      </ComposerSection>
+      <LocationPicker
+        value={draft.location_label}
+        onChange={(next) => updateDraft({ location_label: next })}
+        description={locationDescription}
+      />
 
       <ComposerSection title="Zaman tercihi">
         <View className="flex-row flex-wrap gap-2">
@@ -460,6 +434,7 @@ function CheckPreferenceRow({
 }
 
 function ReviewStep({ draft }: ComposerStepRenderProps) {
+  const [showPriceInfo, setShowPriceInfo] = useState(false);
   const category = draft.maintenance_category;
   const template = category ? MAINTENANCE_TEMPLATES[category] : null;
   const categoryLabel = category
@@ -470,17 +445,6 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
     (sum, group) => sum + group.options.length,
     0,
   );
-  const topLabels = groups
-    .flatMap((group) =>
-      group.options.map((option) => resolveOptionLabel(group.question, option)),
-    )
-    .slice(0, 3);
-  const itemsSummary =
-    totalEntries === 0
-      ? "Seçilmedi"
-      : totalEntries <= 3
-        ? topLabels.join(" · ")
-        : `${topLabels.join(" · ")} · +${totalEntries - 3} daha`;
   const evidenceSteps = template?.evidence ?? [];
   const mediaCount = draft.attachments.filter((attachment) =>
     evidenceSteps.some((step) => attachment.id.startsWith(`${step.id}:`)),
@@ -494,55 +458,87 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
-      <View className="gap-4 rounded-[28px] border border-app-outline-strong bg-app-surface-2 px-5 py-5">
-        <View className="gap-1.5">
-          <TrustBadge label="Önizleme" tone="info" icon={Sparkles} />
-          <Text variant="h2" tone="inverse">
-            Bakım talebi özeti
-          </Text>
-          <Text tone="muted" className="text-app-text-muted leading-5">
-            Bilgileri kontrol et. Gönderdiğinde uygun ustalar teklif verir.
-          </Text>
-        </View>
-
-        {estimate ? (
-          <View className="gap-1 rounded-[22px] border border-app-success/30 bg-app-success-soft px-4 py-4">
+      {estimate ? (
+        <View className="gap-1 rounded-[22px] border border-app-success/30 bg-app-success-soft px-4 py-4">
+          <View className="flex-row items-center justify-between">
             <Text variant="eyebrow" tone="subtle">
               Tahmini fiyat aralığı
             </Text>
-            <Text variant="display" tone="success" className="text-[32px] leading-[36px]">
-              {estimate.label}
-            </Text>
-            <Text variant="caption" tone="muted" className="text-app-text-muted">
-              Seçimlerine göre hesaplandı. Kesin ücret teklif aşamasında netleşir.
-            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Fiyat aralığı nasıl hesaplanır?"
+              hitSlop={8}
+              onPress={() => setShowPriceInfo((prev) => !prev)}
+              className="h-6 w-6 items-center justify-center rounded-full border border-app-outline bg-app-surface active:bg-app-surface-2"
+            >
+              <Icon icon={Info} size={11} color="#83a7ff" />
+            </Pressable>
           </View>
-        ) : null}
-
-        <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
-          <SummaryRow label="Kategori" value={categoryLabel} />
-          <SummaryRow
-            label="Seçimlerin"
-            value={itemsSummary}
-            tone={totalEntries === 0 ? "warning" : "neutral"}
-          />
-          <SummaryRow label="Medya" value={`${mediaCount} dosya`} />
-          <SummaryRow
-            label="Servis tercihin"
-            value={servicePreferenceLabel}
-            tone={hasAnyPreference ? "accent" : "neutral"}
-          />
-          <SummaryRow
-            label="Konum"
-            value={draft.location_label || "—"}
-            tone={draft.location_label ? "neutral" : "warning"}
-          />
-          <SummaryRow
-            label="Zaman"
-            value={draft.preferred_window ?? "Belirtilmedi"}
-          />
-          <SummaryRow label="Öncelik" value={priceLabel} />
+          <Text
+            variant="display"
+            tone="success"
+            className="text-[32px] leading-[36px]"
+          >
+            {estimate.label}
+          </Text>
+          <Text variant="caption" tone="muted" className="text-app-text-muted">
+            Seçimlerine göre hesaplandı. Kesin ücret teklif aşamasında netleşir.
+          </Text>
+          {showPriceInfo ? (
+            <View className="mt-2 gap-1 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2">
+              <Text
+                variant="eyebrow"
+                tone="subtle"
+                className="text-[10px]"
+              >
+                Nasıl hesaplandı?
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[11px] leading-[16px]"
+              >
+                Naro'daki benzer seçimli taleplerin ortalama teklif aralığı.
+                Ustaların gerçek teklifi bu aralığın dışında olabilir.
+              </Text>
+            </View>
+          ) : null}
         </View>
+      ) : null}
+
+      <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+        <SummaryRow label="Kategori" value={categoryLabel} />
+        {groups.map((group) => (
+          <SummaryRow
+            key={group.question.id}
+            label={group.question.title}
+            value={group.options
+              .map((option) => resolveOptionLabel(group.question, option))
+              .join(" · ")}
+          />
+        ))}
+        {totalEntries === 0 ? (
+          <SummaryRow label="Seçimler" value="Henüz yok" tone="warning" />
+        ) : null}
+        <SummaryRow
+          label="Medya"
+          value={mediaCount > 0 ? `${mediaCount} dosya` : "Yok"}
+        />
+        <SummaryRow
+          label="Servis tercihi"
+          value={servicePreferenceLabel}
+          tone={hasAnyPreference ? "accent" : "neutral"}
+        />
+        <SummaryRow
+          label="Konum"
+          value={draft.location_label || "—"}
+          tone={draft.location_label ? "neutral" : "warning"}
+        />
+        <SummaryRow
+          label="Zaman"
+          value={draft.preferred_window ?? "Belirtilmedi"}
+        />
+        <SummaryRow label="Öncelik" value={priceLabel} />
       </View>
 
       <AccordionRow
@@ -709,17 +705,16 @@ function AccordionRow({
 
 export const MAINTENANCE_FLOW: ComposerFlow = {
   kind: "maintenance",
-  eyebrow: "Bakım talebi",
-  title: "Bakımı sakin bir akışta tamamla",
-  description:
-    "Kategoriye özel sorular, kanıt ve servis tercihi adım adım toplanır.",
-  progressVariant: "bar",
+  eyebrow: "",
+  title: "Bakım talebi oluştur",
+  description: "",
+  progressVariant: "bar-thin",
   submitLabel: "Bakım talebimi gönder",
   steps: [
     {
       key: "maintenance_category",
       title: "Kategori",
-      description: "Ne yapılsın?",
+      description: "Aracına ne yapılsın?",
       validate: (draft) =>
         draft.maintenance_category ? null : "Bir kategori seç.",
       render: (props) => <CategoryStep {...props} />,
@@ -728,17 +723,17 @@ export const MAINTENANCE_FLOW: ComposerFlow = {
     {
       key: "maintenance_detail",
       title: "Detay",
-      description: "Seçimler",
+      description: "Tercihlerini işaretle",
       validate: (draft) =>
         draft.maintenance_items.length === 0
-          ? "Ana seçimi yap (tier / kapsam / mevsim vb.)."
+          ? "Kapsam seçimi bekleniyor."
           : null,
       render: (props) => <DetailStep {...props} />,
     },
     {
       key: "maintenance_media",
-      title: "Kanıt",
-      description: "Foto / not",
+      title: "Bağlam",
+      description: "Usta için bağlam ekle",
       validate: (draft) => {
         const category = draft.maintenance_category;
         if (!category) return null;

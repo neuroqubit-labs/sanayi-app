@@ -1,6 +1,5 @@
 import type { QuickAction } from "@naro/domain";
 import {
-  ActionSheetSurface,
   Avatar,
   Icon,
   shellMotion,
@@ -26,7 +25,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { Dimensions, Pressable, ScrollView, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -71,6 +70,22 @@ const TONE_BY_ID: Record<string, ActionTone> = {
   profile: "neutral",
 };
 
+const TILE_GRADIENT: Record<ActionTone, string> = {
+  accent: "rgba(14,165,233,0.18)",
+  success: "rgba(45,210,141,0.18)",
+  warning: "rgba(245,179,63,0.18)",
+  info: "rgba(74,168,255,0.18)",
+  neutral: "rgba(131,167,255,0.12)",
+};
+
+const TILE_ICON_COLOR: Record<ActionTone, string> = {
+  accent: "#0ea5e9",
+  success: "#2dd28d",
+  warning: "#f5b33f",
+  info: "#4aa8ff",
+  neutral: "#aab6cf",
+};
+
 export function QuickActionsScreen() {
   const router = useRouter();
   const shellConfig = useShellConfig();
@@ -79,6 +94,8 @@ export function QuickActionsScreen() {
   const setAvailability = useTechnicianProfileStore(
     (state) => state.setAvailability,
   );
+  const { height } = Dimensions.get("window");
+  const sheetMaxHeight = Math.round(height * 0.82);
 
   const availabilityTone =
     profile.availability === "available"
@@ -123,94 +140,118 @@ export function QuickActionsScreen() {
     router.replace(action.route as Href);
   };
 
-  const actions = shellConfig.quick_action_set.map((action) => {
-    const disabled =
-      action.requires_capability !== null &&
-      !shellConfig.enabled_capabilities.includes(action.requires_capability);
-    return {
-      ...action,
-      disabled,
-      icon: ICON_MAP[action.icon] ?? Wrench,
-      tone: TONE_BY_ID[action.id] ?? "neutral",
-    };
-  });
+  const actions: ResolvedAction[] = shellConfig.quick_action_set.map(
+    (action) => {
+      const disabled =
+        action.requires_capability !== null &&
+        !shellConfig.enabled_capabilities.includes(action.requires_capability);
+      return {
+        ...action,
+        disabled,
+        icon: ICON_MAP[action.icon] ?? Wrench,
+        tone: TONE_BY_ID[action.id] ?? "neutral",
+      };
+    },
+  );
 
-  const primaryActions = actions.slice(0, 3);
-  const secondaryActions = actions.slice(3);
+  // İlk 4 primary grid (2×2); kalan secondary list
+  const primaryActions = actions.slice(0, 4);
+  const secondaryActions = actions.slice(4);
 
   return (
     <View className="flex-1 justify-end">
       <Animated.View
         entering={FadeIn.duration(shellMotion.base)}
         exiting={FadeOut.duration(shellMotion.fast)}
-        className="absolute inset-0 bg-black/70"
+        className="absolute inset-0 bg-black/35"
       >
-        <Pressable className="flex-1" onPress={() => router.back()} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Kapat"
+          className="flex-1"
+          onPress={() => router.back()}
+        />
       </Animated.View>
 
-      <SafeAreaView edges={["bottom"]} className="px-3 pb-3">
-        <Animated.View
-          entering={FadeInDown.duration(shellMotion.slow)}
-          exiting={FadeOutDown.duration(shellMotion.base)}
-        >
-          <ActionSheetSurface
-            title={layoutTitle[shellConfig.home_layout]}
-            description={layoutDescription[shellConfig.home_layout]}
+      <Animated.View
+        entering={FadeInDown.duration(shellMotion.slow)}
+        exiting={FadeOutDown.duration(shellMotion.base)}
+        style={{ maxHeight: sheetMaxHeight }}
+        className="overflow-hidden rounded-t-[32px] border-t border-app-outline-strong bg-app-bg"
+      >
+        <SafeAreaView edges={["bottom"]}>
+          <View className="items-center pt-3">
+            <View className="h-1 w-12 rounded-full bg-app-outline-strong" />
+          </View>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingTop: 20,
+              paddingBottom: 24,
+              gap: 20,
+            }}
           >
-            <View className="gap-3">
-              <View className="gap-3 rounded-[26px] border border-white/8 bg-[#10192b] px-4 py-4">
-                <View className="flex-row items-center gap-3">
-                  <Avatar name={profile.name} size="lg" />
-                  <View className="flex-1 gap-1">
-                    <View className="flex-row flex-wrap items-center gap-2">
-                      <Text variant="h3" tone="inverse">
-                        {profile.name}
-                      </Text>
-                      <TrustBadge
-                        label={shellConfig.active_provider_type}
-                        tone="accent"
-                      />
-                    </View>
-                    <Text
-                      tone="muted"
-                      className="text-app-text-muted"
-                      numberOfLines={2}
-                    >
-                      {profile.tagline}
-                    </Text>
-                  </View>
-                  <StatusChip
-                    label={availabilityLabel}
-                    tone={availabilityTone}
+            <View className="gap-1">
+              <Text
+                variant="h2"
+                tone="inverse"
+                className="text-[22px] leading-[26px]"
+              >
+                {layoutTitle[shellConfig.home_layout]}
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px]"
+              >
+                {layoutDescription[shellConfig.home_layout]}
+              </Text>
+            </View>
+
+            {/* Atölye profil rozeti — servis app'e özgü bağlam */}
+            <View className="flex-row items-center gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-3">
+              <Avatar name={profile.name} size="md" />
+              <View className="flex-1 gap-0.5">
+                <View className="flex-row flex-wrap items-center gap-1.5">
+                  <Text
+                    variant="label"
+                    tone="inverse"
+                    className="text-[14px]"
+                    numberOfLines={1}
+                  >
+                    {profile.name}
+                  </Text>
+                  <TrustBadge
+                    label={shellConfig.active_provider_type}
+                    tone="accent"
                   />
                 </View>
+                <Text
+                  tone="muted"
+                  className="text-app-text-muted text-[11px]"
+                  numberOfLines={1}
+                >
+                  {profile.tagline}
+                </Text>
               </View>
+              <StatusChip label={availabilityLabel} tone={availabilityTone} />
+            </View>
 
-              {primaryActions[0] ? (
-                <PrimaryActionCard
-                  action={primaryActions[0]}
-                  onPress={() => handlePress(primaryActions[0]!)}
-                />
-              ) : null}
+            {primaryActions.length > 0 ? (
+              <PrimaryActionsGrid
+                actions={primaryActions}
+                onSelect={handlePress}
+              />
+            ) : null}
 
-              {primaryActions.length > 1 ? (
-                <View className="flex-row gap-3">
-                  {primaryActions.slice(1).map((action) => (
-                    <View key={action.id} className="flex-1">
-                      <PrimaryActionCard
-                        action={action}
-                        onPress={() => handlePress(action)}
-                      />
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-
-              {secondaryActions.length > 0 ? (
-                <View className="gap-2 pt-1">
-                  <Text variant="eyebrow" tone="subtle">
-                    Diğer Araçlar
-                  </Text>
+            {secondaryActions.length > 0 ? (
+              <View className="gap-3">
+                <Text variant="eyebrow" tone="subtle">
+                  Diğer araçlar
+                </Text>
+                <View className="gap-2">
                   {secondaryActions.map((action) => (
                     <SecondaryActionRow
                       key={action.id}
@@ -219,11 +260,11 @@ export function QuickActionsScreen() {
                     />
                   ))}
                 </View>
-              ) : null}
-            </View>
-          </ActionSheetSurface>
-        </Animated.View>
-      </SafeAreaView>
+              </View>
+            ) : null}
+          </ScrollView>
+        </SafeAreaView>
+      </Animated.View>
     </View>
   );
 }
@@ -234,49 +275,44 @@ type ResolvedAction = Omit<QuickAction, "icon"> & {
   tone: ActionTone;
 };
 
-const ACTION_TONE_STYLE: Record<
-  ActionTone,
-  {
-    surface: string;
-    iconSurface: string;
-    iconColor: string;
+function PrimaryActionsGrid({
+  actions,
+  onSelect,
+}: {
+  actions: ResolvedAction[];
+  onSelect: (action: ResolvedAction) => void;
+}) {
+  const rows: ResolvedAction[][] = [];
+  for (let i = 0; i < actions.length; i += 2) {
+    rows.push(actions.slice(i, i + 2));
   }
-> = {
-  accent: {
-    surface: "border-brand-500/25 bg-brand-500/10",
-    iconSurface: "bg-brand-500/15",
-    iconColor: "#f45f25",
-  },
-  success: {
-    surface: "border-app-success/25 bg-app-success-soft",
-    iconSurface: "bg-app-success/10",
-    iconColor: "#2dd28d",
-  },
-  warning: {
-    surface: "border-app-warning/25 bg-app-warning-soft",
-    iconSurface: "bg-app-warning/10",
-    iconColor: "#f5b33f",
-  },
-  info: {
-    surface: "border-app-info/25 bg-app-info-soft",
-    iconSurface: "bg-app-info/10",
-    iconColor: "#4aa8ff",
-  },
-  neutral: {
-    surface: "border-app-outline bg-app-surface",
-    iconSurface: "bg-app-surface-2",
-    iconColor: "#aab6cf",
-  },
-};
+  return (
+    <View className="gap-3">
+      {rows.map((row, idx) => (
+        <View key={idx} className="flex-row gap-3">
+          {row.map((action) => (
+            <PrimaryActionTile
+              key={action.id}
+              action={action}
+              onPress={() => onSelect(action)}
+            />
+          ))}
+          {row.length === 1 ? <View className="flex-1" /> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
 
-function PrimaryActionCard({
+function PrimaryActionTile({
   action,
   onPress,
 }: {
   action: ResolvedAction;
   onPress: () => void;
 }) {
-  const style = ACTION_TONE_STYLE[action.tone];
+  const gradient = TILE_GRADIENT[action.tone];
+  const iconColor = TILE_ICON_COLOR[action.tone];
   return (
     <Pressable
       accessibilityRole="button"
@@ -285,27 +321,31 @@ function PrimaryActionCard({
       disabled={action.disabled}
       onPress={onPress}
       className={[
-        "min-h-[112px] gap-3 rounded-[24px] border px-4 py-4",
-        style.surface,
+        "flex-1 overflow-hidden rounded-[24px] border border-app-outline bg-app-surface",
         action.disabled ? "opacity-50" : "active:opacity-90",
       ].join(" ")}
     >
       <View
-        className={[
-          "h-11 w-11 items-center justify-center rounded-[16px]",
-          style.iconSurface,
-        ].join(" ")}
+        className="gap-3 px-4 py-4"
+        style={{ backgroundColor: gradient, minHeight: 118 }}
       >
-        <Icon icon={action.icon} size={20} color={style.iconColor} />
-      </View>
-      <View className="gap-1">
-        <Text variant="h3" tone="inverse" className="text-[17px] leading-[21px]">
+        <View
+          className="h-11 w-11 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: `${iconColor}26` }}
+        >
+          <Icon icon={action.icon} size={20} color={iconColor} />
+        </View>
+        <Text
+          variant="h3"
+          tone="inverse"
+          className="text-[15px] leading-[19px]"
+        >
           {action.label}
         </Text>
         {action.disabled ? (
           <Text
             tone="muted"
-            className="text-[12px] leading-[17px] text-app-text-muted"
+            className="text-[11px] leading-[15px] text-app-text-muted"
           >
             Yetkin değil — sertifika veya rol gerekli
           </Text>
@@ -322,7 +362,7 @@ function SecondaryActionRow({
   action: ResolvedAction;
   onPress: () => void;
 }) {
-  const style = ACTION_TONE_STYLE[action.tone];
+  const iconColor = TILE_ICON_COLOR[action.tone];
   return (
     <Pressable
       accessibilityRole="button"
@@ -331,33 +371,31 @@ function SecondaryActionRow({
       disabled={action.disabled}
       onPress={onPress}
       className={[
-        "flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3",
-        action.disabled ? "opacity-50" : "active:opacity-90",
+        "flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5",
+        action.disabled ? "opacity-50" : "active:bg-app-surface-2",
       ].join(" ")}
     >
       <View
-        className={[
-          "h-10 w-10 items-center justify-center rounded-[14px]",
-          style.iconSurface,
-        ].join(" ")}
+        className="h-10 w-10 items-center justify-center rounded-full"
+        style={{ backgroundColor: `${iconColor}22` }}
       >
-        <Icon icon={action.icon} size={18} color={style.iconColor} />
+        <Icon icon={action.icon} size={16} color={iconColor} />
       </View>
       <View className="flex-1 gap-0.5">
-        <Text variant="label" tone="inverse">
+        <Text variant="label" tone="inverse" className="text-[13px]">
           {action.label}
         </Text>
         {action.disabled ? (
           <Text
             tone="muted"
             variant="caption"
-            className="text-app-text-muted"
+            className="text-app-text-muted text-[11px]"
           >
             Yetkin değil
           </Text>
         ) : null}
       </View>
-      <Icon icon={ChevronRight} size={16} color="#7f8ba5" />
+      <Icon icon={ChevronRight} size={13} color="#83a7ff" />
     </Pressable>
   );
 }

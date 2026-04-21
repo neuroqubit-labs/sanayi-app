@@ -68,7 +68,12 @@ export function useJobEvidenceUploader(caseId: string, taskId?: string) {
       const resolvedTaskId = taskId ?? "general";
 
       const uploaded = await pickAndUpload({
-        purpose: "case_attachment",
+        purpose:
+          kind === "video"
+            ? "case_evidence_video"
+            : kind === "audio"
+              ? "case_evidence_audio"
+              : "case_evidence_photo",
         ownerRef: `case:${caseId}:task:${resolvedTaskId}`,
         selection:
           kind === "photo"

@@ -116,8 +116,11 @@ const QUICK_ACTION_CATALOG: Record<string, QuickAction> = {
   },
 };
 
+// Not: "records" ve "profile" tab bar'da zaten var — quick_action_set'te tekrar etmiyoruz.
+// "pool" da tab bar'da ama hızlı erişim için layout'un ana aksiyonu olduğu yerde (tow_focused/minimal)
+// ikinci bir giriş olarak yeniden yer veriyoruz.
 const QUICK_ACTIONS_BY_LAYOUT: Record<HomeLayout, string[]> = {
-  tow_focused: ["availability", "active_job", "pool", "revenue", "records"],
+  tow_focused: ["availability", "active_job", "pool", "revenue"],
   full: [
     "availability",
     "insurance",
@@ -125,18 +128,9 @@ const QUICK_ACTIONS_BY_LAYOUT: Record<HomeLayout, string[]> = {
     "campaigns",
     "revenue",
     "reviews",
-    "records",
-    "profile",
   ],
-  business_lite: [
-    "availability",
-    "insurance",
-    "revenue",
-    "records",
-    "reviews",
-    "profile",
-  ],
-  minimal: ["availability", "pool", "records", "profile"],
+  business_lite: ["availability", "insurance", "revenue", "reviews"],
+  minimal: ["availability", "pool"],
   damage_shop: [
     "availability",
     "insurance",
@@ -144,7 +138,6 @@ const QUICK_ACTIONS_BY_LAYOUT: Record<HomeLayout, string[]> = {
     "campaigns",
     "revenue",
     "reviews",
-    "records",
   ],
 };
 

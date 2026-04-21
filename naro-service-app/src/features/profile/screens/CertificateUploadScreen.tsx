@@ -54,7 +54,7 @@ export function CertificateUploadScreen() {
   const handlePick = async (pref: "photo" | "pdf") => {
     try {
       const uploaded = await pickAndUpload({
-        purpose: "technician_certificate",
+        purpose: "technician_cert",
         ownerRef: PRIMARY_TECHNICIAN_ID,
         selection: pref === "photo" ? "photo" : "document",
         fallbackName: `${kind}-${pref === "photo" ? "foto" : "belge"}-${Date.now()}`,

@@ -131,7 +131,7 @@ export function ProfileScreen() {
           </View>
           <View className="flex-1 gap-0.5">
             <Text variant="eyebrow" tone="subtle">
-              Aktif araç
+              Şu anki aracın
             </Text>
             <Text variant="label" tone="inverse">
               {activeVehicle.plate} · {activeVehicle.make} {activeVehicle.model}
@@ -150,8 +150,8 @@ export function ProfileScreen() {
       <View className="gap-4">
         <SectionHeader
           eyebrow="Araçlarım"
-          title="Araç hafıza stack'i"
-          description="Her araç kendi kayıt ritmini, garantilerini ve aktif durumunu taşır."
+          title="Garajın"
+          description="Her aracın ayrı bir hikayesi var — kayıtları, garantileri ve aktif durumu birlikte."
         />
         <ScrollView
           horizontal
@@ -339,8 +339,8 @@ export function ProfileScreen() {
       {/* Korunmuş ödemeler */}
       <View className="gap-3">
         <SectionHeader
-          title="Korunmuş ödemeler"
-          description="Son işlemlerin Naro güvencesinde."
+          title="Naro güvencesinde"
+          description="Son işlemlerin + faturaların tek yerde, güvenli şekilde."
           actionLabel="Tüm faturalar"
           onActionPress={() => router.push("/profil/faturalar" as Href)}
         />

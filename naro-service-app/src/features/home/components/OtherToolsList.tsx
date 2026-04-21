@@ -4,7 +4,6 @@ import {
   BarChart3,
   ChevronRight,
   MessageSquare,
-  Receipt,
   type LucideIcon,
 } from "lucide-react-native";
 import { Pressable, View } from "react-native";
@@ -31,13 +30,6 @@ const TOOLS: Tool[] = [
     subtitle: "Son puanlar + teşekkürler",
     icon: MessageSquare,
     route: "/(modal)/yorumlar",
-  },
-  {
-    id: "invoices",
-    label: "Faturalar",
-    subtitle: "Düzenlenecek + teslim edilenler",
-    icon: Receipt,
-    route: "/(tabs)/islerim",
   },
 ];
 

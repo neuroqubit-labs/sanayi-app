@@ -29,6 +29,7 @@ export function CategoryTile({
           ? "border-brand-500 bg-brand-500/15"
           : "border-app-outline bg-app-surface",
       ].join(" ")}
+      style={{ minHeight: 136 }}
     >
       <View className="flex-row items-start justify-between">
         <View

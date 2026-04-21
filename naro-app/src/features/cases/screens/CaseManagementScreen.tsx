@@ -540,7 +540,7 @@ export function CaseManagementScreen() {
         visible={attachOpen}
         onClose={() => setAttachOpen(false)}
         onSubmit={handleAddAttachment}
-        target={{ purpose: "case_attachment", ownerRef: `case:${caseId}` }}
+        target={{ purpose: "case_evidence_photo", ownerRef: `case:${caseId}` }}
       />
     </SafeAreaView>
   );

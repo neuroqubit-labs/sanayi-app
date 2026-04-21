@@ -57,7 +57,7 @@ export function EvidenceStepCard({
   onRemove,
 }: EvidenceStepCardProps) {
   const { pickPhoto, pickVideo, recordAudio, status } = useAttachmentPicker({
-    purpose: "case_attachment",
+    purpose: "case_evidence_photo",
     ownerRef,
   });
 

@@ -41,6 +41,7 @@ import {
   ProfileEditSheet,
   type ProfileEditTarget,
 } from "@/features/profile/components/ProfileEditSheet";
+import { ProfileManagementHub } from "@/features/profile/components/ProfileManagementHub";
 import { useShellConfig } from "@/features/shell";
 import {
   type GalleryItem,
@@ -175,7 +176,7 @@ export function ProfileScreen() {
   const handleUploadPromo = async () => {
     try {
       const uploaded = await pickAndUpload({
-        purpose: "technician_promo",
+        purpose: "technician_promo_video",
         ownerRef: PRIMARY_TECHNICIAN_ID,
         selection: "video",
         fallbackName: `promo-${Date.now()}.mp4`,
@@ -194,7 +195,10 @@ export function ProfileScreen() {
   const handleAddGallery = async (selection: "photo" | "video") => {
     try {
       const uploaded = await pickAndUpload({
-        purpose: "technician_gallery",
+        purpose:
+          selection === "video"
+            ? "technician_gallery_video"
+            : "technician_gallery_photo",
         ownerRef: PRIMARY_TECHNICIAN_ID,
         selection,
         fallbackName: `gallery-${selection}-${Date.now()}${
@@ -328,6 +332,9 @@ export function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        {/* Yönetim merkezi — anasayfadan taşınan 4 kısayol */}
+        <ProfileManagementHub />
 
         {/* Sağlayıcı profili */}
         <ProfileSection

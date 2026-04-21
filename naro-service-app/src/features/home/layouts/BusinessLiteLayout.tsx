@@ -1,19 +1,9 @@
-import { View } from "react-native";
-
-import { BusinessSummaryCard } from "../components/BusinessSummaryCard";
-import { CampaignsRow } from "../components/CampaignsRow";
-import { OtherToolsList } from "../components/OtherToolsList";
-
-type Props = {
-  showCampaigns: boolean;
-};
-
-export function BusinessLiteLayout({ showCampaigns }: Props) {
-  return (
-    <View className="gap-4">
-      <BusinessSummaryCard />
-      {showCampaigns ? <CampaignsRow /> : null}
-      <OtherToolsList />
-    </View>
-  );
+/**
+ * BusinessLiteLayout — HomeScreen zaten BusinessSummaryCard + QuickActionTileRow
+ * + havuz + recent + discovery feed'i render ediyor. Eski 4 router (kampanya,
+ * mobil servis, gelir, yorumlar) artık Profil'de. BusinessLite için ek bir
+ * layout-özel widget yok; dolayısıyla null dönüyor.
+ */
+export function BusinessLiteLayout(_props: { showCampaigns: boolean }) {
+  return null;
 }

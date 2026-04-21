@@ -1,12 +1,15 @@
+import type { CaseAttachmentKind } from "@naro/domain";
 import {
   createExpoMediaPickerAdapter,
+  useMediaUpload,
   type MediaPickerAdapter,
 } from "@naro/mobile-core";
-import type { CaseAttachmentKind } from "@naro/domain";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert } from "react-native";
+
+import { mediaApi } from "@/runtime";
 
 import type {
   AttachmentDraft,
@@ -17,288 +20,148 @@ import type {
   RecordAudioOptions,
 } from "./types";
 import { ATTACHMENT_KIND_LABEL } from "./types";
-import { uploadAttachment } from "./uploader";
 
 type PickerStatus = "idle" | "picking" | "uploading" | "error";
 
 /**
- * Abstract attachment picker. Real implementations are injected at boot time
- * once `expo-image-picker` / `expo-document-picker` / `expo-av` are added.
- * Until then the hook returns mock URIs so flows can be exercised end-to-end.
+ * Yazılabilir picker adapter — test/mock için setAttachmentPickerAdapter
+ * ile değiştirilebilir. Prod'da expo image + document picker kullanılır.
  */
 export type AttachmentPickerAdapter = MediaPickerAdapter;
 
-let adapter: AttachmentPickerAdapter = createExpoMediaPickerAdapter({
-  documentPicker: DocumentPicker,
-  imagePicker: ImagePicker,
-});
+let overrideAdapter: AttachmentPickerAdapter | null = null;
 
-export function setAttachmentPickerAdapter(nextAdapter: AttachmentPickerAdapter) {
-  adapter = nextAdapter;
+export function setAttachmentPickerAdapter(
+  nextAdapter: AttachmentPickerAdapter | null,
+) {
+  overrideAdapter = nextAdapter;
+}
+
+function formatSize(bytes?: number): string {
+  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return "—";
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  return `${(kb / 1024).toFixed(1)} MB`;
 }
 
 export function useAttachmentPicker(target: AttachmentUploadTarget) {
   const [status, setStatus] = useState<PickerStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const pickPhoto = useCallback(
+  const defaultPicker = useMemo(
+    () =>
+      createExpoMediaPickerAdapter({
+        documentPicker: DocumentPicker,
+        imagePicker: ImagePicker,
+      }),
+    [],
+  );
+  const picker = overrideAdapter ?? defaultPicker;
+
+  const upload = useMediaUpload({ mediaApi, picker });
+
+  const pickFlow = useCallback(
     async (
+      selection: "photo" | "video" | "document" | "audio",
+      kind: CaseAttachmentKind,
+      title: string | undefined,
+      fallbackMime: string,
+      pickOptions?: unknown,
+    ): Promise<AttachmentDraft[]> => {
+      setStatus("picking");
+      setError(null);
+
+      try {
+        const outcome = await upload.pickAndUpload({
+          purpose: target.purpose,
+          ownerId: target.ownerRef,
+          selection: selection === "audio" ? "document" : selection,
+          pickOptions: pickOptions as never,
+        });
+
+        if (!outcome) {
+          if (upload.error) {
+            setStatus("error");
+            setError(upload.error.message);
+            Alert.alert(
+              `${ATTACHMENT_KIND_LABEL[kind]} eklenemedi`,
+              upload.error.message,
+            );
+            return [];
+          }
+          setStatus("idle");
+          return [];
+        }
+
+        const pick = outcome.pick;
+        const asset = outcome.result.asset;
+        const draft: AttachmentDraft = {
+          id: asset.id,
+          kind,
+          title: title ?? pick?.name ?? ATTACHMENT_KIND_LABEL[kind],
+          subtitle: pick?.durationSec
+            ? `${pick.durationSec}s · ${formatSize(pick?.sizeBytes)}`
+            : formatSize(pick?.sizeBytes),
+          statusLabel: "Yüklendi",
+          localUri: pick?.uri ?? "",
+          remoteUri: asset.download_url ?? pick?.uri ?? "",
+          mimeType: asset.mime_type ?? pick?.mimeType ?? fallbackMime,
+          sizeLabel: formatSize(pick?.sizeBytes),
+          capturedAt: new Date().toISOString(),
+          asset,
+        };
+
+        setStatus("idle");
+        return [draft];
+      } catch (reason) {
+        const message =
+          reason instanceof Error
+            ? reason.message
+            : `${ATTACHMENT_KIND_LABEL[kind]} eklenirken bir sorun oluştu.`;
+        setStatus("error");
+        setError(message);
+        Alert.alert(`${ATTACHMENT_KIND_LABEL[kind]} eklenemedi`, message);
+        return [];
+      }
+    },
+    [target.ownerRef, target.purpose, upload],
+  );
+
+  const pickPhoto = useCallback(
+    (
       kind: CaseAttachmentKind = "photo",
       title?: string,
       options?: PickPhotoOptions,
-    ): Promise<AttachmentDraft[]> => {
-      setStatus("picking");
-      setError(null);
-
-      try {
-        const picks = await adapter.pickPhoto(options);
-
-        if (picks.length === 0) {
-          setStatus("idle");
-          return [];
-        }
-
-        setStatus("uploading");
-
-        const drafts = await Promise.all(
-          picks.map(async (pick) => {
-            const uploaded = await uploadAttachment({
-              localUri: pick.uri,
-              mimeType: pick.mimeType,
-              sizeBytes: pick.sizeBytes,
-              target,
-            });
-
-            const draft: AttachmentDraft = {
-              id: uploaded.id,
-              kind,
-              title: title ?? ATTACHMENT_KIND_LABEL[kind],
-              subtitle: uploaded.sizeLabel,
-              statusLabel: "Yüklendi",
-              localUri: pick.uri,
-              remoteUri: uploaded.remoteUri,
-              mimeType: uploaded.mimeType,
-              sizeLabel: uploaded.sizeLabel,
-              capturedAt: new Date().toISOString(),
-              asset: uploaded.asset,
-            };
-
-            return draft;
-          }),
-        );
-
-        setStatus("idle");
-        return drafts;
-      } catch (reason) {
-        const message =
-          reason instanceof Error
-            ? reason.message
-            : "Fotoğraf eklenirken bir sorun oluştu.";
-        setStatus("error");
-        setError(message);
-        Alert.alert("Fotoğraf eklenemedi", message);
-        return [];
-      }
-    },
-    [target],
+    ) => pickFlow("photo", kind, title, "image/jpeg", options),
+    [pickFlow],
   );
 
   const pickDocument = useCallback(
-    async (
+    (
       kind: CaseAttachmentKind = "document",
       title?: string,
       options?: PickDocumentOptions,
-    ): Promise<AttachmentDraft[]> => {
-      setStatus("picking");
-      setError(null);
-
-      try {
-        const picks = await adapter.pickDocument(options);
-
-        if (picks.length === 0) {
-          setStatus("idle");
-          return [];
-        }
-
-        setStatus("uploading");
-
-        const drafts = await Promise.all(
-          picks.map(async (pick) => {
-            const uploaded = await uploadAttachment({
-              localUri: pick.uri,
-              mimeType: pick.mimeType,
-              sizeBytes: pick.sizeBytes,
-              target,
-              filename: pick.name,
-            });
-
-            const draft: AttachmentDraft = {
-              id: uploaded.id,
-              kind,
-              title: title ?? pick.name ?? ATTACHMENT_KIND_LABEL[kind],
-              subtitle: uploaded.sizeLabel,
-              statusLabel: "Yüklendi",
-              localUri: pick.uri,
-              remoteUri: uploaded.remoteUri,
-              mimeType: uploaded.mimeType,
-              sizeLabel: uploaded.sizeLabel,
-              capturedAt: new Date().toISOString(),
-              asset: uploaded.asset,
-            };
-
-            return draft;
-          }),
-        );
-
-        setStatus("idle");
-        return drafts;
-      } catch (reason) {
-        const message =
-          reason instanceof Error
-            ? reason.message
-            : "Belge eklenirken bir sorun oluştu.";
-        setStatus("error");
-        setError(message);
-        Alert.alert("Belge eklenemedi", message);
-        return [];
-      }
-    },
-    [target],
+    ) =>
+      pickFlow("document", kind, title, "application/pdf", {
+        multiple: false,
+        types: options?.types ?? ["application/pdf"],
+      }),
+    [pickFlow],
   );
 
   const pickVideo = useCallback(
-    async (
-      title?: string,
-      options?: PickVideoOptions,
-    ): Promise<AttachmentDraft[]> => {
-      setStatus("picking");
-      setError(null);
-
-      try {
-        const picks = await adapter.pickVideo(options);
-        if (picks.length === 0) {
-          setStatus("idle");
-          return [];
-        }
-
-        setStatus("uploading");
-
-        const drafts = await Promise.all(
-          picks.map(async (pick) => {
-            const uploaded = await uploadAttachment({
-              localUri: pick.uri,
-              mimeType: pick.mimeType,
-              sizeBytes: pick.sizeBytes,
-              target,
-            });
-
-            const draft: AttachmentDraft = {
-              id: uploaded.id,
-              kind: "video",
-              title: title ?? ATTACHMENT_KIND_LABEL.video,
-              subtitle: pick.durationSec
-                ? `${pick.durationSec}s · ${uploaded.sizeLabel}`
-                : uploaded.sizeLabel,
-              statusLabel: "Yüklendi",
-              localUri: pick.uri,
-              remoteUri: uploaded.remoteUri,
-              mimeType: uploaded.mimeType,
-              sizeLabel: uploaded.sizeLabel,
-              capturedAt: new Date().toISOString(),
-              asset: uploaded.asset,
-            };
-
-            return draft;
-          }),
-        );
-
-        setStatus("idle");
-        return drafts;
-      } catch (reason) {
-        const message =
-          reason instanceof Error
-            ? reason.message
-            : "Video eklenirken bir sorun oluştu.";
-        setStatus("error");
-        setError(message);
-        Alert.alert("Video eklenemedi", message);
-        return [];
-      }
-    },
-    [target],
+    (title?: string, options?: PickVideoOptions) =>
+      pickFlow("video", "video", title, "video/mp4", options),
+    [pickFlow],
   );
 
   const recordAudio = useCallback(
-    async (
-      title?: string,
-      options?: RecordAudioOptions,
-    ): Promise<AttachmentDraft[]> => {
-      setStatus("picking");
-      setError(null);
-
-      try {
-        let picks: Awaited<ReturnType<AttachmentPickerAdapter["recordAudio"]>>;
-        try {
-          picks = await adapter.recordAudio(options);
-        } catch {
-          picks = [];
-        }
-        if (picks.length === 0) {
-          picks = await adapter.pickDocument({
-            multiple: false,
-            types: ["audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"],
-          });
-        }
-        if (picks.length === 0) {
-          setStatus("idle");
-          return [];
-        }
-
-        setStatus("uploading");
-
-        const drafts = await Promise.all(
-          picks.map(async (pick) => {
-            const uploaded = await uploadAttachment({
-              localUri: pick.uri,
-              mimeType: pick.mimeType,
-              sizeBytes: pick.sizeBytes,
-              target,
-            });
-
-            const draft: AttachmentDraft = {
-              id: uploaded.id,
-              kind: "audio",
-              title: title ?? ATTACHMENT_KIND_LABEL.audio,
-              subtitle: pick.durationSec
-                ? `${pick.durationSec}s kayıt`
-                : "Ses kaydı",
-              statusLabel: "Yüklendi",
-              localUri: pick.uri,
-              remoteUri: uploaded.remoteUri,
-              mimeType: uploaded.mimeType,
-              sizeLabel: uploaded.sizeLabel,
-              capturedAt: new Date().toISOString(),
-              asset: uploaded.asset,
-            };
-
-            return draft;
-          }),
-        );
-
-        setStatus("idle");
-        return drafts;
-      } catch (reason) {
-        const message =
-          reason instanceof Error
-            ? reason.message
-            : "Ses kaydı eklenirken bir sorun oluştu.";
-        setStatus("error");
-        setError(message);
-        Alert.alert("Ses kaydı eklenemedi", message);
-        return [];
-      }
-    },
-    [target],
+    (title?: string, _options?: RecordAudioOptions) =>
+      pickFlow("document", "audio", title, "audio/mp4", {
+        multiple: false,
+        types: ["audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"],
+      }),
+    [pickFlow],
   );
 
   return {

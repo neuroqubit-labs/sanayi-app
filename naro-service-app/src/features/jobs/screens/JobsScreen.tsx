@@ -1,12 +1,6 @@
 import type { ServiceCase } from "@naro/domain";
 import { buildTechnicianTrackingView } from "@naro/mobile-core";
-import {
-  Icon,
-  StatusChip,
-  Text,
-  ToggleChip,
-  TrustBadge,
-} from "@naro/ui";
+import { Icon, Text, ToggleChip, TrustBadge } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import {
   ArrowRight,
@@ -22,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useInsuranceCapability } from "@/features/technicians";
 
 import { useIncomingAppointments, useJobsFeed } from "../api";
+import { JobRecordCard } from "../components/JobRecordCard";
 import { buildSearchHaystack, normalizeForSearch } from "../search";
 
 type FilterKey =
@@ -29,7 +24,8 @@ type FilterKey =
   | "urgent"
   | "waiting_customer"
   | "appointment_pending"
-  | "insurance";
+  | "insurance"
+  | "completed";
 
 function classifySection(
   progressValue: number,
@@ -77,24 +73,38 @@ export function JobsScreen() {
     const needle = normalizeForSearch(deferredQuery.trim());
     let items = cases;
 
-    if (filter === "appointment_pending") {
-      items = items.filter(
-        (caseItem) => caseItem.status === "appointment_pending",
-      );
-    } else if (filter === "waiting_customer") {
+    // "Tümü" varsayılanı aktif iş listesi; completed/archived yalnızca
+    // "Tamamlandı" chip'inde gösterilir.
+    if (filter === "completed") {
       items = items.filter(
         (caseItem) =>
-          buildTechnicianTrackingView(caseItem).waitState.actor === "customer",
+          caseItem.status === "completed" || caseItem.status === "archived",
       );
-    } else if (filter === "urgent") {
-      items = items.filter((caseItem) => {
-        const view = buildTechnicianTrackingView(caseItem);
-        return (
-          view.waitState.actor === "technician" && Boolean(view.primaryAction)
+    } else {
+      items = items.filter(
+        (caseItem) =>
+          caseItem.status !== "completed" && caseItem.status !== "archived",
+      );
+
+      if (filter === "appointment_pending") {
+        items = items.filter(
+          (caseItem) => caseItem.status === "appointment_pending",
         );
-      });
-    } else if (filter === "insurance") {
-      items = items.filter((caseItem) => caseItem.origin === "technician");
+      } else if (filter === "waiting_customer") {
+        items = items.filter(
+          (caseItem) =>
+            buildTechnicianTrackingView(caseItem).waitState.actor === "customer",
+        );
+      } else if (filter === "urgent") {
+        items = items.filter((caseItem) => {
+          const view = buildTechnicianTrackingView(caseItem);
+          return (
+            view.waitState.actor === "technician" && Boolean(view.primaryAction)
+          );
+        });
+      } else if (filter === "insurance") {
+        items = items.filter((caseItem) => caseItem.origin === "technician");
+      }
     }
 
     if (needle) {
@@ -153,6 +163,10 @@ export function JobsScreen() {
   const finishingSoon = cases.filter(
     (caseItem) => buildTechnicianTrackingView(caseItem).progressValue >= 80,
   ).length;
+  const completedCount = cases.filter(
+    (caseItem) =>
+      caseItem.status === "completed" || caseItem.status === "archived",
+  ).length;
 
   const filterOptions: { key: FilterKey; label: string; badge?: number }[] = [
     { key: "all", label: "Tümü" },
@@ -172,7 +186,10 @@ export function JobsScreen() {
           },
         ]
       : []),
+    { key: "completed", label: "Tamamlandı", badge: completedCount || undefined },
   ];
+
+  const isCompletedFilter = filter === "completed";
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-app-bg">
@@ -244,7 +261,9 @@ export function JobsScreen() {
         </View>
 
         {/* Urgent: pending appointments */}
-        {incomingAppointments.length > 0 && filter !== "insurance" ? (
+        {incomingAppointments.length > 0 &&
+        filter !== "insurance" &&
+        !isCompletedFilter ? (
           <View className="gap-3 rounded-[22px] border border-app-warning/40 bg-app-warning/10 px-4 py-4">
             <View className="flex-row items-center gap-2">
               <CalendarClock size={16} color="#f5b33f" />
@@ -299,7 +318,8 @@ export function JobsScreen() {
         {/* Insurance files */}
         {hasInsuranceCapability &&
         insuranceCases.length > 0 &&
-        filter !== "insurance" ? (
+        filter !== "insurance" &&
+        !isCompletedFilter ? (
           <View className="gap-3">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
@@ -378,82 +398,18 @@ export function JobsScreen() {
                 </Text>
               </View>
               <View className="gap-3">
-                {items.map((item) => (
-                  <Pressable
-                    key={item.caseId}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.header.summaryTitle} detayını aç`}
-                    onPress={() => router.push(`/is/${item.caseId}` as Href)}
-                    className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4 active:bg-app-surface-2"
-                  >
-                    <View className="flex-row items-start justify-between gap-3">
-                      <View className="flex-1 gap-2">
-                        <View className="flex-row flex-wrap items-center gap-2">
-                          <StatusChip
-                            label={item.header.statusLabel}
-                            tone={item.header.statusTone}
-                          />
-                          <TrustBadge
-                            label={item.header.waitLabel}
-                            tone={
-                              item.waitState.actor === "technician"
-                                ? "accent"
-                                : item.waitState.actor === "customer"
-                                  ? "warning"
-                                  : "info"
-                            }
-                          />
-                        </View>
-                        <Text
-                          variant="label"
-                          tone="inverse"
-                          className="text-[14px] leading-[19px]"
-                        >
-                          {item.header.summaryTitle}
-                        </Text>
-                        <Text
-                          variant="caption"
-                          tone="muted"
-                          className="text-app-text-muted text-[12px]"
-                        >
-                          {item.customerName} · {item.header.subtitle}
-                        </Text>
-                      </View>
-                      <ArrowRight size={16} color="#6f7b97" />
-                    </View>
-
-                    <View className="gap-1.5">
-                      <View className="h-1.5 rounded-full bg-app-surface-2">
-                        <View
-                          className="h-1.5 rounded-full bg-brand-500"
-                          style={{
-                            width: `${Math.max(4, item.progressValue)}%`,
-                          }}
-                        />
-                      </View>
-                      <Text
-                        variant="caption"
-                        tone="muted"
-                        className="text-app-text-muted text-[11px]"
-                      >
-                        {item.header.nextLabel}
-                      </Text>
-                    </View>
-
-                    {item.primaryAction ? (
-                      <View className="flex-row items-center gap-2 rounded-[14px] border border-app-outline bg-app-surface-2 px-3 py-2.5">
-                        <Text
-                          variant="caption"
-                          tone="accent"
-                          className="flex-1 text-[12px]"
-                        >
-                          Sıradaki: {item.primaryAction.label}
-                        </Text>
-                        <ArrowRight size={12} color="#d94a1f" />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                ))}
+                {items.map((item) => {
+                  const caseRef = cases.find((c) => c.id === item.caseId);
+                  if (!caseRef) return null;
+                  return (
+                    <JobRecordCard
+                      key={item.caseId}
+                      caseItem={caseRef}
+                      view={item}
+                      onPress={() => router.push(`/is/${item.caseId}` as Href)}
+                    />
+                  );
+                })}
               </View>
             </View>
           );
@@ -461,14 +417,17 @@ export function JobsScreen() {
 
         {activeAndArchive.archive.length > 0 ? (
           <View className="gap-3 pt-2">
-            <View className="flex-row items-center justify-between">
-              <Text variant="h3" tone="inverse" className="text-[15px]">
-                Tamamlananlar
-              </Text>
-              <Text variant="caption" tone="subtle">
-                {activeAndArchive.archive.length} vaka
-              </Text>
-            </View>
+            {/* Completed filter aktifse chip zaten işaret ediyor — başlık küçülüyor */}
+            {!isCompletedFilter ? (
+              <View className="flex-row items-center justify-between">
+                <Text variant="h3" tone="inverse" className="text-[15px]">
+                  Tamamlananlar
+                </Text>
+                <Text variant="caption" tone="subtle">
+                  {activeAndArchive.archive.length} vaka
+                </Text>
+              </View>
+            ) : null}
             <View className="gap-2">
               {activeAndArchive.archive.map((caseItem) => (
                 <Pressable

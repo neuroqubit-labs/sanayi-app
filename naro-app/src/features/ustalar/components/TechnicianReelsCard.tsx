@@ -118,11 +118,13 @@ export function TechnicianReelsCard({
           <View className="absolute right-10 top-12 h-16 w-16 rounded-full bg-white/5" />
 
           <View className="absolute left-5 right-16 top-4 flex-row flex-wrap items-center gap-2">
-            <TrustBadge
-              label={sectionMeta.label}
-              tone={sectionMeta.tone}
-              icon={section === "case_match" ? Sparkles : undefined}
-            />
+            {section !== "personal" ? (
+              <TrustBadge
+                label={sectionMeta.label}
+                tone={sectionMeta.tone}
+                icon={section === "case_match" ? Sparkles : undefined}
+              />
+            ) : null}
             {profile.badges[0] ? (
               <TrustBadge
                 label={profile.badges[0].label}

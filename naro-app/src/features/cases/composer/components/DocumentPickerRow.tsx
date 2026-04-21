@@ -37,7 +37,7 @@ export function DocumentPickerRow({
   required,
 }: DocumentPickerRowProps) {
   const { pickDocument, status } = useAttachmentPicker({
-    purpose: "case_attachment",
+    purpose: "insurance_doc",
     ownerRef,
   });
 

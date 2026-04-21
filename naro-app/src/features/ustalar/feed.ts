@@ -237,12 +237,9 @@ function buildFeed(
   }
 
   if (personal.length) {
-    items.push({
-      kind: "section_label",
-      id: "section-personal",
-      label: "Sana özel",
-      hint: "Puan, mesafe ve yanıt hızına göre en uygunları.",
-    });
+    // §2 revizyon: "Sana özel" eyebrow + in-card badge duplicate'i kaldırıldı.
+    // Profiller doğal akışta devam eder; kart içi rozetler (Doğrulandı, Pickup,
+    // marka vb.) kategorilemeyi zaten taşıyor.
     for (const profile of personal) {
       items.push({
         kind: "profile",
