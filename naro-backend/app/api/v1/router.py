@@ -7,6 +7,7 @@ from app.api.v1.routes import (
     health,
     media,
     offers,
+    technicians,
     tow,
     tow_ws,
 )
@@ -18,5 +19,6 @@ api_router.include_router(media.router)
 api_router.include_router(cases.router)
 api_router.include_router(offers.router)
 api_router.include_router(appointments.router)
+api_router.include_router(technicians.router)
 api_router.include_router(tow.router)
 api_router.include_router(tow_ws.router)

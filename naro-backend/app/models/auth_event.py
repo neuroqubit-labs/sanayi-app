@@ -43,6 +43,13 @@ class AuthEventType(StrEnum):
     # Faz 10 — tow dispatch
     FRAUD_SUSPECTED = "fraud_suspected"
     PAYMENT_METHOD_ADDED = "payment_method_added"
+    # Faz 13 PR 4 — technician mutations
+    TECHNICIAN_PROFILE_UPDATED = "technician_profile_updated"
+    TECHNICIAN_COVERAGE_REPLACED = "technician_coverage_replaced"
+    TECHNICIAN_PROVIDER_MODE_SWITCHED = "technician_provider_mode_switched"
+    TECHNICIAN_ACTIVE_ROLE_SWITCHED = "technician_active_role_switched"
+    TECHNICIAN_CERT_SUBMITTED = "technician_cert_submitted"
+    TECHNICIAN_ADMISSION_RECOMPUTED = "technician_admission_recomputed"
 
 
 class AuthEvent(UUIDPkMixin, Base):

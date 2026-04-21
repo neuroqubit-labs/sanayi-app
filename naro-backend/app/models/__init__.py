@@ -63,6 +63,7 @@ from app.models.media import MediaAsset
 from app.models.offer import CaseOffer, CaseOfferKind, CaseOfferStatus
 from app.models.technician import (
     GalleryItemKind,
+    ProviderMode,
     ProviderType,
     TechnicianAvailability,
     TechnicianCapability,
@@ -146,6 +147,7 @@ __all__ = [
     "MediaAsset",
     "OtpChannel",
     "OtpCode",
+    "ProviderMode",
     "ProviderType",
     "ServiceCase",
     "ServiceCaseStatus",

@@ -63,6 +63,14 @@ class TechnicianCertificateKind(StrEnum):
     INSURANCE = "insurance"
     TECHNICAL = "technical"
     VEHICLE_LICENSE = "vehicle_license"
+    TOW_OPERATOR = "tow_operator"
+
+
+class ProviderMode(StrEnum):
+    """KYC + cert matrix dimension — 'side_gig' V2 scope."""
+
+    BUSINESS = "business"
+    INDIVIDUAL = "individual"
 
 
 class TechnicianCertificateStatus(StrEnum):
@@ -165,6 +173,21 @@ class TechnicianProfile(UUIDPkMixin, TimestampMixin, Base):
     )
     evidence_discipline_score: Mapped[Decimal] = mapped_column(
         Numeric(3, 2), nullable=False, server_default="1.00", default=Decimal("1.00")
+    )
+
+    # PR 4 — role + mode + cache version
+    provider_mode: Mapped[ProviderMode] = mapped_column(
+        pg_enum(ProviderMode, name="provider_mode"),
+        nullable=False,
+        default=ProviderMode.BUSINESS,
+        server_default="business",
+    )
+    active_provider_type: Mapped[ProviderType | None] = mapped_column(
+        pg_enum(ProviderType, name="provider_type", create_type=False),
+        nullable=True,
+    )
+    role_config_version: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=1, server_default="1"
     )
 
 
