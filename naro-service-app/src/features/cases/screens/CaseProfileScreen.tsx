@@ -184,6 +184,7 @@ export function CaseProfileScreen() {
           caseItem={caseItem}
           myTechnicianId={PRIMARY_TECHNICIAN_ID}
           contextState={context}
+          actor="technician"
         />
       </ScrollView>
 

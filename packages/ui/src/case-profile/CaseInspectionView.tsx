@@ -23,6 +23,18 @@ import { StatusChip } from "../StatusChip";
 import { Text } from "../Text";
 import { TrustBadge } from "../TrustBadge";
 
+import { CaseProfileComposer } from "./CaseProfileComposer";
+import {
+  accidentDossierCard,
+  approvalCard,
+  kaskoCard,
+  maintenanceSelectionsCard,
+  messagingCard,
+  processTimelineCard,
+  towSummaryCard,
+  tutanakCard,
+} from "./cards";
+import type { CaseCard, CaseProfileContext } from "./cards/types";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { CASE_KIND_META as SHARED_KIND_META } from "./kind-meta";
 import { VehicleDetailSection } from "./VehicleDetailSection";
@@ -123,6 +135,10 @@ type Props = {
   myTechnicianId?: string;
   showCompetingOffers?: boolean;
   contextState?: CaseContextState;
+  /** Araç sahibi (customer) vs usta (technician) görünümü. Default "technician". */
+  actor?: "customer" | "technician";
+  /** Kart listesini tamamen override etmek istersen (test + custom composition). */
+  cards?: readonly CaseCard[];
 };
 
 export function CaseInspectionView({
@@ -130,22 +146,53 @@ export function CaseInspectionView({
   myTechnicianId,
   showCompetingOffers = true,
   contextState = "pool",
+  actor = "technician",
+  cards = DEFAULT_CASE_CARDS,
 }: Props) {
-  const draft = caseItem.request;
-  const kindMeta = KIND_META[caseItem.kind];
-  const urgencyMeta = URGENCY_META[draft.urgency];
-  const hasLocation = Boolean(draft.location_label || draft.dropoff_label);
-  const hasAttachments = caseItem.attachments.length > 0;
-  const hasOffers = caseItem.offers.length > 0;
-
-  const sharedKindMeta = SHARED_KIND_META[caseItem.kind];
-
   return (
-    <View className="gap-4">
-      <HeroCard caseItem={caseItem} kindMeta={kindMeta} urgencyMeta={urgencyMeta} />
+    <CaseProfileComposer
+      cards={cards}
+      caseItem={caseItem}
+      myTechnicianId={myTechnicianId}
+      showCompetingOffers={showCompetingOffers}
+      contextState={contextState}
+      actor={actor}
+    />
+  );
+}
 
-      <VehicleDetailSection vehicleId={caseItem.vehicle_id} />
+// ───────── Default card registry ─────────
 
+const heroCard: CaseCard = {
+  id: "hero",
+  appliesTo: "any",
+  priority: 10,
+  shouldShow: () => true,
+  render: ({ caseItem }: CaseProfileContext) => (
+    <HeroCard
+      caseItem={caseItem}
+      kindMeta={KIND_META[caseItem.kind]}
+      urgencyMeta={URGENCY_META[caseItem.request.urgency]}
+    />
+  ),
+};
+
+const vehicleCard: CaseCard = {
+  id: "vehicle",
+  appliesTo: "any",
+  priority: 20,
+  shouldShow: () => true,
+  render: ({ caseItem }) => <VehicleDetailSection vehicleId={caseItem.vehicle_id} />,
+};
+
+const problemDetailCard: CaseCard = {
+  id: "problem-detail",
+  appliesTo: "any",
+  priority: 30,
+  shouldShow: () => true,
+  render: ({ caseItem }) => {
+    const sharedKindMeta = SHARED_KIND_META[caseItem.kind];
+    return (
       <CollapsibleSection
         title="Problem detayı"
         accent={sharedKindMeta.iconColor}
@@ -155,78 +202,125 @@ export function CaseInspectionView({
       >
         <KindDetailsPanel caseItem={caseItem} />
       </CollapsibleSection>
+    );
+  },
+};
 
-      {hasLocation ? (
-        <CollapsibleSection
-          title="Konum"
-          accent="#83a7ff"
-          titleIcon={MapPin}
-          description="Servis noktası ve teslim bilgisi"
-          preview={
-            <Text
-              variant="caption"
-              tone="muted"
-              className="text-app-text-muted text-[12px]"
-              numberOfLines={1}
-            >
-              {draft.location_label ?? draft.dropoff_label ?? ""}
-            </Text>
-          }
-        >
-          <LocationSection draft={draft} />
-        </CollapsibleSection>
-      ) : null}
+const locationCard: CaseCard = {
+  id: "location",
+  appliesTo: "any",
+  priority: 70,
+  shouldShow: ({ caseItem }) =>
+    Boolean(caseItem.request.location_label || caseItem.request.dropoff_label),
+  render: ({ caseItem }) => {
+    const draft = caseItem.request;
+    return (
+      <CollapsibleSection
+        title="Konum"
+        accent="#83a7ff"
+        titleIcon={MapPin}
+        description="Servis noktası ve teslim bilgisi"
+        preview={
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[12px]"
+            numberOfLines={1}
+          >
+            {draft.location_label ?? draft.dropoff_label ?? ""}
+          </Text>
+        }
+      >
+        <LocationSection draft={draft} />
+      </CollapsibleSection>
+    );
+  },
+};
 
-      {hasAttachments ? (
-        <CollapsibleSection
-          title="Müşteri paylaşımları"
-          accent="#2dd28d"
-          titleIcon={ImageIcon}
-          description="Müşterinin yüklediği foto, video ve notlar"
-          preview={
-            <AttachmentsPreview attachments={caseItem.attachments} />
-          }
-        >
-          <AttachmentsSection attachments={caseItem.attachments} />
-        </CollapsibleSection>
-      ) : null}
+const attachmentsCard: CaseCard = {
+  id: "attachments",
+  appliesTo: "any",
+  priority: 80,
+  shouldShow: ({ caseItem }) => caseItem.attachments.length > 0,
+  render: ({ caseItem }) => (
+    <CollapsibleSection
+      title="Müşteri paylaşımları"
+      accent="#2dd28d"
+      titleIcon={ImageIcon}
+      description="Müşterinin yüklediği foto, video ve notlar"
+      preview={<AttachmentsPreview attachments={caseItem.attachments} />}
+    >
+      <AttachmentsSection attachments={caseItem.attachments} />
+    </CollapsibleSection>
+  ),
+};
 
-      {showCompetingOffers && hasOffers ? (
-        <CollapsibleSection
-          title={offersTitle(contextState)}
-          accent="#f5b33f"
-          titleIcon={Tag}
-          description={offersDescription(contextState)}
-          preview={
-            <OffersPreview
-              caseItem={caseItem}
-              myTechnicianId={myTechnicianId}
-              contextState={contextState}
-            />
-          }
-        >
-          <CompetingOffersSection
-            caseItem={caseItem}
-            myTechnicianId={myTechnicianId}
-            contextState={contextState}
-          />
-        </CollapsibleSection>
-      ) : null}
+const offersCard: CaseCard = {
+  id: "offers",
+  appliesTo: "any",
+  priority: 100,
+  shouldShow: ({ caseItem, showCompetingOffers = true }) =>
+    showCompetingOffers && caseItem.offers.length > 0,
+  render: ({ caseItem, myTechnicianId, contextState }) => (
+    <CollapsibleSection
+      title={offersTitle(contextState)}
+      accent="#f5b33f"
+      titleIcon={Tag}
+      description={offersDescription(contextState)}
+      preview={
+        <OffersPreview
+          caseItem={caseItem}
+          myTechnicianId={myTechnicianId}
+          contextState={contextState}
+        />
+      }
+    >
+      <CompetingOffersSection
+        caseItem={caseItem}
+        myTechnicianId={myTechnicianId}
+        contextState={contextState}
+      />
+    </CollapsibleSection>
+  ),
+};
 
-      <View className="flex-row items-center gap-2 px-1">
-        <Icon icon={Clock} size={12} color="#6b7280" />
-        <Text
-          variant="caption"
-          tone="muted"
-          className="text-app-text-subtle text-[11px]"
-        >
-          Açıldı {caseItem.created_at_label} · Güncellendi{" "}
-          {caseItem.updated_at_label}
-        </Text>
-      </View>
+const timestampsCard: CaseCard = {
+  id: "timestamps",
+  appliesTo: "any",
+  priority: 999,
+  shouldShow: () => true,
+  render: ({ caseItem }) => (
+    <View className="flex-row items-center gap-2 px-1">
+      <Icon icon={Clock} size={12} color="#6b7280" />
+      <Text
+        variant="caption"
+        tone="muted"
+        className="text-app-text-subtle text-[11px]"
+      >
+        Açıldı {caseItem.created_at_label} · Güncellendi{" "}
+        {caseItem.updated_at_label}
+      </Text>
     </View>
-  );
-}
+  ),
+};
+
+export const DEFAULT_CASE_CARDS: readonly CaseCard[] = [
+  heroCard, // 10
+  vehicleCard, // 20
+  approvalCard, // 25 — bekleyen karar en üstte (state-driven)
+  problemDetailCard, // 30
+  accidentDossierCard, // 40 (kaza)
+  maintenanceSelectionsCard, // 40 (bakım)
+  towSummaryCard, // 40 (çekici)
+  tutanakCard, // 50 (kaza)
+  kaskoCard, // 60 (kaza/çekici)
+  locationCard, // 70
+  attachmentsCard, // 80
+  processTimelineCard, // 85
+  messagingCard, // 90
+  offersCard, // 100
+  timestampsCard, // 999
+];
 
 function buildKindPreview(caseItem: ServiceCase): string {
   const d = caseItem.request;

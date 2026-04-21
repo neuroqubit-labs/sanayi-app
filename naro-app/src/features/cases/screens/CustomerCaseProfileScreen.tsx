@@ -152,7 +152,12 @@ export function CustomerCaseProfileScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <CaseInspectionView caseItem={caseItem} contextState={context} />
+        <CaseInspectionView
+          caseItem={caseItem}
+          contextState={context}
+          actor="customer"
+          showCompetingOffers={false}
+        />
       </ScrollView>
 
       {sticky.kind !== "none" ? (
