@@ -38,6 +38,7 @@ Bu akışın her düğümü bir tablo / ilişki ile temsil edilir. **Vaka** (Ser
 | 15 | [KVKK / Retention](15-kvkk-retention.md) | Veri saklama, silme, export politikaları | V2 |
 | 16 | [Technician Sinyal Modeli](16-technician-sinyal-modeli.md) | 02-technician V2 uzantısı: taxonomy master + coverage + service_area + schedule + capacity + performance snapshots | V2 |
 | 17 | **Faz 10 — Tow Dispatch V1** (execution, 2026-04-22) — [KARAR-LOG §Faz 10](KARAR-LOG.md#faz-10--tow-dispatch-v1-execution-log-2026-04-22) | PostGIS + 7 tow tablo + partitioning + event-driven auto-dispatch + PSP/Mapbox + WebSocket + 4 ARQ cron. Reference: [cekici-modu-urun-spec](../cekici-modu-urun-spec.md), [cekici-backend-mimarisi](../cekici-backend-mimarisi.md), [ops/postgis-migration](../ops/postgis-migration.md) | **V1 (shipped)** |
+| 18 | **Faz 11 — Media Upgrade V1** (execution, 2026-04-22) — [KARAR-LOG §Faz 11](KARAR-LOG.md#faz-11--media-upgrade-v1-execution-log-2026-04-22) | 18-purpose canonical master + `media_policy.py` + 3 ARQ cron (orphan/retention/antivirus) + EXIF explicit GPS strip + 5 Prometheus metric + **SAEnum global fix** (`pg_enum` wrapper, P0 bloker çözüldü). Reference: [media-upload-brief](../media-upload-brief.md), [ops/s3-production](../ops/s3-production.md) | **V1 (shipped)** |
 
 ## Genel ERD (high-level)
 
@@ -94,6 +95,7 @@ Engine iş mantığı referansı: `packages/mobile-core/src/tracking/engine.ts` 
 | 07-case-process | `app/models/case_process.py` | `app/schemas/case_process.py` | `0007_case_process.py` | `app/repositories/case_process.py` |
 | 08-insurance-claim | `app/models/insurance_claim.py` | `app/schemas/insurance_claim.py` | `0008_insurance_claim.py` | `app/repositories/insurance_claim.py` |
 | 17-tow (Faz 10) | `app/models/tow.py` + `case.py`/`technician.py` extension | `app/schemas/tow.py` | `0017_tow_foundation.py` + `0018_tow_dispatch_tables.py` | `app/repositories/tow.py` |
+| 18-media (Faz 11) | `app/models/media.py` (18 purpose + polymorphic owner_kind/owner_id) | `app/schemas/media.py` | `0019_media_purpose_expand.py` + `0020_media_asset_alter.py` | `app/repositories/media.py` + `app/services/media_policy.py` (canonical matrix) |
 
 Faz 10 servis katmanı: `tow_dispatch` (event-driven SQL scoring), `tow_lifecycle` (outbox pattern), `tow_payment` (PSP Protocol + dual-hold), `tow_location` (Redis Streams), `tow_evidence` (OTP). Routes: `app/api/v1/routes/tow.py` (14 REST) + `tow_ws.py` (WebSocket). ARQ workers: `app/workers/tow/`. Integrations: `app/integrations/psp/` (MockPsp V1 / Iyzico V1.1) + `app/integrations/maps/` (Mapbox / haversine).
 

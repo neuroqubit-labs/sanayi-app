@@ -31,12 +31,12 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, UUIDPkMixin
+from app.db.enums import pg_enum
 from app.models.case import TowDispatchStage
 
 # ─── Enums ──────────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ class TowDispatchAttempt(UUIDPkMixin, Base):
     )
     responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     response: Mapped[TowDispatchResponse] = mapped_column(
-        SAEnum(TowDispatchResponse, name="tow_dispatch_response"),
+        pg_enum(TowDispatchResponse, name="tow_dispatch_response"),
         nullable=False,
         default=TowDispatchResponse.PENDING,
         server_default="pending",
@@ -196,7 +196,7 @@ class TowFareSettlement(UUIDPkMixin, Base):
         nullable=False, unique=True,
     )
     state: Mapped[TowSettlementStatus] = mapped_column(
-        SAEnum(TowSettlementStatus, name="tow_settlement_status"),
+        pg_enum(TowSettlementStatus, name="tow_settlement_status"),
         nullable=False,
         default=TowSettlementStatus.NONE,
         server_default="none",
@@ -248,7 +248,7 @@ class TowFareRefund(UUIDPkMixin, Base):
         String(3), nullable=False, default="TRY", server_default="TRY"
     )
     reason: Mapped[TowRefundReason] = mapped_column(
-        SAEnum(TowRefundReason, name="tow_refund_reason"),
+        pg_enum(TowRefundReason, name="tow_refund_reason"),
         nullable=False,
     )
     psp_ref: Mapped[str | None] = mapped_column(String(128))
@@ -269,7 +269,7 @@ class TowPaymentIdempotency(Base):
         ForeignKey("tow_fare_settlements.id", ondelete="SET NULL")
     )
     operation: Mapped[TowPaymentOperation] = mapped_column(
-        SAEnum(TowPaymentOperation, name="tow_payment_operation"),
+        pg_enum(TowPaymentOperation, name="tow_payment_operation"),
         nullable=False,
     )
     request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -299,7 +299,7 @@ class TowCancellation(UUIDPkMixin, Base):
         nullable=False, unique=True,
     )
     actor: Mapped[TowCancellationActor] = mapped_column(
-        SAEnum(TowCancellationActor, name="tow_cancellation_actor"),
+        pg_enum(TowCancellationActor, name="tow_cancellation_actor"),
         nullable=False,
     )
     actor_user_id: Mapped[UUID | None] = mapped_column(
@@ -308,7 +308,7 @@ class TowCancellation(UUIDPkMixin, Base):
     reason_code: Mapped[str] = mapped_column(String(64), nullable=False)
     reason_note: Mapped[str | None] = mapped_column(Text)
     stage_at_cancel: Mapped[TowDispatchStage] = mapped_column(
-        SAEnum(TowDispatchStage, name="tow_dispatch_stage"),
+        pg_enum(TowDispatchStage, name="tow_dispatch_stage"),
         nullable=False,
     )
     cancellation_fee: Mapped[Decimal] = mapped_column(
@@ -338,13 +338,13 @@ class TowOtpEvent(UUIDPkMixin, Base):
         ForeignKey("service_cases.id", ondelete="CASCADE"), nullable=False
     )
     purpose: Mapped[TowOtpPurpose] = mapped_column(
-        SAEnum(TowOtpPurpose, name="tow_otp_purpose"), nullable=False
+        pg_enum(TowOtpPurpose, name="tow_otp_purpose"), nullable=False
     )
     recipient: Mapped[TowOtpRecipient] = mapped_column(
-        SAEnum(TowOtpRecipient, name="tow_otp_recipient"), nullable=False
+        pg_enum(TowOtpRecipient, name="tow_otp_recipient"), nullable=False
     )
     delivered_via: Mapped[TowOtpDelivery] = mapped_column(
-        SAEnum(TowOtpDelivery, name="tow_otp_delivery"), nullable=False
+        pg_enum(TowOtpDelivery, name="tow_otp_delivery"), nullable=False
     )
     code_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     issued_at: Mapped[datetime] = mapped_column(
@@ -358,7 +358,7 @@ class TowOtpEvent(UUIDPkMixin, Base):
         SmallInteger, nullable=False, default=0, server_default="0"
     )
     verify_result: Mapped[TowOtpVerifyResult] = mapped_column(
-        SAEnum(TowOtpVerifyResult, name="tow_otp_verify_result"),
+        pg_enum(TowOtpVerifyResult, name="tow_otp_verify_result"),
         nullable=False,
         default=TowOtpVerifyResult.PENDING,
         server_default="pending",

@@ -11,11 +11,11 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class AppointmentSlotKind(StrEnum):
@@ -63,13 +63,13 @@ class Appointment(UUIDPkMixin, TimestampMixin, Base):
 
     slot: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     slot_kind: Mapped[AppointmentSlotKind] = mapped_column(
-        SAEnum(AppointmentSlotKind, name="appointment_slot_kind"),
+        pg_enum(AppointmentSlotKind, name="appointment_slot_kind"),
         nullable=False,
     )
 
     note: Mapped[str | None] = mapped_column(Text, default="", server_default="")
     status: Mapped[AppointmentStatus] = mapped_column(
-        SAEnum(AppointmentStatus, name="appointment_status"),
+        pg_enum(AppointmentStatus, name="appointment_status"),
         nullable=False,
         default=AppointmentStatus.PENDING,
     )

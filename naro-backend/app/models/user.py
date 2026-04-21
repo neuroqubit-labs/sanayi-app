@@ -2,10 +2,10 @@ from datetime import datetime
 from enum import StrEnum
 
 from sqlalchemy import DateTime, Index, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class UserRole(StrEnum):
@@ -51,13 +51,13 @@ class User(UUIDPkMixin, TimestampMixin, Base):
     full_name: Mapped[str | None] = mapped_column(String(255))
 
     role: Mapped[UserRole] = mapped_column(
-        SAEnum(UserRole, name="user_role"), nullable=False, default=UserRole.CUSTOMER
+        pg_enum(UserRole, name="user_role"), nullable=False, default=UserRole.CUSTOMER
     )
     status: Mapped[UserStatus] = mapped_column(
-        SAEnum(UserStatus, name="user_status"), nullable=False, default=UserStatus.PENDING
+        pg_enum(UserStatus, name="user_status"), nullable=False, default=UserStatus.PENDING
     )
     approval_status: Mapped[UserApprovalStatus | None] = mapped_column(
-        SAEnum(UserApprovalStatus, name="user_approval_status"), nullable=True
+        pg_enum(UserApprovalStatus, name="user_approval_status"), nullable=True
     )
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="tr-TR")
     last_login_at: Mapped[datetime | None] = mapped_column(

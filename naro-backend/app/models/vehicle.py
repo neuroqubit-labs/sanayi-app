@@ -13,10 +13,10 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, SmallInteger, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class VehicleFuelType(StrEnum):
@@ -48,7 +48,7 @@ class Vehicle(UUIDPkMixin, TimestampMixin, Base):
     year: Mapped[int | None] = mapped_column(SmallInteger)
     color: Mapped[str | None] = mapped_column(String(64))
     fuel_type: Mapped[VehicleFuelType | None] = mapped_column(
-        SAEnum(VehicleFuelType, name="vehicle_fuel_type"),
+        pg_enum(VehicleFuelType, name="vehicle_fuel_type"),
         nullable=True,
     )
     vin: Mapped[str | None] = mapped_column(String(32))

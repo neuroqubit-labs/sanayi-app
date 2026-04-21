@@ -25,11 +25,11 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 # ─── Enums ──────────────────────────────────────────────────────────────────
 
@@ -101,22 +101,22 @@ class TechnicianProfile(UUIDPkMixin, TimestampMixin, Base):
     biography: Mapped[str | None] = mapped_column(Text)
 
     availability: Mapped[TechnicianAvailability] = mapped_column(
-        SAEnum(TechnicianAvailability, name="technician_availability"),
+        pg_enum(TechnicianAvailability, name="technician_availability"),
         nullable=False,
         default=TechnicianAvailability.OFFLINE,
     )
     verified_level: Mapped[TechnicianVerifiedLevel] = mapped_column(
-        SAEnum(TechnicianVerifiedLevel, name="technician_verified_level"),
+        pg_enum(TechnicianVerifiedLevel, name="technician_verified_level"),
         nullable=False,
         default=TechnicianVerifiedLevel.BASIC,
     )
 
     provider_type: Mapped[ProviderType] = mapped_column(
-        SAEnum(ProviderType, name="provider_type"),
+        pg_enum(ProviderType, name="provider_type"),
         nullable=False,
     )
     secondary_provider_types: Mapped[list[ProviderType]] = mapped_column(
-        ARRAY(SAEnum(ProviderType, name="provider_type", create_type=False)),
+        ARRAY(pg_enum(ProviderType, name="provider_type", create_type=False)),
         nullable=False,
         server_default="{}",
     )
@@ -226,7 +226,7 @@ class TechnicianCertificate(UUIDPkMixin, TimestampMixin, Base):
         nullable=False,
     )
     kind: Mapped[TechnicianCertificateKind] = mapped_column(
-        SAEnum(TechnicianCertificateKind, name="technician_certificate_kind"),
+        pg_enum(TechnicianCertificateKind, name="technician_certificate_kind"),
         nullable=False,
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -246,7 +246,7 @@ class TechnicianCertificate(UUIDPkMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     status: Mapped[TechnicianCertificateStatus] = mapped_column(
-        SAEnum(TechnicianCertificateStatus, name="technician_certificate_status"),
+        pg_enum(TechnicianCertificateStatus, name="technician_certificate_status"),
         nullable=False,
         default=TechnicianCertificateStatus.PENDING,
     )
@@ -263,7 +263,7 @@ class TechnicianGalleryItem(UUIDPkMixin, Base):
         nullable=False,
     )
     kind: Mapped[GalleryItemKind] = mapped_column(
-        SAEnum(GalleryItemKind, name="gallery_item_kind"),
+        pg_enum(GalleryItemKind, name="gallery_item_kind"),
         nullable=False,
     )
     title: Mapped[str | None] = mapped_column(String(255))
@@ -290,7 +290,7 @@ class TechnicianTowEquipmentLink(Base):
         primary_key=True,
     )
     equipment: Mapped[str] = mapped_column(
-        SAEnum(
+        pg_enum(
             "flatbed", "hook", "wheel_lift", "heavy_duty", "motorcycle",
             name="tow_equipment", create_type=False,
         ),

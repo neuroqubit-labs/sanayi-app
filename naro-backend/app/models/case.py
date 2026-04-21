@@ -16,11 +16,11 @@ from uuid import UUID
 
 from geoalchemy2 import Geography
 from sqlalchemy import DateTime, Float, ForeignKey, Numeric, String, Text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class ServiceRequestKind(StrEnum):
@@ -114,21 +114,21 @@ class ServiceCase(UUIDPkMixin, TimestampMixin, Base):
     )
 
     kind: Mapped[ServiceRequestKind] = mapped_column(
-        SAEnum(ServiceRequestKind, name="service_request_kind"),
+        pg_enum(ServiceRequestKind, name="service_request_kind"),
         nullable=False,
     )
     urgency: Mapped[ServiceRequestUrgency] = mapped_column(
-        SAEnum(ServiceRequestUrgency, name="service_request_urgency"),
+        pg_enum(ServiceRequestUrgency, name="service_request_urgency"),
         nullable=False,
         default=ServiceRequestUrgency.PLANNED,
     )
     status: Mapped[ServiceCaseStatus] = mapped_column(
-        SAEnum(ServiceCaseStatus, name="service_case_status"),
+        pg_enum(ServiceCaseStatus, name="service_case_status"),
         nullable=False,
         default=ServiceCaseStatus.MATCHING,
     )
     origin: Mapped[CaseOrigin] = mapped_column(
-        SAEnum(CaseOrigin, name="case_origin"),
+        pg_enum(CaseOrigin, name="case_origin"),
         nullable=False,
         default=CaseOrigin.CUSTOMER,
     )
@@ -151,7 +151,7 @@ class ServiceCase(UUIDPkMixin, TimestampMixin, Base):
     )
 
     wait_state_actor: Mapped[CaseWaitActor] = mapped_column(
-        SAEnum(CaseWaitActor, name="case_wait_actor"),
+        pg_enum(CaseWaitActor, name="case_wait_actor"),
         nullable=False,
         default=CaseWaitActor.SYSTEM,
     )
@@ -177,17 +177,17 @@ class ServiceCase(UUIDPkMixin, TimestampMixin, Base):
 
     # Faz 10 — tow dispatch kolonları (kind='towing' için zorunlu; CHECK XOR)
     tow_mode: Mapped[TowMode | None] = mapped_column(
-        SAEnum(TowMode, name="tow_mode"), nullable=True
+        pg_enum(TowMode, name="tow_mode"), nullable=True
     )
     tow_stage: Mapped[TowDispatchStage | None] = mapped_column(
-        SAEnum(TowDispatchStage, name="tow_dispatch_stage"), nullable=True
+        pg_enum(TowDispatchStage, name="tow_dispatch_stage"), nullable=True
     )
     tow_required_equipment: Mapped[list[TowEquipment] | None] = mapped_column(
-        ARRAY(SAEnum(TowEquipment, name="tow_equipment", create_type=False)),
+        ARRAY(pg_enum(TowEquipment, name="tow_equipment", create_type=False)),
         nullable=True,
     )
     incident_reason: Mapped[TowIncidentReason | None] = mapped_column(
-        SAEnum(TowIncidentReason, name="tow_incident_reason"), nullable=True
+        pg_enum(TowIncidentReason, name="tow_incident_reason"), nullable=True
     )
     scheduled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

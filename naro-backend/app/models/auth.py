@@ -10,11 +10,11 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, SmallInteger, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 from app.models.auth_identity import AuthIdentityProvider
 from app.models.user import UserRole
 
@@ -58,7 +58,7 @@ class AuthSession(UUIDPkMixin, TimestampMixin, Base):
         ForeignKey("auth_sessions.id", ondelete="SET NULL"), nullable=True
     )
     issued_via: Mapped[AuthIdentityProvider] = mapped_column(
-        SAEnum(AuthIdentityProvider, name="auth_identity_provider", create_type=False),
+        pg_enum(AuthIdentityProvider, name="auth_identity_provider", create_type=False),
         nullable=False,
         default=AuthIdentityProvider.OTP_PHONE,
         server_default="otp_phone",
@@ -72,13 +72,13 @@ class OtpCode(UUIDPkMixin, Base):
 
     phone: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     channel: Mapped[OtpChannel] = mapped_column(
-        SAEnum(OtpChannel, name="otp_channel"),
+        pg_enum(OtpChannel, name="otp_channel"),
         nullable=False,
         default=OtpChannel.SMS,
     )
     code_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     target_role: Mapped[UserRole] = mapped_column(
-        SAEnum(UserRole, name="user_role", create_type=False), nullable=False
+        pg_enum(UserRole, name="user_role", create_type=False), nullable=False
     )
     delivery_id: Mapped[str | None] = mapped_column(String(128))
     attempts: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)

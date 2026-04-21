@@ -11,11 +11,11 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class AuthEventType(StrEnum):
@@ -62,7 +62,7 @@ class AuthEvent(UUIDPkMixin, Base):
     )
     event_type: Mapped[AuthEventType] = mapped_column(
         "event_type",
-        SAEnum(AuthEventType, name="auth_event_type"),
+        pg_enum(AuthEventType, name="auth_event_type"),
         nullable=False,
     )
     actor: Mapped[str] = mapped_column(

@@ -32,11 +32,11 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 # ─── Enums ──────────────────────────────────────────────────────────────────
 
@@ -123,11 +123,11 @@ class CaseMilestone(UUIDPkMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     actor: Mapped[CaseActor] = mapped_column(
-        SAEnum(CaseActor, name="case_actor"), nullable=False
+        pg_enum(CaseActor, name="case_actor"), nullable=False
     )
     sequence: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     status: Mapped[CaseMilestoneStatus] = mapped_column(
-        SAEnum(CaseMilestoneStatus, name="case_milestone_status"),
+        pg_enum(CaseMilestoneStatus, name="case_milestone_status"),
         nullable=False,
         default=CaseMilestoneStatus.UPCOMING,
     )
@@ -147,20 +147,20 @@ class CaseTask(UUIDPkMixin, TimestampMixin, Base):
         ForeignKey("case_milestones.id", ondelete="CASCADE"), nullable=False
     )
     kind: Mapped[CaseTaskKind] = mapped_column(
-        SAEnum(CaseTaskKind, name="case_task_kind"), nullable=False
+        pg_enum(CaseTaskKind, name="case_task_kind"), nullable=False
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     actor: Mapped[CaseActor] = mapped_column(
-        SAEnum(CaseActor, name="case_actor", create_type=False), nullable=False
+        pg_enum(CaseActor, name="case_actor", create_type=False), nullable=False
     )
     status: Mapped[CaseTaskStatus] = mapped_column(
-        SAEnum(CaseTaskStatus, name="case_task_status"),
+        pg_enum(CaseTaskStatus, name="case_task_status"),
         nullable=False,
         default=CaseTaskStatus.PENDING,
     )
     urgency: Mapped[CaseTaskUrgency] = mapped_column(
-        SAEnum(CaseTaskUrgency, name="case_task_urgency"),
+        pg_enum(CaseTaskUrgency, name="case_task_urgency"),
         nullable=False,
         default=CaseTaskUrgency.BACKGROUND,
     )
@@ -182,10 +182,10 @@ class CaseApproval(UUIDPkMixin, TimestampMixin, Base):
         ForeignKey("service_cases.id", ondelete="CASCADE"), nullable=False
     )
     kind: Mapped[CaseApprovalKind] = mapped_column(
-        SAEnum(CaseApprovalKind, name="case_approval_kind"), nullable=False
+        pg_enum(CaseApprovalKind, name="case_approval_kind"), nullable=False
     )
     status: Mapped[CaseApprovalStatus] = mapped_column(
-        SAEnum(CaseApprovalStatus, name="case_approval_status"),
+        pg_enum(CaseApprovalStatus, name="case_approval_status"),
         nullable=False,
         default=CaseApprovalStatus.PENDING,
     )

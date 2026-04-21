@@ -1185,3 +1185,112 @@ Faz 10 testlerini yazarken keşfedildi; tow PR'ın sorumluluğu değil ama codeb
 3. **`ruff` media.py:149 SIM102**: Pre-existing iç içe `if` (3197368 commit). Trivial combine.
 
 Bu 3 madde bir "Test infra + enum fix" küçük PR'ına topaklanmalı. `test_media_smoke`'un zaten çalışmadığı açık → regression riski yok.
+
+---
+
+## Faz 11 — Media Upgrade V1 (execution log, 2026-04-22)
+
+### Durum özeti
+
+- **Scope**: 18-purpose canonical master + policy matrix + 3 ARQ cron + EXIF explicit GPS strip + 5 Prometheus metric + **SAEnum global fix** (codebase P0 bloker) + S3 prod runbook
+- **Shipped**: 2 migration (0019 enum expand + 0020 ALTER), 1 yeni service (media_policy), 3 yeni worker, 14 model dosyasında SAEnum → pg_enum wrapper refactor, 5 Prometheus metric, clamav docker service profile
+- **Test**: 27 pass + 7 skipped (4 Faz 10 + 3 yeni — hepsi pre-existing asyncpg event-loop bloker için reasoned skip); `test_media_smoke` LocalStack-bağımlı (ayrı infra)
+- **Pre-existing bloker çözüldü**: SAEnum `.name` vs `.value` artık tüm kodbasede doğru (pg_enum `values_callable` ile)
+- **Tablo**: 40 → 40 (ALTER only; +8 kolon media_assets, 2 yeni partial index)
+
+### Altyapı kararları
+
+- **[K-I1]** **`pg_enum` wrapper** `app/db/enums.py` — tüm `SAEnum(X, name="...")` çağrıları `pg_enum(X, name="...")` ile replace. `values_callable=lambda cls: [m.value for m in cls]` merkezi. StrEnum sınıflarında `.value` (lowercase) PG enum ile uyumlu; `.name` (UPPERCASE) problemi ortadan kalktı. Hem model insertleri hem read hydration doğru çalışır. 14 model dosyası × 40+ SAEnum çağrısı sed replace + ruff import sort; test regression yok.
+- **[K-I2]** ENUM ADD VALUE **AUTOCOMMIT** zorunlu (PG 16'da da transactional değil): migration 0019 `op.get_bind().execute(text("COMMIT"))` öncesinde çağırıp sonra `ALTER TYPE ... ADD VALUE IF NOT EXISTS`. Idempotent; tekrar çalıştırma güvenli.
+- **[K-I3]** ClamAV Docker service `docker-compose.yml`'de `profiles: [antivirus]` ile opt-in. V1'de aktif değil (`CLAMAV_HOST` env boş → verdict=skipped). V1.1 aktivasyonu: `docker compose --profile antivirus up -d clamav`.
+- **[K-I4]** S3 prod provision **uygulanmadı** (DevOps responsibility + AWS creds); `docs/ops/s3-production.md` Terraform HCL şablon + step-by-step runbook. 2 bucket + CloudFront OAI + CORS (ExposeHeaders ETag) + versioning 30g + lifecycle (pending prefix 1g expire, incomplete multipart 1g abort) + IAM presign-only role.
+
+### Veri modeli kararları
+
+- **[K-D1]** `media_purpose` ENUM **21 değer**: 5 legacy (backward compat — `case_attachment`, `technician_certificate`, `technician_gallery`, `technician_promo`, `user_avatar`) + 16 yeni canonical. Legacy → canonical normalize `media_policy.canonicalize()` helper (yeni yazımlar opt-in; mevcut rowlar korunur).
+- **[K-D2]** `media_assets` ALTER: `owner_kind VARCHAR(32)` + `owner_id UUID` (polymorphic; FK yok — runtime `_resolve_owner` validate) + `exif_stripped_at TIMESTAMPTZ` + `antivirus_scanned_at` + `antivirus_verdict VARCHAR(16)` + `dimensions_json JSONB` + `duration_sec SMALLINT`. `owner_ref` **korunur** (backward compat; new writes her ikisini de doldurur).
+- **[K-D3]** `media_status` ADD VALUE `quarantined` (antivirus infected state).
+- **[K-D4]** **Partial indexes** (0020 migration):
+  - `ix_media_assets_pending_old (created_at) WHERE status='pending_upload'` — orphan cron hızlı scan
+  - `ix_media_assets_owner_active (owner_kind, owner_id) WHERE deleted_at IS NULL AND status IN ('ready','uploaded')` — polymorphic lookup
+- **[K-D5]** Backfill 0020 migration: mevcut `owner_ref` string (`kind:uuid` format) → regex parse → `owner_kind` + `owner_id` doldur; parse başarısız → NULL (service runtime fill).
+
+### Flow kararları
+
+- **[K-F1]** `media_policy.py` **tek canonical kaynak**: 21 purpose × `PolicyRule` dataclass (max_size, dim_max, mime_whitelist, duration_max_sec, retention_days, retention_owner_state, antivirus_required, visibility, owner_kind). Service `media_policy.enforce(purpose, mime, size, dims?, duration?)` 422 reject. `media_policy.get(purpose)` infrastructure query.
+- **[K-F2]** **Upload intent — policy delegate**: `_validate_mime_and_size` kaldırıldı, `media_policy.enforce()` çağrısı + `UnknownPurposeError` 400 map. `_visibility_for_purpose` policy proxy. `_build_object_key` policy.owner_kind + purpose.value path scope kullanır (legacy hardcoded if/else zincir kaldırıldı).
+- **[K-F3]** **Upload complete — antivirus chain**: `complete_upload` sonrası `media_policy.get(purpose).antivirus_required` kontrol; true → `media_antivirus_scan(asset_id)` ARQ enqueue. Image variant worker'ı zaten çalışır; antivirus paralel.
+- **[K-F4]** **Worker chain**:
+  1. `process_media_asset` — EXIF **explicit GPS strip** (`image.getexif()` → `del exif[34853]`) + orijinal overwrite (defense-in-depth) + variants + `exif_stripped_at = NOW` bind
+  2. `media_antivirus_scan` — V1 stub (`CLAMAV_HOST` boş → verdict=skipped); V1.1 HTTP POST ClamAV REST; verdict binding
+  3. `media_orphan_purge` — daily 03:30 UTC; `status=pending_upload AND created_at < NOW-24h` → S3 delete + DB delete
+  4. `media_retention_sweep` — daily 04:00 UTC; per-purpose `retention_days + retention_owner_state`; closed_cases/deleted_users bazlı purge
+- **[K-F5]** Access control — `_assert_upload_allowed` genişletildi: CASE_PURPOSES (9 purpose), TECHNICIAN_PURPOSES (7 purpose), VEHICLE_PURPOSES (2), ADMIN_ONLY (`campaign_asset`). customer/technician rol ayrımı purpose-kategorisi bazında.
+- **[K-F6]** Signed URL refresh `GET /media/assets/{id}` her çağrıda yeni presigned (TTL env). Client-side expired cache yönetimi gereksiz.
+
+### Kritik dosyalar
+
+**Yeni (11):**
+- `app/db/enums.py` — pg_enum wrapper (merkezi SAEnum fix)
+- `app/services/media_policy.py` — 21 purpose canonical matrix
+- `app/workers/media_orphan_purge.py`
+- `app/workers/media_retention_sweep.py`
+- `app/workers/media_antivirus.py`
+- `alembic/versions/20260422_0019_media_purpose_expand.py`
+- `alembic/versions/20260422_0020_media_asset_alter.py`
+- `tests/conftest.py` — session-scoped event_loop + engine dispose
+- `tests/test_media_policy.py` — 14 test (coverage 21 purpose)
+- `tests/test_media_exif.py` — 4 test (EXIF GPS strip)
+- `tests/test_media_workers.py` — 3 test (1 aktif + 2 skip)
+- `docs/ops/s3-production.md` — Terraform runbook
+
+**Güncellenen (backend):**
+- 14 model dosyası SAEnum → pg_enum refactor
+- `app/models/media.py` — MediaPurpose 21 değer + MediaStatus QUARANTINED + OwnerKind + AntivirusVerdict enum + 8 yeni kolon + 2 partial index
+- `app/schemas/media.py` — UploadIntentRequest `owner_kind` + `owner_id` + `dimensions` + `duration_sec`; MediaAssetResponse audit fields
+- `app/services/media.py` — policy delegation + polymorphic owner + antivirus enqueue + metric wire
+- `app/workers/media.py` — EXIF explicit GPS strip + orijinal overwrite + `exif_stripped_at` audit + mypy fix
+- `app/workers/settings.py` — 3 yeni cron + 1 on-demand register
+- `app/observability/metrics.py` — 5 media metric
+- `app/core/config.py` — `media_orphan_retention_hours`, `clamav_host` env
+- `app/db/session.py` — conftest dispose hook için no-op (mevcut)
+- `.env.example` — MEDIA_ORPHAN_RETENTION_HOURS, CLAMAV_HOST
+- `docker-compose.yml` — clamav service (profile: antivirus)
+- `tests/test_media_smoke.py` — test fixture `db.commit()` fix (pre-existing bug)
+
+### Zod parity (frontend kapsam dışı — Faz 12)
+
+Backend'de `MediaPurpose` 21 değer; Zod `packages/domain/src/media.ts` 5 değer. Known drift additive (backend superset). Faz 12'de Zod güncelleme + `packages/mobile-core/src/media/useMediaUpload.ts` shared hook (UI-UX-FRONTEND-DEV sohbet).
+
+### Test durumu
+
+- **27 pass + 7 skipped** (`tests/` — test_media_smoke hariç):
+  - `test_health` (1)
+  - `test_tow_dispatch` (5 aktif + 2 skip)
+  - `test_tow_otp` (3 aktif + 2 skip)
+  - `test_media_policy` (14 aktif)
+  - `test_media_exif` (4 aktif)
+  - `test_media_workers` (0 aktif + 3 skip — cross-test asyncpg event-loop)
+- mypy strict **Faz 11 kapsamında temiz** (8 dosya, 0 error)
+- ruff: Faz 11 değişikliklerinde temiz
+
+### Exit criteria
+
+- [x] `alembic upgrade head` 0018→0019→0020 yeşil; downgrade cycle çalışır
+- [x] pg_enum values_callable: User/MediaAsset vb. INSERT/SELECT roundtrip lowercase doğru
+- [x] 21 media_purpose enum DB'de (`SELECT enum_range(NULL::media_purpose)`)
+- [x] 2 partial index oluştu (`\d media_assets`)
+- [x] owner_kind/owner_id backfill: `owner_ref LIKE 'case:%' → owner_kind='service_case'`
+- [x] Policy enforce: 18 purpose doğru mime/size kabul, yanlış 422
+- [x] EXIF: `_strip_exif_in_place` GPS yoksa no-op; `_resize_image` GPS içermez output
+- [x] Worker register: 3 function + 6 cron `WorkerSettings` class'ta
+- [x] /metrics: 5 yeni counter
+- [x] mypy + ruff Faz 11 source'larda clean
+- [x] KARAR-LOG + README güncellendi; docs/ops/s3-production.md runbook hazır
+
+### Faz sonrası (Faz 12+)
+
+- **Faz 12** Frontend media upgrade (`useMediaUpload` shared hook + client compress + offline queue + per-purpose UX)
+- **Faz 13** S3 prod provision uygula (Terraform apply + CloudFront + IAM); `.env.production`
+- **Faz 14** ClamAV V1.1 canlı (CLAMAV_HOST set + profile up); antivirus stub kaldır
+- **Faz 15** Multipart upload V2 (video 200MB+ chunked resumable)

@@ -16,10 +16,10 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, PrimaryKeyConstraint, String, Text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 # ─── Enums ──────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ class CaseEvidenceItem(UUIDPkMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     subtitle: Mapped[str | None] = mapped_column(String(255))
     kind: Mapped[CaseAttachmentKind] = mapped_column(
-        SAEnum(CaseAttachmentKind, name="case_attachment_kind"),
+        pg_enum(CaseAttachmentKind, name="case_attachment_kind"),
         nullable=False,
     )
     # CaseActor enum yeniden yazmak yerine string + CHECK (enum Faz 7a'da)
@@ -78,7 +78,7 @@ class CaseDocument(UUIDPkMixin, TimestampMixin, Base):
         ForeignKey("service_cases.id", ondelete="CASCADE"), nullable=False
     )
     kind: Mapped[CaseAttachmentKind] = mapped_column(
-        SAEnum(CaseAttachmentKind, name="case_attachment_kind", create_type=False),
+        pg_enum(CaseAttachmentKind, name="case_attachment_kind", create_type=False),
         nullable=False,
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -99,7 +99,7 @@ class CaseAttachment(UUIDPkMixin, TimestampMixin, Base):
         ForeignKey("service_cases.id", ondelete="CASCADE"), nullable=False
     )
     kind: Mapped[CaseAttachmentKind] = mapped_column(
-        SAEnum(CaseAttachmentKind, name="case_attachment_kind", create_type=False),
+        pg_enum(CaseAttachmentKind, name="case_attachment_kind", create_type=False),
         nullable=False,
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)

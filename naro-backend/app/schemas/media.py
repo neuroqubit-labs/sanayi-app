@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.media import MediaPurpose, MediaStatus, MediaVisibility
+from app.models.media import MediaPurpose, MediaStatus, MediaVisibility, OwnerKind
 
 
 class MediaAssetResponse(BaseModel):
@@ -20,6 +21,10 @@ class MediaAssetResponse(BaseModel):
     checksum_sha256: str | None = None
     preview_url: str | None = None
     download_url: str | None = None
+    dimensions: dict[str, int] | None = None
+    duration_sec: int | None = None
+    exif_stripped_at: datetime | None = None
+    antivirus_verdict: str | None = None
     created_at: datetime
     uploaded_at: datetime | None = None
 
@@ -27,10 +32,15 @@ class MediaAssetResponse(BaseModel):
 class UploadIntentRequest(BaseModel):
     purpose: MediaPurpose
     owner_ref: str = Field(min_length=1, max_length=255)
+    # Faz 11 — polymorphic owner (owner_ref kept for backward compat)
+    owner_kind: OwnerKind | None = None
+    owner_id: UUID | None = None
     filename: str = Field(min_length=1, max_length=255)
     mime_type: str = Field(min_length=1, max_length=255)
     size_bytes: int = Field(gt=0)
     checksum_sha256: str | None = Field(default=None, min_length=32, max_length=128)
+    dimensions: dict[str, int] | None = None
+    duration_sec: int | None = Field(default=None, ge=0, le=3600)
 
 
 class UploadIntentResponse(BaseModel):

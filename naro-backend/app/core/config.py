@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     cloudfront_public_base_url: str = ""
     media_upload_url_ttl_seconds: int = 600
     media_download_url_ttl_seconds: int = 900
+    media_orphan_retention_hours: int = 24
+    clamav_host: str = ""
 
     # Faz 10 — Tow dispatch
     psp_provider: Literal["mock", "iyzico"] = "mock"

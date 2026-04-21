@@ -76,6 +76,37 @@ tow_fraud_suspected_total = Counter(
     registry=registry,
 )
 
+# ─── Faz 11 — Media upload metrics ──────────────────────────────────────────
+
+media_upload_intent_total = Counter(
+    "naro_media_upload_intent_total",
+    "Media upload intent requests",
+    labelnames=("purpose",),
+    registry=registry,
+)
+media_upload_complete_total = Counter(
+    "naro_media_upload_complete_total",
+    "Media upload completion results",
+    labelnames=("purpose", "status"),
+    registry=registry,
+)
+media_orphan_purged_total = Counter(
+    "naro_media_orphan_purged_total",
+    "Pending intents purged after retention window",
+    registry=registry,
+)
+media_antivirus_quarantined_total = Counter(
+    "naro_media_antivirus_quarantined_total",
+    "Assets quarantined by antivirus scan",
+    registry=registry,
+)
+media_retention_deleted_total = Counter(
+    "naro_media_retention_deleted_total",
+    "Assets hard-deleted via retention policy",
+    labelnames=("purpose",),
+    registry=registry,
+)
+
 
 def render_metrics() -> tuple[bytes, str]:
     return generate_latest(registry), "text/plain; version=0.0.4"

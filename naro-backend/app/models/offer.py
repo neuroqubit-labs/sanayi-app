@@ -19,11 +19,11 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class CaseOfferStatus(StrEnum):
@@ -83,13 +83,13 @@ class CaseOffer(UUIDPkMixin, TimestampMixin, Base):
     )
 
     kind: Mapped[CaseOfferKind] = mapped_column(
-        SAEnum(CaseOfferKind, name="case_offer_kind"),
+        pg_enum(CaseOfferKind, name="case_offer_kind"),
         nullable=False,
         default=CaseOfferKind.STANDARD,
         server_default="standard",
     )
     status: Mapped[CaseOfferStatus] = mapped_column(
-        SAEnum(CaseOfferStatus, name="case_offer_status"),
+        pg_enum(CaseOfferStatus, name="case_offer_status"),
         nullable=False,
         default=CaseOfferStatus.PENDING,
     )

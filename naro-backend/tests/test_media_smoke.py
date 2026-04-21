@@ -27,6 +27,7 @@ async def _create_access_token(role: UserRole = UserRole.CUSTOMER) -> str:
             role=role,
             email=f"media-smoke-{uuid4()}@example.com",
         )
+        await db.commit()
     return create_token(str(user.id), "access", {"role": user.role.value})
 
 

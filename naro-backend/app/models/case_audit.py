@@ -17,11 +17,11 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, String, Text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class CaseEventType(StrEnum):
@@ -102,7 +102,7 @@ class CaseEvent(UUIDPkMixin, Base):
     )
     event_type: Mapped[CaseEventType] = mapped_column(
         "type",
-        SAEnum(CaseEventType, name="case_event_type"),
+        pg_enum(CaseEventType, name="case_event_type"),
         nullable=False,
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -139,7 +139,7 @@ class CaseNotificationIntent(UUIDPkMixin, Base):
     )
     intent_type: Mapped[CaseNotificationIntentType] = mapped_column(
         "type",
-        SAEnum(CaseNotificationIntentType, name="case_notification_intent_type"),
+        pg_enum(CaseNotificationIntentType, name="case_notification_intent_type"),
         nullable=False,
     )
     actor: Mapped[str] = mapped_column(String(32), nullable=False)

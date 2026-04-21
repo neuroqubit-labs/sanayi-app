@@ -82,7 +82,21 @@ services:
       localstack:
         condition: service_healthy
 
+  clamav:
+    image: clamav/clamav:stable
+    profiles: ["antivirus"]
+    ports:
+      - "${CLAMAV_PUBLISHED_PORT:-3310}:3310"
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdscan", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres-data:
   redis-data:
   localstack-data:
+  clamav-data:

@@ -12,11 +12,11 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class AuthIdentityProvider(StrEnum):
@@ -33,7 +33,7 @@ class UserIdentity(UUIDPkMixin, TimestampMixin, Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     provider: Mapped[AuthIdentityProvider] = mapped_column(
-        SAEnum(AuthIdentityProvider, name="auth_identity_provider"),
+        pg_enum(AuthIdentityProvider, name="auth_identity_provider"),
         nullable=False,
     )
     # OTP: phone veya email; OAuth: id_token.sub

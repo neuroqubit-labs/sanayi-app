@@ -26,10 +26,10 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.db.enums import pg_enum
 
 
 class InsuranceCoverageKind(StrEnum):
@@ -93,7 +93,7 @@ class InsuranceClaim(UUIDPkMixin, TimestampMixin, Base):
     policy_number: Mapped[str] = mapped_column(String(64), nullable=False)
     insurer: Mapped[str] = mapped_column(String(255), nullable=False)
     coverage_kind: Mapped[InsuranceCoverageKind] = mapped_column(
-        SAEnum(InsuranceCoverageKind, name="insurance_coverage_kind"),
+        pg_enum(InsuranceCoverageKind, name="insurance_coverage_kind"),
         nullable=False,
     )
     # Sigortacının kendi dosya referansı (submit sonrası gelir)
@@ -101,7 +101,7 @@ class InsuranceClaim(UUIDPkMixin, TimestampMixin, Base):
 
     # Status state machine
     status: Mapped[InsuranceClaimStatus] = mapped_column(
-        SAEnum(InsuranceClaimStatus, name="insurance_claim_status"),
+        pg_enum(InsuranceClaimStatus, name="insurance_claim_status"),
         nullable=False,
         default=InsuranceClaimStatus.SUBMITTED,
     )
