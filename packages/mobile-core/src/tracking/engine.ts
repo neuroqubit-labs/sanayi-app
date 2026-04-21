@@ -1405,24 +1405,24 @@ function waitTone(actor: CaseWaitState["actor"]): TrackingTone {
 function buildFocusEyebrow(caseItem: ServiceCase) {
   switch (caseItem.status) {
     case "matching":
-      return "Simdi";
+      return "Teklif aranıyor";
     case "offers_ready":
-      return "Karar zamani";
+      return "Karar senin";
     case "appointment_pending":
-      return "Usta yanıtı";
+      return "Usta yanıtı bekleniyor";
     case "scheduled":
-      return "Hazirlik";
+      return "Randevu yakın";
     case "service_in_progress":
-      return "Canli surec";
+      return "Usta sahada";
     case "parts_approval":
-      return "Bloke nokta";
+      return "Parça onayın bekleniyor";
     case "invoice_approval":
-      return "Kapanisa yakin";
+      return "Teslime yakın";
     case "completed":
     case "archived":
-      return "Denetim izi";
+      return "Tamamlandı";
     case "cancelled":
-      return "Durdu";
+      return "İptal edildi";
   }
 }
 
@@ -1689,7 +1689,7 @@ function stageStatusLabel(
     case "active_expanded":
       return waitState.actor === actor ? primaryViewerLabel(actor) : "Aktif";
     case "blocked":
-      return "Bloke";
+      return "Beklemede";
     case "waiting_counterparty":
       return waitState.label;
     case "upcoming_visible":

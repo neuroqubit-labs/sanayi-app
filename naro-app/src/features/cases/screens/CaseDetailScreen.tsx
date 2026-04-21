@@ -1,4 +1,6 @@
+import type { ServiceCase } from "@naro/domain";
 import type {
+  CustomerTrackingView,
   TrackingStage,
   TrackingUtilityPreview,
 } from "@naro/mobile-core";
@@ -14,6 +16,9 @@ import {
 import { Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
+  ArrowUpRight,
+  CarFront,
+  ChevronRight,
   Clock,
   FileImage,
   FileText,
@@ -320,34 +325,14 @@ export function CaseDetailScreen() {
   return (
     <SafeAreaView className="flex-1 bg-app-bg">
       <Screen scroll backgroundClassName="bg-app-bg" className="gap-5 pb-32">
-        <View className="flex-row items-center gap-2 rounded-[24px] border border-app-outline-strong bg-app-surface-2 p-2">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Geri"
-            onPress={() => router.back()}
-            className="h-10 w-10 items-center justify-center rounded-full bg-app-surface active:bg-app-surface-3"
-          >
-            <Icon icon={ArrowLeft} size={18} color="#f5f7ff" />
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Vaka profilini aç"
-            onPress={() =>
-              router.push(`/(modal)/vaka-profili/${caseItem.id}` as Href)
-            }
-            className="flex-1 gap-0.5 px-2 py-0.5 active:opacity-70"
-          >
-            <Text variant="eyebrow" tone="subtle">
-              {trackingView.header.eyebrow}
-            </Text>
-            <Text variant="h2" tone="inverse" numberOfLines={2}>
-              {trackingView.header.title}
-            </Text>
-            <Text variant="caption" tone="subtle" numberOfLines={1}>
-              {trackingView.header.subtitle}
-            </Text>
-          </Pressable>
-        </View>
+        <CaseHeaderCard
+          caseItem={caseItem}
+          trackingView={trackingView}
+          onBack={() => router.back()}
+          onOpenProfile={() =>
+            router.push(`/(modal)/vaka-profili/${caseItem.id}` as Href)
+          }
+        />
 
         {isPendingAppointment ? (
           <View className="gap-3 rounded-[24px] border border-app-warning/40 bg-app-warning/10 px-4 py-4">
@@ -596,5 +581,148 @@ export function CaseDetailScreen() {
         </View>
       ) : null}
     </SafeAreaView>
+  );
+}
+
+type CaseHeaderCardProps = {
+  caseItem: ServiceCase;
+  trackingView: CustomerTrackingView;
+  onBack: () => void;
+  onOpenProfile: () => void;
+};
+
+function CaseHeaderCard({
+  caseItem,
+  trackingView,
+  onBack,
+  onOpenProfile,
+}: CaseHeaderCardProps) {
+  const kindMeta = CASE_KIND_META[caseItem.kind];
+  const { header } = trackingView;
+  const vehicleMeta = header.subtitle?.includes("·")
+    ? header.subtitle
+    : null;
+
+  return (
+    <View className="overflow-hidden rounded-[24px] border border-app-outline-strong bg-app-surface-2">
+      {/* Üst satır: geri + "Vakam" + status chip */}
+      <View className="flex-row items-center gap-3 px-4 pt-3 pb-1">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Geri"
+          onPress={onBack}
+          className="h-9 w-9 items-center justify-center rounded-full bg-app-surface active:bg-app-surface-3"
+        >
+          <Icon icon={ArrowLeft} size={16} color="#f5f7ff" />
+        </Pressable>
+        <Text
+          variant="eyebrow"
+          tone="subtle"
+          className="flex-1 text-[10px]"
+        >
+          Vakam
+        </Text>
+        <StatusChip
+          label={header.statusLabel}
+          tone={header.statusTone}
+        />
+      </View>
+
+      {/* Ana kart — tap profil modalı açar */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Vaka profilini aç"
+        onPress={onOpenProfile}
+        className="gap-3 px-4 pb-4 pt-2 active:opacity-90"
+      >
+        <View className="flex-row items-start gap-3">
+          <View
+            className={`h-11 w-11 items-center justify-center rounded-[14px] ${kindMeta.softBg}`}
+          >
+            <Icon
+              icon={kindMeta.icon}
+              size={20}
+              color={kindMeta.iconColor}
+            />
+          </View>
+          <View className="flex-1 gap-1">
+            <TrustBadge label={kindMeta.label} tone={kindMeta.tone} />
+            <Text
+              variant="h3"
+              tone="inverse"
+              className="text-[17px] leading-[22px]"
+              numberOfLines={2}
+            >
+              {header.title}
+            </Text>
+          </View>
+          <Icon icon={ChevronRight} size={14} color="#83a7ff" />
+        </View>
+
+        {vehicleMeta ? (
+          <View className="flex-row items-center gap-2 self-start rounded-full border border-app-outline bg-app-surface px-3 py-1.5">
+            <Icon icon={CarFront} size={12} color="#83a7ff" />
+            <Text
+              variant="caption"
+              tone="inverse"
+              className="text-[11px]"
+              numberOfLines={1}
+            >
+              {vehicleMeta}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Şu an + Sıradaki */}
+        <View className="gap-2 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2.5">
+          <View className="flex-row items-center gap-2">
+            <Icon icon={Hourglass} size={11} color="#83a7ff" />
+            <Text
+              variant="caption"
+              tone="muted"
+              className="text-app-text-subtle text-[10px]"
+            >
+              Şu an
+            </Text>
+            <Text
+              variant="label"
+              tone="inverse"
+              className="flex-1 text-right text-[12px]"
+              numberOfLines={1}
+            >
+              {header.waitLabel}
+            </Text>
+          </View>
+          {header.nextLabel ? (
+            <View className="flex-row items-center gap-2">
+              <Icon icon={ArrowUpRight} size={11} color="#83a7ff" />
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-subtle text-[10px]"
+              >
+                Sıradaki
+              </Text>
+              <Text
+                variant="label"
+                tone="accent"
+                className="flex-1 text-right text-[12px]"
+                numberOfLines={1}
+              >
+                {header.nextLabel}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-subtle text-[10px]"
+        >
+          Güncellendi · {header.updatedAtLabel}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
