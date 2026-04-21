@@ -6,6 +6,7 @@ import {
   ToggleChip,
   TrustBadge,
 } from "@naro/ui";
+import { useRouter } from "expo-router";
 import {
   AlertTriangle,
   BookOpenCheck,
@@ -17,7 +18,6 @@ import {
   FileText,
   IdCard,
   Image as ImageIcon,
-  Phone,
   ScrollText,
   ShieldCheck,
   Truck,
@@ -29,6 +29,7 @@ import { Alert, Linking, Platform, Pressable, TextInput, View } from "react-nati
 import { ComposerSection } from "./components/ComposerSection";
 import { DocumentPickerRow } from "./components/DocumentPickerRow";
 import { EvidenceStepCard } from "./components/EvidenceStepCard";
+import { LocationPicker } from "./components/LocationPicker";
 import { ACCIDENT_EVIDENCE_STEPS } from "./data/evidenceSteps";
 import type { ComposerFlow, ComposerStepRenderProps } from "./types";
 
@@ -113,118 +114,95 @@ function dialEmergency() {
 }
 
 function EmergencyPanelStep({
-  draft,
+  draft: _draft,
   updateDraft,
   goNext,
 }: ComposerStepRenderProps) {
-  const towingCalled = draft.towing_required;
-  const ambulanceCalled = draft.ambulance_contacted;
+  const router = useRouter();
+
+  const handleTowingRedirect = () => {
+    // Composer taslak state'te kalır — kullanıcı çekici akışından döndüğünde
+    // kaldığı yerden devam eder. (Taslak kaydet pattern ayrı brief.)
+    updateDraft({
+      vehicle_drivable: false,
+      towing_required: true,
+    });
+    router.push("/(modal)/talep/towing");
+  };
 
   return (
     <View className="gap-5">
-      <View className="items-center gap-4 rounded-[28px] border border-app-outline-strong bg-app-surface-2 px-5 py-7">
-        <View className="h-20 w-20 items-center justify-center rounded-[28px] border border-app-critical/30 bg-app-critical-soft">
-          <Icon icon={AlertTriangle} size={36} color="#ff6b6b" />
+      <View className="items-center gap-3 rounded-[28px] border border-app-outline-strong bg-app-surface-2 px-5 py-7">
+        <View className="h-16 w-16 items-center justify-center rounded-[24px] border border-app-critical/30 bg-app-critical-soft">
+          <Icon icon={AlertTriangle} size={32} color="#ff6b6b" />
         </View>
-        <View className="items-center gap-2">
-          <Text variant="display" tone="inverse" className="text-[28px] leading-[32px] text-center">
-            Kaza Bildirimi
+        <Text
+          variant="display"
+          tone="inverse"
+          className="text-center text-[24px] leading-[28px]"
+        >
+          Önce güvende misin?
+        </Text>
+        <Text
+          tone="muted"
+          className="text-center text-app-text-muted leading-6"
+        >
+          Nefes al, acele yok. Güvendeysen aşağıda devam et. Ambulans lazımsa
+          şuradan ara:{" "}
+          <Text
+            variant="label"
+            tone="critical"
+            className="underline"
+            onPress={() => {
+              updateDraft({ ambulance_contacted: true });
+              dialEmergency();
+            }}
+          >
+            📞 112 — Ambulans
           </Text>
-          <Text tone="muted" className="text-center text-app-text-muted leading-6">
-            Önce güvenliğinizi sağlayın. Acil bir durumunuz varsa aşağıdaki
-            butonları kullanın; biz süreci birlikte toparlayacağız.
-          </Text>
-        </View>
+        </Text>
       </View>
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Ambulans çağır"
-        onPress={() => {
-          updateDraft({ ambulance_contacted: true });
-          dialEmergency();
-        }}
-        className="flex-row items-center gap-3 rounded-[22px] bg-app-critical px-5 py-4 active:opacity-90"
+        accessibilityLabel="Aracı çekici çekmesi lazım"
+        onPress={handleTowingRedirect}
+        className="flex-row items-center gap-3 rounded-[22px] border border-app-warning/30 bg-app-warning-soft px-5 py-4 active:opacity-90"
       >
-        <View className="h-11 w-11 items-center justify-center rounded-full bg-white/15">
-          <Icon icon={Phone} size={22} color="#ffffff" />
+        <View className="h-11 w-11 items-center justify-center rounded-full bg-app-warning/20">
+          <Icon icon={Truck} size={20} color="#f5b33f" />
         </View>
         <View className="flex-1 gap-0.5">
-          <Text variant="h3" className="text-white">
-            Ambulans Çağır
-          </Text>
-          <Text variant="caption" className="text-white/80">
-            {ambulanceCalled ? "112 çağrısı kaydedildi" : "112'yi arar"}
-          </Text>
-        </View>
-        {ambulanceCalled ? (
-          <View className="h-7 w-7 items-center justify-center rounded-full bg-white/20">
-            <Icon icon={Check} size={14} color="#ffffff" />
-          </View>
-        ) : null}
-      </Pressable>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={towingCalled ? "Çekici talebi iptal" : "Çekici çağır"}
-        onPress={() =>
-          updateDraft({
-            towing_required: !towingCalled,
-            vehicle_drivable: !towingCalled ? false : draft.vehicle_drivable,
-          })
-        }
-        className={[
-          "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
-          towingCalled
-            ? "border border-app-warning/40 bg-app-warning-soft"
-            : "bg-[#a75e1f]",
-        ].join(" ")}
-      >
-        <View
-          className={[
-            "h-11 w-11 items-center justify-center rounded-full",
-            towingCalled ? "bg-app-warning/20" : "bg-white/15",
-          ].join(" ")}
-        >
-          <Icon icon={Truck} size={22} color={towingCalled ? "#f5b33f" : "#ffffff"} />
-        </View>
-        <View className="flex-1 gap-0.5">
-          <Text
-            variant="h3"
-            className={towingCalled ? "text-app-warning" : "text-white"}
-          >
-            {towingCalled ? "Çekici Çağırıldı" : "Çekici Çağır"}
+          <Text variant="label" tone="warning" className="text-[14px]">
+            Aracı çekici çekmesi lazım
           </Text>
           <Text
             variant="caption"
-            className={towingCalled ? "text-app-warning" : "text-white/80"}
+            tone="muted"
+            className="text-app-text-muted text-[12px]"
           >
-            {towingCalled ? "Çekici talebi açık" : "Araç hareket edemiyorsa"}
+            Çekici ekranına yönlendirir, kaza talebi burada taslak kalır.
           </Text>
         </View>
-        {towingCalled ? (
-          <View className="h-7 w-7 items-center justify-center rounded-full bg-app-warning/20">
-            <Icon icon={Check} size={14} color="#f5b33f" />
-          </View>
-        ) : null}
       </Pressable>
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Acil durumum yok, devam et"
+        accessibilityLabel="Güvendeyim — devam et"
         onPress={() => {
           updateDraft({ emergency_acknowledged: true });
           goNext();
         }}
-        className="flex-row items-center justify-center gap-2 rounded-[22px] border border-app-outline bg-app-surface px-5 py-4 active:bg-app-surface-2"
+        className="items-center justify-center rounded-[22px] bg-brand-500 px-5 py-4 active:opacity-90"
       >
-        <Text variant="label" tone="inverse">
-          Acil durumum yok — devam et
+        <Text variant="label" className="text-white text-[15px]">
+          Güvendeyim — devam et
         </Text>
       </Pressable>
     </View>
   );
 }
+
 
 function AccidentKindStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const selectedMode: "single" | "multi" | null = draft.counterparty_note
@@ -296,33 +274,23 @@ function AccidentKindStep({ draft, updateDraft }: ComposerStepRenderProps) {
         />
       </ComposerSection>
 
-      <ComposerSection
-        title="Konum"
-        description="Bildirimi değerlendirecek servisler için kısa konum."
-      >
-        <TextInput
-          value={draft.location_label}
-          onChangeText={(value) => updateDraft({ location_label: value })}
-          placeholder="Semt / ilçe veya yol adı"
-          placeholderTextColor="#6f7b97"
-          className={INPUT_CLASS}
-        />
-      </ComposerSection>
+      <LocationPicker
+        value={draft.location_label}
+        onChange={(next) => updateDraft({ location_label: next })}
+        description="Kaza bölgesini doğru sinyallemek için konumun açılmalı."
+      />
 
-      <ComposerSection title="Araç durumu">
-        <Text variant="caption" tone="muted" className="text-app-text-muted">
-          Aracın şu an hareket edebiliyor mu?
-        </Text>
+      <ComposerSection title="Aracın durumu">
         <View className="flex-row flex-wrap gap-2">
           <ToggleChip
-            label="Evet, sürülebiliyor"
+            label="Sürülebiliyor"
             selected={draft.vehicle_drivable === true}
             onPress={() =>
               updateDraft({ vehicle_drivable: true, towing_required: false })
             }
           />
           <ToggleChip
-            label="Hayır, çekici gerek"
+            label="Sürülemiyor — yerinde"
             selected={draft.vehicle_drivable === false}
             onPress={() =>
               updateDraft({ vehicle_drivable: false, towing_required: true })
@@ -343,32 +311,38 @@ function AccidentPhotosStep({ draft, updateDraft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
-      <View className="gap-3 rounded-[28px] border border-brand-500/30 bg-brand-500/10 px-4 py-4">
-        <View className="flex-row items-center gap-2">
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-brand-500/20">
-            <Icon icon={Camera} size={16} color="#0ea5e9" />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text variant="eyebrow" tone="subtle">
-              Görsel rehber
-            </Text>
-            <Text variant="h3" tone="inverse">
-              Adım adım fotoğraf
-            </Text>
-          </View>
-          <View className="items-end gap-0.5">
-            <Text variant="label" tone="accent">
-              {photoCount} adet
-            </Text>
-            <Text variant="caption" tone="muted" className="text-app-text-muted">
-              Toplam fotoğraf
-            </Text>
-          </View>
+      <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
+        <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
+          <Icon icon={Camera} size={18} color="#0ea5e9" />
         </View>
-        <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
-          Doğru açılardan fotoğraf teklif kalitesini doğrudan etkiler.
-          Panikleme — istediğin sırada çekebilirsin.
-        </Text>
+        <View className="flex-1 gap-0.5">
+          <Text
+            variant="h3"
+            tone="inverse"
+            className="text-[15px] leading-[19px]"
+          >
+            Adım adım fotoğraf
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[12px] leading-[16px]"
+          >
+            Panikleme — istediğin sırada çekebilirsin.
+          </Text>
+        </View>
+        <View className="items-end gap-0.5">
+          <Text variant="label" tone="accent">
+            {photoCount}
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-subtle text-[10px]"
+          >
+            Foto
+          </Text>
+        </View>
       </View>
 
       {ACCIDENT_EVIDENCE_STEPS.map((step) => (
@@ -921,24 +895,41 @@ function AccordionRow({
 
 export const ACCIDENT_FLOW: ComposerFlow = {
   kind: "accident",
-  eyebrow: "Kaza bildirimi",
-  title: "Kaza bildirimini sakin bir akışta tamamla",
-  description:
-    "Güvenlik, hasar yüzeyi, fotoğraf rehberi ve sigorta tercihi adım adım toplanır.",
-  progressVariant: "bar",
+  eyebrow: "",
+  title: "Kaza bildirimi",
+  description: "",
+  progressVariant: "bar-thin",
+  submitLabel: "Kaza bildirimi gönder",
   steps: [
     {
       key: "emergency_panel",
       title: "Acil durum",
-      description: "Ambulans / çekici",
+      description: "Önce güvende misin?",
       validate: () => null,
       render: (props) => <EmergencyPanelStep {...props} />,
       optional: true,
+      hideFooter: true,
+    },
+    {
+      key: "accident_photos",
+      title: "Fotoğraf",
+      description: "Önce kaydet, sonra anlat",
+      validate: (draft) => {
+        const requiredMissing = ACCIDENT_EVIDENCE_STEPS.some((step) => {
+          if (!step.required) return false;
+          const count = draft.attachments.filter((attachment) =>
+            attachment.id.startsWith(`${step.id}:`),
+          ).length;
+          return count < (step.minPhotos ?? 1);
+        });
+        return requiredMissing ? "Zorunlu fotoğraf adımları eksik." : null;
+      },
+      render: (props) => <AccidentPhotosStep {...props} />,
     },
     {
       key: "accident_kind",
       title: "Temel bilgi",
-      description: "Tür ve konum",
+      description: "Tür, konum, araç durumu",
       validate: (draft) => {
         if (!draft.counterparty_note) {
           return "Kaza türünü seç.";
@@ -961,22 +952,6 @@ export const ACCIDENT_FLOW: ComposerFlow = {
         return null;
       },
       render: (props) => <AccidentKindStep {...props} />,
-    },
-    {
-      key: "accident_photos",
-      title: "Fotoğraf",
-      description: "Görsel rehber",
-      validate: (draft) => {
-        const requiredMissing = ACCIDENT_EVIDENCE_STEPS.some((step) => {
-          if (!step.required) return false;
-          const count = draft.attachments.filter((attachment) =>
-            attachment.id.startsWith(`${step.id}:`),
-          ).length;
-          return count < (step.minPhotos ?? 1);
-        });
-        return requiredMissing ? "Zorunlu fotoğraf adımları eksik." : null;
-      },
-      render: (props) => <AccidentPhotosStep {...props} />,
     },
     {
       key: "report",
