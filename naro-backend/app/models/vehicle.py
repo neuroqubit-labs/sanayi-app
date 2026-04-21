@@ -55,6 +55,23 @@ class Vehicle(UUIDPkMixin, TimestampMixin, Base):
     current_km: Mapped[int | None] = mapped_column(Integer)
     note: Mapped[str | None] = mapped_column(String(500))
 
+    # Faz 9 vehicle lifecycle — muayene + sigorta takibi (reminders için)
+    inspection_valid_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    inspection_kind: Mapped[str | None] = mapped_column(String(32))  # periodic|exhaust|ntvt
+    kasko_valid_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    kasko_insurer: Mapped[str | None] = mapped_column(String(255))
+    trafik_valid_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    trafik_insurer: Mapped[str | None] = mapped_column(String(255))
+    exhaust_valid_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

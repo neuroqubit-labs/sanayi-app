@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.models.auth_identity import AuthIdentityProvider
 from app.models.user import UserRole
 
 
@@ -50,6 +51,17 @@ class AuthSession(UUIDPkMixin, TimestampMixin, Base):
     )
     last_used_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # Faz 9a: token rotation + family chain
+    token_family_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    parent_session_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("auth_sessions.id", ondelete="SET NULL"), nullable=True
+    )
+    issued_via: Mapped[AuthIdentityProvider] = mapped_column(
+        SAEnum(AuthIdentityProvider, name="auth_identity_provider", create_type=False),
+        nullable=False,
+        default=AuthIdentityProvider.OTP_PHONE,
+        server_default="otp_phone",
     )
 
 

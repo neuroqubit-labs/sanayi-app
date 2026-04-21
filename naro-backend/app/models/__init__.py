@@ -5,6 +5,8 @@ from app.models.appointment import (
     AppointmentStatus,
 )
 from app.models.auth import AuthSession, OtpChannel, OtpCode
+from app.models.auth_event import AuthEvent, AuthEventType
+from app.models.auth_identity import AuthIdentityProvider, UserIdentity
 from app.models.case import (
     CaseOrigin,
     CaseWaitActor,
@@ -77,6 +79,9 @@ __all__ = [
     "AppointmentSlotKind",
     "AppointmentSource",
     "AppointmentStatus",
+    "AuthEvent",
+    "AuthEventType",
+    "AuthIdentityProvider",
     "AuthSession",
     "CaseActor",
     "CaseApproval",
@@ -133,6 +138,7 @@ __all__ = [
     "TechnicianVerifiedLevel",
     "User",
     "UserApprovalStatus",
+    "UserIdentity",
     "UserRole",
     "UserStatus",
     "UserVehicleLink",

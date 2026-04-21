@@ -24,6 +24,14 @@ class VehicleCreate(BaseModel):
     current_km: int | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=500)
     is_primary: bool = True
+    # Lifecycle alanları — opt-in (reminders için)
+    inspection_valid_until: datetime | None = None
+    inspection_kind: str | None = Field(default=None, max_length=32)
+    kasko_valid_until: datetime | None = None
+    kasko_insurer: str | None = Field(default=None, max_length=255)
+    trafik_valid_until: datetime | None = None
+    trafik_insurer: str | None = Field(default=None, max_length=255)
+    exhaust_valid_until: datetime | None = None
 
 
 class VehicleUpdate(BaseModel):
@@ -38,6 +46,13 @@ class VehicleUpdate(BaseModel):
     vin: str | None = Field(default=None, max_length=32)
     current_km: int | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=500)
+    inspection_valid_until: datetime | None = None
+    inspection_kind: str | None = Field(default=None, max_length=32)
+    kasko_valid_until: datetime | None = None
+    kasko_insurer: str | None = Field(default=None, max_length=255)
+    trafik_valid_until: datetime | None = None
+    trafik_insurer: str | None = Field(default=None, max_length=255)
+    exhaust_valid_until: datetime | None = None
 
 
 class VehicleResponse(BaseModel):
@@ -54,6 +69,13 @@ class VehicleResponse(BaseModel):
     vin: str | None
     current_km: int | None
     note: str | None
+    inspection_valid_until: datetime | None
+    inspection_kind: str | None
+    kasko_valid_until: datetime | None
+    kasko_insurer: str | None
+    trafik_valid_until: datetime | None
+    trafik_insurer: str | None
+    exhaust_valid_until: datetime | None
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime

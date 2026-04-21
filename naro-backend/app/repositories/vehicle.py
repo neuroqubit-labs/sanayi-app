@@ -90,6 +90,13 @@ async def update_vehicle(
         "vin",
         "current_km",
         "note",
+        "inspection_valid_until",
+        "inspection_kind",
+        "kasko_valid_until",
+        "kasko_insurer",
+        "trafik_valid_until",
+        "trafik_insurer",
+        "exhaust_valid_until",
     }
     values = {k: v for k, v in fields.items() if k in allowed and v is not None}
     if "plate" in values and isinstance(values["plate"], str):

@@ -14,6 +14,84 @@ Plan referansı: `~/.claude/plans/g-zel-ama-ok-kar-k-woolly-hamming.md`
 
 ---
 
+## Backend PO Audit — 2026-04-21
+
+**Rapor:** [docs/audits/2026-04-21-backend-audit.md](audits/2026-04-21-backend-audit.md) — tam denetim; 8 eksen × P0/P1/P2 kategorize edildi.
+
+**Skor kartı:**
+- V1 tablo varlığı: ✅ 15/15
+- Faz 6 + Faz 7a-d karar execution: ✅ tam
+- Ürün kararları yansıması (7 memory): ⚠️ 2 ✅ · 3 ⚠️ · 2 ❌
+- REST API kapsamı: ❌ 10 endpoint (auth+media+health); case/offer/appointment/technician/vehicle/insurance router'ları yok
+- State machine enforcement: ✅ case + offer + appointment + insurance_claim solid
+- Concurrency: ⚠️ offer accept'te SELECT FOR UPDATE yok (teorik race)
+- Entegrasyonlar: ✅ SMS + S3 · ❌ PSP + Maps + Push
+- Test coverage: ❌ ~%2 (health + media smoke)
+- Observability: ⚠️ structlog ✅, metric export yok
+
+**Bulgu dağılımı:** **6 P0** · **8 P1** · **4 P2**
+
+**P0 özet:**
+- P0-1 Acil çekici auto-dispatch kodu yok ([pool_matching.py](naro-backend/app/services/pool_matching.py) sadece KIND_PROVIDER_MAP)
+- P0-2 Offer accept race savunması zayıf ([offer_acceptance.py](naro-backend/app/services/offer_acceptance.py) SELECT FOR UPDATE yok)
+- P0-3 Pool admission gate enforcement yok ([list_pool_cases](naro-backend/app/repositories/case.py) technician.status filter yok)
+- P0-4 Anti-disintermediation (PII maskeleme) yok — thread-only ✅ ama phone/email masking yok
+- P0-5 Kullanıcı tercihi enforcement yok — offer.delivery_mode müşteri tercihine karşı kontrol etmiyor
+- P0-6 REST router eksikliği (mobil-backend bağlantısı için bloker)
+
+**Önerilen faz sırası (PO onayı bekliyor):**
+- Faz 7-backend: usta sinyal (plan mevcut)
+- Faz 8-backend: çekici + REST endpoints (P0-1, P0-2, P0-3, P0-6, P1-7, P1-8, P1-6)
+- Faz 9-backend: ürün-veri eksikleri (P1-1 consent, P1-2 damage score, P1-4 MaintenanceTemplate, P0-5 soft-warning, P2-2 PII scrub, P2-3 evidence gate)
+- Faz 10-backend: trust + anti-disinter + KVKK retention (P0-4)
+- Faz 11-backend: test + observability (P1-5)
+
+**PO'dan aksiyon istekleri** (rapor §13):
+1. Faz önceliği onayı
+2. P0-4 anti-disinter spec önce mi dok yoksa direkt impl mi
+3. P0-5 soft-warning mi hard-reject mi (öneri: soft)
+4. CLEANER-CONTROLLER devreye girsin mi (P2-1, P2-4 doc drift)
+
+**Yeni klasör:** [docs/audits/](audits/) — ileri tarihli denetim raporlarının arşivi.
+
+---
+
+## Faz 9a Execution Durumu (2026-04-22)
+
+**Kapsam**: Auth foundation genişletme — migration 0015 + 0016; tablo 30 → **32**.
+
+**Uygulanan kararlar:**
+
+- ✅ **Kritik bug fix**: [routes/auth.py::verify_otp](naro-backend/app/api/v1/routes/auth.py) artık `auth_sessions` satırı yaratıyor — `hash_refresh_token()` helper + `issue_initial_session()` atomic flow + `token_family_id=self` (rotation chain root).
+- ✅ **user_identities** tablosu: 1 user → N auth methods (OTP phone/email + OAuth Google/Apple); partial unique `(provider, provider_user_id)` + email lookup partial index.
+- ✅ **auth_events** tablosu (append-only audit): 21 event type, PII maskelenmiş `target` kolonu (`+90***1234`, `u***@domain.com`), JSONB `context`, 90 gün retention (Faz 15 cron).
+- ✅ **auth_sessions extension**: `token_family_id` + `parent_session_id` (SET NULL) + `issued_via` (AuthIdentityProvider enum).
+- ✅ **token_rotation.py** service: strict rotation (refresh → yeni pair + eski revoke + same family_id), **reuse attack detection** (revoked refresh token tekrar kullanılırsa `revoke_family` + `SUSPICIOUS_LOGIN` event).
+- ✅ **auth_events.py** helper: `append_auth_event()` + `mask_target()` PII utilities.
+- ✅ Endpoint'ler: `/auth/refresh`, `/auth/logout`, `/auth/logout_all` (revoke_all_sessions_for_user ile).
+- ✅ **Vehicle lifecycle** (migration 0016): `vehicles` tablosuna 7 yeni alan (`inspection_valid_until`, `inspection_kind`, `kasko_valid_until`, `kasko_insurer`, `trafik_valid_until`, `trafik_insurer`, `exhaust_valid_until`) + 3 partial index (expiring scan için). Reminders cron Faz 10.
+
+**State machine (token rotation):**
+```
+login (OTP/OAuth) → initial session (token_family_id = id)
+refresh (active)  → yeni session (same family_id, parent=eski) + eski revoke
+refresh (revoked) → REUSE ATTACK → family revoke + SUSPICIOUS_LOGIN event + 401
+```
+
+**Yeni enum'lar:**
+- `auth_identity_provider` (4): otp_phone | otp_email | oauth_google | oauth_apple
+- `auth_event_type` (21): otp_* + login_* + refresh_* + oauth_* + identity_* + session_* + lockout_* + rate_limit_breach + suspicious_login + account_soft_deleted
+
+**Doğrulama:**
+- Ruff + mypy strict temiz (Faz 9a dosyaları)
+- Migration 0015 + 0016 up/down/up yeşil
+- Tablo: 30 → **32** (user_identities + auth_events)
+- `auth_sessions.token_family_id` + `parent_session_id` + `issued_via` kolonları eklendi
+
+**9b-9f sırada**: OAuth providers (Google + Apple + deep-link), security middleware (rate limit + logging + exception handlers + lockout), 15 yeni router + role guards, Prometheus metrics.
+
+---
+
 ## Faz 8 Execution Durumu (2026-04-21)
 
 **Kapsam**: Sigorta hasar dosyası (`insurance_claims`) — migration 0014; tablo 30.
@@ -126,6 +204,55 @@ Her transition → `case_events` INSERT + `case_notification_intents` INSERT.
 **Doğrulama:** `pnpm -C packages/domain typecheck` ✓ · `pnpm -C naro-service-app typecheck` ✓ · `pnpm -C naro-service-app lint` ✓ (2 önceden mevcut warning, yeni regresyon yok).
 
 **Kritik gözlem (matching motoru etkisi):** Mevcut `isAvailableInPool` sadece `kind ↔ provider_type` filtresi yapıyor; 7-boyutlu hiyerarşiyi uygulayacak skor fonksiyonu backend'de henüz yok. Bu Faz 8 (matching motoru implementasyonu) için ön-koşul: sinyal tabloları hazır olunca skor fonksiyonu input'a sahip olur.
+
+**BACKEND-DEV brief:** [~/.claude/plans/faz-7-usta-sinyal-backend.md](/home/alfonso/.claude/plans/faz-7-usta-sinyal-backend.md) — 9 deliverable (2 migration + SQLAlchemy + Pydantic + repository + service + router + ARQ stub + test) + kabul kriterleri + execution sırası + soru/rapor akışı. BACKEND-DEV sohbetinde yeni oturum açılınca buradan başlar. Açık karar noktası: **pgvector extension mevcut mu?** — cevaba göre `technician_procedure_tags.embedding` kolonu ya `VECTOR(384)` ya nullable geçilir.
+
+---
+
+## Çekici Modu — Ürün Spec'i (2026-04-21)
+
+**Doküman:** [docs/cekici-modu-urun-spec.md](docs/cekici-modu-urun-spec.md) — müşteri + çekici UX, mimari, veri modeli, dispatch algoritması, ödeme mimarisi, trust ledger, edge case'ler, KPI, faz planı.
+
+**PO baked-in kararlar:**
+- **K-1** Hemen modunda müşteri "maksimum X ₺" görür (cap); cap aşılırsa platform yer.
+- **K-2** Randevulu modda seçilen teklif fiyatı booking anında kilitlenir (Uber Reserve).
+- **K-3** Vehicle equipment (flatbed/hook/wheel-lift/heavy-duty/motorcycle) sistem çıkarır; user override "gelişmiş" switch ile.
+- **K-4** İptal ücretleri: Hemen dispatch-öncesi 0 ₺ / yolda 75 ₺ / vardı 300 ₺+yol; Randevulu 4sa+ öncesi 0 ₺ / 4sa içi 150 ₺ / 1sa içi tam ücret.
+- **K-5** Kasko V1 manuel: müşteri kartına pre-auth + charge; fatura ibrazı sonrası operations geri ödeme.
+- **K-6** Randevulu min 2 saat ileri, max 90 gün.
+- **K-7** Mevcut [cekici-cagir.tsx](naro-app/app/(modal)/cekici-cagir.tsx) + [TowingFlow.tsx](naro-app/src/features/cases/composer/TowingFlow.tsx) yeniden yazılır (Faz 10 frontend brief kapsamında).
+
+**Yeni veri modeli (Faz 8 backend kapsamı):**
+- 4 yeni tablo: `tow_dispatch_attempts`, `tow_live_locations`, `tow_fare_settlements`, `tow_cancellations`
+- `service_cases` kolon eklemeleri: `tow_mode`, `tow_stage`, `pickup_lat/lng`, `dropoff_lat/lng`, `scheduled_at`
+- Shared contract yeni: `packages/domain/src/tow.ts` (TowServiceMode, TowVehicleEquipment, TowIncidentReason, TowDispatchStage, TowFareQuote, TowLiveLocation, TowKaskoDeclaration, TowRequest)
+- `ServiceRequestDraft.tow_request` alanı (nullable, kind=towing ise dolu)
+
+**Faz sırası:**
+- Faz 8: Tow backend V1 (tablolar + dispatch service + API + PSP stub)
+- Faz 9: Tow backend V2 (WebSocket GPS stream + kasko workflow + retention cron)
+- Faz 10: Tow frontend V1 (müşteri) — map-first hub + live track + evidence upload
+- Faz 11: Tow frontend V1 (çekici) — accept sheet + active job + GPS broadcaster
+- Faz 12: Observability + tuning
+
+**Açık kalan (V2 veya sonra karar):**
+- Kasko ortaklık listesi — BD sohbetine devredildi (Axa, Anadolu, Allianz, Aksigorta vb.)
+
+**Backend mimarisi dokümanı:** [docs/cekici-backend-mimarisi.md](docs/cekici-backend-mimarisi.md) — 24 bölümlü end-to-end spec; BACKEND-DEV'in Faz 8/9 için uygulama manifesti.
+
+**Ek PO altyapı kararları (cekici-backend-mimarisi.md içinde baked-in):**
+- **K-P1** Payment provider: **Iyzico** (TR market + pre-auth/capture + abstraction via `PaymentProvider` protocol ile Stripe/Param fallback açık)
+- **K-P2** Map + geocoding: **Mapbox** (fiyat + custom style + TR kapsamı; Google directions opsiyonel 2. katman)
+- **K-P3** Realtime: **FastAPI WebSocket + Redis pub/sub** (mevcut Redis stack, Firebase lock-in'siz)
+- **K-P4** GPS stream: 5 sn (stationary ise 15 sn backoff)
+- **K-P5** OTP: 6-hane numerik, sunucu-üretimli, SMS+in-app, 10dk TTL, 3 yanlış → yeni OTP zorunlu, audit `tow_otp_events`
+
+**Faz 8 backend migration sırası (bu spec'ten):**
+- `0012_tow_enums` · `0013_tow_service_cases_cols` · `0014_tow_tables` · `0015_tow_indexes_gist` (CONCURRENTLY)
+
+**Extension bağımlılığı:** PostGIS + pgcrypto (docker-compose + Alembic CREATE EXTENSION IF NOT EXISTS).
+
+**BACKEND-DEV'e açık 7 soru** (bkz. [cekici-backend-mimarisi.md §22](docs/cekici-backend-mimarisi.md)) — technician_tow_equipment tablo şekli, PSP sandbox timing, current_queue_depth trigger/service, Mapbox token rotation, dispatch recovery cron, kart tokenizasyon konum, equipment inferencer lokasyonu. BACKEND-DEV sohbeti açılınca ele alır; önerileri baked-in.
 
 ---
 

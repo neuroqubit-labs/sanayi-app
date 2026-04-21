@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -56,3 +57,19 @@ def validate_access_token(token: str) -> dict[str, Any]:
     if payload.get("type") != "access":
         raise ValueError("invalid token: expected access token")
     return payload
+
+
+def validate_refresh_token(token: str) -> dict[str, Any]:
+    payload = decode_token(token)
+    if payload.get("type") != "refresh":
+        raise ValueError("invalid token: expected refresh token")
+    return payload
+
+
+def hash_refresh_token(token: str) -> str:
+    """Refresh token'ın sha256 hash'i — `auth_sessions.refresh_token_hash`'e yazılır.
+
+    Raw token DB'de tutulmaz; sadece hash ile lookup. Hash deterministik
+    (HMAC gerekmez — partial unique constraint + DB-only lookup yeter).
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
