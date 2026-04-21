@@ -1413,3 +1413,66 @@ Backend `ServiceRequestDraftCreate` + LatLng + DamageSeverity + CaseAttachmentDr
 - **Faz 14** — Workflow blueprint genişletme (breakdown_* + towing_*) + milestone/task seed her blueprint için
 - **Faz 15** — Zod ↔ Pydantic parity CI test + schema drift gate
 - **Faz 16** — Reverse image search + duplicate checksum audit (anti-fraud media Faz 11 V2)
+
+---
+
+## Faz 13 — Backend REST API Kapatma Faz A (PR 1-3 partial, 2026-04-22)
+
+### Durum özeti
+
+- **Scope**: PO brief [docs/backend-rest-api-faz-a-brief.md](../backend-rest-api-faz-a-brief.md) 9 atomik PR planı; bu commit PR 1 (ortak pattern) + PR 2 (/offers) + PR 3 (/appointments) ship eder. Kalan 6 PR sıradaki iterasyonlarda.
+- **Shipped**: 2 router (offers + appointments, 13 endpoint), 1 ortak pagination modülü, deps.py semantik alias'ları, 16 yeni pure test.
+- **Test**: 72 pass + 10 skipped; ruff + mypy Faz 13 source clean.
+
+### PR 1 — Ortak pattern'ler (§12)
+
+- `app/api/pagination.py` — cursor-based pagination (opaque base64url JSON). `PaginatedResponse[T]` generic, `encode_cursor`/`decode_cursor` helper'ları, `CursorQuery` + `LimitQuery` Annotated type alias'ları.
+- `app/api/v1/deps.py` — `CurrentCustomerDep`, `CurrentTechnicianDep`, `CurrentAdminDep` semantic alias'ları (brief §12.1 tutarlılık).
+- Error contract [Faz 12](§7) reuse: `{type, message, ...ctx}` envelope.
+
+### PR 2 — /offers router (5 endpoint, brief §3)
+
+- `POST   /offers` — teknisyen submit. Validasyon: case status ∈ {matching, offers_ready}, provider_type ∈ KIND_PROVIDER_MAP[case.kind], duplicate active offer guard (409), slot_is_firm→slot_proposal zorunlu, kind-bazlı cap.
+- `GET    /offers/case/{id}` — case owner + admin listeleme
+- `GET    /offers/me` — teknisyen paginated (cursor + status_in filter)
+- `POST   /offers/{id}/accept` — case owner; atomic `offer_acceptance.accept_offer` reuse; 410 if already accepted.
+- `POST   /offers/{id}/withdraw` — teknisyen; pending/shortlisted only; 409 if accepted.
+- Kind offer cap matrisi: accident 5, breakdown 7, maintenance 10, towing 5 (PO kararı).
+- Race koruma: partial unique `uq_active_offer_per_tech_case` + service atomic accept + status-filtered WHERE UPDATE withdraw.
+
+### PR 3 — /appointments router (8 endpoint, brief §4)
+
+- `POST /appointments` — direct_request path; customer-driven; TTL 48h; case→APPOINTMENT_PENDING; duplicate pending guard (409).
+- `GET  /appointments/case/{id}` — case owner + assigned technician
+- `POST /appointments/{id}/approve|decline|cancel` — 410 AppointmentNotPendingError
+- `POST /appointments/{id}/counter-propose` — tech slot düzenler (AppointmentStatus.COUNTER_PENDING; service zaten guard)
+- `POST /appointments/{id}/confirm-counter|decline-counter` — müşteri; 410 AppointmentNotCounterPendingError
+- Service layer `appointment_flow` + `case_lifecycle.transition_case_status` reuse (atomic appointment + case status sync).
+
+### Pure test coverage (16 test)
+
+- Cursor roundtrip + invalid 400 + build_paginated more/no-more (6 test)
+- OfferSubmitPayload happy + negative amount + empty headline + extra field forbid + withdraw (5 test)
+- Kind offer cap matrix değerleri (1 test)
+- AppointmentRequest happy + extra field + counter payload + reason empty (4 test)
+
+DB integration race testleri — pre-existing cross-test event-loop bloker nedeniyle 4 skip reasoned (Faz 10/11 ortak borç; per-test engine fixture ayrı infra iterasyonu).
+
+### Sıradaki
+
+- PR 4 — `/technicians/me/*` 14 endpoint + migration (provider_mode + tow_operator enum)
+- PR 5 — `/technicians/public` + `/taxonomy` 7 endpoint + Redis cache
+- PR 6 — `/vehicles` 7 endpoint + history_consent migration (audit P1-1)
+- PR 7 — `/insurance-claims` 6 endpoint
+- PR 8 — `/pool` + `/reviews` 6 endpoint + reviews migration
+- PR 9 — `/admin/*` 15 endpoint + audit log
+
+Toplam 67 endpoint hedefinden 13 ship (47 → 47 route toplam: auth + media + health + cases + offers + appointments + tow + tow_ws).
+
+### Audit senkronu
+
+- ✅ P0-6 (REST endpoint eksik) — offers + appointments + cases kapsamı
+- ✅ P0-2 (offer accept race) — `mark_accepted` + atomic service + 410 pattern enforced
+- ⏳ P0-3 (pool admission gate) — PR 8 (/pool/feed)
+- ⏳ P1-1 (vehicle history consent) — PR 6
+- 🔄 P1-5 (test coverage) — +16 bu iterasyonda; 72 toplam aktif

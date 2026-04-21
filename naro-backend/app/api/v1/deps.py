@@ -138,6 +138,10 @@ CustomerDep = Annotated[User, Depends(require_customer)]
 TechnicianDep = Annotated[User, Depends(require_technician)]
 TowTechnicianDep = Annotated[User, Depends(require_tow_technician)]
 AdminDep = Annotated[User, Depends(require_admin)]
+# Brief §12.1 aliases — semantically explicit
+CurrentCustomerDep = CustomerDep
+CurrentTechnicianDep = TechnicianDep
+CurrentAdminDep = AdminDep
 
 
 def get_psp_dep() -> Psp:
