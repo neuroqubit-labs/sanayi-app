@@ -1066,7 +1066,19 @@ Kullanıcının asıl sorusunun cevabı:
 
 ## Faz 10 — Tow Dispatch V1 (execution log, 2026-04-22)
 
-Kapsam: Uber-tarzı acil çekici auto-dispatch + scheduled bidding + PSP preauth/capture altyapısı. 3 migration (0017-0018; 0019 GIST CONCURRENTLY gerekmeden 0017/0018'de yer aldı), 9 yeni tablo, 10 yeni enum + 8 enum value, 14 REST endpoint + 1 WebSocket, 5 service modülü + 1 repository modülü, PSP Protocol + Maps factory, 4 kritik ARQ worker, Prometheus /metrics.
+### Durum özeti (hızlı referans)
+
+- **Commit**: `2399b35` main'e push (2026-04-22)
+- **Scope**: Uber-tarzı acil çekici auto-dispatch + scheduled bidding + PSP preauth/capture
+- **Ölçek hedefi**: 500 concurrent case / 3000 aktif çekici (erken lansman)
+- **Shipped**: 2 migration (0017+0018), 9 tablo (7 tow + user_payment_methods + tow_equipment link), 10 enum + 8 enum value, 5 service + 1 repository, 14 REST + 1 WebSocket, 4 ARQ cron + 1 on-demand, PSP Protocol (MockPsp default), Maps factory (haversine fallback), /metrics Prometheus
+- **Test**: 8 pass (4 pure helper + 4 DB + crypto), 4 skipped (pre-existing SAEnum bug + event-loop fixture; Faz 10f sub-sprint)
+- **Bilinen borçlar**: Schema parity CI drift testi, integration full-flow, load test, Zod array alignment — 10f sub-sprint
+- **PR önce çalıştırın**: `alembic upgrade head` (0017 `CREATE EXTENSION postgis` idempotent)
+
+### Scope
+
+Uber-tarzı acil çekici auto-dispatch + scheduled bidding + PSP preauth/capture altyapısı. 3 migration (0017-0018; 0019 GIST CONCURRENTLY gerekmeden 0017/0018'de yer aldı), 9 yeni tablo, 10 yeni enum + 8 enum value, 14 REST endpoint + 1 WebSocket, 5 service modülü + 1 repository modülü, PSP Protocol + Maps factory, 4 kritik ARQ worker, Prometheus /metrics.
 
 ### Altyapı kararları (K-I*)
 
@@ -1161,3 +1173,15 @@ Drift additive (backend superset), mobile client safe. CI parity test Faz 10f su
 - Enum: +10 (5 tow enum + 4 tow-op enum + case_offer_kind) + 8 ADD VALUE (case_event_type ×6 + auth_event_type ×2).
 - Pip deps: +5 (geoalchemy2, slowapi, prometheus-client, itsdangerous, iyzipay).
 - Docker image: postgres → postgis.
+
+### Pre-existing bloker (Faz 10 dışı, ayrı sprint)
+
+Faz 10 testlerini yazarken keşfedildi; tow PR'ın sorumluluğu değil ama codebase seviyesinde P0:
+
+1. **SAEnum name/value mismatch**: Tüm modellerde `Mapped[UserRole]` vb. SAEnum default `.name` (UPPERCASE) bind eder ama PostgreSQL enum'ları lowercase value tutar. Sonuç: `User(role=UserRole.CUSTOMER)` INSERT'i `'CUSTOMER'` gönderir, DB `'customer'` bekler → `InvalidTextRepresentationError`. Mevcut `tests/test_media_smoke.py` pre-existing kırık. **Fix**: tüm SAEnum sütunlarına `values_callable=lambda cls: [m.value for m in cls]` ekle.
+
+2. **pytest-asyncio + asyncpg event loop**: `AsyncSessionLocal` engine modül seviyesinde; pytest-asyncio `auto` mode her teste yeni event_loop açar → asyncpg `Future attached to different loop` hatası. **Fix**: `tests/conftest.py` session-scoped event_loop + per-test engine dispose, veya loop_scope="session" fixture.
+
+3. **`ruff` media.py:149 SIM102**: Pre-existing iç içe `if` (3197368 commit). Trivial combine.
+
+Bu 3 madde bir "Test infra + enum fix" küçük PR'ına topaklanmalı. `test_media_smoke`'un zaten çalışmadığı açık → regression riski yok.
