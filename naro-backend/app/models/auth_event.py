@@ -40,6 +40,9 @@ class AuthEventType(StrEnum):
     RATE_LIMIT_BREACH = "rate_limit_breach"
     SUSPICIOUS_LOGIN = "suspicious_login"
     ACCOUNT_SOFT_DELETED = "account_soft_deleted"
+    # Faz 10 — tow dispatch
+    FRAUD_SUSPECTED = "fraud_suspected"
+    PAYMENT_METHOD_ADDED = "payment_method_added"
 
 
 class AuthEvent(UUIDPkMixin, Base):

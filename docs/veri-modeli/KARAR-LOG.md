@@ -56,6 +56,65 @@ Plan referansı: `~/.claude/plans/g-zel-ama-ok-kar-k-woolly-hamming.md`
 
 ---
 
+## Rol UI Mimarisi — 2026-04-22 (PO karar + BE/FE brief)
+
+**Tetikleyici:** Service app (naro-service-app) çekici + tamirci + ileride satıcı/yedek-parçacı için farklı shell/tab/+ menü ihtiyacı. Frontend dev `tow_operator` cert + `secondary_provider_types: ["cekici"]` fixture'ını eklemişti; PO bunu formalize ediyor.
+
+**Karar model (V1):**
+- `technician_profiles` +3 kolon: `provider_mode` enum (`business | individual`), `active_provider_type` enum (primary veya secondary'den), `role_config_version SMALLINT`
+- `technician_certificate_kind` enum'a `tow_operator` eklenir (frontend fixture bu adı kullanıyor — canonical)
+- Cert matrisi: `(provider_type × provider_mode) → required_cert_kinds` service layer'da
+- Shell config aggregate endpoint: `GET /technicians/me/shell-config` (Redis cache, `X-Role-Config-Version` header)
+- Active role switch: `POST /technicians/me/switch-active-role`
+- 5 shell variant: `TowFocusedShell`, `FullShell`, `BusinessLiteShell`, `MinimalShell`, `DamageShopShell`
+
+**PO kararları (locked):**
+- **K-R1** Side gig V2'de. V1 enum = `business | individual`.
+- **K-R2** Migration default `provider_mode='business'`. Mevcut satırlar back-fill.
+- **K-R3** `tow_operator` V1'de yeni cert_kind. `capability_attestation` V2'de.
+- **K-R4** Çekici × `side_gig` hard-yasak (V2'de side_gig gelse bile çekici için).
+- **K-R5** Active role switch explicit (user tap); role_config_version bump → shell refetch.
+
+**Brief'ler:**
+- [docs/rol-ui-mimarisi-backend.md](../rol-ui-mimarisi-backend.md) — BACKEND-DEV: Alembic migration (yeni enum + 3 kolon + `tow_operator` ADD VALUE), service layer matrisleri, shell-config endpoint, dispatch `active_provider_type` filter, 12+ matrix test
+- [docs/rol-ui-mimarisi-frontend.md](../rol-ui-mimarisi-frontend.md) — UI-UX-FRONTEND-DEV: `packages/domain/src/shell-config.ts`, 5 shell component, `useShellConfig()` hook, config-driven tabs + home + + menu, `ActiveRoleSwitcher`, onboarding mode fork
+
+**Cross-cutting:**
+- Mevcut çekici scaffold ([naro-service-app/src/features/tow/](../../naro-service-app/src/features/tow/), TowDispatchSheet.tsx) `TowFocusedShell` altına taşınır
+- [memory/tow_capability_gate.md] ile entegre: çekici UI erişimi `provider_type='cekici' AND admission_gate_passed=true AND cert:tow_operator approved`
+- Audit P0-1 (acil çekici auto-dispatch) ve P0-3 (pool admission gate) bu brief ile çözüme yaklaşır
+
+**Migration sırası (backend):**
+- `20260422_00XX_provider_role_model.py` — enum `provider_mode` + 3 kolon + `tow_operator` ADD VALUE + constraint
+
+**Kapsam dışı (V2):**
+- Side gig `provider_mode` + `capability_attestation` cert
+- Satıcı / yedek parçacı yeni provider_type
+- Admin panel provider-mode override endpoint (stub yeterli; tam UI sonra)
+
+**Başlama hazırlığı:** FE brief'i zaten fixture değişikliğiyle yarı uyumlu (secondary_provider_types ["cekici"] + tow_operator cert). BE brief migration öncesi PO'ya enum `ADD VALUE` rollback edilemeyeceğini hatırlat, PO onayı verili.
+
+### Revize — 2026-04-22 (tab iskelet sabitlendi)
+
+PO sadeleştirme kararı:
+- **5 shell variant + değişken tab set (4-6)** iptal
+- **Tek shell, 4 sabit tab** = `home / havuz / kayitlar / profil` tüm roller için aynı
+- **Rol-spesifik varyasyon artık sadece:** home widget kompozisyonu (5 layout) + `+ butonu quick_action_set` (backend config-driven) + profil seksiyonları (cert + role switch + mode) + modal/sheet açılışları
+- **Çekici aktif iş ekranı** tab değil — `ActiveTowJobHero` (home hero) + `CanliIsModal` + `AcceptBanner` (tab bar üzerinde global)
+- **Hasar akışı + kampanyalar** tab değil — home'da row + tap'ta modal/stack push
+
+**Gerekçe:** Değişken tab sayısı UI'da "farklı app" etkisi yaratıyordu; sabit iskelet zihinsel model olarak temiz + developer için basit + forward-compat korunuyor (V2'de `tab_set` config-driven genişletilebilir). [shell_config.tab_set] response'ta kalır ama V1 sabit.
+
+**Doküman güncellemeleri:**
+- [docs/rol-ui-mimarisi-backend.md](../rol-ui-mimarisi-backend.md) §2, §4.4, §4.6 revize notuyla
+- [docs/rol-ui-mimarisi-frontend.md](../rol-ui-mimarisi-frontend.md) §4.2, §4.4, §4.10, §4.11, §5 revize notuyla
+- [memory/role_ui_separation.md](/home/alfonso/.claude/projects/-home-alfonso-sanayi-app/memory/role_ui_separation.md) "5 shell variant" → "tek shell + 5 home layout" + revize notu paragrafı
+- [memory/MEMORY.md](/home/alfonso/.claude/projects/-home-alfonso-sanayi-app/memory/MEMORY.md) index satırı güncel
+
+**Etki:** Backend `TAB_SETS` dict'i yok (yalnızca `FIXED_TAB_SET` konstanı); Frontend shell component sayısı 5'ten 1'e düşer, mevcut tab router değişmez. Dev efor azalır; risk azalır.
+
+---
+
 ## Faz 9a Execution Durumu (2026-04-22)
 
 **Kapsam**: Auth foundation genişletme — migration 0015 + 0016; tablo 30 → **32**.
@@ -1002,3 +1061,103 @@ Kullanıcının asıl sorusunun cevabı:
 > **Şu an**: 18 adımlık akışın **9-18 arası (kanıt/belge/onay/mesaj/fatura/audit/yorum)** backend'de **hiç tutulmuyor** — mobil tracking engine memory'de compute ediyor ve app restart'ta uçuyor. Cross-actor senkron yok.
 >
 > **Çözüm**: Faz 7a/7b/7c/7d (14 tablo + 2 M:N) ile case_process katmanı kurulur. Sonra mobil engine API sync + optimistic merge'e dönüşür. Denetim bittiğinde Faz 7 implementation planı için tüm tasarım kararları (tablo şeması, FK cascade, enum'lar, workflow seed, event emission, schema validation) hazır.
+
+---
+
+## Faz 10 — Tow Dispatch V1 (execution log, 2026-04-22)
+
+Kapsam: Uber-tarzı acil çekici auto-dispatch + scheduled bidding + PSP preauth/capture altyapısı. 3 migration (0017-0018; 0019 GIST CONCURRENTLY gerekmeden 0017/0018'de yer aldı), 9 yeni tablo, 10 yeni enum + 8 enum value, 14 REST endpoint + 1 WebSocket, 5 service modülü + 1 repository modülü, PSP Protocol + Maps factory, 4 kritik ARQ worker, Prometheus /metrics.
+
+### Altyapı kararları (K-I*)
+
+- **[K-I1]** **Tek authoritative kaynak PostGIS + partial GIST**. Redis GEO namespace **yok**. `tow:loc:last:{tech_id}` sadece broadcast cache (300s TTL); dispatch query her zaman PostGIS `ST_DWithin` + partial index.
+- **[K-I2]** Image: `postgres:16-alpine` → `postgis/postgis:16-3.4-alpine`. Migration 0017 `CREATE EXTENSION IF NOT EXISTS postgis`. Docs: `docs/ops/postgis-migration.md`.
+- **[K-I3]** `geography(Point, 4326) + GIST` + generated columns (`pickup_location`, `dropoff_location`, `technician_profiles.last_known_location`, `tow_live_locations.location`). TR metre-bazlı geodesic doğruluk için `geography`.
+- **[K-I4]** **Realtime = Redis Streams** (pub/sub değil). `tow:stream:{case_id}` XADD; WS client XREAD BLOCK + `resume_from={last_id}` native replay. Backpressure doğal (MAXLEN=500).
+- **[K-I5]** Autovacuum tune: `technician_profiles` + `tow_live_locations` leaf partition'ları `autovacuum_vacuum_scale_factor=0.01`, `autovacuum_vacuum_cost_limit=2000`. (Parent partitioned table'a storage params yasak — leaf'lere uygulandı.)
+- **[K-I6]** `.env` gitignore (mevcut); `.env.example` Faz 10 env vars güncellendi. Pre-commit detect-secrets V2'ye ertelendi.
+
+### Veri modeli kararları (K-D*)
+
+- **[K-D1]** `service_cases` ALTER: `tow_mode`, `tow_stage`, `tow_required_equipment tow_equipment[]` (**array — multi-equipment**), `incident_reason`, `scheduled_at`, `pickup_lat/lng/address`, `dropoff_lat/lng/address`, 2 generated geography + `tow_fare_quote JSONB`. CHECK `(kind='towing' AND tow_stage IS NOT NULL)` XOR zorunlu.
+- **[K-D2]** `technician_profiles` ALTER: `last_known_location_lat/lng` (app-write) + `last_known_location geography` (generated) + `last_location_at` + `current_offer_case_id` + `current_offer_issued_at` (R1 concurrent dispatch race korumu) + `evidence_discipline_score`.
+- **[K-D3]** `technician_tow_equipment` N:M (profile_id + equipment PK; CASCADE).
+- **[K-D4]** `tow_dispatch_attempts` — UNIQUE `(case_id, technician_id, attempt_order)`; partial index pending.
+- **[K-D5]** `tow_live_locations` **PARTITION BY RANGE (captured_at)** günlük. Bootstrap: 1 geçmiş + 30 gelecek gün. Retention 30 gün ARQ drop (`location_retention_purge`), rolling forward 7 gün.
+- **[K-D6]** `tow_fare_settlements` 1:1 service_cases. State enum **genişletilmiş** (7 değer): `none | pre_auth_holding | preauth_stale | final_charged | refunded | cancelled | kasko_rejected`.
+- **[K-D7]** `tow_fare_refunds` (**yeni, Plan agent**): multi-refund separation (capture_delta / cancellation / kasko_reimbursement / manual). `idempotency_key UNIQUE`.
+- **[K-D8]** `tow_payment_idempotency` (**yeni, Plan agent**): PSP call replay durable cache (key PK, 24h TTL nightly purge deferred).
+- **[K-D9]** `tow_cancellations` + `tow_otp_events` (partial unique `verify_result='pending'` per (case, purpose)).
+- **[K-D10]** `user_payment_methods` V1 **rezerve** — V1'de Iyzico checkout redirect (MockPsp). V1.1 PSP switch sonrası tokenization aktif.
+
+### Flow + algoritma kararları (K-F*)
+
+- **[K-F1]** **Dispatch loop event-driven**. Blocking loop yok. `initiate_dispatch` senkron first candidate SQL scoring + `lock_offer_to_technician` optimistic UPDATE (`current_offer_case_id IS NULL`). Accept/decline/timeout → `record_dispatch_response` → next candidate veya pool conversion. ARQ `dispatch_attempt_timeout` per-attempt enqueue (Faz 10f tam wiring).
+- **[K-F2]** **Scoring SQL'de** — weighted ORDER BY tek query, `partial GIST` + `ST_DWithin`. Python sort yok. Fairness + performance matview V2.
+- **[K-F3]** **Outbox pattern** (`tow_lifecycle.transition_stage`): `tow_stage_requested` event INSERT → atomic UPDATE WHERE `tow_stage=from` (optimistic lock) → `tow_stage_committed` event. Evidence gate subquery count (case_evidence_items). Concurrent transition → InvalidStageTransition 409.
+- **[K-F4]** **Dual-hold pre-auth renewal** — `fare_reconcile` hourly: preauth_expires_at < 2h → V1 stub (state→preauth_stale + operations alert). V1.1'de yeni authorize(100%) success → old void; fail → customer push.
+- **[K-F5]** **Idempotency** iki katmanlı: (1) HTTP `Idempotency-Key` header + Redis cache middleware 24h replay; (2) `tow_payment_idempotency` DB tablo + PSP keys (`preauth:{case_id}`, `capture:{settlement_id}`, `refund:{settlement_id}:{reason}`).
+- **[K-F6]** **Heartbeat enforcer** ARQ cron 30sn: `last_location_at < NOW - 90s` → `availability='offline'` auto. Dispatch query aynı cutoff.
+- **[K-F7]** **GPS sanity check** (R7): `tow_location.sanity_check_arrival_distance` — arrived transition öncesi `ST_Distance ≤ 500m`. Aşan → `FraudSuspectedError 403` + (V2) `auth_events.fraud_suspected`.
+- **[K-F8]** **Per-technician offer lock** — `current_offer_case_id` UPDATE WHERE NULL. Acquired=False → exclude + retry. 15sn sonrası ARQ `current_offer_expiry` NULL'a çevirir.
+- **[K-F9]** Fairness + evidence_discipline_score matview V2'ye deferred (SQL stub score=1.0).
+- **[K-F10]** **Scheduled mode** mevcut `case_offers` tablosu reuse. Yeni `case_offer_kind` enum + `kind` column (`standard | tow_scheduled`). Full bidding flow 10f sub-sprint (stub endpoint'ler mevcut).
+
+### Migration sırası
+
+- `20260422_0017_tow_foundation` — PostGIS + 5 enum + service_cases + technician_profiles ALTER + technician_tow_equipment N:M + user_payment_methods rezerve + case_event_type +6 + auth_event_type +2 + 2 partial GIST + autovac tune.
+- `20260422_0018_tow_dispatch_tables` — 7 tow tablo + tow_live_locations partitioning (bootstrap 31 partition + default) + case_offer_kind enum + case_offers.kind column + 8 yeni enum.
+- (Planda 0019 CONCURRENTLY indeksleri vardı; gerekli tüm index'ler 0017-0018'de yer aldı, 0019 oluşturulmadı.)
+
+### Servis + API çıkışı
+
+- **Models**: `app/models/tow.py` (8 SQLAlchemy class — dispatch_attempt, live_location, fare_settlement, fare_refund, payment_idempotency, cancellation, otp_event) + `app/models/user_payment_method.py` + `technician_tow_equipment` link + `ServiceCase`/`TechnicianProfile` extension'ları.
+- **Repository**: `app/repositories/tow.py` — dispatch_attempts, candidate selection (weighted SQL), live_locations, settlements+refunds+idempotency, cancellations, OTP helpers, evidence gate counts, optimistic lock.
+- **Services** (5): `tow_dispatch` (event-driven, radius ladder 10→25→50, SQL scoring), `tow_lifecycle` (outbox + evidence gate + cancel+fee), `tow_payment` (PSP Protocol + dual-hold + multi-refund + idempotency), `tow_location` (DB insert + Redis SETEX + XADD stream + sanity), `tow_evidence` (OTP crypto secure + Redis SETEX + attempts/expiry).
+- **Integrations**: `app/integrations/psp/` (Protocol + MockPsp V1 default + Iyzico V1.1 stub + factory env PSP_PROVIDER) + `app/integrations/maps/` (Mapbox stub + haversine offline fallback + factory).
+- **REST** (14): `/tow/fare/quote`, `/tow/cases` (POST), `/tow/cases/{id}` (GET), `/tow/cases/{id}/tracking`, `/tow/cases/{id}/dispatch/response`, `/tow/cases/{id}/location`, `/tow/cases/{id}/otp/issue|verify`, `/tow/cases/{id}/cancel|kasko|rating|evidence`, `/tow/bids`, `/tow/bids/{id}/accept`.
+- **WebSocket**: `/ws/tow/{case_id}?token=<jwt>&resume_from=<last_id>` — Redis Streams XREAD BLOCK consumer + heartbeat, participant-only (IDOR safe).
+- **Middleware**: `IdempotencyMiddleware` (header + Redis 24h), `RequestIdMiddleware` (X-Request-ID echo), `rate_limit` slowapi skeleton.
+- **Exception handlers**: InvalidStageTransition→409, EvidenceGateUnmet→409, ConcurrentOfferError→409, NoCandidateFoundError→410, OtpExpired→410, OtpMaxAttempts→429, OtpInvalid→400, PaymentDeclined→402, PaymentPreAuthStale→402, LookupError→404.
+- **Role deps**: `RequireCustomer`, `RequireTechnician`, `RequireTowTechnician` (provider_type=cekici + towing_coordination=true), `RequireAdmin`. Case participant check route içinde (IDOR).
+- **ARQ workers** (4 kritik): `dispatch_attempt_timeout` (on-demand), `current_offer_expiry` (10s cron), `heartbeat_enforcer` (30s cron), `fare_reconcile` (1h cron), `location_retention_purge` (daily 03:00 UTC cron).
+- **/metrics**: Prometheus — dispatch_duration histogram, match_success gauge, radius_expansion counter, candidate_pool_size histogram, ws_message_lag histogram, fare_capture counter, cap_absorbed counter, preauth_stale counter, otp_replay_blocked counter, fraud_suspected counter.
+
+### Ödeme + ölçek varsayımları
+
+- **[K-P1]** **PSP**: MockPsp V1 default (`PSP_PROVIDER=mock`). V1.1 sub-sprint `PSP_PROVIDER=iyzico` tek env var switch (adapter hazır, `NotImplementedError` V1'de).
+- **[K-P2]** **Maps**: `MAPS_PROVIDER=offline` (haversine) V1 default; Mapbox token mevcutsa `mapbox` aktif. Gerçek reverse geocode + distance matrix V1.1.
+- **[K-P4]** GPS 5s moving / 15s stationary — client responsibility; backend valid range CHECK.
+- **[K-P5]** OTP 6 haneli numeric (`secrets.randbelow`), 10 dk TTL (env), 3 yanlış → invalidate (env), SHA256 salted hash (case_id salt). Codes never re-exposed after issue.
+- **[KÖ-1]** 500 eşzamanlı case / 3000 aktif çekici (erken lansman). Partial GIST + partition prune + Redis Streams bu ölçeği V1'de karşılıyor. Horizontal API scale readiness: middleware stateless, WS per-pod Redis subscribe (consumer group V2).
+
+### Exit durumu
+
+- [x] `alembic upgrade head` 0016→0017→0018 yeşil; `CREATE EXTENSION` idempotent; generated column POINT doldu; GIST partial EXPLAIN index scan; CHECK XOR reject; partition routing smoke PASS; UNIQUE constraints enforced (dispatch/refund/OTP).
+- [x] mypy --strict Faz 10 source'larda temiz (13 pre-existing error `storage/s3`/`twilio`/`otp`/`workers/media` dışında).
+- [x] App bootstrap + 14 tow endpoint + `/metrics` + `/ws/tow/{id}` OpenAPI listeleniyor.
+- [ ] Integration test suite (dispatch happy path, radius fallback, concurrent race, OTP replay) → Faz 10f sub-sprint (commit sonrası).
+- [ ] Load test 500 concurrent + 2000 WS subscriber → staging validation.
+- [ ] Schema parity CI test (Zod↔Pydantic drift check) → Faz 10f sub-sprint.
+
+### Zod parity known drift
+
+- `TowDispatchStageSchema`: Zod 13 değer, Pydantic 15 (preauth_failed, preauth_stale backend-only).
+- `TowSettlementStatusSchema`: Zod 5, Pydantic 7 (preauth_stale, kasko_rejected backend-only).
+- `TowRequest.required_equipment`: Zod singular `TowVehicleEquipment`, Backend `list[TowEquipment]` (multi-equipment). Frontend tarafı 10f'de array'e alinacak.
+
+Drift additive (backend superset), mobile client safe. CI parity test Faz 10f sub-sprint.
+
+### Tahmini çıktı (gerçekleşen)
+
+- Tablo: 32 → **40** (+7 tow tables + user_payment_methods rezerve).
+- Migration: 16 → **18** (0017 + 0018).
+- Service: 15 → **20** (+5 tow service).
+- Repository: 10 → **11** (tow tek dosya, ergonomi).
+- Router: 3 → **5** (tow REST + tow WS).
+- ARQ worker: 0 → **4 kritik cron + 1 on-demand**.
+- External integration: 0 → **2** (PSP factory + Maps factory).
+- Middleware: 0 → **3** (rate_limit skeleton + request_id + idempotency).
+- Enum: +10 (5 tow enum + 4 tow-op enum + case_offer_kind) + 8 ADD VALUE (case_event_type ×6 + auth_event_type ×2).
+- Pip deps: +5 (geoalchemy2, slowapi, prometheus-client, itsdangerous, iyzipay).
+- Docker image: postgres → postgis.

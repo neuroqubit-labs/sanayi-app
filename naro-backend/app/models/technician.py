@@ -9,10 +9,22 @@ kombinasyonu kullanılır (Faz 4 KIND_PROVIDER_MAP'e köprü).
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, SmallInteger, String, Text
+from geoalchemy2 import Geography
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
+)
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -126,6 +138,26 @@ class TechnicianProfile(UUIDPkMixin, TimestampMixin, Base):
 
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    # Faz 10 — tow dispatch alanları
+    last_known_location_lat: Mapped[float | None] = mapped_column(Float)
+    last_known_location_lng: Mapped[float | None] = mapped_column(Float)
+    last_known_location: Mapped[str | None] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326),
+        nullable=True,
+    )
+    last_location_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    current_offer_case_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("service_cases.id", ondelete="SET NULL"), nullable=True
+    )
+    current_offer_issued_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    evidence_discipline_score: Mapped[Decimal] = mapped_column(
+        Numeric(3, 2), nullable=False, server_default="1.00", default=Decimal("1.00")
     )
 
 
@@ -242,6 +274,27 @@ class TechnicianGalleryItem(UUIDPkMixin, Base):
     )
     display_order: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="now()", nullable=False
+    )
+
+
+class TechnicianTowEquipmentLink(Base):
+    """N:M — teknisyenin sahip olduğu çekici ekipmanları."""
+
+    __tablename__ = "technician_tow_equipment"
+
+    profile_id: Mapped[UUID] = mapped_column(
+        ForeignKey("technician_profiles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    equipment: Mapped[str] = mapped_column(
+        SAEnum(
+            "flatbed", "hook", "wheel_lift", "heavy_duty", "motorcycle",
+            name="tow_equipment", create_type=False,
+        ),
+        primary_key=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default="now()", nullable=False

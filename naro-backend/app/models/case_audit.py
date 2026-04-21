@@ -58,6 +58,13 @@ class CaseEventType(StrEnum):
     INSURANCE_CLAIM_ACCEPTED = "insurance_claim_accepted"
     INSURANCE_CLAIM_PAID = "insurance_claim_paid"
     INSURANCE_CLAIM_REJECTED = "insurance_claim_rejected"
+    # Faz 10 — tow dispatch
+    TOW_STAGE_REQUESTED = "tow_stage_requested"
+    TOW_STAGE_COMMITTED = "tow_stage_committed"
+    TOW_EVIDENCE_ADDED = "tow_evidence_added"
+    TOW_LOCATION_RECORDED = "tow_location_recorded"
+    TOW_FARE_CAPTURED = "tow_fare_captured"
+    TOW_DISPATCH_CANDIDATE_SELECTED = "tow_dispatch_candidate_selected"
 
 
 class CaseTone(StrEnum):

@@ -35,6 +35,11 @@ class CaseOfferStatus(StrEnum):
     WITHDRAWN = "withdrawn"
 
 
+class CaseOfferKind(StrEnum):
+    STANDARD = "standard"
+    TOW_SCHEDULED = "tow_scheduled"
+
+
 ACTIVE_OFFER_STATUSES: frozenset[CaseOfferStatus] = frozenset(
     {CaseOfferStatus.PENDING, CaseOfferStatus.SHORTLISTED, CaseOfferStatus.ACCEPTED}
 )
@@ -77,6 +82,12 @@ class CaseOffer(UUIDPkMixin, TimestampMixin, Base):
         Boolean, nullable=False, default=False, server_default="false"
     )
 
+    kind: Mapped[CaseOfferKind] = mapped_column(
+        SAEnum(CaseOfferKind, name="case_offer_kind"),
+        nullable=False,
+        default=CaseOfferKind.STANDARD,
+        server_default="standard",
+    )
     status: Mapped[CaseOfferStatus] = mapped_column(
         SAEnum(CaseOfferStatus, name="case_offer_status"),
         nullable=False,

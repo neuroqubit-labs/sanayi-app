@@ -14,9 +14,10 @@ from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
+from geoalchemy2 import Geography
+from sqlalchemy import DateTime, Float, ForeignKey, Numeric, String, Text
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -27,6 +28,48 @@ class ServiceRequestKind(StrEnum):
     TOWING = "towing"
     BREAKDOWN = "breakdown"
     MAINTENANCE = "maintenance"
+
+
+class TowMode(StrEnum):
+    IMMEDIATE = "immediate"
+    SCHEDULED = "scheduled"
+
+
+class TowEquipment(StrEnum):
+    FLATBED = "flatbed"
+    HOOK = "hook"
+    WHEEL_LIFT = "wheel_lift"
+    HEAVY_DUTY = "heavy_duty"
+    MOTORCYCLE = "motorcycle"
+
+
+class TowIncidentReason(StrEnum):
+    NOT_RUNNING = "not_running"
+    ACCIDENT = "accident"
+    FLAT_TIRE = "flat_tire"
+    BATTERY = "battery"
+    FUEL = "fuel"
+    LOCKED_KEYS = "locked_keys"
+    STUCK = "stuck"
+    OTHER = "other"
+
+
+class TowDispatchStage(StrEnum):
+    SEARCHING = "searching"
+    ACCEPTED = "accepted"
+    EN_ROUTE = "en_route"
+    NEARBY = "nearby"
+    ARRIVED = "arrived"
+    LOADING = "loading"
+    IN_TRANSIT = "in_transit"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+    TIMEOUT_CONVERTED_TO_POOL = "timeout_converted_to_pool"
+    SCHEDULED_WAITING = "scheduled_waiting"
+    BIDDING_OPEN = "bidding_open"
+    OFFER_ACCEPTED = "offer_accepted"
+    PREAUTH_FAILED = "preauth_failed"
+    PREAUTH_STALE = "preauth_stale"
 
 
 class ServiceRequestUrgency(StrEnum):
@@ -130,4 +173,38 @@ class ServiceCase(UUIDPkMixin, TimestampMixin, Base):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    # Faz 10 — tow dispatch kolonları (kind='towing' için zorunlu; CHECK XOR)
+    tow_mode: Mapped[TowMode | None] = mapped_column(
+        SAEnum(TowMode, name="tow_mode"), nullable=True
+    )
+    tow_stage: Mapped[TowDispatchStage | None] = mapped_column(
+        SAEnum(TowDispatchStage, name="tow_dispatch_stage"), nullable=True
+    )
+    tow_required_equipment: Mapped[list[TowEquipment] | None] = mapped_column(
+        ARRAY(SAEnum(TowEquipment, name="tow_equipment", create_type=False)),
+        nullable=True,
+    )
+    incident_reason: Mapped[TowIncidentReason | None] = mapped_column(
+        SAEnum(TowIncidentReason, name="tow_incident_reason"), nullable=True
+    )
+    scheduled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    pickup_lat: Mapped[float | None] = mapped_column(Float)
+    pickup_lng: Mapped[float | None] = mapped_column(Float)
+    pickup_address: Mapped[str | None] = mapped_column(String(500))
+    dropoff_lat: Mapped[float | None] = mapped_column(Float)
+    dropoff_lng: Mapped[float | None] = mapped_column(Float)
+    dropoff_address: Mapped[str | None] = mapped_column(String(500))
+    tow_fare_quote: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    # Generated columns — read-only
+    pickup_location: Mapped[str | None] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326),
+        nullable=True,
+    )
+    dropoff_location: Mapped[str | None] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326),
+        nullable=True,
     )

@@ -52,6 +52,26 @@ class Settings(BaseSettings):
     media_upload_url_ttl_seconds: int = 600
     media_download_url_ttl_seconds: int = 900
 
+    # Faz 10 — Tow dispatch
+    psp_provider: Literal["mock", "iyzico"] = "mock"
+    iyzico_base_url: str = "https://sandbox-api.iyzipay.com"
+    iyzico_api_key: str = ""
+    iyzico_secret_key: str = ""
+    maps_provider: Literal["mapbox", "offline"] = "offline"
+    mapbox_backend_token: str = ""
+    mapbox_public_token: str = ""
+    tow_dispatch_timeout_seconds: int = 180
+    tow_accept_window_seconds: int = 30
+    tow_location_retention_days: int = 30
+    tow_cap_hard_ceiling_multiplier: int = 3
+    tow_quote_base_amount: int = 950
+    tow_quote_per_km_rate: int = 70
+    tow_quote_urgency_surcharge: int = 80
+    tow_quote_buffer_pct: float = 0.10
+    tow_otp_ttl_minutes: int = 10
+    tow_otp_max_attempts: int = 3
+    tow_heartbeat_seconds: int = 90
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def database_url(self) -> str:
