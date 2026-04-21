@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { View } from "react-native";
 
 import { Text } from "./Text";
+import { shellRadius } from "./tokens";
 
 export type ActionSheetSurfaceProps = {
   title: string;
@@ -17,7 +18,10 @@ export function ActionSheetSurface({
   footer,
 }: ActionSheetSurfaceProps) {
   return (
-    <View className="rounded-[32px] border border-app-outline-strong bg-app-surface-2 px-5 pb-4 pt-3">
+    <View
+      className="border border-app-outline-strong bg-app-surface-2 px-5 pb-4 pt-3"
+      style={{ borderRadius: shellRadius.sheet }}
+    >
       <View className="items-center gap-3">
         <View className="h-1.5 w-14 rounded-full bg-app-outline-strong" />
         <View className="items-center gap-1">

@@ -44,7 +44,24 @@ export {
   type StatusChipTone,
 } from "./StatusChip";
 export { TimelineRow, type TimelineRowProps } from "./TimelineRow";
-export { shellMotion, shellRadius } from "./tokens";
+export {
+  shellElevation,
+  shellMaterial,
+  shellMotion,
+  shellRadius,
+  shellSpring,
+  type ShellElevationKey,
+  type ShellMaterialKey,
+  type ShellRadiusKey,
+  type ShellSpringKey,
+} from "./tokens";
+export { Surface, type SurfaceProps, type SurfaceVariant } from "./Surface";
+export { GlassSurface, type GlassSurfaceProps } from "./GlassSurface";
+export {
+  PressableCard,
+  type PressableCardProps,
+  type PressableCardVariant,
+} from "./PressableCard";
 export { TrustBadge, type TrustBadgeProps } from "./TrustBadge";
 export {
   VehicleContextBar,

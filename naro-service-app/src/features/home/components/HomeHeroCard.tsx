@@ -1,6 +1,14 @@
 import type { ServiceCase } from "@naro/domain";
 import { getTrackingVehicleMeta } from "@naro/mobile-core";
-import { Avatar, Button, Icon, StatusChip, Text, TrustBadge } from "@naro/ui";
+import {
+  Avatar,
+  Button,
+  Icon,
+  StatusChip,
+  Surface,
+  Text,
+  TrustBadge,
+} from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import { CalendarClock, ChevronRight } from "lucide-react-native";
 import { Pressable, View } from "react-native";
@@ -74,11 +82,11 @@ export function HomeHeroCard({ caseItem, totalPendingCount }: Props) {
   };
 
   return (
-    <View
-      className="overflow-hidden rounded-[28px] border bg-app-surface"
-      style={{
-        borderColor: `${kindMeta.iconColor}40`,
-      }}
+    <Surface
+      variant="raised"
+      radius="xl"
+      className="overflow-hidden"
+      style={{ borderColor: `${kindMeta.iconColor}40` }}
     >
       {/* Gradient band */}
       <Pressable
@@ -210,6 +218,6 @@ export function HomeHeroCard({ caseItem, totalPendingCount }: Props) {
           </View>
         </View>
       ) : null}
-    </View>
+    </Surface>
   );
 }

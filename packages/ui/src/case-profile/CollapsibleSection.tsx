@@ -7,13 +7,21 @@ import {
   UIManager,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
 import { Icon } from "../Icon";
 import { Text } from "../Text";
+import { shellSpring } from "../tokens";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type Props = {
   title: string;
@@ -37,6 +45,10 @@ export function CollapsibleSection({
   preview,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const toggle = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -45,12 +57,19 @@ export function CollapsibleSection({
 
   return (
     <View className="gap-3">
-      <Pressable
+      <AnimatedPressable
         accessibilityRole="button"
         accessibilityLabel={`${title} bölümünü ${open ? "kapat" : "aç"}`}
         accessibilityState={{ expanded: open }}
         onPress={toggle}
-        className="gap-2 rounded-[18px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
+        onPressIn={() => {
+          scale.value = withSpring(0.98, shellSpring.snappy);
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, shellSpring.snappy);
+        }}
+        className="gap-2 rounded-[18px] border border-app-outline bg-app-surface px-4 py-3"
+        style={animatedStyle}
       >
         <View className="flex-row items-center gap-3">
           {titleIcon ? (
@@ -100,7 +119,7 @@ export function CollapsibleSection({
         {!open && preview ? (
           <View className="pl-10">{preview}</View>
         ) : null}
-      </Pressable>
+      </AnimatedPressable>
       {open ? <View className="gap-2">{children}</View> : null}
     </View>
   );

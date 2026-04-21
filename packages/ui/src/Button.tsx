@@ -2,7 +2,6 @@ import { forwardRef, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  type PressableStateCallbackType,
   Text as RNText,
   View,
   type PressableProps,
@@ -10,6 +9,15 @@ import {
   type View as ViewType,
   type ViewStyle,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+
+import { shellSpring } from "./tokens";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type ButtonVariant =
   | "primary"
@@ -20,7 +28,7 @@ export type ButtonVariant =
   | "outline";
 export type ButtonSize = "sm" | "md" | "lg" | "xl";
 
-export type ButtonProps = Omit<PressableProps, "children"> & {
+export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
   label: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -29,6 +37,7 @@ export type ButtonProps = Omit<PressableProps, "children"> & {
   fullWidth?: boolean;
   className?: string;
   labelClassName?: string;
+  style?: StyleProp<ViewStyle>;
 };
 
 const CONTAINER_BASE =
@@ -81,14 +90,6 @@ const PRIMARY_BUTTON_STYLE: ViewStyle = {
   shadowOpacity: 0.3,
   shadowRadius: 18,
   elevation: 12,
-};
-
-const PRIMARY_BUTTON_PRESSED_STYLE: ViewStyle = {
-  shadowOffset: { width: 0, height: 7 },
-  shadowOpacity: 0.18,
-  shadowRadius: 10,
-  elevation: 6,
-  transform: [{ translateY: 2 }, { scale: 0.992 }],
 };
 
 const PRIMARY_SURFACE_STYLE: ViewStyle = {
@@ -165,6 +166,11 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
   ref,
 ) {
   const isDisabled = disabled || loading;
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   const containerClass = [
     CONTAINER_BASE,
     VARIANT_CONTAINER[variant],
@@ -184,27 +190,23 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
     .filter(Boolean)
     .join(" ");
 
-  const pressableStyle = (
-    state: PressableStateCallbackType,
-  ): StyleProp<ViewStyle> => {
-    const incomingStyle = typeof style === "function" ? style(state) : style;
-
-    return [
-      incomingStyle,
-      variant === "primary" ? PRIMARY_BUTTON_STYLE : null,
-      variant === "primary" && state.pressed
-        ? PRIMARY_BUTTON_PRESSED_STYLE
-        : null,
-    ];
-  };
-
   return (
-    <Pressable
+    <AnimatedPressable
       ref={ref as never}
       accessibilityRole="button"
       disabled={isDisabled}
+      onPressIn={() => {
+        scale.value = withSpring(0.97, shellSpring.snappy);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, shellSpring.snappy);
+      }}
       className={containerClass}
-      style={pressableStyle}
+      style={[
+        variant === "primary" ? PRIMARY_BUTTON_STYLE : null,
+        animatedStyle,
+        style,
+      ]}
       {...rest}
     >
       {variant === "primary" ? (
@@ -226,6 +228,6 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
           <RNText className={`${labelClass} relative z-10`}>{label}</RNText>
         </>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 });

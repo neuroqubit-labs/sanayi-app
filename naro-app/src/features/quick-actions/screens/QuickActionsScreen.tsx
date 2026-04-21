@@ -1,4 +1,11 @@
-import { Icon, shellMotion, Text } from "@naro/ui";
+import {
+  GlassSurface,
+  Icon,
+  PressableCard,
+  shellMotion,
+  shellRadius,
+  Text,
+} from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import {
   AlertTriangle,
@@ -110,92 +117,104 @@ export function QuickActionsScreen() {
       </Animated.View>
 
       <Animated.View
-        entering={FadeInDown.duration(shellMotion.slow)}
+        entering={FadeInDown.springify().damping(18).mass(0.8)}
         exiting={FadeOutDown.duration(shellMotion.base)}
         style={{ maxHeight: sheetMaxHeight }}
-        className="overflow-hidden rounded-t-[32px] border-t border-app-outline-strong bg-app-bg"
       >
-        <SafeAreaView edges={["bottom"]}>
-          <View className="items-center pt-3">
-            <View className="h-1 w-12 rounded-full bg-app-outline-strong" />
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 20,
-              paddingTop: 20,
-              paddingBottom: 24,
-              gap: 20,
-            }}
-          >
-            <View className="gap-1">
-              <Text
-                variant="h2"
-                tone="inverse"
-                className="text-[22px] leading-[26px]"
-              >
-                Ne yapmak istiyorsun?
-              </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-muted text-[12px]"
-              >
-                En sık aksiyonlar tek dokunuşta açılır.
-              </Text>
+        <GlassSurface
+          variant="chrome"
+          className="border-t border-app-outline-strong"
+          style={{
+            borderTopLeftRadius: shellRadius.sheet,
+            borderTopRightRadius: shellRadius.sheet,
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+          }}
+        >
+          <SafeAreaView edges={["bottom"]}>
+            <View className="items-center pt-3">
+              <View className="h-1 w-12 rounded-full bg-app-outline-strong" />
             </View>
 
-            <PrimaryActionsGrid actions={PRIMARY_ACTIONS} onSelect={goTo} />
-
-            <View className="gap-3">
-              <View className="flex-row items-center justify-between">
-                <Text variant="eyebrow" tone="subtle">
-                  Keşfet
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingTop: 20,
+                paddingBottom: 24,
+                gap: 20,
+              }}
+            >
+              <View className="gap-1">
+                <Text
+                  variant="h2"
+                  tone="inverse"
+                  className="text-[22px] leading-[26px]"
+                >
+                  Ne yapmak istiyorsun?
                 </Text>
                 <Text
                   variant="caption"
                   tone="muted"
-                  className="text-app-text-subtle text-[10px]"
+                  className="text-app-text-muted text-[12px]"
                 >
-                  İsteğe bağlı
+                  En sık aksiyonlar tek dokunuşta açılır.
                 </Text>
               </View>
-              <View className="gap-2">
-                {DISCOVERY_ITEMS.map((item) => (
-                  <Pressable
-                    key={item.key}
-                    accessibilityRole="button"
-                    accessibilityLabel={item.label}
-                    onPress={() => goTo(item.route)}
-                    className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
+
+              <PrimaryActionsGrid actions={PRIMARY_ACTIONS} onSelect={goTo} />
+
+              <View className="gap-3">
+                <View className="flex-row items-center justify-between">
+                  <Text variant="eyebrow" tone="subtle">
+                    Keşfet
+                  </Text>
+                  <Text
+                    variant="caption"
+                    tone="muted"
+                    className="text-app-text-subtle text-[10px]"
                   >
-                    <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-                      <Icon icon={item.icon} size={16} color="#0ea5e9" />
-                    </View>
-                    <View className="flex-1 gap-0.5">
-                      <Text
-                        variant="label"
-                        tone="inverse"
-                        className="text-[13px]"
-                      >
-                        {item.label}
-                      </Text>
-                      <Text
-                        variant="caption"
-                        tone="muted"
-                        className="text-app-text-muted text-[11px]"
-                      >
-                        {item.hint}
-                      </Text>
-                    </View>
-                    <Icon icon={ArrowRight} size={13} color="#83a7ff" />
-                  </Pressable>
-                ))}
+                    İsteğe bağlı
+                  </Text>
+                </View>
+                <View className="gap-2">
+                  {DISCOVERY_ITEMS.map((item) => (
+                    <PressableCard
+                      key={item.key}
+                      variant="flat"
+                      radius="lg"
+                      accessibilityRole="button"
+                      accessibilityLabel={item.label}
+                      onPress={() => goTo(item.route)}
+                      className="flex-row items-center gap-3 px-4 py-3.5"
+                    >
+                      <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
+                        <Icon icon={item.icon} size={16} color="#0ea5e9" />
+                      </View>
+                      <View className="flex-1 gap-0.5">
+                        <Text
+                          variant="label"
+                          tone="inverse"
+                          className="text-[13px]"
+                        >
+                          {item.label}
+                        </Text>
+                        <Text
+                          variant="caption"
+                          tone="muted"
+                          className="text-app-text-muted text-[11px]"
+                        >
+                          {item.hint}
+                        </Text>
+                      </View>
+                      <Icon icon={ArrowRight} size={13} color="#83a7ff" />
+                    </PressableCard>
+                  ))}
+                </View>
               </View>
-            </View>
-          </ScrollView>
-        </SafeAreaView>
+            </ScrollView>
+          </SafeAreaView>
+        </GlassSurface>
       </Animated.View>
     </View>
   );
@@ -239,11 +258,13 @@ function ActionTileCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable
+    <PressableCard
+      variant="elevated"
+      radius="lg"
       accessibilityRole="button"
       accessibilityLabel={action.label}
       onPress={onPress}
-      className="flex-1 overflow-hidden rounded-[24px] border border-app-outline bg-app-surface active:opacity-90"
+      className="flex-1 overflow-hidden"
     >
       <View
         className="gap-3 px-4 py-4"
@@ -273,6 +294,6 @@ function ActionTileCard({
           </Text>
         </View>
       </View>
-    </Pressable>
+    </PressableCard>
   );
 }
