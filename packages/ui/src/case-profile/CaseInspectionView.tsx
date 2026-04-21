@@ -14,7 +14,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react-native";
-import { View } from "react-native";
+import { Image, View } from "react-native";
 
 import { Icon } from "../Icon";
 import { PremiumListRow } from "../PremiumListRow";
@@ -48,6 +48,13 @@ const ATTACHMENT_ICON = {
   invoice: FileText,
   report: FileText,
 } as const;
+
+function attachmentImageUri(
+  attachment: ServiceCase["attachments"][number],
+): string | null {
+  if (attachment.kind !== "photo") return null;
+  return attachment.asset?.preview_url ?? attachment.asset?.download_url ?? null;
+}
 
 const KIND_META: Record<
   ServiceCase["kind"],
@@ -400,6 +407,21 @@ function AttachmentsPreview({
   return (
     <View className="flex-row items-center gap-1.5">
       {visible.map((attachment) => {
+        const imageUri = attachmentImageUri(attachment);
+        if (imageUri) {
+          return (
+            <View
+              key={attachment.id}
+              className="h-7 w-7 overflow-hidden rounded-full border border-app-outline"
+            >
+              <Image
+                source={{ uri: imageUri }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="cover"
+              />
+            </View>
+          );
+        }
         const IconCmp =
           ATTACHMENT_ICON[attachment.kind as keyof typeof ATTACHMENT_ICON] ??
           FileText;
@@ -944,35 +966,46 @@ function AttachmentsSection({
       />
       <View className="flex-row flex-wrap gap-2">
         {attachments.map((attachment) => {
+          const imageUri = attachmentImageUri(attachment);
           const IconCmp =
             ATTACHMENT_ICON[attachment.kind as keyof typeof ATTACHMENT_ICON] ??
             FileText;
           return (
             <View
               key={attachment.id}
-              className="w-[31%] gap-1.5 rounded-[14px] border border-app-outline bg-app-surface-2 px-2 py-3"
+              className="w-[31%] gap-1.5 overflow-hidden rounded-[14px] border border-app-outline bg-app-surface-2"
             >
-              <View className="h-10 w-10 items-center justify-center rounded-full bg-app-bg">
-                <Icon icon={IconCmp} size={16} color="#83a7ff" />
-              </View>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text text-[11px]"
-                numberOfLines={2}
-              >
-                {attachment.title}
-              </Text>
-              {attachment.subtitle ? (
+              {imageUri ? (
+                <Image
+                  source={{ uri: imageUri }}
+                  style={{ width: "100%", height: 88 }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View className="h-[88px] items-center justify-center bg-app-bg">
+                  <Icon icon={IconCmp} size={22} color="#83a7ff" />
+                </View>
+              )}
+              <View className="gap-0.5 px-2 py-2">
                 <Text
                   variant="caption"
                   tone="muted"
-                  className="text-app-text-subtle text-[10px]"
-                  numberOfLines={1}
+                  className="text-app-text text-[11px]"
+                  numberOfLines={2}
                 >
-                  {attachment.subtitle}
+                  {attachment.title}
                 </Text>
-              ) : null}
+                {attachment.subtitle ? (
+                  <Text
+                    variant="caption"
+                    tone="muted"
+                    className="text-app-text-subtle text-[10px]"
+                    numberOfLines={1}
+                  >
+                    {attachment.subtitle}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           );
         })}

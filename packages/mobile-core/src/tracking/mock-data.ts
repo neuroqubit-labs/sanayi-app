@@ -30,6 +30,46 @@ function attachment(
   return { id, kind, title, subtitle, statusLabel, asset: null };
 }
 
+/**
+ * Gerçek foto URI'siyle attachment üretir — mock vaka profilini zengin
+ * göstermek için. Picsum seed stable: her id → aynı görsel.
+ */
+function photoAttachment(
+  id: string,
+  title: string,
+  subtitle: string,
+  seed: string,
+  statusLabel = "Hazir",
+): CaseAttachment {
+  const url = `https://picsum.photos/seed/${seed}/800/600`;
+  return {
+    id,
+    kind: "photo",
+    title,
+    subtitle,
+    statusLabel,
+    asset: {
+      id: `asset-${id}`,
+      purpose: "case_evidence_photo",
+      owner_kind: "service_case",
+      owner_id: "mock",
+      visibility: "private",
+      status: "ready",
+      mime_type: "image/jpeg",
+      size_bytes: 512_000,
+      checksum_sha256: null,
+      dimensions: { width: 800, height: 600 },
+      duration_sec: null,
+      preview_url: url,
+      download_url: url,
+      created_at: NOW,
+      uploaded_at: NOW,
+      exif_stripped_at: NOW,
+      antivirus_scanned_at: null,
+    },
+  };
+}
+
 function document(
   id: string,
   kind: CaseDocument["kind"],
@@ -153,6 +193,20 @@ export function seedTrackingCases(): ServiceCase[] {
     request: {
       ...createTrackingDraftForKind("breakdown", "veh-bmw-34-abc-42"),
       preferred_technician_id: "tech-autopro-servis",
+      summary:
+        "Rölantide belirgin metalik ses + hızlanırken hafif titreşim. Özellikle 1500-2000 devir arası belirgin.",
+      notes:
+        "Sabah soğuk çalıştırmada daha fazla duyuluyor, ısındıkça azalıyor. Son 3 hafta içinde giderek arttı.",
+      location_label: "Maslak Mah. Sarıyer / İstanbul",
+      breakdown_category: "engine",
+      vehicle_drivable: true,
+      mileage_km: 87400,
+      symptoms: [
+        "engine:metallic_noise",
+        "engine:vibration",
+        "engine:cold_start_worse",
+      ],
+      price_preference: "any",
     },
     assigned_technician_id: "tech-autopro-servis",
     preferred_technician_id: "tech-autopro-servis",
@@ -168,22 +222,34 @@ export function seedTrackingCases(): ServiceCase[] {
         id: "approval-breakdown-parts-1",
         kind: "parts_request",
         status: "pending",
-        title: "Parca ve ek iscilik onayi",
+        title: "Parça ve ek işçilik onayı",
         description:
-          "Zincir gergisi ve tamamlayici iscilik risk nedeniyle kapsam icine alindi.",
+          "Zincir gergisi, zincir kilitleme ve tamamlayıcı işçilik risk nedeniyle kapsam içine alındı.",
         requested_by: "AutoPro Servis",
         requested_at: NOW,
         requested_at_label: "40 dk önce",
         amount_label: "+₺1.250",
-        action_label: "Parca onayini ver",
+        action_label: "Parça onayını ver",
         service_comment:
-          "Asinma noktasi ve zincir boslugu hem fotograf hem ses kaydi ile dokumante edildi.",
+          "Aşınma noktası ve zincir boşluğu hem fotoğraf hem ses kaydı ile dokümante edildi.",
         line_items: [
           {
             id: "parts-line-1",
-            label: "Zincir gergisi + tamamlayici iscilik",
-            value: "+₺1.250",
-            note: "Mevcut ses ve titresim riskini kesmek icin gerekli.",
+            label: "Zincir gergisi (OEM)",
+            value: "+₺620",
+            note: "Orijinal yedek parça.",
+          },
+          {
+            id: "parts-line-2",
+            label: "Zincir kilitleme seti",
+            value: "+₺320",
+            note: "Tamir sırasında revize edilen bağlantı donanımı.",
+          },
+          {
+            id: "parts-line-3",
+            label: "Ek işçilik (1.5 saat)",
+            value: "+₺310",
+            note: "Demontaj + montaj ek süresi.",
           },
         ],
         evidence_document_ids: ["doc-breakdown-parts-proof"],
@@ -236,57 +302,117 @@ export function seedTrackingCases(): ServiceCase[] {
       ),
     ],
     attachments: [
+      photoAttachment(
+        "attach-breakdown-engine-bay",
+        "Motor bölgesi — genel",
+        "Zincir tarafı yakın plan",
+        "bmw-engine-bay",
+      ),
+      photoAttachment(
+        "attach-breakdown-chain-wear",
+        "Zincir aşınma noktası",
+        "Gergi yakınında belirgin aşınma",
+        "timing-chain-wear",
+      ),
+      photoAttachment(
+        "attach-breakdown-dashboard",
+        "Kilometre + uyarı",
+        "87.400 km · uyarı ışığı yok",
+        "car-dashboard-km",
+      ),
+      photoAttachment(
+        "attach-breakdown-under-hood",
+        "Alt takım + kayış",
+        "Bağlantı ayakları + tansiyoner",
+        "engine-under-hood",
+      ),
       attachment(
         "attach-breakdown-sound",
         "video",
-        "Ilk ses kaydi",
-        "Rolantide metalik ses",
-        "Hazir",
+        "Rölanti ses kaydı",
+        "0:45 video · metalik ses belirgin",
+        "Hazır",
+      ),
+      attachment(
+        "attach-breakdown-audio",
+        "audio",
+        "Sürüş sesi",
+        "1800 devirde titreşim",
+        "Hazır",
       ),
     ],
     events: [
       event(
         "event-breakdown-parts",
-        "Parca onayi istendi",
-        "Servis zincir gergisi icin gorsel ve ses kaniti paylasti.",
+        "Parça onayı istendi",
+        "Servis zincir gergisi için görsel ve ses kanıtı paylaştı.",
         "40 dk önce",
         "warning",
         "parts_requested",
       ),
       event(
         "event-breakdown-progress",
-        "Teshis netlesti",
-        "Ses kaynaginin zincir hattinda yogunlastigi teyit edildi.",
+        "Teşhis netleşti",
+        "Ses kaynağının zincir hattında yoğunlaştığı teyit edildi.",
         "2 sa önce",
+        "info",
+      ),
+      event(
+        "event-breakdown-intake",
+        "Araç teslim alındı",
+        "Pickup + ilk teşhis tamamlandı, ses kaydı + motor fotoğrafları yüklendi.",
+        "4 sa önce",
         "info",
       ),
       event(
         "event-breakdown-selected",
         "Teklif kabul edildi",
-        "AutoPro Servis bu vaka icin secildi.",
+        "AutoPro Servis bu vaka için seçildi.",
         "Dün",
         "success",
         "technician_selected",
+      ),
+      event(
+        "event-breakdown-open",
+        "Talep açıldı",
+        "Kullanıcı arıza bildirimini oluşturdu, 3 teklif toplandı.",
+        "Dün",
+        "accent",
+        "submitted",
       ),
     ],
     thread: {
       id: "thread-breakdown-001",
       case_id: "case-bmw-breakdown-001",
-      preview: "Parca gerekcesini net gorsellerle paylastik.",
+      preview: "Parça gerekçesini net görsellerle paylaştık.",
       unread_count: 2,
       messages: [
+        message(
+          "message-breakdown-intro",
+          "Naro",
+          "system",
+          "Talebin açıldı. AutoPro Servis bu vakayı aldı, ilk teşhis için pickup ayarlanıyor.",
+          "Dün",
+        ),
+        message(
+          "message-breakdown-pickup",
+          "AutoPro Servis",
+          "technician",
+          "Aracı saat 10:30'da aldık, ses kaydı ve zincir hattı fotoğraflarını yüklüyorum.",
+          "4 sa önce",
+        ),
         message(
           "message-breakdown-1",
           "AutoPro Servis",
           "technician",
-          "Asinma noktasini yakin plan gorsellerle ekledik; ses kaydi da eklendi.",
+          "Aşınma noktasını yakın plan görsellerle ekledik; ses kaydı da eklendi. Zincir gergisinin değişmesi önerilir.",
           "40 dk önce",
         ),
         message(
           "message-breakdown-2",
           "Naro",
           "system",
-          "Parca onayi bekleniyor. Onay gelince onarim sahnesi kaldigi yerden devam edecek.",
+          "Parça onayı bekleniyor. Onay gelince onarım sahnesi kaldığı yerden devam edecek.",
           "35 dk önce",
         ),
       ],
