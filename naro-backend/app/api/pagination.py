@@ -29,7 +29,10 @@ from pydantic import BaseModel
 T = TypeVar("T")
 
 
-class PaginatedResponse(BaseModel, Generic[T]):
+class PaginatedResponse(BaseModel, Generic[T]):  # noqa: UP046
+    """Pydantic Generic[T] subclass — PEP 695 `class X[T]` syntax Pydantic
+    v2 ile henüz uyumlu değil; explicit Generic kullanılır."""
+
     items: list[T]
     next_cursor: str | None = None
 
@@ -62,7 +65,7 @@ def decode_cursor(cursor: str | None) -> dict[str, object] | None:
         ) from exc
 
 
-def build_paginated(
+def build_paginated(  # noqa: UP047
     rows: list[T],
     *,
     limit: int,

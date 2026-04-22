@@ -226,7 +226,7 @@ def test_towing_missing_dropoff_rejected() -> None:
 
 
 def test_towing_pickup_preference_rejected() -> None:
-    with pytest.raises(ValidationError, match="pickup_preference|valet_requested|on_site_repair"):
+    with pytest.raises(ValidationError, match=r"pickup_preference|valet_requested|on_site_repair"):
         ServiceRequestDraftCreate(
             kind=ServiceRequestKind.TOWING,
             vehicle_id=uuid4(),

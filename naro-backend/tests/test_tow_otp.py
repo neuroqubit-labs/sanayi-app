@@ -11,10 +11,11 @@ integration smoke Faz 10f'de aktive edilecek.
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 
 from app.repositories.tow import generate_otp_code, hash_otp_code
-from uuid import uuid4
 
 
 def test_generate_otp_code_length() -> None:

@@ -30,12 +30,10 @@ from app.schemas.service_request import (
     CaseAttachmentDraft,
     CaseAttachmentKind,
     DamageSeverity,
-    LatLng,
     MaintenanceCategory,
     ServiceRequestDraftCreate,
 )
 from app.services import case_create
-
 
 # ─── Test fixtures ─────────────────────────────────────────────────────────
 
