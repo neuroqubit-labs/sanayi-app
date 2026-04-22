@@ -13,7 +13,7 @@ import {
 import {
   useBrandsQuery,
   useServiceDomainsQuery,
-  useTechniciansFeed,
+  useTechniciansInfiniteFeed,
 } from "../api";
 import { TechnicianFeedCard } from "../components/TechnicianFeedCard";
 import type { TechnicianFeedItem } from "../schemas";
@@ -36,7 +36,7 @@ export function UstalarScreen() {
 
   const deferredQuery = useDeferredValue(query);
 
-  const feedQuery = useTechniciansFeed({
+  const feedQuery = useTechniciansInfiniteFeed({
     domain: domainKey ?? undefined,
     brand: brandKey ?? undefined,
   });
@@ -44,7 +44,8 @@ export function UstalarScreen() {
   const brandsQuery = useBrandsQuery();
 
   const items = useMemo(() => {
-    const raw = feedQuery.data?.items ?? [];
+    const raw =
+      feedQuery.data?.pages.flatMap((page) => page.items) ?? [];
     const needle = deferredQuery.trim().toLowerCase();
     if (needle.length === 0) return raw;
     return raw.filter((item) => {
@@ -153,6 +154,12 @@ export function UstalarScreen() {
           setQuery("");
         }}
         onRetry={() => feedQuery.refetch()}
+        onEndReached={() => {
+          if (feedQuery.hasNextPage && !feedQuery.isFetchingNextPage) {
+            feedQuery.fetchNextPage();
+          }
+        }}
+        isFetchingNextPage={feedQuery.isFetchingNextPage}
       />
     </Screen>
   );
@@ -255,6 +262,8 @@ type FeedBodyProps = {
   hasFilters: boolean;
   onClear: () => void;
   onRetry: () => void;
+  onEndReached: () => void;
+  isFetchingNextPage: boolean;
 };
 
 function FeedBody({
@@ -264,6 +273,8 @@ function FeedBody({
   hasFilters,
   onClear,
   onRetry,
+  onEndReached,
+  isFetchingNextPage,
 }: FeedBodyProps) {
   if (isLoading) {
     return (
@@ -341,6 +352,15 @@ function FeedBody({
       renderItem={({ item }) => <TechnicianFeedCard item={item} />}
       contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingBottom: 32 }}
       showsVerticalScrollIndicator={false}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={
+        isFetchingNextPage ? (
+          <View className="items-center py-4">
+            <ActivityIndicator size="small" color="#83a7ff" />
+          </View>
+        ) : null
+      }
     />
   );
 }

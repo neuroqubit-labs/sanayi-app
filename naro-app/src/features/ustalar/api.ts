@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { useActiveCase } from "@/features/cases";
 import { useActiveVehicle } from "@/features/vehicles";
@@ -127,6 +127,41 @@ export function useTechniciansFeed(filters: FeedFilters = {}) {
       const raw = await apiClient(buildFeedPath(filters));
       return TechnicianFeedResponseSchema.parse(raw);
     },
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Paginated infinite feed — filter'a göre (domain + brand + district).
+ * Cursor backend `next_cursor` string'i ile ilerler.
+ */
+export function useTechniciansInfiniteFeed(
+  filters: Omit<FeedFilters, "cursor"> = {},
+) {
+  const limit = filters.limit ?? 20;
+  return useInfiniteQuery({
+    queryKey: [
+      "technicians",
+      "public",
+      "feed",
+      "infinite",
+      filters.domain ?? null,
+      filters.brand ?? null,
+      filters.district ?? null,
+      limit,
+    ] as const,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const raw = await apiClient(
+        buildFeedPath({
+          ...filters,
+          limit,
+          cursor: pageParam ?? undefined,
+        }),
+      );
+      return TechnicianFeedResponseSchema.parse(raw);
+    },
+    getNextPageParam: (lastPage): string | null => lastPage.next_cursor,
     staleTime: 30 * 1000,
   });
 }
