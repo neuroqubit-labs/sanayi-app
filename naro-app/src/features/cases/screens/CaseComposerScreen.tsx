@@ -16,7 +16,8 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTechnicianCooldownStore } from "@/features/cases/cooldown-store";
-import { TOW_DEFAULT_PICKUP, useTowStore } from "@/features/tow";
+import { TOW_DEFAULT_PICKUP } from "@/features/tow";
+import { useCreateTowCase, useTowFareQuote } from "@/features/tow/api";
 import { useTechnicianProfile } from "@/features/ustalar/api";
 import {
   useActiveVehicle,
@@ -95,6 +96,8 @@ export function CaseComposerScreen() {
 
   const { data: draft, updateDraft, resetDraft } = useCreateCaseDraft(kind);
   const submitMutation = useSubmitCase(kind);
+  const towFareQuote = useTowFareQuote();
+  const towCreateCase = useCreateTowCase();
   const flow = useMemo(() => getComposerFlow(kind), [kind]);
 
   const currentStep = flow.steps[stepIndex] ?? flow.steps[0]!;
@@ -254,31 +257,54 @@ export function CaseComposerScreen() {
     if (!activeVehicle) return;
 
     if (kind === "towing") {
+      // P0-4 canonical live migration (2026-04-23):
+      // 1. Fare quote (pre-flight) → TowFareQuote snapshot
+      // 2. POST /tow/cases (fare_quote body'ye gömülü)
+      //
+      // PO kararı K1: required_equipment şu an FE "flatbed" default
+      // (BE auto-derive deploy olana kadar). PO K2: pickup_lat_lng
+      // V1 default Kayseri merkez; V1.1'de user live location.
       const isImmediate = draft.urgency === "urgent";
-      const createTowCase = useTowStore.getState();
-      const baseTowInput = {
-        pickup_lat_lng: TOW_DEFAULT_PICKUP.lat_lng,
-        pickup_label: draft.location_label.trim() || TOW_DEFAULT_PICKUP.label,
-        dropoff_lat_lng: null,
-        dropoff_label: draft.dropoff_label?.trim() || null,
-        vehicle_id: activeVehicle.id,
-        incident_reason: "not_running" as const,
-        required_equipment: "flatbed" as const,
-        kasko: {
-          has_kasko: false,
-          pre_auth_on_customer_card: true,
-        },
-        attachments: [],
-      };
-      const created = isImmediate
-        ? createTowCase.createImmediate(baseTowInput)
-        : createTowCase.createScheduled({
-            ...baseTowInput,
-            scheduled_at:
-              draft.preferred_window ?? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-          });
-      resetDraft();
-      router.replace(`/cekici/${created.id}` as Href);
+      const mode = isImmediate ? ("immediate" as const) : ("scheduled" as const);
+      const pickupLatLng = TOW_DEFAULT_PICKUP.lat_lng;
+      const equipment = ["flatbed" as const];
+      try {
+        const quote = await towFareQuote.mutateAsync({
+          mode,
+          pickup_lat_lng: pickupLatLng,
+          dropoff_lat_lng: null,
+          required_equipment: equipment,
+          urgency_bump: isImmediate,
+        });
+        const snapshot = await towCreateCase.mutateAsync({
+          mode,
+          pickup_lat_lng: pickupLatLng,
+          pickup_label:
+            draft.location_label.trim() || TOW_DEFAULT_PICKUP.label,
+          dropoff_lat_lng: null,
+          dropoff_label: draft.dropoff_label?.trim() || null,
+          vehicle_id: activeVehicle.id,
+          incident_reason: "not_running",
+          required_equipment: equipment,
+          scheduled_at: isImmediate
+            ? null
+            : draft.preferred_window ??
+              new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          fare_quote: quote.quote,
+          kasko: {
+            has_kasko: false,
+            pre_auth_on_customer_card: true,
+          },
+          attachments: [],
+        });
+        resetDraft();
+        router.replace(`/cekici/${snapshot.id}` as Href);
+      } catch (err) {
+        console.warn("tow case create failed", err);
+        // UX: submitLoading state zaten false'a döner; hata TanStack
+        // mutation'da tutulur. Ekstra Alert eklemek kullanıcı deneyimini
+        // bozar; composer kullanıcı tekrar butona basarak retry eder.
+      }
       return;
     }
 
@@ -327,7 +353,11 @@ export function CaseComposerScreen() {
               isLastStep ? (flow.submitLabel ?? "Bildirimi gönder") : "Devam et"
             }
             onPrimary={goNext}
-            primaryLoading={submitMutation.isPending}
+            primaryLoading={
+              submitMutation.isPending ||
+              towFareQuote.isPending ||
+              towCreateCase.isPending
+            }
             primaryDisabled={Boolean(validationMessage)}
             secondaryLabel={stepIndex === 0 ? "İptal" : "Geri"}
             onSecondary={goBack}
