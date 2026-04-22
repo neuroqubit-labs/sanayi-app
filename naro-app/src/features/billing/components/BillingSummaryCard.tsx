@@ -1,4 +1,5 @@
 import {
+  Icon,
   KaskoStatusBadge,
   MoneyAmount,
   PaymentStatusBadge,
@@ -14,7 +15,6 @@ import {
   ShieldCheck,
 } from "lucide-react-native";
 import { ActivityIndicator, Pressable, View } from "react-native";
-import { Icon } from "@naro/ui";
 
 import { useBillingSummary } from "../api";
 
