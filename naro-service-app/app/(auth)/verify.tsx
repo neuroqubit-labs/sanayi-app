@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ApiError } from "@naro/mobile-core";
 import { Button, FormField, Screen, Text } from "@naro/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -6,9 +7,36 @@ import { useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
-import { telemetry } from "@/runtime";
+import { apiClient, telemetry } from "@/runtime";
 import { authApi } from "@/services/auth/api";
-import { useAuthStore } from "@/services/auth/store";
+import { useAuthStore, type ApprovalStatus } from "@/services/auth/store";
+
+/**
+ * BE `/technicians/me/shell-config` minimal parse — admission_status alanı
+ * kritik. Diğer alanlar useShellConfig içinde Zustand'tan türetiliyor; bu
+ * sadece verify sonrası ilk admission status hydration için.
+ */
+const AdmissionShellSchema = z.object({
+  admission_status: z.enum(["pending", "active", "suspended"]),
+});
+
+async function fetchLiveAdmissionStatus(): Promise<ApprovalStatus> {
+  try {
+    const raw = await apiClient("/technicians/me/shell-config");
+    const parsed = AdmissionShellSchema.parse(raw);
+    return parsed.admission_status;
+  } catch (err) {
+    // 404 = technician_profile yok → yeni kayıt, onboarding'e ihtiyaç var.
+    // Diğer hatalar telemetry'e log; pending fallback ile onboarding akışı çalışır.
+    if (!(err instanceof ApiError) || err.status !== 404) {
+      telemetry.captureError(err, {
+        app: "service",
+        stage: "shell_config_after_verify",
+      });
+    }
+    return "pending";
+  }
+}
 
 const VerifyFormSchema = z.object({
   code: z
@@ -41,11 +69,12 @@ export default function VerifyScreen() {
     try {
       const tokens = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
       await setTokens(tokens.access_token, tokens.refresh_token);
-      // Yeni technician kayıtları backend tarafında "pending" olarak oluşturulur.
-      // Gerçek akışta /users/me çağırıp status alınmalı; şimdilik varsayılan pending.
-      await setApprovalStatus("pending");
-      telemetry.track("auth_verified", { app: "service", approvalStatus: "pending" });
-      router.replace("/(onboarding)/pending");
+      const approvalStatus = await fetchLiveAdmissionStatus();
+      await setApprovalStatus(approvalStatus);
+      telemetry.track("auth_verified", { app: "service", approvalStatus });
+      router.replace(
+        approvalStatus === "active" ? "/(tabs)" : "/(onboarding)/pending",
+      );
     } catch (error) {
       telemetry.captureError(error, { app: "service", stage: "verify_otp" });
       setSubmitError("Kod geçersiz veya süresi dolmuş");
