@@ -317,7 +317,8 @@ export function createExpoMediaPickerAdapter(deps: {
       const picker = ensureImagePicker();
       await picker.requestMediaLibraryPermissionsAsync?.();
       const result = await picker.launchImageLibraryAsync({
-        mediaTypes: picker.MediaTypeOptions.Images,
+        // expo-image-picker 16+: MediaTypeOptions deprecated → string literal array.
+        mediaTypes: ["images"],
         allowsMultipleSelection: options?.multiple ?? false,
         quality: options?.quality ?? 0.85,
         selectionLimit: options?.max ?? 1,
