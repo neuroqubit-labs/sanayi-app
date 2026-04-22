@@ -1,7 +1,7 @@
-import { Icon, Text, TrustBadge } from "@naro/ui";
+import { Icon, PressableCard, Text, TrustBadge } from "@naro/ui";
 import { Href, useRouter } from "expo-router";
 import { ArrowRight, MapPin, Store } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import type { NearbyService } from "../types";
 
@@ -13,11 +13,13 @@ export function NearbyServiceCard({ service }: NearbyServiceCardProps) {
   const router = useRouter();
 
   return (
-    <Pressable
+    <PressableCard
       accessibilityRole="button"
       accessibilityLabel={`${service.name} profilini ac`}
       onPress={() => router.push(service.route as Href)}
-      className="flex-1 gap-4 overflow-hidden rounded-[24px] border border-app-outline bg-app-surface active:bg-app-surface-2"
+      variant="elevated"
+      radius="lg"
+      className="flex-1 gap-4 overflow-hidden"
     >
       <View className="relative h-20 overflow-hidden bg-brand-500/10">
         <View className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-brand-500/15" />
@@ -60,6 +62,6 @@ export function NearbyServiceCard({ service }: NearbyServiceCardProps) {
           </View>
         </View>
       </View>
-    </Pressable>
+    </PressableCard>
   );
 }
