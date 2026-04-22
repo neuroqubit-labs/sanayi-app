@@ -21,64 +21,49 @@ import {
   View,
 } from "react-native";
 
-import { useCaseApproval, useSubmitApprovalDecision } from "../api";
+import { useCaseApprovals, useDecideApproval } from "@/features/approvals";
+import type { ApprovalResponse } from "@/features/approvals";
+
+function parseDecimal(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
 
 export type InvoiceApprovalSheetProps = {
   visible: boolean;
+  caseId: string;
   approvalId: string | null;
   onClose: () => void;
-  /**
-   * Approve sonrası ek pre-auth gerekirse (nadir, usta düşük tahmin
-   * ettiyse) caller 3DS flow tetiklemek için çağrılır. Çoğu durumda
-   * pre-auth yeterli → capture otomatik.
-   */
-  onNeedsPayment?: (args: {
-    caseId: string;
-    redirectUrl: string;
-    paymentId: string | null;
-  }) => void;
   onTalkToTechnician?: (caseId: string) => void;
 };
 
 export function InvoiceApprovalSheet({
   visible,
+  caseId,
   approvalId,
   onClose,
-  onNeedsPayment,
   onTalkToTechnician,
 }: InvoiceApprovalSheetProps) {
-  const approvalQuery = useCaseApproval(approvalId ?? "");
-  const submit = useSubmitApprovalDecision(approvalId ?? "");
+  const approvalsQuery = useCaseApprovals(caseId);
+  const approval = useMemo(
+    () =>
+      approvalsQuery.data?.find(
+        (a) => a.id === approvalId && a.kind === "invoice",
+      ) ?? null,
+    [approvalsQuery.data, approvalId],
+  );
+
+  const submit = useDecideApproval(caseId, approvalId ?? "");
   const [reason, setReason] = useState("");
   const [disputing, setDisputing] = useState(false);
 
-  const lineItemsSum = useMemo(() => {
-    const items = approvalQuery.data?.line_items ?? [];
-    return items.reduce((sum, item) => {
-      const parsed = Number.parseFloat(item.value.replace(/[^\d.-]/g, ""));
-      return Number.isNaN(parsed) ? sum : sum + parsed;
-    }, 0);
-  }, [approvalQuery.data]);
-
-  const finalAmount =
-    approvalQuery.data?.amount ??
-    (lineItemsSum > 0 ? lineItemsSum : null);
+  const finalAmount = parseDecimal(approval?.amount ?? null);
 
   const handleApprove = async () => {
     if (!approvalId) return;
     try {
-      const response = await submit.mutateAsync({ decision: "approve" });
-      if (
-        response.payment?.required &&
-        response.payment.redirect_url &&
-        onNeedsPayment
-      ) {
-        onNeedsPayment({
-          caseId: response.approval.case_id,
-          redirectUrl: response.payment.redirect_url,
-          paymentId: response.payment.payment_id,
-        });
-      }
+      await submit.mutateAsync({ decision: "approve" });
       onClose();
     } catch (err) {
       console.warn("invoice approve failed", err);
@@ -90,7 +75,7 @@ export function InvoiceApprovalSheet({
     const trimmed = reason.trim();
     if (trimmed.length < 10) return;
     try {
-      await submit.mutateAsync({ decision: "reject", reason: trimmed });
+      await submit.mutateAsync({ decision: "reject", note: trimmed });
       setReason("");
       setDisputing(false);
       onClose();
@@ -113,58 +98,60 @@ export function InvoiceApprovalSheet({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Kapat"
-        onPress={handleClose}
-        className="flex-1 bg-black/50"
-      />
-      <View className="absolute inset-x-0 bottom-0">
-        <ActionSheetSurface
-          title="Fatura onayı"
-          description="İş tamamlandı — ücret onayını bekliyor"
-        >
-          {approvalQuery.isLoading ? (
-            <View className="items-center py-6">
-              <ActivityIndicator size="small" color="#83a7ff" />
-            </View>
-          ) : approvalQuery.isError || !approvalQuery.data ? (
-            <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
-              <Text variant="caption" tone="critical" className="text-[12px]">
-                Fatura talebi yüklenemedi. Daha sonra tekrar dene.
-              </Text>
-            </View>
-          ) : (
-            <InvoiceBody
-              data={approvalQuery.data}
-              amount={finalAmount}
-              disputing={disputing}
-              reason={reason}
-              setReason={setReason}
-              submitPending={submit.isPending}
-              submitError={submit.isError}
-              onApprove={handleApprove}
-              onDispute={handleDispute}
-              onStartDispute={() => setDisputing(true)}
-              onCancelDispute={() => {
-                setDisputing(false);
-                setReason("");
-              }}
-              onTalkToTechnician={
-                onTalkToTechnician && approvalQuery.data.case_id
-                  ? () => onTalkToTechnician(approvalQuery.data!.case_id)
-                  : undefined
-              }
-            />
-          )}
-        </ActionSheetSurface>
+      <View className="flex-1">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Kapat"
+          onPress={handleClose}
+          className="absolute inset-0 bg-black/50"
+        />
+        <View className="absolute inset-x-0 bottom-0">
+          <ActionSheetSurface
+            title="Fatura onayı"
+            description="İş tamamlandı — ücret onayını bekliyor"
+          >
+            {approvalsQuery.isLoading ? (
+              <View className="items-center py-6">
+                <ActivityIndicator size="small" color="#83a7ff" />
+              </View>
+            ) : approvalsQuery.isError || !approval ? (
+              <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
+                <Text variant="caption" tone="critical" className="text-[12px]">
+                  Fatura talebi yüklenemedi. Daha sonra tekrar dene.
+                </Text>
+              </View>
+            ) : (
+              <InvoiceBody
+                data={approval}
+                amount={finalAmount}
+                disputing={disputing}
+                reason={reason}
+                setReason={setReason}
+                submitPending={submit.isPending}
+                submitError={submit.isError}
+                onApprove={handleApprove}
+                onDispute={handleDispute}
+                onStartDispute={() => setDisputing(true)}
+                onCancelDispute={() => {
+                  setDisputing(false);
+                  setReason("");
+                }}
+                onTalkToTechnician={
+                  onTalkToTechnician
+                    ? () => onTalkToTechnician(approval.case_id)
+                    : undefined
+                }
+              />
+            )}
+          </ActionSheetSurface>
+        </View>
       </View>
     </Modal>
   );
 }
 
 type BodyProps = {
-  data: NonNullable<ReturnType<typeof useCaseApproval>["data"]>;
+  data: ApprovalResponse;
   amount: number | null;
   disputing: boolean;
   reason: string;
@@ -200,13 +187,6 @@ function InvoiceBody({
         contentContainerStyle={{ gap: 12 }}
         style={{ maxHeight: 440 }}
       >
-        <Text
-          variant="label"
-          tone="inverse"
-          className="text-[14px] leading-[19px]"
-        >
-          {data.title}
-        </Text>
         {data.description ? (
           <Text
             variant="caption"
@@ -215,21 +195,6 @@ function InvoiceBody({
           >
             {data.description}
           </Text>
-        ) : null}
-
-        {data.service_comment ? (
-          <View className="rounded-[14px] border border-app-outline bg-app-surface-2 px-3 py-2.5">
-            <Text variant="eyebrow" tone="subtle" className="text-[10px]">
-              Ustadan son notu
-            </Text>
-            <Text
-              variant="caption"
-              tone="muted"
-              className="text-app-text-muted text-[12px] leading-[17px]"
-            >
-              {data.service_comment}
-            </Text>
-          </View>
         ) : null}
 
         {data.line_items.length > 0 ? (
@@ -241,9 +206,9 @@ function InvoiceBody({
               </Text>
             </View>
             <View className="gap-1.5 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2.5">
-              {data.line_items.map((item) => (
+              {data.line_items.map((item, idx) => (
                 <View
-                  key={item.id}
+                  key={`${idx}-${item.label}`}
                   className="flex-row items-center justify-between gap-2 border-b border-app-outline/40 pb-1.5 last:border-0 last:pb-0"
                 >
                   <Text

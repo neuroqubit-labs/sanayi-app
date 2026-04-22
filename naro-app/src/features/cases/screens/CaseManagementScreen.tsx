@@ -14,6 +14,7 @@ import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
   AudioWaveform,
   Camera,
+  CheckCircle2,
   ChevronRight,
   FileText,
   Film,
@@ -28,9 +29,11 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useCaseApprovals } from "@/features/approvals";
 import {
   BillingSummaryCard,
   CancellationSheet,
+  CompletionApprovalSheet,
   InvoiceApprovalSheet,
   PartsApprovalSheet,
   type CaseBillingStage,
@@ -73,6 +76,45 @@ const ATTACHMENT_COLOR: Record<string, string> = {
   location: "#83a7ff",
 };
 
+type ApprovalKind = "parts_request" | "invoice" | "completion";
+
+const APPROVAL_META: Record<
+  ApprovalKind,
+  {
+    label: string;
+    icon: LucideIcon;
+    iconColor: string;
+    containerClass: string;
+    iconBgClass: string;
+    textTone: "warning" | "accent" | "success";
+  }
+> = {
+  parts_request: {
+    label: "Ek parça onayı bekliyor",
+    icon: Sparkles,
+    iconColor: "#f5b33f",
+    containerClass: "border-app-warning/40 bg-app-warning-soft",
+    iconBgClass: "bg-app-warning/20",
+    textTone: "warning",
+  },
+  invoice: {
+    label: "Fatura onayı bekliyor",
+    icon: FileText,
+    iconColor: "#0ea5e9",
+    containerClass: "border-brand-500/40 bg-brand-500/10",
+    iconBgClass: "bg-brand-500/20",
+    textTone: "accent",
+  },
+  completion: {
+    label: "İş tamamlandı — son onay",
+    icon: CheckCircle2,
+    iconColor: "#2dd28d",
+    containerClass: "border-app-success/40 bg-app-success-soft",
+    iconBgClass: "bg-app-success/20",
+    textTone: "success",
+  },
+};
+
 export function CaseManagementScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -91,8 +133,15 @@ export function CaseManagementScreen() {
   const [cancelSheetOpen, setCancelSheetOpen] = useState(false);
   const [openApproval, setOpenApproval] = useState<{
     id: string;
-    kind: "parts_request" | "invoice";
+    kind: "parts_request" | "invoice" | "completion";
   } | null>(null);
+
+  // Canlı approvals (BE shipped 2026-04-23): case bazlı pending liste
+  const approvalsQuery = useCaseApprovals(caseId);
+  const pendingApprovals = useMemo(
+    () => (approvalsQuery.data ?? []).filter((a) => a.status === "pending"),
+    [approvalsQuery.data],
+  );
 
   const assignedTechnician = useMemo(() => {
     if (!caseItem) return null;
@@ -494,68 +543,53 @@ export function CaseManagementScreen() {
           </Pressable>
         ) : null}
 
-        {/* Bekleyen onay talepleri — kullanıcının aksiyon alması için */}
-        {caseItem.pending_approvals
-          .filter((a) => a.status === "pending")
-          .filter(
-            (a): a is typeof a & { kind: "parts_request" | "invoice" } =>
-              a.kind === "parts_request" || a.kind === "invoice",
-          )
-          .map((approval) => (
+        {/* Bekleyen onay talepleri — canlı approvals endpoint */}
+        {pendingApprovals.map((approval) => {
+          const meta = APPROVAL_META[approval.kind];
+          return (
             <Pressable
               key={approval.id}
               accessibilityRole="button"
-              accessibilityLabel={`${approval.title} onayını aç`}
+              accessibilityLabel={`${meta.label} onayını aç`}
               onPress={() =>
                 setOpenApproval({ id: approval.id, kind: approval.kind })
               }
               className={[
                 "flex-row items-center gap-3 rounded-[16px] border px-4 py-3.5 active:opacity-90",
-                approval.kind === "parts_request"
-                  ? "border-app-warning/40 bg-app-warning-soft"
-                  : "border-brand-500/40 bg-brand-500/10",
+                meta.containerClass,
               ].join(" ")}
             >
               <View
                 className={[
                   "h-9 w-9 items-center justify-center rounded-full",
-                  approval.kind === "parts_request"
-                    ? "bg-app-warning/20"
-                    : "bg-brand-500/20",
+                  meta.iconBgClass,
                 ].join(" ")}
               >
-                <Icon
-                  icon={approval.kind === "parts_request" ? Sparkles : FileText}
-                  size={15}
-                  color={
-                    approval.kind === "parts_request" ? "#f5b33f" : "#0ea5e9"
-                  }
-                />
+                <Icon icon={meta.icon} size={15} color={meta.iconColor} />
               </View>
               <View className="flex-1 gap-0.5">
                 <Text
                   variant="label"
-                  tone={
-                    approval.kind === "parts_request" ? "warning" : "accent"
-                  }
+                  tone={meta.textTone}
                   className="text-[13px]"
                 >
-                  {approval.kind === "parts_request"
-                    ? "Ek parça onayı bekliyor"
-                    : "Fatura onayı bekliyor"}
+                  {meta.label}
                 </Text>
-                <Text
-                  variant="caption"
-                  tone="muted"
-                  className="text-app-text-muted text-[11px]"
-                  numberOfLines={1}
-                >
-                  {approval.title}
-                </Text>
+                {approval.description ? (
+                  <Text
+                    variant="caption"
+                    tone="muted"
+                    className="text-app-text-muted text-[11px]"
+                    numberOfLines={1}
+                  >
+                    {approval.description}
+                  </Text>
+                ) : null}
               </View>
               <Icon icon={ChevronRight} size={14} color="#83a7ff" />
             </Pressable>
-          ))}
+          );
+        })}
 
         {/* Billing summary — BE billing summary endpoint 404 iken
             komponent sessizce null döner (ödeme akışı henüz başlamamış). */}
@@ -628,17 +662,11 @@ export function CaseManagementScreen() {
 
       <PartsApprovalSheet
         visible={openApproval?.kind === "parts_request"}
+        caseId={caseId}
         approvalId={
           openApproval?.kind === "parts_request" ? openApproval.id : null
         }
         onClose={() => setOpenApproval(null)}
-        onNeedsPayment={({ caseId: paymentCaseId, redirectUrl }) => {
-          // Ek 3DS hold gerektiren senaryo — payment modal'ına yönlendir
-          router.push(`/(modal)/odeme/${paymentCaseId}` as Href);
-          // redirectUrl query param olarak PaymentInitiateScreen tarafında
-          // kullanılması V2; şu an screen yeni initiate ile devam eder.
-          void redirectUrl;
-        }}
         onTalkToTechnician={(threadCaseId) =>
           router.push(`/vaka/${threadCaseId}/mesajlar` as Href)
         }
@@ -646,11 +674,21 @@ export function CaseManagementScreen() {
 
       <InvoiceApprovalSheet
         visible={openApproval?.kind === "invoice"}
+        caseId={caseId}
         approvalId={openApproval?.kind === "invoice" ? openApproval.id : null}
         onClose={() => setOpenApproval(null)}
-        onNeedsPayment={({ caseId: paymentCaseId }) => {
-          router.push(`/(modal)/odeme/${paymentCaseId}` as Href);
-        }}
+        onTalkToTechnician={(threadCaseId) =>
+          router.push(`/vaka/${threadCaseId}/mesajlar` as Href)
+        }
+      />
+
+      <CompletionApprovalSheet
+        visible={openApproval?.kind === "completion"}
+        caseId={caseId}
+        approvalId={
+          openApproval?.kind === "completion" ? openApproval.id : null
+        }
+        onClose={() => setOpenApproval(null)}
         onTalkToTechnician={(threadCaseId) =>
           router.push(`/vaka/${threadCaseId}/mesajlar` as Href)
         }

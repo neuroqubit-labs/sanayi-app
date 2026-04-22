@@ -3,19 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/runtime";
 
 import {
-  ApprovalDecisionRequestSchema,
-  ApprovalDecisionResponseSchema,
   BillingSummarySchema,
   CancellationRequestSchema,
-  CaseApprovalResponseSchema,
   DisputeRequestSchema,
   PaymentInitiateResponseSchema,
   RefundOutSchema,
-  type ApprovalDecisionRequest,
-  type ApprovalDecisionResponse,
   type BillingSummary,
   type CancellationRequest,
-  type CaseApprovalResponse,
   type DisputeRequest,
   type PaymentInitiateResponse,
   type RefundOut,
@@ -76,41 +70,9 @@ export function useCaseRefunds(caseId: string) {
   });
 }
 
-// ─── Approval (parts_request + invoice) (§5 + §6) ──────────────────────────
-
-export function useCaseApproval(approvalId: string) {
-  return useQuery<CaseApprovalResponse>({
-    queryKey: ["billing", "approval", approvalId],
-    enabled: approvalId.length > 0,
-    queryFn: async () => {
-      const raw = await apiClient(`/case-approvals/${approvalId}`);
-      return CaseApprovalResponseSchema.parse(raw);
-    },
-  });
-}
-
-export function useSubmitApprovalDecision(approvalId: string) {
-  const queryClient = useQueryClient();
-  return useMutation<ApprovalDecisionResponse, Error, ApprovalDecisionRequest>({
-    mutationFn: async (payload) => {
-      const body = ApprovalDecisionRequestSchema.parse(payload);
-      const raw = await apiClient(`/case-approvals/${approvalId}/decision`, {
-        method: "POST",
-        body: JSON.parse(JSON.stringify(body)),
-      });
-      return ApprovalDecisionResponseSchema.parse(raw);
-    },
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({
-        queryKey: ["billing", "approval", approvalId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["billing", "summary", response.approval.case_id],
-      });
-      queryClient.invalidateQueries({ queryKey: ["cases"] });
-    },
-  });
-}
+// Approval (parts/invoice/completion) feature/approvals'a taşındı —
+// useCaseApprovals + useDecideApproval. BE canonical path değişti:
+// /cases/{case_id}/approvals + /decide.
 
 // ─── Cancellation (§8) ─────────────────────────────────────────────────────
 

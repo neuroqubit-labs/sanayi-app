@@ -16,65 +16,50 @@ import {
   View,
 } from "react-native";
 
-import { useCaseApproval, useSubmitApprovalDecision } from "../api";
+import { useCaseApprovals, useDecideApproval } from "@/features/approvals";
+import type { ApprovalResponse } from "@/features/approvals";
+
+function parseDecimal(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
 
 export type PartsApprovalSheetProps = {
   visible: boolean;
+  caseId: string;
   approvalId: string | null;
   onClose: () => void;
-  /**
-   * Approve response'ta `payment.redirect_url` geldiyse caller 3DS flow'u
-   * açmalı (PaymentInitiateScreen veya inline WebView). caseId +
-   * redirectUrl + paymentId aktarılır; FE'de optimistic ilerleme yok.
-   */
-  onNeedsPayment?: (args: {
-    caseId: string;
-    redirectUrl: string;
-    paymentId: string | null;
-  }) => void;
   /** Usta ile mesajlaşma için route navigate — caller sağlar. */
   onTalkToTechnician?: (caseId: string) => void;
 };
 
 export function PartsApprovalSheet({
   visible,
+  caseId,
   approvalId,
   onClose,
-  onNeedsPayment,
   onTalkToTechnician,
 }: PartsApprovalSheetProps) {
-  const approvalQuery = useCaseApproval(approvalId ?? "");
-  const submit = useSubmitApprovalDecision(approvalId ?? "");
+  const approvalsQuery = useCaseApprovals(caseId);
+  const approval = useMemo(
+    () =>
+      approvalsQuery.data?.find(
+        (a) => a.id === approvalId && a.kind === "parts_request",
+      ) ?? null,
+    [approvalsQuery.data, approvalId],
+  );
+
+  const submit = useDecideApproval(caseId, approvalId ?? "");
   const [reason, setReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
 
-  const lineItemsSum = useMemo(() => {
-    const items = approvalQuery.data?.line_items ?? [];
-    return items.reduce((sum, item) => {
-      const parsed = Number.parseFloat(item.value.replace(/[^\d.-]/g, ""));
-      return Number.isNaN(parsed) ? sum : sum + parsed;
-    }, 0);
-  }, [approvalQuery.data]);
-
-  const amount =
-    approvalQuery.data?.amount ??
-    (lineItemsSum > 0 ? lineItemsSum : null);
+  const amount = parseDecimal(approval?.amount ?? null);
 
   const handleApprove = async () => {
     if (!approvalId) return;
     try {
-      const response = await submit.mutateAsync({ decision: "approve" });
-      if (
-        response.payment?.required &&
-        response.payment.redirect_url &&
-        onNeedsPayment
-      ) {
-        onNeedsPayment({
-          caseId: response.approval.case_id,
-          redirectUrl: response.payment.redirect_url,
-          paymentId: response.payment.payment_id,
-        });
-      }
+      await submit.mutateAsync({ decision: "approve" });
       onClose();
     } catch (err) {
       console.warn("parts approve failed", err);
@@ -86,7 +71,7 @@ export function PartsApprovalSheet({
     try {
       await submit.mutateAsync({
         decision: "reject",
-        reason: reason.trim() || null,
+        note: reason.trim() || null,
       });
       setReason("");
       setRejecting(false);
@@ -110,62 +95,60 @@ export function PartsApprovalSheet({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Kapat"
-        onPress={handleClose}
-        className="flex-1 bg-black/50"
-      />
-      <View className="absolute inset-x-0 bottom-0">
-        <ActionSheetSurface
-          title="Ek parça onayı"
-          description={
-            approvalQuery.data?.requested_by_snapshot_name
-              ? `${approvalQuery.data.requested_by_snapshot_name} ek parça talep etti`
-              : "Usta ek parça talep etti"
-          }
-        >
-          {approvalQuery.isLoading ? (
-            <View className="items-center py-6">
-              <ActivityIndicator size="small" color="#83a7ff" />
-            </View>
-          ) : approvalQuery.isError || !approvalQuery.data ? (
-            <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
-              <Text variant="caption" tone="critical" className="text-[12px]">
-                Onay talebi yüklenemedi. Daha sonra tekrar dene.
-              </Text>
-            </View>
-          ) : (
-            <ApprovalBody
-              data={approvalQuery.data}
-              amount={amount}
-              rejecting={rejecting}
-              reason={reason}
-              setReason={setReason}
-              submitPending={submit.isPending}
-              submitError={submit.isError}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onStartReject={() => setRejecting(true)}
-              onCancelReject={() => {
-                setRejecting(false);
-                setReason("");
-              }}
-              onTalkToTechnician={
-                onTalkToTechnician && approvalQuery.data.case_id
-                  ? () => onTalkToTechnician(approvalQuery.data!.case_id)
-                  : undefined
-              }
-            />
-          )}
-        </ActionSheetSurface>
+      <View className="flex-1">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Kapat"
+          onPress={handleClose}
+          className="absolute inset-0 bg-black/50"
+        />
+        <View className="absolute inset-x-0 bottom-0">
+          <ActionSheetSurface
+            title="Ek parça onayı"
+            description="Usta ek parça talep etti"
+          >
+            {approvalsQuery.isLoading ? (
+              <View className="items-center py-6">
+                <ActivityIndicator size="small" color="#83a7ff" />
+              </View>
+            ) : approvalsQuery.isError || !approval ? (
+              <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
+                <Text variant="caption" tone="critical" className="text-[12px]">
+                  Onay talebi yüklenemedi. Daha sonra tekrar dene.
+                </Text>
+              </View>
+            ) : (
+              <ApprovalBody
+                data={approval}
+                amount={amount}
+                rejecting={rejecting}
+                reason={reason}
+                setReason={setReason}
+                submitPending={submit.isPending}
+                submitError={submit.isError}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onStartReject={() => setRejecting(true)}
+                onCancelReject={() => {
+                  setRejecting(false);
+                  setReason("");
+                }}
+                onTalkToTechnician={
+                  onTalkToTechnician
+                    ? () => onTalkToTechnician(approval.case_id)
+                    : undefined
+                }
+              />
+            )}
+          </ActionSheetSurface>
+        </View>
       </View>
     </Modal>
   );
 }
 
 type BodyProps = {
-  data: NonNullable<ReturnType<typeof useCaseApproval>["data"]>;
+  data: ApprovalResponse;
   amount: number | null;
   rejecting: boolean;
   reason: string;
@@ -200,13 +183,6 @@ function ApprovalBody({
         contentContainerStyle={{ gap: 12 }}
         style={{ maxHeight: 420 }}
       >
-        <Text
-          variant="label"
-          tone="inverse"
-          className="text-[14px] leading-[19px]"
-        >
-          {data.title}
-        </Text>
         {data.description ? (
           <Text
             variant="caption"
@@ -217,34 +193,15 @@ function ApprovalBody({
           </Text>
         ) : null}
 
-        {data.service_comment ? (
-          <View className="rounded-[14px] border border-app-outline bg-app-surface-2 px-3 py-2.5">
-            <Text
-              variant="eyebrow"
-              tone="subtle"
-              className="text-[10px]"
-            >
-              Ustadan not
-            </Text>
-            <Text
-              variant="caption"
-              tone="muted"
-              className="text-app-text-muted text-[12px] leading-[17px]"
-            >
-              {data.service_comment}
-            </Text>
-          </View>
-        ) : null}
-
         {data.line_items.length > 0 ? (
           <View className="gap-2">
             <Text variant="eyebrow" tone="subtle">
               Ek istenen kalemler
             </Text>
             <View className="gap-1.5 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2.5">
-              {data.line_items.map((item) => (
+              {data.line_items.map((item, idx) => (
                 <View
-                  key={item.id}
+                  key={`${idx}-${item.label}`}
                   className="flex-row items-center justify-between gap-2 border-b border-app-outline/40 pb-1.5 last:border-0 last:pb-0"
                 >
                   <Text
@@ -255,11 +212,7 @@ function ApprovalBody({
                   >
                     {item.label}
                   </Text>
-                  <Text
-                    variant="label"
-                    tone="accent"
-                    className="text-[12px]"
-                  >
+                  <Text variant="label" tone="accent" className="text-[12px]">
                     {item.value}
                   </Text>
                 </View>
@@ -276,11 +229,7 @@ function ApprovalBody({
                 Ek tutar
               </Text>
             </View>
-            <MoneyAmount
-              amount={amount}
-              variant="h2"
-              tone="warning"
-            />
+            <MoneyAmount amount={amount} variant="h2" tone="warning" />
             <Text
               variant="caption"
               tone="muted"
@@ -306,11 +255,7 @@ function ApprovalBody({
 
       {rejecting ? (
         <View className="gap-2 rounded-[14px] border border-app-outline bg-app-surface-2 px-3 py-2.5">
-          <Text
-            variant="eyebrow"
-            tone="subtle"
-            className="text-[10px]"
-          >
+          <Text variant="eyebrow" tone="subtle" className="text-[10px]">
             Red sebebi (opsiyonel)
           </Text>
           <TextInput
@@ -361,7 +306,7 @@ function ApprovalBody({
             </View>
             <View className="flex-[1.4]">
               <Button
-                label={submitPending ? "Onaylanıyor…" : "Onayla + Öde"}
+                label={submitPending ? "Onaylanıyor…" : "Onayla"}
                 size="md"
                 fullWidth
                 loading={submitPending}

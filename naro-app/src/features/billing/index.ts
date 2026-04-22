@@ -11,6 +11,10 @@ export {
   type InvoiceApprovalSheetProps,
 } from "./components/InvoiceApprovalSheet";
 export {
+  CompletionApprovalSheet,
+  type CompletionApprovalSheetProps,
+} from "./components/CompletionApprovalSheet";
+export {
   BillingSummaryCard,
   type BillingSummaryCardProps,
 } from "./components/BillingSummaryCard";

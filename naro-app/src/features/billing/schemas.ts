@@ -10,50 +10,8 @@ import { z } from "zod";
  * source-of-truth BE Pydantic'tir).
  */
 
-// ─── Approval parity (BE shipped: app/models/case_process.py) ──────────────
-
-export const CaseApprovalKindSchema = z.enum([
-  "parts_request",
-  "invoice",
-  "completion",
-]);
-export type CaseApprovalKind = z.infer<typeof CaseApprovalKindSchema>;
-
-export const CaseApprovalStatusSchema = z.enum([
-  "pending",
-  "approved",
-  "rejected",
-]);
-export type CaseApprovalStatus = z.infer<typeof CaseApprovalStatusSchema>;
-
-export const CaseApprovalLineItemSchema = z.object({
-  id: z.string().uuid(),
-  label: z.string(),
-  value: z.string(),
-  note: z.string().nullable().optional(),
-  sequence: z.number().int(),
-});
-export type CaseApprovalLineItem = z.infer<typeof CaseApprovalLineItemSchema>;
-
-export const CaseApprovalResponseSchema = z.object({
-  id: z.string().uuid(),
-  case_id: z.string().uuid(),
-  kind: CaseApprovalKindSchema,
-  status: CaseApprovalStatusSchema,
-  title: z.string(),
-  description: z.string().nullable(),
-  requested_by_user_id: z.string().uuid().nullable(),
-  requested_by_snapshot_name: z.string().nullable(),
-  requested_at: z.string(),
-  responded_at: z.string().nullable(),
-  amount: z.number().nullable(),
-  currency: z.string().default("TRY"),
-  service_comment: z.string().nullable(),
-  line_items: z.array(CaseApprovalLineItemSchema).default([]),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-export type CaseApprovalResponse = z.infer<typeof CaseApprovalResponseSchema>;
+// Approval schema'ları feature/approvals/schemas.ts'e taşındı (canonical
+// BE shipped 2026-04-23 — brief). Bu dosya artık sadece billing scope'u.
 
 // ─── Billing state machine (brief §4-§7, parity audit P0-2 canonical) ──────
 
@@ -247,31 +205,4 @@ export const DisputeRequestSchema = z.object({
 });
 export type DisputeRequest = z.infer<typeof DisputeRequestSchema>;
 
-// ─── Approval mutation bodies (parts + invoice decision) ────────────────────
-
-export const ApprovalDecisionRequestSchema = z.object({
-  decision: z.enum(["approve", "reject"]),
-  reason: z.string().max(500).nullable().optional(),
-});
-export type ApprovalDecisionRequest = z.infer<
-  typeof ApprovalDecisionRequestSchema
->;
-
-/**
- * Approve response — ek pre-auth gerekirse backend 3DS URL döner
- * (brief §5.3).
- */
-export const ApprovalDecisionResponseSchema = z.object({
-  approval: CaseApprovalResponseSchema,
-  payment: z
-    .object({
-      required: z.boolean(),
-      redirect_url: z.string().url().nullable(),
-      payment_id: z.string().uuid().nullable(),
-    })
-    .nullable()
-    .optional(),
-});
-export type ApprovalDecisionResponse = z.infer<
-  typeof ApprovalDecisionResponseSchema
->;
+// ApprovalDecision* feature/approvals'a taşındı.
