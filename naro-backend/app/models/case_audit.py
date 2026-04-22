@@ -65,6 +65,16 @@ class CaseEventType(StrEnum):
     TOW_LOCATION_RECORDED = "tow_location_recorded"
     TOW_FARE_CAPTURED = "tow_fare_captured"
     TOW_DISPATCH_CANDIDATE_SELECTED = "tow_dispatch_candidate_selected"
+    # Faz B-3 — billing lifecycle (non-tow kind'lar)
+    PAYMENT_INITIATED = "payment_initiated"
+    PAYMENT_AUTHORIZED = "payment_authorized"
+    PAYMENT_CAPTURED = "payment_captured"
+    PAYMENT_REFUNDED = "payment_refunded"
+    COMMISSION_CALCULATED = "commission_calculated"
+    PAYOUT_SCHEDULED = "payout_scheduled"
+    PAYOUT_COMPLETED = "payout_completed"
+    BILLING_STATE_CHANGED = "billing_state_changed"
+    INVOICE_ISSUED = "invoice_issued"
 
 
 class CaseTone(StrEnum):

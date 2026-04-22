@@ -65,6 +65,11 @@ class AuthEventType(StrEnum):
     ADMIN_CASE_OVERRIDE = "admin_case_override"
     ADMIN_USER_SUSPENDED = "admin_user_suspended"
     ADMIN_USER_UNSUSPENDED = "admin_user_unsuspended"
+    # Faz B-3 — admin billing actions (audit trail)
+    ADMIN_BILLING_CAPTURE_OVERRIDE = "admin_billing_capture_override"
+    ADMIN_BILLING_REFUND = "admin_billing_refund"
+    ADMIN_BILLING_KASKO_REIMBURSE = "admin_billing_kasko_reimburse"
+    ADMIN_BILLING_PAYOUT_COMPLETED = "admin_billing_payout_completed"
 
 
 class AuthEvent(UUIDPkMixin, Base):

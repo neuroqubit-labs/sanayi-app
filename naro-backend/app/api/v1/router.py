@@ -4,6 +4,7 @@ from app.api.v1.routes import (
     admin,
     appointments,
     auth,
+    billing,
     cases,
     health,
     insurance_claims,
@@ -36,6 +37,10 @@ api_router.include_router(insurance_claims.admin_router)
 api_router.include_router(pool.router)
 api_router.include_router(reviews.router)
 api_router.include_router(admin.router)
+api_router.include_router(billing.customer_router)
+api_router.include_router(billing.technician_router)
+api_router.include_router(billing.admin_router)
+api_router.include_router(billing.admin_case_router)
 api_router.include_router(webhooks.router)
 api_router.include_router(tow.router)
 api_router.include_router(tow_ws.router)

@@ -168,6 +168,10 @@ class ServiceCase(UUIDPkMixin, TimestampMixin, Base):
     total_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     estimate_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
 
+    # Faz B-3 — billing lifecycle state (non-tow kind'lar). Tow case'lerinde
+    # null kalır (tow_fare_settlements.state ayrı).
+    billing_state: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

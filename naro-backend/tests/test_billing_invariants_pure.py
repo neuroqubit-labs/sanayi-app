@@ -489,9 +489,8 @@ def test_b5_billing_summary_includes_kasko_optional() -> None:
 
 
 def test_admin_capture_override_event_hint() -> None:
-    """I-BILL-12 audit: admin capture_override route'u AuthEvent emit
-    edecek. Faz B-3'te ADMIN_BILLING_CAPTURE_OVERRIDE enum'u eklenecek
-    (migration 0030). Şimdi mevcut admin event'leri intact."""
+    """I-BILL-12 audit: admin capture_override route'u AuthEvent emit eder.
+    Faz A PR 9 (11) + Faz B-3 (4 admin billing) = 15 admin event tipi."""
     existing = {name for name in AuthEventType.__members__ if name.startswith("ADMIN_")}
-    # Faz A PR 9 shipped 11 admin events
-    assert len(existing) == 11
+    assert len(existing) == 15
+    assert "ADMIN_BILLING_CAPTURE_OVERRIDE" in existing
