@@ -73,8 +73,46 @@ export const useAuthStore = createAuthStore({
     : undefined,
 });
 
+/**
+ * 401 handler — apiClient expired access token için çağırır.
+ * Başarılı: yeni access_token döner; ikinci deneme yeni token'la yapılır.
+ * Başarısız: auth session temizlenir (bootstrapState → "anonymous");
+ * _layout.tsx auth guard login'e yönlendirir.
+ *
+ * Çağrı apiClient bypass'lı doğrudan fetch (circular önle).
+ */
+async function refreshAuthToken(): Promise<string | null> {
+  const authState = useAuthStore.getState();
+  const refreshToken = authState.refreshToken;
+  if (!refreshToken) {
+    await authState.setSession({ accessToken: null, refreshToken: null });
+    return null;
+  }
+  try {
+    const response = await fetch(`${env.apiUrl}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!response.ok) {
+      throw new Error(`refresh failed ${response.status}`);
+    }
+    const data = (await response.json()) as {
+      access_token: string;
+      refresh_token: string;
+    };
+    await authState.setTokens(data.access_token, data.refresh_token);
+    return data.access_token;
+  } catch (err) {
+    console.warn("refreshAuthToken failed; logging out", err);
+    await authState.setSession({ accessToken: null, refreshToken: null });
+    return null;
+  }
+}
+
 export const apiClient = createApiClient({
   authTokenProvider: () => useAuthStore.getState().accessToken,
+  refreshAuthToken,
   baseUrl: env.apiUrl,
   getIsOnline,
   telemetry,
