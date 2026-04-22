@@ -87,3 +87,31 @@ export const TechnicianFeedResponseSchema = z.object({
   next_cursor: z.string().nullable(),
 });
 export type TechnicianFeedResponse = z.infer<typeof TechnicianFeedResponseSchema>;
+
+// ─── Taxonomy (filter chip data — backend /taxonomy/*) ─────────────────────
+
+export const ServiceDomainOutSchema = z.object({
+  domain_key: z.string(),
+  label: z.string(),
+  description: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  display_order: z.number().int(),
+});
+export type ServiceDomainOut = z.infer<typeof ServiceDomainOutSchema>;
+
+export const BrandTierSchema = z.enum([
+  "mass",
+  "premium",
+  "luxury",
+  "commercial",
+  "motorcycle",
+]);
+
+export const BrandOutSchema = z.object({
+  brand_key: z.string(),
+  label: z.string(),
+  tier: BrandTierSchema,
+  country_code: z.string().nullable().optional(),
+  display_order: z.number().int(),
+});
+export type BrandOut = z.infer<typeof BrandOutSchema>;

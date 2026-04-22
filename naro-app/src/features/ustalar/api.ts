@@ -10,8 +10,12 @@ import {
   mockTechnicianProfiles,
 } from "./data/fixtures";
 import {
+  BrandOutSchema,
+  ServiceDomainOutSchema,
   TechnicianFeedResponseSchema,
   TechnicianPublicViewSchema,
+  type BrandOut,
+  type ServiceDomainOut,
   type TechnicianFeedItem,
   type TechnicianFeedResponse,
   type TechnicianPublicView,
@@ -138,4 +142,28 @@ export function useTechnicianPublicView(technicianId: string) {
   });
 }
 
-export type { TechnicianFeedItem, TechnicianPublicView };
+export type { BrandOut, ServiceDomainOut, TechnicianFeedItem, TechnicianPublicView };
+
+const TAXONOMY_STALE_TIME = 60 * 60 * 1000; // 1 saat
+
+export function useServiceDomainsQuery() {
+  return useQuery<ServiceDomainOut[]>({
+    queryKey: ["taxonomy", "service-domains"],
+    queryFn: async () => {
+      const raw = await apiClient("/taxonomy/service-domains");
+      return ServiceDomainOutSchema.array().parse(raw);
+    },
+    staleTime: TAXONOMY_STALE_TIME,
+  });
+}
+
+export function useBrandsQuery() {
+  return useQuery<BrandOut[]>({
+    queryKey: ["taxonomy", "brands"],
+    queryFn: async () => {
+      const raw = await apiClient("/taxonomy/brands");
+      return BrandOutSchema.array().parse(raw);
+    },
+    staleTime: TAXONOMY_STALE_TIME,
+  });
+}

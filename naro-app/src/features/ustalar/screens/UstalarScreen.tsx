@@ -1,59 +1,71 @@
-import { Icon, Screen, Text } from "@naro/ui";
-import { Search, X } from "lucide-react-native";
+import { Icon, Screen, Text, ToggleChip } from "@naro/ui";
+import { Search, SlidersHorizontal, X } from "lucide-react-native";
 import { useDeferredValue, useMemo, useState } from "react";
 import {
-  Dimensions,
+  ActivityIndicator,
   FlatList,
   Pressable,
+  ScrollView,
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { TechnicianReelsCard } from "../components/TechnicianReelsCard";
-import { mockTechnicianProfiles } from "../data/fixtures";
-import { useUstalarFeed, type UstalarFeedItem } from "../feed";
+import {
+  useBrandsQuery,
+  useServiceDomainsQuery,
+  useTechniciansFeed,
+} from "../api";
+import { TechnicianFeedCard } from "../components/TechnicianFeedCard";
+import type { TechnicianFeedItem } from "../schemas";
 
-const HEADER_HEIGHT = 68;
-const TAB_BAR_BASE = 68;
+const HEADER_GAP = 12;
 
+/**
+ * Çarşı ekranı — düz paginated feed (PO kararı: section-curated V2
+ * pilot sonrası). Backend `/technicians/public/feed` live data; filter
+ * chip'leri (domain + brand) query param'a map edilir.
+ *
+ * Text arama client-side filter (display_name + tagline); BE feed
+ * endpoint'i fulltext search opsiyonu V2.
+ */
 export function UstalarScreen() {
   const [query, setQuery] = useState("");
+  const [domainKey, setDomainKey] = useState<string | null>(null);
+  const [brandKey, setBrandKey] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const deferredQuery = useDeferredValue(query);
-  const insets = useSafeAreaInsets();
-  const screenHeight = Dimensions.get("window").height;
-  const cardHeight =
-    screenHeight - HEADER_HEIGHT - TAB_BAR_BASE - insets.bottom - insets.top;
-  const sectionLabelHeight = 72;
 
-  const { data: items = [] } = useUstalarFeed({
-    query: deferredQuery,
+  const feedQuery = useTechniciansFeed({
+    domain: domainKey ?? undefined,
+    brand: brandKey ?? undefined,
   });
+  const domainsQuery = useServiceDomainsQuery();
+  const brandsQuery = useBrandsQuery();
 
-  const hasResults = items.length > 0;
-  const hasProfiles = items.some((item) => item.kind === "profile");
-
-  const getItemLayout = useMemo(() => {
-    const offsets: number[] = [];
-    let accum = 0;
-    items.forEach((item) => {
-      offsets.push(accum);
-      accum += item.kind === "profile" ? cardHeight : sectionLabelHeight;
+  const items = useMemo(() => {
+    const raw = feedQuery.data?.items ?? [];
+    const needle = deferredQuery.trim().toLowerCase();
+    if (needle.length === 0) return raw;
+    return raw.filter((item) => {
+      const haystack = [item.display_name, item.tagline ?? ""]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
     });
-    return (_data: ArrayLike<UstalarFeedItem> | null | undefined, index: number) => {
-      const length =
-        items[index]?.kind === "profile" ? cardHeight : sectionLabelHeight;
-      return {
-        length,
-        offset: offsets[index] ?? index * cardHeight,
-        index,
-      };
-    };
-  }, [items, cardHeight]);
+  }, [feedQuery.data, deferredQuery]);
+
+  const activeFilterCount =
+    (domainKey ? 1 : 0) + (brandKey ? 1 : 0);
+
+  const clearFilters = () => {
+    setDomainKey(null);
+    setBrandKey(null);
+  };
 
   return (
     <Screen padded={false} backgroundClassName="bg-app-bg" className="flex-1">
-      <View className="gap-3 px-5 pt-3" style={{ height: HEADER_HEIGHT }}>
+      <View className="gap-3 px-5 pt-3" style={{ paddingBottom: HEADER_GAP }}>
         <View className="flex-row items-center gap-2 rounded-[20px] border border-app-outline-strong bg-app-surface px-3.5 py-2.5">
           <Icon icon={Search} size={18} color="#0ea5e9" />
           <TextInput
@@ -75,129 +87,260 @@ export function UstalarScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              filtersOpen ? "Filtreleri gizle" : "Filtreleri göster"
+            }
+            onPress={() => setFiltersOpen((prev) => !prev)}
+            className={[
+              "flex-row items-center gap-2 rounded-full border px-3 py-1.5 active:opacity-80",
+              activeFilterCount > 0
+                ? "border-brand-500/40 bg-brand-500/10"
+                : "border-app-outline bg-app-surface",
+            ].join(" ")}
+          >
+            <Icon
+              icon={SlidersHorizontal}
+              size={13}
+              color={activeFilterCount > 0 ? "#0ea5e9" : "#83a7ff"}
+            />
+            <Text
+              variant="label"
+              tone={activeFilterCount > 0 ? "accent" : "inverse"}
+              className="text-[12px]"
+            >
+              Filtreler{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}
+            </Text>
+          </Pressable>
+          {activeFilterCount > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Filtreleri temizle"
+              onPress={clearFilters}
+              className="rounded-full border border-app-outline bg-app-surface px-3 py-1.5 active:bg-app-surface-2"
+            >
+              <Text variant="caption" tone="muted" className="text-[11px]">
+                Temizle
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {filtersOpen ? (
+          <FilterPanel
+            domainKey={domainKey}
+            brandKey={brandKey}
+            onDomainChange={setDomainKey}
+            onBrandChange={setBrandKey}
+            domains={domainsQuery.data ?? []}
+            brands={brandsQuery.data ?? []}
+            domainsLoading={domainsQuery.isLoading}
+            brandsLoading={brandsQuery.isLoading}
+          />
+        ) : null}
       </View>
 
-      {hasResults && hasProfiles ? (
-        <FlatList<UstalarFeedItem>
-          data={items}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) =>
-            item.kind === "profile" ? (
-              <TechnicianReelsCard
-                profile={item.profile}
-                section={item.section}
-                reason={item.reason}
-                cardHeight={cardHeight}
-              />
-            ) : (
-              <SectionLabel
-                label={item.label}
-                hint={item.hint}
-                height={sectionLabelHeight}
-              />
-            )
-          }
-          showsVerticalScrollIndicator={false}
-          pagingEnabled={false}
-          snapToOffsets={buildSnapOffsets(items, cardHeight, sectionLabelHeight)}
-          decelerationRate="fast"
-          getItemLayout={getItemLayout}
-          initialNumToRender={2}
-          maxToRenderPerBatch={3}
-          windowSize={3}
-        />
-      ) : (
-        <EmptyResults
-          query={deferredQuery}
-          onClearQuery={() => setQuery("")}
-          hasQuery={deferredQuery.trim().length > 0}
-          totalProfiles={mockTechnicianProfiles.length}
-        />
-      )}
+      <FeedBody
+        items={items}
+        isLoading={feedQuery.isLoading}
+        isError={feedQuery.isError}
+        hasFilters={activeFilterCount > 0 || deferredQuery.trim().length > 0}
+        onClear={() => {
+          clearFilters();
+          setQuery("");
+        }}
+        onRetry={() => feedQuery.refetch()}
+      />
     </Screen>
   );
 }
 
-function buildSnapOffsets(
-  items: UstalarFeedItem[],
-  cardHeight: number,
-  labelHeight: number,
-): number[] {
-  const offsets: number[] = [];
-  let accum = 0;
-  for (const item of items) {
-    offsets.push(accum);
-    accum += item.kind === "profile" ? cardHeight : labelHeight;
-  }
-  return offsets;
-}
-
-type SectionLabelProps = {
-  label: string;
-  hint?: string;
-  height: number;
+type FilterPanelProps = {
+  domainKey: string | null;
+  brandKey: string | null;
+  onDomainChange: (next: string | null) => void;
+  onBrandChange: (next: string | null) => void;
+  domains: { domain_key: string; label: string }[];
+  brands: { brand_key: string; label: string }[];
+  domainsLoading: boolean;
+  brandsLoading: boolean;
 };
 
-function SectionLabel({ label, hint, height }: SectionLabelProps) {
+function FilterPanel({
+  domainKey,
+  brandKey,
+  onDomainChange,
+  onBrandChange,
+  domains,
+  brands,
+  domainsLoading,
+  brandsLoading,
+}: FilterPanelProps) {
   return (
-    <View style={{ height }} className="justify-center px-6">
-      <Text variant="eyebrow" tone="subtle">
-        {label.toUpperCase()}
-      </Text>
-      <Text variant="h3" tone="inverse">
-        {label}
-      </Text>
-      {hint ? (
-        <Text variant="caption" tone="muted" className="text-app-text-muted">
-          {hint}
+    <View className="gap-3 rounded-[18px] border border-app-outline bg-app-surface-2 px-3 py-3">
+      <View className="gap-1.5">
+        <Text variant="eyebrow" tone="subtle">
+          Uzmanlık alanı
         </Text>
-      ) : null}
+        {domainsLoading ? (
+          <ActivityIndicator size="small" />
+        ) : domains.length === 0 ? (
+          <Text variant="caption" tone="muted" className="text-[11px]">
+            Alan verisi yüklenemedi.
+          </Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
+            {domains.map((domain) => (
+              <ToggleChip
+                key={domain.domain_key}
+                label={domain.label}
+                selected={domainKey === domain.domain_key}
+                onPress={() =>
+                  onDomainChange(
+                    domainKey === domain.domain_key ? null : domain.domain_key,
+                  )
+                }
+              />
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
+      <View className="gap-1.5">
+        <Text variant="eyebrow" tone="subtle">
+          Marka
+        </Text>
+        {brandsLoading ? (
+          <ActivityIndicator size="small" />
+        ) : brands.length === 0 ? (
+          <Text variant="caption" tone="muted" className="text-[11px]">
+            Marka verisi yüklenemedi.
+          </Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
+            {brands.slice(0, 30).map((brand) => (
+              <ToggleChip
+                key={brand.brand_key}
+                label={brand.label}
+                selected={brandKey === brand.brand_key}
+                onPress={() =>
+                  onBrandChange(
+                    brandKey === brand.brand_key ? null : brand.brand_key,
+                  )
+                }
+              />
+            ))}
+          </ScrollView>
+        )}
+      </View>
     </View>
   );
 }
 
-type EmptyResultsProps = {
-  query: string;
-  onClearQuery: () => void;
-  hasQuery: boolean;
-  totalProfiles: number;
+type FeedBodyProps = {
+  items: TechnicianFeedItem[];
+  isLoading: boolean;
+  isError: boolean;
+  hasFilters: boolean;
+  onClear: () => void;
+  onRetry: () => void;
 };
 
-function EmptyResults({
-  query,
-  onClearQuery,
-  hasQuery,
-  totalProfiles,
-}: EmptyResultsProps) {
-  return (
-    <View className="flex-1 items-center justify-center gap-4 px-6">
-      <View className="h-14 w-14 items-center justify-center rounded-full border border-app-outline bg-app-surface-2">
-        <Icon icon={Search} size={22} color="#83a7ff" />
+function FeedBody({
+  items,
+  isLoading,
+  isError,
+  hasFilters,
+  onClear,
+  onRetry,
+}: FeedBodyProps) {
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center gap-3">
+        <ActivityIndicator size="large" color="#0ea5e9" />
+        <Text variant="caption" tone="muted" className="text-[12px]">
+          Ustalar yükleniyor…
+        </Text>
       </View>
-      <View className="items-center gap-2">
+    );
+  }
+
+  if (isError) {
+    return (
+      <View className="flex-1 items-center justify-center gap-3 px-6">
         <Text variant="h3" tone="inverse" className="text-center">
-          {hasQuery
-            ? `"${query.trim()}" için eşleşme yok`
-            : "Aranacak bir şey yaz"}
+          Çarşı yüklenemedi
         </Text>
-        <Text tone="muted" className="text-center text-app-text-muted leading-5">
-          Farklı bir kelime dene veya kategoriyi temizle. Sistemde {totalProfiles}{" "}
-          usta kayıtlı.
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-center text-app-text-muted text-[12px]"
+        >
+          Bağlantı hatası veya sunucu yanıt vermiyor. Tekrar dene.
         </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onRetry}
+          className="rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-2 active:opacity-80"
+        >
+          <Text variant="label" tone="accent" className="text-[13px]">
+            Tekrar dene
+          </Text>
+        </Pressable>
       </View>
-      <View className="flex-row gap-2">
-        {hasQuery ? (
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <View className="flex-1 items-center justify-center gap-3 px-6">
+        <Text variant="h3" tone="inverse" className="text-center">
+          {hasFilters
+            ? "Bu filtre için usta bulunamadı"
+            : "Çarşıda henüz usta yok"}
+        </Text>
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-center text-app-text-muted text-[12px] leading-[17px]"
+        >
+          {hasFilters
+            ? "Filtreleri genişletmeyi dene — daha fazla sonuç çıkabilir."
+            : "Pilot kapsamında Kayseri başlatılıyor. Eklenen ustalar çarşıda görünecek."}
+        </Text>
+        {hasFilters ? (
           <Pressable
             accessibilityRole="button"
-            onPress={onClearQuery}
+            onPress={onClear}
             className="rounded-full border border-app-outline bg-app-surface px-4 py-2 active:bg-app-surface-2"
           >
-            <Text variant="label" tone="inverse">
-              Aramayı temizle
+            <Text variant="label" tone="inverse" className="text-[13px]">
+              Filtreleri temizle
             </Text>
           </Pressable>
         ) : null}
       </View>
-    </View>
+    );
+  }
+
+  return (
+    <FlatList<TechnicianFeedItem>
+      data={items}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => <TechnicianFeedCard item={item} />}
+      contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingBottom: 32 }}
+      showsVerticalScrollIndicator={false}
+    />
   );
 }
