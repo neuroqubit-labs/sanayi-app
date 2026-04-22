@@ -185,9 +185,9 @@ export function useAddVehicle() {
       });
       const created = VehicleResponseSchema.parse(raw);
 
-      // İzin verildiyse history_consent ayrı POST (backend contract)
+      // İzin verildiyse history-consent ayrı POST (backend contract)
       if (draft.historyAccessGranted) {
-        await apiClient(`/vehicles/${created.id}/history_consent`, {
+        await apiClient(`/vehicles/${created.id}/history-consent`, {
           method: "POST",
           body: HistoryConsentPayloadSchema.parse({ granted: true }),
         });
@@ -234,7 +234,7 @@ export function useHistoryConsentMutation(vehicleId: string) {
   return useMutation<VehicleResponse, Error, HistoryConsentPayload>({
     mutationFn: async (payload) => {
       const body = HistoryConsentPayloadSchema.parse(payload);
-      const raw = await apiClient(`/vehicles/${vehicleId}/history_consent`, {
+      const raw = await apiClient(`/vehicles/${vehicleId}/history-consent`, {
         method: "POST",
         body,
       });
