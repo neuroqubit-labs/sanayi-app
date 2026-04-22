@@ -72,6 +72,17 @@ class Vehicle(UUIDPkMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
+    # Faz A PR 6 — araç geçmişi izin akışı (audit P1-1)
+    history_consent_granted: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    history_consent_granted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    history_consent_revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

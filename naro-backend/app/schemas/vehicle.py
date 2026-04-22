@@ -14,7 +14,6 @@ class VehicleCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     plate: str = Field(min_length=1, max_length=32)
-    owner_user_id: UUID
     make: str | None = Field(default=None, max_length=64)
     model: str | None = Field(default=None, max_length=128)
     year: int | None = Field(default=None, ge=1900, le=2100)
@@ -76,6 +75,9 @@ class VehicleResponse(BaseModel):
     trafik_valid_until: datetime | None
     trafik_insurer: str | None
     exhaust_valid_until: datetime | None
+    history_consent_granted: bool
+    history_consent_granted_at: datetime | None
+    history_consent_revoked_at: datetime | None
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -100,6 +102,12 @@ class OwnershipTransferRequest(BaseModel):
     vehicle_id: UUID
     from_user_id: UUID
     to_user_id: UUID
+
+
+class HistoryConsentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    granted: bool
 
 
 class VehicleDossierView(BaseModel):

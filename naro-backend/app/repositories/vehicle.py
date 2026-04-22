@@ -11,9 +11,10 @@ import re
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.case import ServiceCase
 from app.models.vehicle import UserVehicleLink, UserVehicleRole, Vehicle
 
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -279,5 +280,66 @@ async def list_active_links_for_vehicle(
     return list((await session.execute(stmt)).scalars().all())
 
 
-# Dossier aggregation (case count, last case) Faz 4'te `service_cases`
-# tablosu oluşturulduktan sonra bu modüle eklenecek.
+async def close_all_active_links(
+    session: AsyncSession, vehicle_id: UUID
+) -> None:
+    """Soft delete ile birlikte aktif tüm link'leri kapat."""
+    now = datetime.now(UTC)
+    await session.execute(
+        update(UserVehicleLink)
+        .where(
+            and_(
+                UserVehicleLink.vehicle_id == vehicle_id,
+                UserVehicleLink.ownership_to.is_(None),
+            )
+        )
+        .values(ownership_to=now, is_primary=False)
+    )
+
+
+async def grant_history_consent(
+    session: AsyncSession, vehicle_id: UUID
+) -> None:
+    """Araç geçmişi izin akışı — grant (audit P1-1)."""
+    await session.execute(
+        update(Vehicle)
+        .where(Vehicle.id == vehicle_id)
+        .values(
+            history_consent_granted=True,
+            history_consent_granted_at=datetime.now(UTC),
+        )
+    )
+
+
+async def revoke_history_consent(
+    session: AsyncSession, vehicle_id: UUID
+) -> None:
+    """Araç geçmişi izin revoke (audit P1-1)."""
+    await session.execute(
+        update(Vehicle)
+        .where(Vehicle.id == vehicle_id)
+        .values(
+            history_consent_granted=False,
+            history_consent_revoked_at=datetime.now(UTC),
+        )
+    )
+
+
+async def build_dossier_aggregates(
+    session: AsyncSession, vehicle_id: UUID
+) -> tuple[int, ServiceCase | None]:
+    """service_cases üzerinden (count, last_case) agreage. Consent gating
+    route katmanında uygulanır — bu fn ham sonuç döner.
+    """
+    count_stmt = select(func.count()).where(
+        ServiceCase.vehicle_id == vehicle_id
+    )
+    count = int((await session.execute(count_stmt)).scalar_one())
+    last_stmt = (
+        select(ServiceCase)
+        .where(ServiceCase.vehicle_id == vehicle_id)
+        .order_by(ServiceCase.updated_at.desc())
+        .limit(1)
+    )
+    last = (await session.execute(last_stmt)).scalar_one_or_none()
+    return count, last

@@ -50,6 +50,9 @@ class AuthEventType(StrEnum):
     TECHNICIAN_ACTIVE_ROLE_SWITCHED = "technician_active_role_switched"
     TECHNICIAN_CERT_SUBMITTED = "technician_cert_submitted"
     TECHNICIAN_ADMISSION_RECOMPUTED = "technician_admission_recomputed"
+    # Faz A PR 6 — vehicle history consent (audit P1-1)
+    VEHICLE_CONSENT_GRANTED = "vehicle_consent_granted"
+    VEHICLE_CONSENT_REVOKED = "vehicle_consent_revoked"
 
 
 class AuthEvent(UUIDPkMixin, Base):

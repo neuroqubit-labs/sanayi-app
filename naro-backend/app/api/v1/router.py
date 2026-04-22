@@ -12,6 +12,7 @@ from app.api.v1.routes import (
     technicians_public,
     tow,
     tow_ws,
+    vehicles,
 )
 
 api_router = APIRouter()
@@ -24,5 +25,6 @@ api_router.include_router(appointments.router)
 api_router.include_router(technicians.router)
 api_router.include_router(technicians_public.router)
 api_router.include_router(taxonomy.router)
+api_router.include_router(vehicles.router)
 api_router.include_router(tow.router)
 api_router.include_router(tow_ws.router)
