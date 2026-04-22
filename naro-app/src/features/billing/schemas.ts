@@ -140,7 +140,10 @@ export const BillingSummarySchema = z.object({
   final_amount: z.number().nullable(),
   currency: z.string().default("TRY"),
   payment_status: PaymentStatusSchema,
-  kasko_status: KaskoStatusSchema.default("not_applicable"),
+  /** Kasko state — PO bayrak B-5, BillingSummary response içinde. */
+  kasko_state: KaskoStatusSchema.default("not_applicable"),
+  kasko_reimbursement_amount: z.number().nullable().default(null),
+  kasko_submitted_at: z.string().nullable().default(null),
   invoice_url: z.string().url().nullable(),
   /** Kart son 4 hane — PII-safe. */
   card_last4: z.string().length(4).nullable(),

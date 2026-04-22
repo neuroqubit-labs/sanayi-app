@@ -4,7 +4,6 @@ import {
   Icon,
   MoneyAmount,
   Text,
-  TrustBadge,
 } from "@naro/ui";
 import { AlertTriangle, Clock3, MessageCircle } from "lucide-react-native";
 import { useMemo, useState } from "react";
