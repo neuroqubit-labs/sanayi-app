@@ -20,9 +20,11 @@ import {
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useMyCasesLive } from "@/features/cases/api";
 import { useFavoriteTechniciansStore } from "@/features/profile";
 
 import { useTechnicianPublicView } from "../api";
+import { resolveTechnicianCta } from "../technician-cta";
 
 const PROVIDER_TYPE_LABEL: Record<string, string> = {
   usta: "Usta",
@@ -58,6 +60,7 @@ export function TechnicianProfileScreen() {
 
   const { data: technician, isLoading, isError, refetch } =
     useTechnicianPublicView(technicianId);
+  const { data: myCases } = useMyCasesLive();
 
   const isFavorite = useFavoriteTechniciansStore((state) =>
     state.ids.includes(technicianId),
@@ -123,11 +126,12 @@ export function TechnicianProfileScreen() {
   const cityLabel = technician.location_summary.city_label;
   const radiusKm = technician.location_summary.service_radius_km;
 
-  const openCaseComposer = () => {
-    router.push(
-      `/(modal)/talep/breakdown?technicianId=${technician.id}` as Href,
-    );
-  };
+  const cta = resolveTechnicianCta({
+    technicianId: technician.id,
+    providerType: activeType,
+    activeCases: myCases ?? [],
+    acceptingNewJobs: technician.accepting_new_jobs,
+  });
 
   return (
     <Screen backgroundClassName="bg-app-bg" padded={false} className="flex-1">
@@ -293,20 +297,29 @@ export function TechnicianProfileScreen() {
       {/* Footer CTA */}
       <View className="absolute inset-x-0 bottom-0 border-t border-app-outline bg-app-surface px-4 py-3 pb-6">
         <Button
-          label="Bu servise vaka aç"
-          variant="primary"
+          label={cta.primaryLabel}
+          variant={
+            cta.primaryDisabled
+              ? "outline"
+              : cta.mode === "ready"
+                ? "primary"
+                : "secondary"
+          }
           size="lg"
           fullWidth
-          onPress={openCaseComposer}
-          disabled={!technician.accepting_new_jobs}
+          disabled={cta.primaryDisabled}
+          onPress={() => {
+            if (cta.primaryDisabled || !cta.primaryRoute) return;
+            router.push(cta.primaryRoute as Href);
+          }}
         />
-        {!technician.accepting_new_jobs ? (
+        {cta.helperText ? (
           <Text
             variant="caption"
             tone="muted"
             className="mt-1.5 text-center text-app-text-subtle text-[11px]"
           >
-            Servis şu an yeni iş almıyor
+            {cta.helperText}
           </Text>
         ) : null}
       </View>

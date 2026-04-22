@@ -19,10 +19,12 @@ import {
 import { ActivityIndicator, Modal, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useMyCasesLive } from "@/features/cases/api";
 import { useFavoriteTechniciansStore } from "@/features/profile";
 
 import { useTechnicianPublicView } from "../api";
 import { useUstaPreviewStore } from "../preview-store";
+import { resolveTechnicianCta, type TechnicianCta } from "../technician-cta";
 
 const PROVIDER_TYPE_LABEL: Record<string, string> = {
   usta: "Usta",
@@ -56,6 +58,7 @@ export function UstaPreviewSheet() {
   const { data: profile, isLoading, isError } = useTechnicianPublicView(
     technicianId ?? "",
   );
+  const { data: myCases } = useMyCasesLive();
   const isFavorite = useFavoriteTechniciansStore((state) =>
     technicianId ? state.ids.includes(technicianId) : false,
   );
@@ -69,12 +72,19 @@ export function UstaPreviewSheet() {
     router.push(`/usta/${technicianId}` as Href);
   };
 
-  const openCaseComposer = () => {
-    if (!technicianId) return;
+  const cta: TechnicianCta | null = profile
+    ? resolveTechnicianCta({
+        technicianId: profile.id,
+        providerType: profile.active_provider_type ?? profile.provider_type,
+        activeCases: myCases ?? [],
+        acceptingNewJobs: profile.accepting_new_jobs,
+      })
+    : null;
+
+  const handlePrimary = () => {
+    if (!cta || cta.primaryDisabled || !cta.primaryRoute) return;
     close();
-    router.push(
-      `/(modal)/talep/breakdown?technicianId=${technicianId}` as Href,
-    );
+    router.push(cta.primaryRoute as Href);
   };
 
   return (
@@ -126,7 +136,8 @@ export function UstaPreviewSheet() {
                 onToggleFavorite={() => toggleFavorite(profile.id)}
                 onClose={close}
                 onOpenFull={openFullProfile}
-                onOpenCase={openCaseComposer}
+                cta={cta}
+                onPrimary={handlePrimary}
               />
             )}
           </ActionSheetSurface>
@@ -142,7 +153,8 @@ type PreviewContentProps = {
   onToggleFavorite: () => void;
   onClose: () => void;
   onOpenFull: () => void;
-  onOpenCase: () => void;
+  cta: TechnicianCta | null;
+  onPrimary: () => void;
 };
 
 function PreviewContent({
@@ -151,7 +163,8 @@ function PreviewContent({
   onToggleFavorite,
   onClose,
   onOpenFull,
-  onOpenCase,
+  cta,
+  onPrimary,
 }: PreviewContentProps) {
   const verified = VERIFIED_META[profile.verified_level];
   const activeType = profile.active_provider_type ?? profile.provider_type;
@@ -300,20 +313,26 @@ function PreviewContent({
 
       <View className="gap-1.5">
         <Button
-          label="Bu servise vaka aç"
+          label={cta?.primaryLabel ?? "—"}
           size="lg"
           fullWidth
-          disabled={!profile.accepting_new_jobs}
-          variant={profile.accepting_new_jobs ? "primary" : "outline"}
-          onPress={onOpenCase}
+          disabled={!cta || cta.primaryDisabled}
+          variant={
+            !cta || cta.primaryDisabled
+              ? "outline"
+              : cta.mode === "ready"
+                ? "primary"
+                : "secondary"
+          }
+          onPress={onPrimary}
         />
-        {!profile.accepting_new_jobs ? (
+        {cta?.helperText ? (
           <Text
             variant="caption"
             tone="muted"
             className="text-center text-app-text-subtle text-[11px]"
           >
-            Servis şu an yeni iş almıyor
+            {cta.helperText}
           </Text>
         ) : null}
       </View>
