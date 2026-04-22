@@ -15,12 +15,12 @@ export const VehicleFuelTypeSchema = z.enum([
 ]);
 export type VehicleFuelType = z.infer<typeof VehicleFuelTypeSchema>;
 
-export const UserVehicleRoleSchema = z.enum([
-  "owner",
-  "driver",
-  "partner",
-  "observer",
-]);
+/**
+ * BE canonical — DB CHECK constraint ile enforce edilir (owner/driver/family).
+ * Parity audit P0-3 (2026-04-23): FE önceki `partner` + `observer` değerleri
+ * kaldırıldı, canonical 3-değere hizalandı.
+ */
+export const UserVehicleRoleSchema = z.enum(["owner", "driver", "family"]);
 export type UserVehicleRole = z.infer<typeof UserVehicleRoleSchema>;
 
 // ─── POST /vehicles body ───────────────────────────────────────────────────

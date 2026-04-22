@@ -197,6 +197,9 @@ export {
 export {
   MoneyAmount,
   type MoneyAmountProps,
+  BillingStateBadge,
+  type BillingStateBadgeProps,
+  type BillingStateValue,
   PaymentStatusBadge,
   type PaymentStatusBadgeProps,
   type PaymentStatusValue,

@@ -55,22 +55,67 @@ export const CaseApprovalResponseSchema = z.object({
 });
 export type CaseApprovalResponse = z.infer<typeof CaseApprovalResponseSchema>;
 
-// ─── Payment initiation (brief §4.1) ───────────────────────────────────────
+// ─── Billing state machine (brief §4-§7, parity audit P0-2 canonical) ──────
 
-export const PaymentStatusSchema = z.enum([
+/**
+ * 14-state machine — BE canonical enums.md. FE helper group mapping aşağıda.
+ */
+export const BillingStateSchema = z.enum([
+  "estimate",
   "preauth_requested",
   "preauth_held",
+  "preauth_failed",
   "additional_hold_requested",
+  "additional_held",
   "captured",
-  "partial_refunded",
-  "full_refunded",
   "kasko_pending",
   "kasko_reimbursed",
+  "kasko_rejected",
+  "partial_refunded",
+  "full_refunded",
   "settled",
   "cancelled",
-  "failed",
 ]);
-export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
+export type BillingState = z.infer<typeof BillingStateSchema>;
+
+export type BillingStateGroup =
+  | "pending"
+  | "held"
+  | "captured"
+  | "refunded"
+  | "failed"
+  | "done";
+
+/**
+ * BillingSummaryCard + PaymentInitiate UI için 6 grup mapping.
+ * Renk / ikon / tone kararları bu 6 gruba bağlanır.
+ */
+export function billingStateGroup(state: BillingState): BillingStateGroup {
+  switch (state) {
+    case "estimate":
+    case "preauth_requested":
+    case "additional_hold_requested":
+      return "pending";
+    case "preauth_held":
+    case "additional_held":
+      return "held";
+    case "captured":
+    case "kasko_pending":
+    case "kasko_reimbursed":
+      return "captured";
+    case "partial_refunded":
+    case "full_refunded":
+    case "kasko_rejected":
+      return "refunded";
+    case "preauth_failed":
+      return "failed";
+    case "settled":
+    case "cancelled":
+      return "done";
+  }
+}
+
+// ─── Payment initiation (brief §4.1) ───────────────────────────────────────
 
 /**
  * BE canonical flat response — brief §4.1 + parity audit P0-1 (2026-04-22):
@@ -100,77 +145,7 @@ export const ThreeDSCallbackParamsSchema = z.object({
 });
 export type ThreeDSCallbackParams = z.infer<typeof ThreeDSCallbackParamsSchema>;
 
-// ─── Billing summary (brief §7) ────────────────────────────────────────────
-
-export const BillingLineKindSchema = z.enum([
-  "estimate",
-  "parts_addition",
-  "service_labor",
-  "discount",
-  "refund",
-  "cancellation_fee",
-  "commission", // admin-only, mobil response'ta YOK (I-9 PII benzeri mask)
-  "kasko_reimbursement",
-]);
-export type BillingLineKind = z.infer<typeof BillingLineKindSchema>;
-
-export const BillingLineSchema = z.object({
-  id: z.string().uuid(),
-  kind: BillingLineKindSchema,
-  label: z.string(),
-  amount: z.number(),
-  currency: z.string().default("TRY"),
-  created_at: z.string(),
-});
-export type BillingLine = z.infer<typeof BillingLineSchema>;
-
-export const KaskoStatusSchema = z.enum([
-  "not_applicable",
-  "pending",
-  "submitted",
-  "approved",
-  "rejected",
-  "reimbursed",
-  "partially_reimbursed",
-]);
-export type KaskoStatus = z.infer<typeof KaskoStatusSchema>;
-
-export const BillingSummarySchema = z.object({
-  case_id: z.string().uuid(),
-  estimate_amount: z.number().nullable(),
-  preauth_total: z.number().nullable(),
-  captured_amount: z.number().nullable(),
-  refunded_amount: z.number().nullable(),
-  final_amount: z.number().nullable(),
-  currency: z.string().default("TRY"),
-  payment_status: PaymentStatusSchema,
-  /** Kasko state — PO bayrak B-5, BillingSummary response içinde. */
-  kasko_state: KaskoStatusSchema.default("not_applicable"),
-  kasko_reimbursement_amount: z.number().nullable().default(null),
-  kasko_submitted_at: z.string().nullable().default(null),
-  invoice_url: z.string().url().nullable(),
-  /** Kart son 4 hane — PII-safe. */
-  card_last4: z.string().length(4).nullable(),
-  lines: z.array(BillingLineSchema).default([]),
-  /** Dispute açılmışsa + admin inceleme bilgisi. */
-  dispute: z
-    .object({
-      opened_at: z.string(),
-      state: z.enum([
-        "opened",
-        "admin_review",
-        "resolved_capture",
-        "resolved_refund",
-        "resolved_partial",
-      ]),
-      resolution_note: z.string().nullable(),
-    })
-    .nullable()
-    .optional(),
-});
-export type BillingSummary = z.infer<typeof BillingSummarySchema>;
-
-// ─── Refund tracking (brief §7 + §8) ───────────────────────────────────────
+// ─── Refund tracking (brief §7 + §8, BE canonical flat) ───────────────────
 
 export const RefundReasonSchema = z.enum([
   "cancellation",
@@ -184,17 +159,50 @@ export type RefundReason = z.infer<typeof RefundReasonSchema>;
 export const RefundStateSchema = z.enum(["pending", "success", "failed"]);
 export type RefundState = z.infer<typeof RefundStateSchema>;
 
-export const CaseRefundSchema = z.object({
+export const RefundOutSchema = z.object({
   id: z.string().uuid(),
   case_id: z.string().uuid(),
-  amount: z.number(),
-  currency: z.string().default("TRY"),
+  amount: z.string(),
   reason: RefundReasonSchema,
   state: RefundStateSchema,
   created_at: z.string(),
   completed_at: z.string().nullable(),
 });
-export type CaseRefund = z.infer<typeof CaseRefundSchema>;
+export type RefundOut = z.infer<typeof RefundOutSchema>;
+
+// ─── Kasko (B-5 bayrak, BillingSummary nested) ─────────────────────────────
+
+export const KaskoStateSchema = z.enum([
+  "pending",
+  "submitted",
+  "approved",
+  "rejected",
+  "reimbursed",
+  "partially_reimbursed",
+]);
+export type KaskoState = z.infer<typeof KaskoStateSchema>;
+
+export const KaskoSummarySchema = z.object({
+  state: KaskoStateSchema,
+  reimbursement_amount: z.string().nullable(),
+  submitted_at: z.string().nullable(),
+  reimbursed_at: z.string().nullable(),
+});
+export type KaskoSummary = z.infer<typeof KaskoSummarySchema>;
+
+// ─── Billing summary (brief §7 + parity audit P0-2 canonical flat) ─────────
+
+export const BillingSummarySchema = z.object({
+  case_id: z.string().uuid(),
+  billing_state: BillingStateSchema,
+  estimate_amount: z.string().nullable(),
+  preauth_amount: z.string().nullable(),
+  final_amount: z.string().nullable(),
+  approved_parts_total: z.string().default("0.00"),
+  refunds: z.array(RefundOutSchema).default([]),
+  kasko: KaskoSummarySchema.nullable().default(null),
+});
+export type BillingSummary = z.infer<typeof BillingSummarySchema>;
 
 // ─── Cancellation (brief §8) ───────────────────────────────────────────────
 

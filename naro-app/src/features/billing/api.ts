@@ -8,17 +8,17 @@ import {
   BillingSummarySchema,
   CancellationRequestSchema,
   CaseApprovalResponseSchema,
-  CaseRefundSchema,
   DisputeRequestSchema,
   PaymentInitiateResponseSchema,
+  RefundOutSchema,
   type ApprovalDecisionRequest,
   type ApprovalDecisionResponse,
   type BillingSummary,
   type CancellationRequest,
   type CaseApprovalResponse,
-  type CaseRefund,
   type DisputeRequest,
   type PaymentInitiateResponse,
+  type RefundOut,
 } from "./schemas";
 
 /**
@@ -65,12 +65,12 @@ export function useBillingSummary(caseId: string) {
 // ─── Refund tracking ───────────────────────────────────────────────────────
 
 export function useCaseRefunds(caseId: string) {
-  return useQuery<CaseRefund[]>({
+  return useQuery<RefundOut[]>({
     queryKey: ["billing", "refunds", caseId],
     enabled: caseId.length > 0,
     queryFn: async () => {
       const raw = await apiClient(`/cases/${caseId}/refunds`);
-      return CaseRefundSchema.array().parse(raw);
+      return RefundOutSchema.array().parse(raw);
     },
     staleTime: 30 * 1000,
   });

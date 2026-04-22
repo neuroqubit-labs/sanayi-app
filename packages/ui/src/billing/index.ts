@@ -1,5 +1,10 @@
 export { MoneyAmount, type MoneyAmountProps } from "./MoneyAmount";
 export {
+  BillingStateBadge,
+  type BillingStateBadgeProps,
+  type BillingStateValue,
+} from "./BillingStateBadge";
+export {
   PaymentStatusBadge,
   type PaymentStatusBadgeProps,
   type PaymentStatusValue,

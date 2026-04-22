@@ -1,9 +1,9 @@
 import {
   BackButton,
+  BillingStateBadge,
   Button,
   Icon,
   MoneyAmount,
-  PaymentStatusBadge,
   Screen,
   Surface,
   Text,
@@ -143,9 +143,9 @@ export function PaymentInitiateScreen() {
           </Text>
         </View>
         {phase.kind === "3ds" ? (
-          <PaymentStatusBadge status="preauth_requested" />
+          <BillingStateBadge state="preauth_requested" />
         ) : phase.kind === "success" ? (
-          <PaymentStatusBadge status="preauth_held" />
+          <BillingStateBadge state="preauth_held" />
         ) : null}
       </View>
 
