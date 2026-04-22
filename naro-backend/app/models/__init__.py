@@ -61,6 +61,15 @@ from app.models.insurance_claim import (
 )
 from app.models.media import MediaAsset
 from app.models.offer import CaseOffer, CaseOfferKind, CaseOfferStatus
+from app.models.taxonomy import (
+    BrandTier,
+    TaxonomyBrand,
+    TaxonomyCity,
+    TaxonomyDistrict,
+    TaxonomyDrivetrain,
+    TaxonomyProcedure,
+    TaxonomyServiceDomain,
+)
 from app.models.technician import (
     GalleryItemKind,
     ProviderMode,
@@ -120,6 +129,7 @@ __all__ = [
     "AuthEventType",
     "AuthIdentityProvider",
     "AuthSession",
+    "BrandTier",
     "CaseActor",
     "CaseApproval",
     "CaseApprovalEvidenceLink",
@@ -165,6 +175,12 @@ __all__ = [
     "ServiceCaseStatus",
     "ServiceRequestKind",
     "ServiceRequestUrgency",
+    "TaxonomyBrand",
+    "TaxonomyCity",
+    "TaxonomyDistrict",
+    "TaxonomyDrivetrain",
+    "TaxonomyProcedure",
+    "TaxonomyServiceDomain",
     "TechnicianAvailability",
     "TechnicianBrandCoverage",
     "TechnicianCapability",
