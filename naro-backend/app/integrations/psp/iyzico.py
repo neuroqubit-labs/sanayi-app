@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -35,29 +34,11 @@ try:
 except ImportError:  # pragma: no cover
     _IYZIPAY_AVAILABLE = False
 
-from app.integrations.psp.protocol import Psp, PspResult
+from app.integrations.psp.protocol import CheckoutFormResult, Psp, PspResult
 
 
 class IyzicoConfigurationError(RuntimeError):
     """Credentials eksik — sandbox başvuru henüz tamamlanmamış."""
-
-
-@dataclass(slots=True)
-class CheckoutFormRequest:
-    """3DS WebView URL isteği."""
-
-    locale: str = "tr"
-    conversation_id: str = ""
-    price: str = "0.00"
-    paid_price: str = "0.00"
-    currency: str = "TRY"
-    basket_id: str = ""
-    payment_group: str = "PRODUCT"
-    callback_url: str = ""
-    buyer: dict[str, Any] | None = None
-    shipping_address: dict[str, Any] | None = None
-    billing_address: dict[str, Any] | None = None
-    basket_items: list[dict[str, Any]] | None = None
 
 
 class IyzicoPsp(Psp):
@@ -80,11 +61,14 @@ class IyzicoPsp(Psp):
             raise IyzicoConfigurationError(
                 "Iyzico API key/secret required (sandbox başvuru bekleniyor)"
             )
-        self._base_url = base_url
+        # iyzipay SDK scheme kabul etmiyor — https://host → host normalize
+        self._base_url = base_url.replace("https://", "").replace(
+            "http://", ""
+        ).rstrip("/")
         self._options: dict[str, str] = {
             "api_key": api_key,
             "secret_key": secret_key,
-            "base_url": base_url,
+            "base_url": self._base_url,
         }
 
     # ─── Protocol methods (tow + billing ortak) ─────────────────────────
@@ -165,30 +149,86 @@ class IyzicoPsp(Psp):
     # ─── 3DS checkout (billing-specific) ────────────────────────────────
 
     async def create_checkout_form(
-        self, *, request: CheckoutFormRequest
-    ) -> PspResult:
-        """3DS WebView form URL üret. Mobile WebView'de açılır.
+        self,
+        *,
+        conversation_id: str,
+        amount: Decimal,
+        currency: str = "TRY",
+        callback_url: str = "",
+        buyer: dict[str, Any] | None = None,
+        basket_items: list[dict[str, Any]] | None = None,
+    ) -> CheckoutFormResult:
+        """3DS WebView form URL üret (Iyzico checkoutFormInitialize).
 
         Brief §5.3:
-        1. Backend → Iyzico checkoutFormInitialize → token + checkoutFormContent (URL)
+        1. Backend → Iyzico checkoutFormInitialize → token + checkoutFormContent
         2. Mobile WebView → URL yükle, 3DS flow bank ile
         3. Success → callback_url'e POST (webhook)
         """
-        payload = {
-            "locale": request.locale,
-            "conversationId": request.conversation_id,
-            "price": request.price,
-            "paidPrice": request.paid_price,
-            "currency": request.currency,
-            "basketId": request.basket_id,
-            "paymentGroup": request.payment_group,
-            "callbackUrl": request.callback_url,
-            "buyer": request.buyer or {},
-            "shippingAddress": request.shipping_address or {},
-            "billingAddress": request.billing_address or {},
-            "basketItems": request.basket_items or [],
+        # Default buyer — Iyzico şema zorunlu alanları için placeholder
+        default_buyer: dict[str, Any] = buyer or {
+            "id": f"buyer_{conversation_id[:8]}",
+            "name": "Naro",
+            "surname": "Musteri",
+            "gsmNumber": "+905550000000",
+            "email": "pilot@naro.app",
+            "identityNumber": "11111111111",
+            "registrationAddress": "Kayseri",
+            "city": "Kayseri",
+            "country": "Turkey",
         }
-        return await self._run_sdk_call("create_checkout_form", payload)
+        default_basket_items: list[dict[str, Any]] = basket_items or [
+            {
+                "id": f"item_{conversation_id[:8]}",
+                "name": "Naro servis",
+                "category1": "Vehicle Service",
+                "itemType": "VIRTUAL",
+                "price": str(amount),
+            }
+        ]
+        payload = {
+            "locale": "tr",
+            "conversationId": conversation_id,
+            "price": str(amount),
+            "paidPrice": str(amount),
+            "currency": currency,
+            "basketId": f"basket_{conversation_id[:12]}",
+            "paymentGroup": "PRODUCT",
+            "callbackUrl": callback_url,
+            "buyer": default_buyer,
+            "shippingAddress": {
+                "contactName": default_buyer["name"],
+                "city": default_buyer["city"],
+                "country": default_buyer["country"],
+                "address": default_buyer["registrationAddress"],
+            },
+            "billingAddress": {
+                "contactName": default_buyer["name"],
+                "city": default_buyer["city"],
+                "country": default_buyer["country"],
+                "address": default_buyer["registrationAddress"],
+            },
+            "basketItems": default_basket_items,
+            "enabledInstallments": [1, 2, 3, 6, 9],
+        }
+        result = await self._run_sdk_call("create_checkout_form", payload)
+        if not result.success:
+            return CheckoutFormResult(
+                checkout_url="",
+                conversation_id=conversation_id,
+                provider_token=None,
+                raw=result.raw,
+            )
+        raw = result.raw or {}
+        # Iyzico: paymentPageUrl veya checkoutFormContent (HTML fragment)
+        checkout_url = str(raw.get("paymentPageUrl") or "")
+        token = str(raw.get("token") or "")
+        return CheckoutFormResult(
+            checkout_url=checkout_url,
+            conversation_id=conversation_id,
+            provider_token=token,
+            raw=dict(raw),
+        )
 
     async def get_payment_detail(self, *, payment_id: str) -> PspResult:
         """payment/detail — webhook fallback / polling."""

@@ -17,16 +17,18 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.integrations.psp.protocol import Psp, PspResult
+from app.integrations.psp.protocol import CheckoutFormResult, Psp, PspResult
 from app.models.billing import (
     CaseKaskoState,
     CaseRefundReason,
+    PaymentIdempotencyState,
     PaymentOperation,
     PaymentProvider,
 )
 from app.models.case import ServiceCase, ServiceCaseStatus
 from app.models.case_audit import CaseEventType, CaseTone
 from app.repositories import billing as billing_repo
+from app.repositories import payment_idempotency as idem_repo
 from app.services.case_billing_state import (
     BillingState,
     assert_transition_allowed,
@@ -142,12 +144,17 @@ async def initiate_payment(
     estimate_amount: Decimal,
     psp: Psp,
     provider: PaymentProvider = PaymentProvider.MOCK,
-) -> PspResult:
-    """Brief §3.1: ESTIMATE → PREAUTH_REQUESTED → (PSP) → PREAUTH_HELD.
+    callback_url: str = "",
+) -> CheckoutFormResult:
+    """Brief §3.1 + §5.3: ESTIMATE → PREAUTH_REQUESTED → (PSP 3DS form) → WebView.
 
-    estimate_amount × 1.2 buffer ile pre-auth hold. Idempotency key:
-    `authorize:{case_id}:initial`. V1 MockPsp (auto-success); V1.1
-    Iyzico 3DS checkout form URL döner.
+    3DS WebView flow (B-4 — stored card yok):
+    1. preauth_amount = estimate × 1.2
+    2. psp.create_checkout_form(conversation_id=str(case.id)) → FE WebView
+    3. payment_idempotency insert state=PENDING (key=`authorize:{case_id}:initial`)
+    4. Case.billing_state = PREAUTH_REQUESTED
+    5. FE 3DS tamamlandıktan sonra webhook gelir → process_3ds_callback
+       state'i SUCCESS/FAILED'e çevirir + PREAUTH_HELD transition.
     """
     await _transition_billing_state(
         session, case, BillingState.PREAUTH_REQUESTED
@@ -156,64 +163,160 @@ async def initiate_payment(
     preauth_amount = quantize_money(estimate_amount * buffer_factor)
     idempotency_key = f"authorize:{case.id}:initial"
 
-    async def _call_psp() -> PspResult:
-        return await psp.authorize_preauth(
-            idempotency_key=idempotency_key,
-            customer_token="",  # V1'de stored card yok (B-4)
-            amount=preauth_amount,
-            currency="TRY",
-            case_id=str(case.id),
+    # Idempotency cache — mevcutsa replay
+    existing = await idem_repo.get_record(session, idempotency_key)
+    if existing is not None and existing.state == PaymentIdempotencyState.SUCCESS:
+        raw = existing.response_payload or {}
+        return CheckoutFormResult(
+            checkout_url=str(raw.get("checkout_url", "")),
+            conversation_id=str(case.id),
+            provider_token=str(raw.get("provider_token", "") or ""),
+            raw=dict(raw),
         )
 
-    result = await with_idempotency(
-        session,
-        key=idempotency_key,
-        operation=PaymentOperation.AUTHORIZE,
-        case_id=case.id,
-        provider=provider,
-        fn=_call_psp,
-        request_payload={
-            "amount": str(preauth_amount),
-            "estimate_amount": str(estimate_amount),
-        },
+    # PSP call
+    cf = await psp.create_checkout_form(
+        conversation_id=str(case.id),
+        amount=preauth_amount,
+        currency="TRY",
+        callback_url=callback_url,
     )
-    if result.success:
-        await _transition_billing_state(
-            session, case, BillingState.PREAUTH_HELD
-        )
-        await append_event(
+    response_payload: dict[str, object] = {
+        "checkout_url": cf.checkout_url,
+        "provider_token": cf.provider_token,
+        "preauth_amount": str(preauth_amount),
+    }
+    if existing is None:
+        await idem_repo.insert_pending(
             session,
+            idempotency_key=idempotency_key,
+            operation=PaymentOperation.AUTHORIZE,
             case_id=case.id,
-            event_type=CaseEventType.PAYMENT_AUTHORIZED,
-            title=f"Pre-auth {preauth_amount} TRY hold edildi",
-            tone=CaseTone.SUCCESS,
-            context={
-                "preauth_amount": str(preauth_amount),
-                "psp_ref": result.provider_ref or "",
+            psp_provider=provider,
+            request_payload={
+                "amount": str(preauth_amount),
+                "estimate_amount": str(estimate_amount),
+                "callback_url": callback_url,
             },
         )
-    else:
+    # Checkout form başarısız (URL yok) → fail; başarılı → pending kalır,
+    # 3DS tamamlandıktan sonra webhook confirm eder
+    if not cf.checkout_url:
+        await idem_repo.mark_failed(
+            session,
+            idempotency_key=idempotency_key,
+            error_code="checkout_form_unavailable",
+            response_payload=response_payload,
+        )
         await _transition_billing_state(
             session, case, BillingState.PREAUTH_FAILED
         )
-    return result
+        return cf
+
+    await append_event(
+        session,
+        case_id=case.id,
+        event_type=CaseEventType.PAYMENT_INITIATED,
+        title=f"3DS ödeme başlatıldı: {preauth_amount} TRY",
+        tone=CaseTone.INFO,
+        context={
+            "preauth_amount": str(preauth_amount),
+            "conversation_id": str(case.id),
+            "provider": provider.value,
+        },
+    )
+    return cf
 
 
 async def process_3ds_callback(
     session: AsyncSession,
     *,
-    case: ServiceCase,
+    conversation_id: str,
     payment_id: str,
-    token: str,
-) -> None:
-    """Iyzico 3DS success webhook → authorize finalize.
+    psp: Psp,
+) -> PspResult | None:
+    """Iyzico 3DS callback webhook — authorize finalize.
 
-    V1'de stub — webhook route HMAC verify edip bu fn'e pas eder. Faz C'de
-    concrete: payment_id üzerinden get_payment_detail → state update.
+    Brief §5.3 akış:
+    1. Webhook body'de `conversationId` = case_id, `paymentId` = Iyzico ref
+    2. psp.get_payment_detail(payment_id) → Iyzico'dan state doğrula
+    3. Success → payment_idempotency.state=SUCCESS, billing_state=PREAUTH_HELD,
+       CaseEvent PAYMENT_AUTHORIZED emit
+    4. Fail → payment_idempotency.state=FAILED, billing_state=PREAUTH_FAILED
+    5. Idempotent — aynı webhook 2x gelirse state=SUCCESS ise no-op
+
+    conversation_id'yi case.id olarak parse eder. Case bulunamazsa log'la
+    dön (unknown/orphan webhook — ignore).
     """
-    _ = case, payment_id, token
-    # Concrete impl Faz C'de — V1'de webhook route 'received' döner
-    # ve FE mock'tan sandbox'a geçince buraya düşer.
+    try:
+        case_id = UUID(conversation_id)
+    except ValueError:
+        return None
+    case = await session.get(ServiceCase, case_id)
+    if case is None or case.deleted_at is not None:
+        return None
+
+    idempotency_key = f"authorize:{case_id}:initial"
+    record = await idem_repo.get_record(session, idempotency_key)
+    if record is not None and record.state == PaymentIdempotencyState.SUCCESS:
+        # Idempotent — zaten işlenmiş
+        return PspResult(
+            success=True,
+            provider_ref=record.psp_ref,
+            raw=dict(record.response_payload or {}),
+        )
+
+    # Iyzico'dan detay çek
+    detail = await psp.get_payment_detail(payment_id=payment_id)
+
+    if not detail.success:
+        await idem_repo.mark_failed(
+            session,
+            idempotency_key=idempotency_key,
+            error_code=detail.error_code or "payment_failed",
+            response_payload=dict(detail.raw),
+        )
+        current = (
+            BillingState(case.billing_state)
+            if case.billing_state
+            else BillingState.ESTIMATE
+        )
+        # PREAUTH_REQUESTED → PREAUTH_FAILED
+        if current == BillingState.PREAUTH_REQUESTED:
+            await _transition_billing_state(
+                session, case, BillingState.PREAUTH_FAILED
+            )
+        return detail
+
+    # Success path
+    await idem_repo.mark_success(
+        session,
+        idempotency_key=idempotency_key,
+        psp_ref=detail.provider_ref or payment_id,
+        response_payload=dict(detail.raw),
+    )
+    current = (
+        BillingState(case.billing_state)
+        if case.billing_state
+        else BillingState.ESTIMATE
+    )
+    # PREAUTH_REQUESTED → PREAUTH_HELD
+    if current == BillingState.PREAUTH_REQUESTED:
+        await _transition_billing_state(
+            session, case, BillingState.PREAUTH_HELD
+        )
+    await append_event(
+        session,
+        case_id=case_id,
+        event_type=CaseEventType.PAYMENT_AUTHORIZED,
+        title="3DS doğrulandı — pre-auth hold aktif",
+        tone=CaseTone.SUCCESS,
+        context={
+            "payment_id": payment_id,
+            "psp_ref": detail.provider_ref or "",
+        },
+    )
+    return detail
 
 
 async def handle_parts_approval(

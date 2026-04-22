@@ -94,10 +94,29 @@ def test_billing_admin_case_router_paths() -> None:
 # ─── PSP factory ──────────────────────────────────────────────────────────
 
 
-def test_get_psp_returns_mock_by_default() -> None:
+def test_get_psp_factory_switch(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """PSP factory: creds yoksa Mock, creds + PSP_PROVIDER=iyzico ise Iyzico."""
+    from app.core import config as config_mod
+    from app.integrations.psp.iyzico import IyzicoPsp
+
+    # Mock path
+    monkeypatch.delenv("PSP_PROVIDER", raising=False)
+    monkeypatch.delenv("IYZICO_API_KEY", raising=False)
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
     psp, provider = _get_psp()
     assert isinstance(psp, MockPsp)
     assert provider == PaymentProvider.MOCK
+
+    # Iyzico path
+    monkeypatch.setenv("PSP_PROVIDER", "iyzico")
+    monkeypatch.setenv("IYZICO_API_KEY", "test-key")
+    monkeypatch.setenv("IYZICO_SECRET_KEY", "test-secret")
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
+    psp2, provider2 = _get_psp()
+    assert isinstance(psp2, IyzicoPsp)
+    assert provider2 == PaymentProvider.IYZICO
+
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
 
 # ─── AuthEvent admin billing values ───────────────────────────────────────

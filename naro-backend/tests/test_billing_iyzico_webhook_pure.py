@@ -29,12 +29,15 @@ from app.services.webhook_security import (
 
 
 @pytest.mark.asyncio
-async def test_iyzico_webhook_missing_secret_returns_503() -> None:
-    """Sandbox başvuru henüz yok — webhook secret boş → 503 (çalışır
-    durumda değil). I-BILL-5'in degraded mode'u."""
-    settings = get_settings()
-    # Default .env webhook_secret="" — 503 beklenen
-    assert settings.iyzico_webhook_secret == ""
+async def test_iyzico_webhook_missing_secret_returns_503(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Secret boş → 503 (degraded mode). I-BILL-5."""
+    from app.core import config as config_mod
+
+    monkeypatch.delenv("IYZICO_WEBHOOK_SECRET", raising=False)
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         r = await c.post(
@@ -43,6 +46,7 @@ async def test_iyzico_webhook_missing_secret_returns_503() -> None:
         )
     assert r.status_code == 503
     assert r.json()["detail"]["type"] == "iyzico_webhook_not_configured"
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
 
 @pytest.mark.asyncio
@@ -112,6 +116,7 @@ async def test_iyzico_webhook_valid_signature_200(
     monkeypatch.setenv("IYZICO_WEBHOOK_SECRET", "testsecret")
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
+    # conversationId eksik — webhook `received_incomplete` döner (HMAC OK ama body kısmi)
     body_bytes = b'{"paymentId":"abc123","status":"success"}'
     sig = compute_hmac_signature(body=body_bytes, secret="testsecret")
 
@@ -126,7 +131,8 @@ async def test_iyzico_webhook_valid_signature_200(
             },
         )
     assert r.status_code == 200
-    assert r.json() == {"status": "received"}
+    # conversationId eksik — webhook ack ediyor ama orchestrator'a gitmiyor
+    assert r.json() == {"status": "received_incomplete"}
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
 
@@ -273,14 +279,20 @@ def test_webhook_router_registered() -> None:
 # ─── Config settings — sandbox variables ──────────────────────────────────
 
 
-def test_iyzico_settings_defaults() -> None:
+def test_iyzico_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default config baseline — env boşken."""
+    from app.core import config as config_mod
+
+    monkeypatch.delenv("IYZICO_WEBHOOK_SECRET", raising=False)
+    monkeypatch.delenv("IYZICO_BASE_URL", raising=False)
+    monkeypatch.delenv("IYZICO_CALLBACK_URL", raising=False)
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
+
     s = get_settings()
-    # Sandbox URL default
     assert "sandbox-api.iyzipay.com" in s.iyzico_base_url
-    # Webhook secret default empty (sandbox başvuru bekleniyor)
     assert s.iyzico_webhook_secret == ""
-    # Callback URL default
     assert "naro.app" in s.iyzico_callback_url
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
 
 _ = AsyncMock  # placate unused import for future tests

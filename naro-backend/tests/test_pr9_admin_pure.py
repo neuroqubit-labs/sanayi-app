@@ -156,7 +156,7 @@ _EXPECTED_ADMIN_EVENT_TYPES = {
 def test_all_admin_event_types_defined() -> None:
     """PR 9 admin events + Faz B-3 admin billing events (superset)."""
     defined = {name for name in AuthEventType.__members__ if name.startswith("ADMIN_")}
-    assert _EXPECTED_ADMIN_EVENT_TYPES <= defined
+    assert defined >= _EXPECTED_ADMIN_EVENT_TYPES
 
 
 def test_admin_event_types_value_snake_case() -> None:

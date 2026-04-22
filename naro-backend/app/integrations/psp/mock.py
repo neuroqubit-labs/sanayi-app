@@ -11,7 +11,7 @@ import os
 from decimal import Decimal
 from uuid import uuid4
 
-from app.integrations.psp.protocol import Psp, PspResult
+from app.integrations.psp.protocol import CheckoutFormResult, Psp, PspResult
 
 
 class MockPsp(Psp):
@@ -103,6 +103,41 @@ class MockPsp(Psp):
             success=True,
             provider_ref=f"mock_void_{uuid4().hex[:12]}",
             raw={"operation": "void", "preauth_id": preauth_id},
+        )
+
+    # ─── Billing 3DS checkout (dev/testing için) ─────────────────────────
+
+    async def create_checkout_form(
+        self,
+        *,
+        conversation_id: str,
+        amount: Decimal,
+        currency: str = "TRY",
+        callback_url: str = "",
+    ) -> CheckoutFormResult:
+        """Dev mode — fake checkout URL dön. FE WebView açabilir ama gerçek
+        3DS yok; test için /webhooks/iyzico/payment manuel tetiklenebilir.
+        """
+        token = f"mock_token_{uuid4().hex[:16]}"
+        return CheckoutFormResult(
+            checkout_url=f"mock://checkout/{conversation_id}/{token}",
+            conversation_id=conversation_id,
+            provider_token=token,
+            raw={
+                "operation": "create_checkout_form",
+                "conversation_id": conversation_id,
+                "amount": str(amount),
+                "currency": currency,
+                "callback_url": callback_url,
+            },
+        )
+
+    async def get_payment_detail(self, *, payment_id: str) -> PspResult:
+        """Dev mode — mock payment detail döner (başarılı varsay)."""
+        return PspResult(
+            success=True,
+            provider_ref=payment_id,
+            raw={"paymentId": payment_id, "status": "success"},
         )
 
     def _should_fail(self, key: str) -> bool:

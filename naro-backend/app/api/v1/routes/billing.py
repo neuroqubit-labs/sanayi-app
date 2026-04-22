@@ -171,7 +171,7 @@ async def _build_billing_summary(
     "/{case_id}/payment/initiate",
     response_model=PaymentInitiateResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Ödeme başlat — pre-auth hold (case owner)",
+    summary="Ödeme başlat — 3DS checkout form URL (case owner)",
 )
 async def initiate_payment_endpoint(
     case_id: UUID,
@@ -186,38 +186,27 @@ async def initiate_payment_endpoint(
         raise HTTPException(
             status_code=422, detail={"type": "estimate_amount_missing"}
         )
+    settings = get_settings()
     psp, provider = _get_psp()
-    result = await case_billing.initiate_payment(
+    cf = await case_billing.initiate_payment(
         db,
         case=case,
         estimate_amount=case.estimate_amount,
         psp=psp,
         provider=provider,
+        callback_url=settings.iyzico_callback_url,
     )
-    if not result.success:
+    if not cf.checkout_url:
+        await db.commit()
         raise HTTPException(
             status_code=422,
-            detail={
-                "type": "preauth_failed",
-                "error_code": result.error_code,
-            },
+            detail={"type": "checkout_form_unavailable"},
         )
     await db.commit()
-    # V1 MockPsp: provider_ref = mock_pa_*; V1.1 Iyzico checkout URL döner
-    checkout_url = (
-        f"mock://pa/{result.provider_ref}"
-        if provider == PaymentProvider.MOCK
-        else (result.raw.get("checkoutFormContent") if isinstance(result.raw, dict) else "")
-        or ""
-    )
     return PaymentInitiateResponse(
-        checkout_url=str(checkout_url),
+        checkout_url=cf.checkout_url,
         idempotency_key=f"authorize:{case_id}:initial",
-        preauth_amount=(
-            case.estimate_amount * Decimal("1.2")
-            if case.estimate_amount is not None
-            else Decimal("0.00")
-        ),
+        preauth_amount=(case.estimate_amount * Decimal("1.2")),
         case_id=case_id,
     )
 
