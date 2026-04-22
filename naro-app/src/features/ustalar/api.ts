@@ -2,12 +2,20 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useActiveCase } from "@/features/cases";
 import { useActiveVehicle } from "@/features/vehicles";
+import { apiClient } from "@/runtime";
 import { mockDelay } from "@/shared/lib/mock";
 
 import {
   mockTechnicianMatchesByVehicle,
   mockTechnicianProfiles,
 } from "./data/fixtures";
+import {
+  TechnicianFeedResponseSchema,
+  TechnicianPublicViewSchema,
+  type TechnicianFeedItem,
+  type TechnicianFeedResponse,
+  type TechnicianPublicView,
+} from "./schemas";
 import type { TechnicianMatch, TechnicianProfile } from "./types";
 
 const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
@@ -77,3 +85,57 @@ export function useTechnicianProfile(technicianId: string) {
       ),
   });
 }
+
+// ─── Live backend wrappers (brief PR-A3) ────────────────────────────────────
+
+type FeedFilters = {
+  domain?: string;
+  brand?: string;
+  district?: string;
+  cursor?: string;
+  limit?: number;
+};
+
+function buildFeedPath(filters: FeedFilters): string {
+  const params = new URLSearchParams();
+  if (filters.domain) params.set("domain", filters.domain);
+  if (filters.brand) params.set("brand", filters.brand);
+  if (filters.district) params.set("district", filters.district);
+  if (filters.cursor) params.set("cursor", filters.cursor);
+  if (filters.limit) params.set("limit", String(filters.limit));
+  const qs = params.toString();
+  return `/technicians/public/feed${qs ? `?${qs}` : ""}`;
+}
+
+export function useTechniciansFeed(filters: FeedFilters = {}) {
+  return useQuery<TechnicianFeedResponse>({
+    queryKey: [
+      "technicians",
+      "public",
+      "feed",
+      filters.domain ?? null,
+      filters.brand ?? null,
+      filters.district ?? null,
+      filters.cursor ?? null,
+      filters.limit ?? 20,
+    ],
+    queryFn: async () => {
+      const raw = await apiClient(buildFeedPath(filters));
+      return TechnicianFeedResponseSchema.parse(raw);
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useTechnicianPublicView(technicianId: string) {
+  return useQuery<TechnicianPublicView>({
+    queryKey: ["technicians", "public", "view", technicianId],
+    enabled: technicianId.length > 0,
+    queryFn: async () => {
+      const raw = await apiClient(`/technicians/public/${technicianId}`);
+      return TechnicianPublicViewSchema.parse(raw);
+    },
+  });
+}
+
+export type { TechnicianFeedItem, TechnicianPublicView };
