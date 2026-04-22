@@ -46,7 +46,11 @@ type CasesState = {
     patch: Partial<ServiceRequestDraft>,
   ) => ServiceRequestDraft;
   resetDraft: (kind: ServiceRequestKind, vehicleId: string) => ServiceRequestDraft;
-  submitDraft: (kind: ServiceRequestKind, vehicleId: string) => ServiceCase;
+  submitDraft: (
+    kind: ServiceRequestKind,
+    vehicleId: string,
+    override?: { id?: string; status?: ServiceCaseStatus },
+  ) => ServiceCase;
   refreshMatching: (caseId: string) => ServiceCase | null;
   selectOffer: (caseId: string, offerId: string) => ServiceCase | null;
   shortlistOffer: (caseId: string, offerId: string) => ServiceCase | null;
@@ -326,9 +330,16 @@ export const useCasesStore = create<CasesState>((set, get) => ({
     }));
     return nextDraft;
   },
-  submitDraft: (kind, vehicleId) => {
+  submitDraft: (kind, vehicleId, override) => {
     const draft = get().drafts[kind] ?? createTrackingDraftForKind(kind, vehicleId);
-    const createdCase = buildCreatedCase(kind, vehicleId, draft);
+    let createdCase = buildCreatedCase(kind, vehicleId, draft);
+    if (override?.id || override?.status) {
+      createdCase = {
+        ...createdCase,
+        ...(override.id ? { id: override.id } : {}),
+        ...(override.status ? { status: override.status } : {}),
+      };
+    }
 
     set((state) => ({
       cases: [createdCase, ...state.cases],

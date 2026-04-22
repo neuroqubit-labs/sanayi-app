@@ -12,11 +12,19 @@ import { pushNotification } from "@/features/notifications/api";
 import { mockTechnicianProfiles } from "@/features/ustalar/data/fixtures";
 import { useActiveVehicle } from "@/features/vehicles";
 import type { Vehicle } from "@/features/vehicles/types";
+import { apiClient } from "@/runtime";
 import { mockDelay } from "@/shared/lib/mock";
 import { queryClient } from "@/shared/lib/query";
 
 import { useTechnicianCooldownStore } from "./cooldown-store";
 import { createDraftForKind } from "./data/fixtures";
+import {
+  CaseCreateResponseSchema,
+  CaseSummaryResponseSchema,
+  ServiceRequestDraftCreateSchema,
+  type CaseCreateResponse,
+  type ServiceRequestDraftCreate,
+} from "./schemas/case-create";
 import { useCasesStore } from "./store";
 
 const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
@@ -190,15 +198,147 @@ export function useCreateCaseDraft(kind: ServiceRequestKind) {
   };
 }
 
+function deriveSummary(draft: ServiceRequestDraft, kind: ServiceRequestKind): string {
+  const base = draft.notes?.trim();
+  if (base && base.length >= 1) return base;
+  const kindLabel: Record<ServiceRequestKind, string> = {
+    accident: "Kaza / hasar bildirimi",
+    breakdown: "Arıza bildirimi",
+    maintenance: "Bakım talebi",
+    towing: "Çekici talebi",
+  };
+  return kindLabel[kind];
+}
+
+function draftToCreatePayload(
+  draft: ServiceRequestDraft,
+  kind: ServiceRequestKind,
+  vehicleId: string,
+): ServiceRequestDraftCreate {
+  const attachments = draft.attachments.map((item) => ({
+    id: item.id,
+    kind: item.kind,
+    title: item.title,
+    subtitle: item.subtitle ?? null,
+    statusLabel: item.statusLabel ?? null,
+    asset_id: item.asset?.id ?? null,
+    category: null,
+  }));
+
+  return ServiceRequestDraftCreateSchema.parse({
+    schema_version: "v1",
+    kind,
+    vehicle_id: vehicleId,
+    urgency: draft.urgency ?? "planned",
+    summary: deriveSummary(draft, kind),
+    location_label: draft.location_label?.trim() || "Konum belirtilmedi",
+    location_lat_lng: null,
+    dropoff_label: draft.dropoff_label ?? null,
+    dropoff_lat_lng: null,
+    notes: draft.notes ?? null,
+    attachments,
+    symptoms: draft.symptoms ?? [],
+    maintenance_items: draft.maintenance_items ?? [],
+    preferred_window: draft.preferred_window ?? null,
+    vehicle_drivable: draft.vehicle_drivable ?? null,
+    towing_required: draft.towing_required ?? false,
+    pickup_preference: draft.pickup_preference ?? null,
+    mileage_km: draft.mileage_km ?? null,
+    preferred_technician_id: draft.preferred_technician_id ?? null,
+    counterparty_note: draft.counterparty_note ?? null,
+    counterparty_vehicle_count: draft.counterparty_vehicle_count ?? null,
+    damage_area: draft.damage_area ?? null,
+    damage_severity: null,
+    valet_requested: draft.valet_requested ?? false,
+    report_method: draft.report_method ?? null,
+    kasko_selected: draft.kasko_selected ?? false,
+    kasko_brand: draft.kasko_brand ?? null,
+    sigorta_selected: draft.sigorta_selected ?? false,
+    sigorta_brand: draft.sigorta_brand ?? null,
+    ambulance_contacted: draft.ambulance_contacted ?? false,
+    emergency_acknowledged: draft.emergency_acknowledged ?? false,
+    breakdown_category: draft.breakdown_category ?? null,
+    on_site_repair: draft.on_site_repair ?? false,
+    price_preference: draft.price_preference ?? null,
+    maintenance_category: draft.maintenance_category ?? null,
+    maintenance_detail: null,
+    maintenance_tier: draft.maintenance_tier ?? null,
+  });
+}
+
 export function useSubmitCase(kind: ServiceRequestKind) {
   const { data: activeVehicle } = useActiveVehicle();
   const vehicleId = activeVehicle?.id ?? DEFAULT_VEHICLE_ID;
 
-  return useMutation({
+  return useMutation<ServiceCase, Error, void>({
     mutationFn: async () => {
-      const createdCase = useCasesStore.getState().submitDraft(kind, vehicleId);
+      const storeState = useCasesStore.getState();
+      const draft =
+        storeState.drafts[kind] ??
+        (() => {
+          throw new Error("Draft eksik — composer'ı sıfırdan başlat.");
+        })();
+
+      // Evidence-first invariant (I-6) — attachment ownership + kind-bazlı
+      // zorunlu alan kontrolü backend yanında tekrar enforce. FE burada
+      // Zod parse ile temel şekli garanti eder; 422 detayı backend'den gelir.
+      const payload = draftToCreatePayload(draft, kind, vehicleId);
+
+      let response: CaseCreateResponse;
+      try {
+        // JSON roundtrip → `undefined` field'leri düşür (JsonBody constraint).
+        const body = JSON.parse(JSON.stringify(payload));
+        const raw = await apiClient("/cases", {
+          method: "POST",
+          body,
+        });
+        response = CaseCreateResponseSchema.parse(raw);
+      } catch (err) {
+        console.warn("useSubmitCase POST /cases failed", err);
+        throw err instanceof Error ? err : new Error("case submit failed");
+      }
+
+      // Zustand mock listesine backend id + status override'ıyla ekle —
+      // caller `/vaka/{id}` navigation'ında detay mock'unu bulsun.
+      // PR-A3'te tüm case listing/detail backend'den gelecek; mock stub
+      // o zaman kaldırılacak.
+      const createdCase = useCasesStore.getState().submitDraft(kind, vehicleId, {
+        id: response.id,
+        status: response.status,
+      });
       await invalidateCaseConsumers();
       return createdCase;
+    },
+  });
+}
+
+export function useCancelCaseLive(caseId: string) {
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      await apiClient(`/cases/${caseId}/cancel`, { method: "POST" });
+      await invalidateCaseConsumers();
+    },
+  });
+}
+
+export function useMyCasesLive() {
+  return useQuery({
+    queryKey: ["cases", "me", "live"],
+    queryFn: async () => {
+      const raw = await apiClient("/cases/me");
+      return CaseSummaryResponseSchema.array().parse(raw);
+    },
+    staleTime: 10 * 1000,
+  });
+}
+
+export function useCaseSummaryLive(caseId: string) {
+  return useQuery({
+    queryKey: ["cases", "summary", "live", caseId],
+    enabled: caseId.length > 0,
+    queryFn: async () => {
+      const raw = await apiClient(`/cases/${caseId}`);
+      return CaseSummaryResponseSchema.parse(raw);
     },
   });
 }
