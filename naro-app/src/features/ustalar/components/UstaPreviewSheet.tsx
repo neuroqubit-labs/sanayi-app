@@ -95,15 +95,16 @@ export function UstaPreviewSheet() {
       statusBarTranslucent
       onRequestClose={close}
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Ön izlemeyi kapat"
-        onPress={close}
-        className="flex-1 justify-end bg-black/60"
-      >
+      <View className="flex-1">
         <Pressable
-          onPress={(event) => event.stopPropagation()}
+          accessibilityRole="button"
+          accessibilityLabel="Ön izlemeyi kapat"
+          onPress={close}
+          className="absolute inset-0 bg-black/60"
+        />
+        <View
           style={{ paddingBottom: insets.bottom + 8 }}
+          className="absolute bottom-0 left-0 right-0"
         >
           <ActionSheetSurface
             title="Usta önizleme"
@@ -141,8 +142,8 @@ export function UstaPreviewSheet() {
               />
             )}
           </ActionSheetSurface>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
