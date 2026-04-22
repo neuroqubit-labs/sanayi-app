@@ -13,6 +13,7 @@
     "@naro/domain": "workspace:*",
     "@naro/mobile-core": "workspace:*",
     "expo-blur": "~14.0.0",
+    "expo-location": "~18.0.0",
     "lucide-react-native": "^0.453.0",
     "nativewind": "^4.0.0",
     "react": "18.3.1",
