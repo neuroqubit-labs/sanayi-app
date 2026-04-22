@@ -6,6 +6,7 @@ import {
   Text,
   useMapPicker,
 } from "@naro/ui";
+import { type Href, useRouter } from "expo-router";
 import {
   Building,
   Home,
@@ -14,8 +15,13 @@ import {
   Pencil,
   Sparkles,
 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
+
+import {
+  useMapPickerBridge,
+  type MapPickerPurpose,
+} from "@/features/map-picker";
 
 export type FrequentPlace = {
   id: string;
@@ -30,11 +36,14 @@ type Props = {
   onChange: (next: string) => void;
   description?: string;
   frequentPlaces?: FrequentPlace[];
+  /** Default handler full-screen map modal açar; caller override edebilir. */
   onOpenMapPicker?: () => void;
   /** Şu an seçili koordinat — map preview pin'i için. */
   coord?: LatLng | null;
   /** Koordinat değişince caller çağrılır (GPS veya map pick). */
   onCoordChange?: (next: LatLng | null) => void;
+  /** Modal purpose'u — pin rengi + başlık: pickup (default), dropoff, vb. */
+  mapPurpose?: MapPickerPurpose;
 };
 
 const DEFAULT_FREQUENT_PLACES: FrequentPlace[] = [
@@ -69,9 +78,16 @@ export function LocationPicker({
   onOpenMapPicker,
   coord = null,
   onCoordChange,
+  mapPurpose = "pickup",
 }: Props) {
   const [showManual, setShowManual] = useState(!value);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const router = useRouter();
+  const session = useId();
+  const bridge = useMapPickerBridge();
+  const pendingResult = useMapPickerBridge((s) =>
+    s.result?.session === session ? s.result : null,
+  );
 
   const picker = useMapPicker({
     initialCoord: coord,
@@ -116,6 +132,32 @@ export function LocationPicker({
     [picker, onChange, onCoordChange],
   );
 
+  // Default — modal'ı aç
+  const handleOpenMap = useCallback(() => {
+    if (onOpenMapPicker) {
+      onOpenMapPicker();
+      return;
+    }
+    bridge.open({
+      session,
+      initialCoord: picker.coord ?? coord ?? null,
+      purpose: mapPurpose,
+    });
+    router.push("/(modal)/harita-sec" as Href);
+  }, [onOpenMapPicker, bridge, session, picker.coord, coord, mapPurpose, router]);
+
+  // Modal'dan gelen sonucu consume et
+  useEffect(() => {
+    if (!pendingResult) return;
+    const consumed = bridge.consume(session);
+    if (!consumed) return;
+    picker.setCoord(consumed.coord);
+    onCoordChange?.(consumed.coord);
+    onChange(consumed.address);
+    setShowManual(false);
+    setPermissionDenied(false);
+  }, [pendingResult, bridge, session, picker, onChange, onCoordChange]);
+
   return (
     <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-4">
       <View className="gap-1">
@@ -137,7 +179,7 @@ export function LocationPicker({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Haritada seç"
-        onPress={onOpenMapPicker}
+        onPress={handleOpenMap}
         className="active:opacity-90"
       >
         {picker.coord ? (
@@ -215,7 +257,7 @@ export function LocationPicker({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Haritada değiştir"
-          onPress={onOpenMapPicker ?? (() => setShowManual(true))}
+          onPress={handleOpenMap}
           className="flex-row items-center justify-center gap-2 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-2"
         >
           <Icon icon={Pencil} size={13} color="#83a7ff" />
