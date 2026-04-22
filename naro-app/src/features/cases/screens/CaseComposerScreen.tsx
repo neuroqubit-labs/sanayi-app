@@ -10,9 +10,9 @@ import {
   TrustBadge,
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
-import { CarFront, ChevronDown } from "lucide-react-native";
+import { CarFront, ChevronDown, Plus } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTechnicianCooldownStore } from "@/features/cases/cooldown-store";
@@ -20,6 +20,7 @@ import { TOW_DEFAULT_PICKUP, useTowStore } from "@/features/tow";
 import { useTechnicianProfile } from "@/features/ustalar/api";
 import {
   useActiveVehicle,
+  useVehicles,
   useVehicleStore,
   useVehicleSwitcherStore,
 } from "@/features/vehicles";
@@ -67,6 +68,11 @@ export function CaseComposerScreen() {
     technicianId?: string;
   }>();
   const { data: activeVehicle } = useActiveVehicle();
+  const {
+    data: vehicles,
+    isLoading: isLoadingVehicles,
+    isError: isVehiclesError,
+  } = useVehicles();
   const { data: preferredTechnician } = useTechnicianProfile(
     technicianId ?? "",
   );
@@ -131,11 +137,81 @@ export function CaseComposerScreen() {
     );
   }
 
+  if (isLoadingVehicles && (!vehicles || vehicles.length === 0)) {
+    return (
+      <SafeAreaView className="flex-1 bg-app-bg">
+        <View className="flex-1 items-center justify-center gap-3">
+          <ActivityIndicator color="#83a7ff" />
+          <Text tone="muted" variant="caption">
+            Araçların yükleniyor…
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isVehiclesError) {
+    return (
+      <SafeAreaView className="flex-1 bg-app-bg">
+        <View className="flex-1 items-center justify-center gap-4 px-6">
+          <Text variant="h2" tone="inverse" className="text-center">
+            Araç listesi yüklenemedi
+          </Text>
+          <Text variant="body" tone="muted" className="text-center">
+            Bağlantını kontrol edip yeniden dene.
+          </Text>
+          <Button
+            label="Geri dön"
+            variant="outline"
+            onPress={() => router.back()}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!vehicles || vehicles.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-app-bg">
+        <View className="flex-1 items-center justify-center gap-5 px-6">
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-app-surface-2">
+            <Icon icon={CarFront} size={24} color="#83a7ff" />
+          </View>
+          <View className="gap-2">
+            <Text variant="h2" tone="inverse" className="text-center">
+              Önce aracını ekle
+            </Text>
+            <Text variant="body" tone="muted" className="text-center">
+              Talep oluşturabilmek için kayıtlı bir araca ihtiyacın var. Birkaç
+              saniyede ekleyip kaldığın yerden devam edebilirsin.
+            </Text>
+          </View>
+          <View className="w-full gap-2">
+            <Button
+              label="Aracımı ekle"
+              variant="primary"
+              leftIcon={<Icon icon={Plus} size={16} color="#ffffff" />}
+              onPress={() => router.replace("/(modal)/arac-ekle" as Href)}
+            />
+            <Button
+              label="Geri dön"
+              variant="ghost"
+              onPress={() => router.back()}
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!draft || !activeVehicle) {
     return (
       <SafeAreaView className="flex-1 bg-app-bg">
-        <View className="flex-1 items-center justify-center">
-          <Text tone="inverse">Composer hazırlanıyor...</Text>
+        <View className="flex-1 items-center justify-center gap-3">
+          <ActivityIndicator color="#83a7ff" />
+          <Text tone="muted" variant="caption">
+            Composer hazırlanıyor…
+          </Text>
         </View>
       </SafeAreaView>
     );
