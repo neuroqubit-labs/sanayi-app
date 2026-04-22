@@ -6,7 +6,9 @@ import {
   Icon,
   MaintenanceReminderCard,
   PremiumListRow,
+  PressableCard,
   Screen,
+  Surface,
   Text,
   TrustBadge,
   VehicleMemoryTimeline,
@@ -20,7 +22,7 @@ import {
   Plus,
   Wrench,
 } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { useActiveCase } from "@/features/cases";
 
@@ -75,7 +77,11 @@ export function VehicleDetailScreen() {
       </View>
 
       {/* Hero */}
-      <View className="gap-4 rounded-[32px] border border-app-outline-strong bg-app-surface-2 px-5 py-5">
+      <Surface
+        variant="hero"
+        radius="sheet"
+        className="gap-4 border-app-outline-strong bg-app-surface-2 px-5 py-5"
+      >
         <View className="gap-2">
           <Text
             variant="display"
@@ -118,15 +124,17 @@ export function VehicleDetailScreen() {
             onPress={() => setActiveVehicle(vehicle.id)}
           />
         ) : null}
-      </View>
+      </Surface>
 
       {/* Aktif vaka kısa yolu */}
       {isThisActive && activeCase ? (
-        <Pressable
+        <PressableCard
           accessibilityRole="button"
           accessibilityLabel="Aktif vakayı aç"
           onPress={() => router.push(`/vaka/${activeCase.id}` as Href)}
-          className="gap-2 rounded-[24px] border border-brand-500/40 bg-brand-500/10 px-4 py-4 active:opacity-90"
+          variant="elevated"
+          radius="lg"
+          className="gap-2 border-brand-500/40 bg-brand-500/10 px-4 py-4"
         >
           <View className="flex-row items-center justify-between gap-3">
             <TrustBadge label="Aktif vaka" tone="accent" />
@@ -141,7 +149,7 @@ export function VehicleDetailScreen() {
             {activeCase.next_action_title ||
               "Bir sonraki adım vakayı açınca görünür."}
           </Text>
-        </Pressable>
+        </PressableCard>
       ) : null}
 
       {/* Bakım hatırlatmaları */}
@@ -210,7 +218,11 @@ export function VehicleDetailScreen() {
 
       {/* Kronik notlar */}
       {vehicle.chronicNotes.length > 0 ? (
-        <View className="gap-3 rounded-[24px] border border-app-warning/30 bg-app-warning-soft px-4 py-4">
+        <Surface
+          variant="flat"
+          radius="lg"
+          className="gap-3 border-app-warning/30 bg-app-warning-soft px-4 py-4"
+        >
           <View className="flex-row items-center gap-2">
             <Icon icon={AlertCircle} size={18} color="#f5b33f" />
             <Text variant="label" tone="inverse">
@@ -228,7 +240,7 @@ export function VehicleDetailScreen() {
               </Text>
             ))}
           </View>
-        </View>
+        </Surface>
       ) : null}
 
       {/* Araç hafızası / timeline */}

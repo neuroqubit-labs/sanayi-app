@@ -9,7 +9,7 @@ import {
 } from "@naro/ui";
 import { Href, useRouter } from "expo-router";
 import { Bell, Search } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { useUnreadNotificationCount } from "@/features/notifications";
 
