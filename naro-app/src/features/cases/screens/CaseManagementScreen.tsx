@@ -31,6 +31,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   BillingSummaryCard,
   CancellationSheet,
+  InvoiceApprovalSheet,
+  PartsApprovalSheet,
   type CaseBillingStage,
 } from "@/features/billing";
 import { useUstaPreviewStore } from "@/features/ustalar";
@@ -87,6 +89,10 @@ export function CaseManagementScreen() {
   const [editOpen, setEditOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [cancelSheetOpen, setCancelSheetOpen] = useState(false);
+  const [openApproval, setOpenApproval] = useState<{
+    id: string;
+    kind: "parts_request" | "invoice";
+  } | null>(null);
 
   const assignedTechnician = useMemo(() => {
     if (!caseItem) return null;
@@ -488,6 +494,69 @@ export function CaseManagementScreen() {
           </Pressable>
         ) : null}
 
+        {/* Bekleyen onay talepleri — kullanıcının aksiyon alması için */}
+        {caseItem.pending_approvals
+          .filter((a) => a.status === "pending")
+          .filter(
+            (a): a is typeof a & { kind: "parts_request" | "invoice" } =>
+              a.kind === "parts_request" || a.kind === "invoice",
+          )
+          .map((approval) => (
+            <Pressable
+              key={approval.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${approval.title} onayını aç`}
+              onPress={() =>
+                setOpenApproval({ id: approval.id, kind: approval.kind })
+              }
+              className={[
+                "flex-row items-center gap-3 rounded-[16px] border px-4 py-3.5 active:opacity-90",
+                approval.kind === "parts_request"
+                  ? "border-app-warning/40 bg-app-warning-soft"
+                  : "border-brand-500/40 bg-brand-500/10",
+              ].join(" ")}
+            >
+              <View
+                className={[
+                  "h-9 w-9 items-center justify-center rounded-full",
+                  approval.kind === "parts_request"
+                    ? "bg-app-warning/20"
+                    : "bg-brand-500/20",
+                ].join(" ")}
+              >
+                <Icon
+                  icon={approval.kind === "parts_request" ? Sparkles : FileText}
+                  size={15}
+                  color={
+                    approval.kind === "parts_request" ? "#f5b33f" : "#0ea5e9"
+                  }
+                />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text
+                  variant="label"
+                  tone={
+                    approval.kind === "parts_request" ? "warning" : "accent"
+                  }
+                  className="text-[13px]"
+                >
+                  {approval.kind === "parts_request"
+                    ? "Ek parça onayı bekliyor"
+                    : "Fatura onayı bekliyor"}
+                </Text>
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted text-[11px]"
+                  numberOfLines={1}
+                >
+                  {approval.title}
+                </Text>
+              </View>
+              <Icon icon={ChevronRight} size={14} color="#83a7ff" />
+            </Pressable>
+          ))}
+
         {/* Billing summary — BE billing summary endpoint 404 iken
             komponent sessizce null döner (ödeme akışı henüz başlamamış). */}
         <BillingSummaryCard caseId={caseId} />
@@ -555,6 +624,36 @@ export function CaseManagementScreen() {
         estimate={null}
         onClose={() => setCancelSheetOpen(false)}
         onCancelled={() => router.replace("/(tabs)/" as Href)}
+      />
+
+      <PartsApprovalSheet
+        visible={openApproval?.kind === "parts_request"}
+        approvalId={
+          openApproval?.kind === "parts_request" ? openApproval.id : null
+        }
+        onClose={() => setOpenApproval(null)}
+        onNeedsPayment={({ caseId: paymentCaseId, redirectUrl }) => {
+          // Ek 3DS hold gerektiren senaryo — payment modal'ına yönlendir
+          router.push(`/(modal)/odeme/${paymentCaseId}` as Href);
+          // redirectUrl query param olarak PaymentInitiateScreen tarafında
+          // kullanılması V2; şu an screen yeni initiate ile devam eder.
+          void redirectUrl;
+        }}
+        onTalkToTechnician={(threadCaseId) =>
+          router.push(`/vaka/${threadCaseId}/mesajlar` as Href)
+        }
+      />
+
+      <InvoiceApprovalSheet
+        visible={openApproval?.kind === "invoice"}
+        approvalId={openApproval?.kind === "invoice" ? openApproval.id : null}
+        onClose={() => setOpenApproval(null)}
+        onNeedsPayment={({ caseId: paymentCaseId }) => {
+          router.push(`/(modal)/odeme/${paymentCaseId}` as Href);
+        }}
+        onTalkToTechnician={(threadCaseId) =>
+          router.push(`/vaka/${threadCaseId}/mesajlar` as Href)
+        }
       />
     </SafeAreaView>
   );
