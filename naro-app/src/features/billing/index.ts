@@ -6,3 +6,7 @@ export {
   PartsApprovalSheet,
   type PartsApprovalSheetProps,
 } from "./components/PartsApprovalSheet";
+export {
+  InvoiceApprovalSheet,
+  type InvoiceApprovalSheetProps,
+} from "./components/InvoiceApprovalSheet";
