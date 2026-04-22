@@ -7,6 +7,18 @@ from app.models.appointment import (
 from app.models.auth import AuthSession, OtpChannel, OtpCode
 from app.models.auth_event import AuthEvent, AuthEventType
 from app.models.auth_identity import AuthIdentityProvider, UserIdentity
+from app.models.billing import (
+    CaseCommissionSettlement,
+    CaseKaskoSettlement,
+    CaseKaskoState,
+    CaseRefund,
+    CaseRefundReason,
+    CaseRefundState,
+    PaymentIdempotency,
+    PaymentIdempotencyState,
+    PaymentOperation,
+    PaymentProvider,
+)
 from app.models.case import (
     CaseOrigin,
     CaseWaitActor,
@@ -139,10 +151,13 @@ __all__ = [
     "CaseApprovalStatus",
     "CaseAttachment",
     "CaseAttachmentKind",
+    "CaseCommissionSettlement",
     "CaseDocument",
     "CaseEvent",
     "CaseEventType",
     "CaseEvidenceItem",
+    "CaseKaskoSettlement",
+    "CaseKaskoState",
     "CaseMessage",
     "CaseMessageAttachment",
     "CaseMessageAuthorRole",
@@ -154,6 +169,9 @@ __all__ = [
     "CaseOfferKind",
     "CaseOfferStatus",
     "CaseOrigin",
+    "CaseRefund",
+    "CaseRefundReason",
+    "CaseRefundState",
     "CaseTask",
     "CaseTaskEvidenceLink",
     "CaseTaskKind",
@@ -170,6 +188,10 @@ __all__ = [
     "MediaAsset",
     "OtpChannel",
     "OtpCode",
+    "PaymentIdempotency",
+    "PaymentIdempotencyState",
+    "PaymentOperation",
+    "PaymentProvider",
     "ProviderMode",
     "ProviderType",
     "Review",
