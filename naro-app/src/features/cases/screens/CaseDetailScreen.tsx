@@ -10,6 +10,7 @@ import {
   Icon,
   Screen,
   StatusChip,
+  Surface,
   Text,
   TrustBadge,
 } from "@naro/ui";
@@ -247,7 +248,11 @@ function UtilityCard({
   onPress?: () => void;
 }) {
   const content = (
-    <View className="w-[248px] gap-3 rounded-[26px] border border-app-outline bg-app-surface px-4 py-4">
+    <Surface
+      variant="raised"
+      radius="xl"
+      className="w-[248px] gap-3 px-4 py-4"
+    >
       <View className="flex-row items-start justify-between gap-3">
         <View className="h-11 w-11 items-center justify-center rounded-full border border-app-outline bg-app-surface-2">
           <Icon icon={utilityIcon(item.kind)} size={18} color={utilityColor(item.kind)} />
@@ -269,7 +274,7 @@ function UtilityCard({
           {item.meta}
         </Text>
       ) : null}
-    </View>
+    </Surface>
   );
 
   if (!onPress) {
@@ -335,7 +340,11 @@ export function CaseDetailScreen() {
         />
 
         {isPendingAppointment ? (
-          <View className="gap-3 rounded-[24px] border border-app-warning/40 bg-app-warning/10 px-4 py-4">
+          <Surface
+            variant="flat"
+            radius="lg"
+            className="gap-3 border-app-warning/40 bg-app-warning/10 px-4 py-4"
+          >
             <View className="flex-row items-center gap-2">
               <Icon icon={Hourglass} size={16} color="#f5b33f" />
               <Text variant="label" tone="warning" className="flex-1 text-[14px]">
@@ -406,11 +415,15 @@ export function CaseDetailScreen() {
                 />
               </View>
             ) : null}
-          </View>
+          </Surface>
         ) : null}
 
         {appointmentDeclined ? (
-          <View className="gap-2 rounded-[24px] border border-app-critical/40 bg-app-critical/10 px-4 py-4">
+          <Surface
+            variant="flat"
+            radius="lg"
+            className="gap-2 border-app-critical/40 bg-app-critical/10 px-4 py-4"
+          >
             <Text variant="label" tone="critical" className="text-[14px]">
               Usta randevuyu reddetti
             </Text>
@@ -423,18 +436,22 @@ export function CaseDetailScreen() {
               variant="outline"
               onPress={() => router.push("/(tabs)/carsi" as Href)}
             />
-          </View>
+          </Surface>
         ) : null}
 
         {appointmentExpired ? (
-          <View className="gap-2 rounded-[24px] border border-app-outline bg-app-surface px-4 py-4">
+          <Surface
+            variant="raised"
+            radius="lg"
+            className="gap-2 px-4 py-4"
+          >
             <Text variant="label" tone="inverse" className="text-[14px]">
               Randevu süresi doldu
             </Text>
             <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
               Usta 24 saat içinde yanıt vermedi. Tekrar dene veya alternatif seç.
             </Text>
-          </View>
+          </Surface>
         ) : null}
 
         <View
