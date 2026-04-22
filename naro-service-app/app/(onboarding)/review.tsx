@@ -63,7 +63,7 @@ export default function ReviewStep() {
         <BackButton onPress={() => router.back()} />
         <View className="flex-1 gap-1">
           <Text variant="eyebrow" tone="subtle">
-            Adım 7 / 7 · Özet
+            Adım 8 / 8 · Özet
           </Text>
           <Text variant="h2" tone="inverse">
             Başvurunu gözden geçir

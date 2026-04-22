@@ -78,7 +78,7 @@ export default function CapabilitiesStep() {
         <BackButton onPress={() => router.back()} />
         <View className="flex-1 gap-1">
           <Text variant="eyebrow" tone="subtle">
-            Adım 4 / 7 · Kapsam
+            Adım 4 / 8 · Kapsam
           </Text>
           <Text variant="h2" tone="inverse">
             Hizmet kapsamın

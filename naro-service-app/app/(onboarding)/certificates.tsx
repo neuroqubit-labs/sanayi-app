@@ -43,7 +43,7 @@ export default function CertificatesStep() {
         <BackButton onPress={() => router.back()} />
         <View className="flex-1 gap-1">
           <Text variant="eyebrow" tone="subtle">
-            Adım 5 / 7 · Sertifikalar
+            Adım 5 / 8 · Sertifikalar
           </Text>
           <Text variant="h2" tone="inverse">
             Doğrulama belgeleri

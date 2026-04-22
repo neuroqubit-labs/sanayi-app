@@ -126,7 +126,7 @@ export default function ServiceAreaScreen() {
         <BackButton onPress={() => router.back()} />
         <View className="flex-1 gap-1">
           <Text variant="eyebrow" tone="subtle">
-            Adım 6 / 7 · Servis alanı
+            Adım 6 / 8 · Servis alanı
           </Text>
           <Text variant="h2" tone="inverse">
             Nerede çalışıyorsun?
@@ -296,7 +296,7 @@ export default function ServiceAreaScreen() {
         size="lg"
         disabled={!canContinue}
         variant={canContinue ? "primary" : "outline"}
-        onPress={() => router.push("/(onboarding)/review" as Href)}
+        onPress={() => router.push("/(onboarding)/coverage" as Href)}
         fullWidth
       />
     </Screen>
