@@ -15,13 +15,28 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.naro.app"
+      "bundleIdentifier": "com.naro.app",
+      "associatedDomains": ["applinks:naro.com.tr"]
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       },
-      "package": "com.naro.app"
+      "package": "com.naro.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "naro.com.tr",
+              "pathPrefix": "/billing/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro"
