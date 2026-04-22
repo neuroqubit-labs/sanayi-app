@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import ColumnElement, and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case import (
@@ -77,20 +77,30 @@ async def list_pool_cases(
     provider_type: ProviderType,
     *,
     limit: int = 50,
+    before_created_at: datetime | None = None,
+    before_id: UUID | None = None,
 ) -> list[ServiceCase]:
     kinds = kinds_for_provider(provider_type)
     if not kinds:
         return []
-    stmt = (
-        select(ServiceCase)
-        .where(
-            and_(
-                ServiceCase.status.in_(POOL_VISIBLE_STATUSES),
-                ServiceCase.kind.in_(kinds),
-                ServiceCase.deleted_at.is_(None),
+    conds: list[ColumnElement[bool]] = [
+        ServiceCase.status.in_(POOL_VISIBLE_STATUSES),
+        ServiceCase.kind.in_(kinds),
+        ServiceCase.deleted_at.is_(None),
+        ServiceCase.assigned_technician_id.is_(None),
+    ]
+    if before_created_at is not None and before_id is not None:
+        conds.append(
+            (ServiceCase.created_at < before_created_at)
+            | (
+                (ServiceCase.created_at == before_created_at)
+                & (ServiceCase.id > before_id)
             )
         )
-        .order_by(ServiceCase.urgency.desc(), ServiceCase.created_at.desc())
+    stmt = (
+        select(ServiceCase)
+        .where(and_(*conds))
+        .order_by(ServiceCase.created_at.desc(), ServiceCase.id.asc())
         .limit(limit)
     )
     return list((await session.execute(stmt)).scalars().all())

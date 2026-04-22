@@ -61,6 +61,7 @@ from app.models.insurance_claim import (
 )
 from app.models.media import MediaAsset
 from app.models.offer import CaseOffer, CaseOfferKind, CaseOfferStatus
+from app.models.review import Review
 from app.models.taxonomy import (
     BrandTier,
     TaxonomyBrand,
@@ -171,6 +172,7 @@ __all__ = [
     "OtpCode",
     "ProviderMode",
     "ProviderType",
+    "Review",
     "ServiceCase",
     "ServiceCaseStatus",
     "ServiceRequestKind",

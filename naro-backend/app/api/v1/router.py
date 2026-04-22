@@ -8,6 +8,8 @@ from app.api.v1.routes import (
     insurance_claims,
     media,
     offers,
+    pool,
+    reviews,
     taxonomy,
     technicians,
     technicians_public,
@@ -29,5 +31,7 @@ api_router.include_router(taxonomy.router)
 api_router.include_router(vehicles.router)
 api_router.include_router(insurance_claims.customer_router)
 api_router.include_router(insurance_claims.admin_router)
+api_router.include_router(pool.router)
+api_router.include_router(reviews.router)
 api_router.include_router(tow.router)
 api_router.include_router(tow_ws.router)
