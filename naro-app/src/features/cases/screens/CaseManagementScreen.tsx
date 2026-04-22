@@ -25,9 +25,14 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import {
+  BillingSummaryCard,
+  CancellationSheet,
+  type CaseBillingStage,
+} from "@/features/billing";
 import { useUstaPreviewStore } from "@/features/ustalar";
 import { mockTechnicianProfiles } from "@/features/ustalar/data/fixtures";
 import { useVehicle } from "@/features/vehicles";
@@ -81,6 +86,7 @@ export function CaseManagementScreen() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
+  const [cancelSheetOpen, setCancelSheetOpen] = useState(false);
 
   const assignedTechnician = useMemo(() => {
     if (!caseItem) return null;
@@ -124,21 +130,7 @@ export function CaseManagementScreen() {
     caseItem.status === "matching" || caseItem.status === "offers_ready";
 
   const handleCancel = () => {
-    Alert.alert(
-      "Vakayı iptal et",
-      "Bu vakayı iptal etmek istediğinden emin misin? Aktif randevu ve teklifler düşer.",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        {
-          text: "Evet, iptal et",
-          style: "destructive",
-          onPress: async () => {
-            await cancelCase.mutateAsync({ caseId });
-            router.replace("/(tabs)/" as Href);
-          },
-        },
-      ],
-    );
+    setCancelSheetOpen(true);
   };
 
   const handleEditSubmit = (patch: { summary: string; notes: string }) => {
@@ -496,6 +488,10 @@ export function CaseManagementScreen() {
           </Pressable>
         ) : null}
 
+        {/* Billing summary — BE billing summary endpoint 404 iken
+            komponent sessizce null döner (ödeme akışı henüz başlamamış). */}
+        <BillingSummaryCard caseId={caseId} />
+
         {/* Metadata */}
         <View className="items-center pt-2">
           <Text variant="caption" tone="muted" className="text-app-text-subtle text-[10px]">
@@ -551,6 +547,37 @@ export function CaseManagementScreen() {
         onSubmit={handleAddAttachment}
         target={{ purpose: "case_evidence_photo", ownerRef: `case:${caseId}` }}
       />
+
+      <CancellationSheet
+        visible={cancelSheetOpen}
+        caseId={caseId}
+        stage={deriveBillingStage(caseItem.status)}
+        estimate={null}
+        onClose={() => setCancelSheetOpen(false)}
+        onCancelled={() => router.replace("/(tabs)/" as Href)}
+      />
     </SafeAreaView>
   );
+}
+
+function deriveBillingStage(status: string): CaseBillingStage {
+  switch (status) {
+    case "matching":
+    case "offers_ready":
+      return "pre_preauth";
+    case "appointment_pending":
+    case "scheduled":
+      return "scheduled_before_start";
+    case "service_in_progress":
+    case "parts_approval":
+      return "service_in_progress";
+    case "invoice_approval":
+      return "invoice_approval";
+    case "completed":
+    case "cancelled":
+    case "archived":
+      return "completed";
+    default:
+      return "pre_preauth";
+  }
 }
