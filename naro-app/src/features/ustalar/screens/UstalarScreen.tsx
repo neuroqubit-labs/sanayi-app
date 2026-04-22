@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -160,6 +161,7 @@ export function UstalarScreen() {
           }
         }}
         isFetchingNextPage={feedQuery.isFetchingNextPage}
+        filtersOpen={filtersOpen}
       />
     </Screen>
   );
@@ -264,8 +266,14 @@ type FeedBodyProps = {
   onRetry: () => void;
   onEndReached: () => void;
   isFetchingNextPage: boolean;
+  filtersOpen: boolean;
 };
 
+/**
+ * Reels-tarzı feed — bir kart = bir ekran. `pagingEnabled` + snap ile
+ * kullanıcı dikey swipe ile ustalar arasında geçer. Card container
+ * `viewport - header - tab bar` yüksekliğinde; kart içerik merkezli.
+ */
 function FeedBody({
   items,
   isLoading,
@@ -275,7 +283,14 @@ function FeedBody({
   onRetry,
   onEndReached,
   isFetchingNextPage,
+  filtersOpen,
 }: FeedBodyProps) {
+  const { height } = useWindowDimensions();
+  // header yaklaşık yükseklik (search + filters chip row); filtersOpen ise +panel
+  const headerHeight = filtersOpen ? 320 : 130;
+  const tabBarHeight = 96;
+  const cardHeight = Math.max(420, height - headerHeight - tabBarHeight);
+
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center gap-3">
@@ -349,11 +364,29 @@ function FeedBody({
     <FlatList<TechnicianFeedItem>
       data={items}
       keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <TechnicianFeedCard item={item} />}
-      contentContainerStyle={{ gap: 12, paddingHorizontal: 20, paddingBottom: 32 }}
+      renderItem={({ item }) => (
+        <View
+          style={{
+            height: cardHeight,
+            paddingHorizontal: 20,
+            justifyContent: "center",
+          }}
+        >
+          <TechnicianFeedCard item={item} />
+        </View>
+      )}
       showsVerticalScrollIndicator={false}
+      pagingEnabled
+      snapToInterval={cardHeight}
+      snapToAlignment="start"
+      decelerationRate="fast"
       onEndReached={onEndReached}
       onEndReachedThreshold={0.5}
+      getItemLayout={(_, index) => ({
+        length: cardHeight,
+        offset: cardHeight * index,
+        index,
+      })}
       ListFooterComponent={
         isFetchingNextPage ? (
           <View className="items-center py-4">
