@@ -1,64 +1,19 @@
 import { create } from "zustand";
 
-import { mockVehicles } from "./data/fixtures";
-import type { Vehicle, VehicleDraft } from "./types";
-
 type VehicleState = {
-  vehicles: Vehicle[];
   activeVehicleId: string;
   setActiveVehicle: (id: string) => void;
-  addVehicle: (draft: VehicleDraft) => Vehicle;
 };
 
-const defaultActiveVehicleId =
-  mockVehicles.find((vehicle) => vehicle.isActive)?.id ??
-  mockVehicles[0]?.id ??
-  "";
-
-function nextId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function toVehicle(draft: VehicleDraft): Vehicle {
-  return {
-    id: nextId("veh"),
-    plate: draft.plate.trim().toUpperCase(),
-    tabThumbnailUri: draft.tabThumbnailUri,
-    make: draft.make.trim(),
-    model: draft.model.trim(),
-    year: draft.year ?? new Date().getFullYear(),
-    color: draft.color,
-    fuel: draft.fuel,
-    transmission: draft.transmission,
-    engine: draft.engine,
-    mileageKm: draft.mileageKm ?? 0,
-    note: draft.note,
-    healthLabel: "Yeni eklendi",
-    isActive: false,
-    lastServiceLabel: undefined,
-    nextServiceLabel: undefined,
-    regularShop: undefined,
-    insuranceExpiryLabel: undefined,
-    chronicNotes: draft.chronicNotes ?? [],
-    history: [],
-    warranties: [],
-    maintenanceReminders: [],
-    historyAccessGranted: draft.historyAccessGranted ?? false,
-  };
-}
-
+/**
+ * Yalnız **seçim durumu** (hangi araç aktif). Araç listesi kaynağı
+ * TanStack Query üstünden `/vehicles/me` endpoint'inden gelir
+ * (naro-app/src/features/vehicles/api.ts).
+ *
+ * Mock vehicles fixture + addVehicle mock silindi; mobil live wire-up
+ * PR-C (brief docs/mobil-live-wire-up-brief.md §PR-C).
+ */
 export const useVehicleStore = create<VehicleState>((set) => ({
-  vehicles: mockVehicles,
-  activeVehicleId: defaultActiveVehicleId,
+  activeVehicleId: "",
   setActiveVehicle: (id) => set({ activeVehicleId: id }),
-  addVehicle: (draft) => {
-    const vehicle = toVehicle(draft);
-
-    set((state) => ({
-      vehicles: [...state.vehicles, vehicle],
-      activeVehicleId: state.activeVehicleId || vehicle.id,
-    }));
-
-    return vehicle;
-  },
 }));

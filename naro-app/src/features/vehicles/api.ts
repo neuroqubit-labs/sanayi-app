@@ -1,64 +1,249 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
-import { mockDelay } from "@/shared/lib/mock";
-import { queryClient } from "@/shared/lib/query";
+import { apiClient } from "@/runtime";
 
+import {
+  HistoryConsentPayloadSchema,
+  VehicleCreatePayloadSchema,
+  VehicleDossierSchema,
+  VehicleListSchema,
+  VehicleResponseSchema,
+  VehicleUpdatePayloadSchema,
+  type HistoryConsentPayload,
+  type VehicleCreatePayload,
+  type VehicleDossier,
+  type VehicleResponse,
+  type VehicleUpdatePayload,
+} from "./schema";
 import { useVehicleStore } from "./store";
 import type { Vehicle, VehicleDraft } from "./types";
 
-function withActiveFlag(vehicles: Vehicle[], activeId: string): Vehicle[] {
-  return vehicles.map((vehicle) => ({
-    ...vehicle,
-    isActive: vehicle.id === activeId,
-  }));
+const FUEL_MAP: Record<string, NonNullable<VehicleCreatePayload["fuel_type"]>> = {
+  Benzin: "gasoline",
+  Dizel: "diesel",
+  LPG: "lpg",
+  Hibrit: "hybrid",
+  Elektrik: "electric",
+  CNG: "cng",
+};
+
+function draftToPayload(draft: VehicleDraft): VehicleCreatePayload {
+  const fuelKey = draft.fuel
+    ? FUEL_MAP[draft.fuel] ?? null
+    : null;
+  return VehicleCreatePayloadSchema.parse({
+    plate: draft.plate.trim().toUpperCase(),
+    make: draft.make.trim() || null,
+    model: draft.model.trim() || null,
+    year: draft.year ?? null,
+    color: draft.color?.trim() || null,
+    fuel_type: fuelKey,
+    vin: null,
+    current_km: draft.mileageKm ?? null,
+    note: draft.note?.trim() || null,
+    is_primary: true,
+  });
+}
+
+function fuelLabel(
+  type: VehicleResponse["fuel_type"],
+): string | undefined {
+  if (!type) return undefined;
+  const inv: Record<string, string> = {
+    gasoline: "Benzin",
+    diesel: "Dizel",
+    lpg: "LPG",
+    hybrid: "Hibrit",
+    electric: "Elektrik",
+    cng: "CNG",
+    other: "Diğer",
+  };
+  return inv[type];
+}
+
+/**
+ * Backend VehicleResponse → UI Vehicle shape adapter.
+ *
+ * UI-spesifik alanlar (history[], warranties[], maintenanceReminders[],
+ * healthLabel, lastServiceLabel vb.) backend'de yok; boş varsayılır.
+ * İlerleyen PR'larda `/vehicles/{id}/dossier` + case feed'den türer.
+ */
+function adaptVehicle(
+  res: VehicleResponse,
+  activeVehicleId: string,
+): Vehicle {
+  return {
+    id: res.id,
+    plate: res.plate,
+    tabThumbnailUri: undefined,
+    make: res.make ?? "",
+    model: res.model ?? "",
+    year: res.year ?? new Date().getFullYear(),
+    color: res.color ?? undefined,
+    fuel: fuelLabel(res.fuel_type),
+    transmission: undefined,
+    engine: undefined,
+    mileageKm: res.current_km ?? 0,
+    note: res.note ?? undefined,
+    healthLabel: undefined,
+    isActive: res.id === activeVehicleId,
+    lastServiceLabel: undefined,
+    nextServiceLabel: undefined,
+    regularShop: undefined,
+    insuranceExpiryLabel: res.kasko_valid_until
+      ? new Date(res.kasko_valid_until).toLocaleDateString("tr-TR")
+      : undefined,
+    chronicNotes: [],
+    history: [],
+    warranties: [],
+    maintenanceReminders: [],
+    historyAccessGranted: res.history_consent_granted,
+  };
+}
+
+async function fetchMyVehicles(): Promise<VehicleResponse[]> {
+  const raw = await apiClient("/vehicles/me");
+  return VehicleListSchema.parse(raw);
+}
+
+async function fetchVehicle(id: string): Promise<VehicleResponse> {
+  const raw = await apiClient(`/vehicles/${id}`);
+  return VehicleResponseSchema.parse(raw);
+}
+
+async function fetchVehicleDossier(id: string): Promise<VehicleDossier> {
+  const raw = await apiClient(`/vehicles/${id}/dossier`);
+  return VehicleDossierSchema.parse(raw);
 }
 
 export function useVehicles() {
-  const activeVehicleId = useVehicleStore((state) => state.activeVehicleId);
-  const vehicles = useVehicleStore((state) => state.vehicles);
+  const activeVehicleId = useVehicleStore((s) => s.activeVehicleId);
+  const setActiveVehicle = useVehicleStore((s) => s.setActiveVehicle);
 
-  return useQuery<Vehicle[]>({
-    queryKey: ["vehicles", activeVehicleId, vehicles.length],
-    queryFn: () => mockDelay(withActiveFlag(vehicles, activeVehicleId)),
-    initialData: withActiveFlag(vehicles, activeVehicleId),
+  const query = useQuery<VehicleResponse[]>({
+    queryKey: ["vehicles", "me"],
+    queryFn: fetchMyVehicles,
+    staleTime: 30 * 1000,
   });
+
+  // Aktif araç seçilmemişse ve liste doluysa ilkini seç
+  useEffect(() => {
+    if (!activeVehicleId && query.data && query.data.length > 0) {
+      setActiveVehicle(query.data[0]!.id);
+    }
+  }, [activeVehicleId, query.data, setActiveVehicle]);
+
+  return {
+    ...query,
+    data: (query.data ?? []).map((v) => adaptVehicle(v, activeVehicleId)),
+  };
 }
 
 export function useActiveVehicle() {
-  const activeVehicleId = useVehicleStore((state) => state.activeVehicleId);
-  const vehicles = useVehicleStore((state) => state.vehicles);
-
-  return useQuery<Vehicle | null>({
-    queryKey: ["vehicles", "active", activeVehicleId, vehicles.length],
-    queryFn: () =>
-      mockDelay(
-        vehicles.find((vehicle) => vehicle.id === activeVehicleId) ?? null,
-      ),
-    initialData:
-      vehicles.find((vehicle) => vehicle.id === activeVehicleId) ?? null,
-  });
+  const activeVehicleId = useVehicleStore((s) => s.activeVehicleId);
+  const vehiclesQuery = useVehicles();
+  const active =
+    vehiclesQuery.data.find((v) => v.id === activeVehicleId) ??
+    vehiclesQuery.data[0] ??
+    null;
+  return {
+    ...vehiclesQuery,
+    data: active as Vehicle | null,
+  };
 }
 
 export function useVehicle(vehicleId: string) {
-  const activeVehicleId = useVehicleStore((state) => state.activeVehicleId);
-  const vehicles = useVehicleStore((state) => state.vehicles);
+  const activeVehicleId = useVehicleStore((s) => s.activeVehicleId);
 
   return useQuery<Vehicle | null>({
-    queryKey: ["vehicles", vehicleId, activeVehicleId, vehicles.length],
-    queryFn: () =>
-      mockDelay(
-        vehicles.find((vehicle) => vehicle.id === vehicleId) ?? null,
-      ),
-    initialData: vehicles.find((vehicle) => vehicle.id === vehicleId) ?? null,
+    queryKey: ["vehicles", vehicleId],
+    enabled: vehicleId.length > 0,
+    queryFn: async () => {
+      const res = await fetchVehicle(vehicleId);
+      return adaptVehicle(res, activeVehicleId);
+    },
+  });
+}
+
+export function useVehicleDossierQuery(vehicleId: string) {
+  return useQuery<VehicleDossier>({
+    queryKey: ["vehicles", vehicleId, "dossier"],
+    enabled: vehicleId.length > 0,
+    queryFn: () => fetchVehicleDossier(vehicleId),
   });
 }
 
 export function useAddVehicle() {
-  return useMutation({
-    mutationFn: async (draft: VehicleDraft) => {
-      const vehicle = useVehicleStore.getState().addVehicle(draft);
-      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
-      return vehicle;
+  const queryClient = useQueryClient();
+  const setActiveVehicle = useVehicleStore((s) => s.setActiveVehicle);
+
+  return useMutation<Vehicle, Error, VehicleDraft>({
+    mutationFn: async (draft) => {
+      const payload = draftToPayload(draft);
+      const raw = await apiClient("/vehicles", {
+        method: "POST",
+        body: payload,
+      });
+      const created = VehicleResponseSchema.parse(raw);
+
+      // İzin verildiyse history_consent ayrı POST (backend contract)
+      if (draft.historyAccessGranted) {
+        await apiClient(`/vehicles/${created.id}/history_consent`, {
+          method: "POST",
+          body: HistoryConsentPayloadSchema.parse({ granted: true }),
+        });
+      }
+
+      setActiveVehicle(created.id);
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      return adaptVehicle(created, created.id);
+    },
+  });
+}
+
+export function useUpdateVehicleMutation(vehicleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<VehicleResponse, Error, VehicleUpdatePayload>({
+    mutationFn: async (payload) => {
+      const body = VehicleUpdatePayloadSchema.parse(payload);
+      const raw = await apiClient(`/vehicles/${vehicleId}`, {
+        method: "PATCH",
+        body,
+      });
+      return VehicleResponseSchema.parse(raw);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    },
+  });
+}
+
+export function useDeleteVehicleMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: async (vehicleId) => {
+      await apiClient(`/vehicles/${vehicleId}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    },
+  });
+}
+
+export function useHistoryConsentMutation(vehicleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<VehicleResponse, Error, HistoryConsentPayload>({
+    mutationFn: async (payload) => {
+      const body = HistoryConsentPayloadSchema.parse(payload);
+      const raw = await apiClient(`/vehicles/${vehicleId}/history_consent`, {
+        method: "POST",
+        body,
+      });
+      return VehicleResponseSchema.parse(raw);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
     },
   });
 }
