@@ -57,15 +57,17 @@ async def accept_offer(
     *,
     actor_user_id: UUID | None = None,
 ) -> CaseOffer:
-    offer = await offer_repo.get_offer(session, offer_id)
+    # P1-5 fix: check-then-update yerine atomic UPDATE...WHERE...RETURNING.
+    # Double accept / concurrent retry / çift tıklamada tek başarılı yarış.
+    offer = await offer_repo.mark_accepted_atomic(session, offer_id)
     if offer is None:
-        raise OfferNotFoundError(str(offer_id))
-    if offer.status.name not in ("PENDING", "SHORTLISTED"):
+        # Ya offer_id yok, ya da status PENDING/SHORTLISTED dışı — ayırt et
+        existing = await offer_repo.get_offer(session, offer_id)
+        if existing is None:
+            raise OfferNotFoundError(str(offer_id))
         raise OfferNotAcceptableError(
-            f"offer {offer_id} is in status {offer.status.value}"
+            f"offer {offer_id} is in status {existing.status.value}"
         )
-
-    await offer_repo.mark_accepted(session, offer_id)
 
     siblings = await offer_repo.list_siblings_for_case(
         session, offer.case_id, exclude_id=offer_id

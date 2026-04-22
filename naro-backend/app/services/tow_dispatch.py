@@ -87,7 +87,11 @@ async def record_dispatch_response(
         raise LookupError("dispatch attempt not found")
 
     if response == TowDispatchResponse.ACCEPTED:
-        await tow_repo.release_technician_offer(session, attempt.technician_id)
+        # P0-2 fix: accept'te lock bırakma — `current_offer_case_id = case.id`
+        # pin'le. Terminal stage'e kadar (cancel / complete) tutulur.
+        await tow_repo.pin_technician_to_case(
+            session, attempt.technician_id, case.id
+        )
         await _transition_to_accepted(session, case, attempt.technician_id, actor_user_id)
         return None
 

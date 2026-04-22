@@ -160,6 +160,13 @@ async def transition_stage(
     case.tow_stage = to_stage
     _sync_case_status(case, to_stage)
 
+    # P0-2 fix: DELIVERED terminal → occupancy lock release (usta bir sonraki
+    # işe açık). Diğer stage'lerde lock korunur (accepted/en_route/.../in_transit).
+    if to_stage == TowDispatchStage.DELIVERED and case.assigned_technician_id:
+        await tow_repo.release_technician_offer(
+            session, case.assigned_technician_id
+        )
+
     # 3. Commit event
     now = datetime.now(UTC)
     await append_event(
@@ -193,7 +200,10 @@ async def cancel_case(
     reason_code: str,
     reason_note: str | None = None,
     locked_price: Decimal | None = None,
-) -> None:
+) -> Decimal:
+    """Return: effective_fee (authoritative — route katmanı yeniden hesap
+    yapmaz). `tow_cancellations.cancellation_fee` ile aynı değer.
+    """
     if case.tow_stage is None or case.tow_mode is None:
         raise InvalidStageTransitionError("case has no tow state")
     stage_at_cancel = case.tow_stage
@@ -215,6 +225,12 @@ async def cancel_case(
     case.tow_stage = TowDispatchStage.CANCELLED
     case.status = ServiceCaseStatus.CANCELLED
     case.closed_at = datetime.now(UTC)
+
+    # P0-2 fix: CANCELLED terminal → occupancy lock release
+    if case.assigned_technician_id:
+        await tow_repo.release_technician_offer(
+            session, case.assigned_technician_id
+        )
 
     await tow_repo.create_cancellation(
         session,
@@ -240,6 +256,7 @@ async def cancel_case(
             "reason_code": reason_code,
         },
     )
+    return effective_fee
 
 
 async def _check_evidence_gate(

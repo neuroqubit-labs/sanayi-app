@@ -229,10 +229,24 @@ async def lock_offer_to_technician(
 async def release_technician_offer(
     session: AsyncSession, technician_id: UUID
 ) -> None:
+    """Occupancy lock release — decline/timeout/terminal (cancel/complete)."""
     await session.execute(
         update(TechnicianProfile)
         .where(TechnicianProfile.user_id == technician_id)
         .values(current_offer_case_id=None, current_offer_issued_at=None)
+    )
+
+
+async def pin_technician_to_case(
+    session: AsyncSession, technician_id: UUID, case_id: UUID
+) -> None:
+    """Occupancy lock pin — accept anında. P0-2 fix: terminal stage'e kadar
+    tutulur; aday seçimi `current_offer_case_id IS NULL` filter'ı ile görmez.
+    """
+    await session.execute(
+        update(TechnicianProfile)
+        .where(TechnicianProfile.user_id == technician_id)
+        .values(current_offer_case_id=case_id)
     )
 
 

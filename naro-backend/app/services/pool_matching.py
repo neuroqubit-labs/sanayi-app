@@ -15,7 +15,10 @@ P = ProviderType
 
 KIND_PROVIDER_MAP: dict[ServiceRequestKind, set[ProviderType]] = {
     K.ACCIDENT: {P.USTA, P.KAPORTA_BOYA, P.CEKICI},
-    K.TOWING: {P.CEKICI, P.USTA},
+    # P0-6 fix (audit 2026-04-23): towing kanonik kural SADECE CEKICI.
+    # Önceden USTA da kabul ediliyordu; tow vakaları yanlış role'lere
+    # görünüyordu (non-çekici aday teklif verebilirdi).
+    K.TOWING: {P.CEKICI},
     K.BREAKDOWN: {P.USTA, P.OTO_ELEKTRIK, P.LASTIK, P.CEKICI},
     K.MAINTENANCE: {P.USTA, P.LASTIK, P.OTO_ELEKTRIK, P.OTO_AKSESUAR},
 }

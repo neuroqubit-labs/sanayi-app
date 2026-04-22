@@ -23,6 +23,7 @@ from app.api.v1.deps import (
 )
 from app.core.config import get_settings
 from app.integrations.maps import get_maps
+from app.integrations.psp.mock import build_mock_psp
 from app.models.case import (
     CaseOrigin,
     ServiceCase,
@@ -188,6 +189,34 @@ async def create_case(
     result: dict[str, object] = {"case_id": str(case.id), "stage": initial_stage.value}
 
     if tow_mode == TowMode.IMMEDIATE:
+        # P0-3 fix: immediate tow create → preauth gate ZORUNLU.
+        # Settlement oluşturulmadan dispatch başlamaz.
+        # V1 MockPsp (stored card yok, Iyzico 3DS async — Faz C'de subaccount
+        # tokenization ile gerçek Iyzico preauth).
+        try:
+            await payment_svc.authorize_preauth(
+                db,
+                case=case,
+                cap_amount=payload.fare_quote.cap_amount,
+                quoted_amount=(
+                    payload.fare_quote.locked_price
+                    or payload.fare_quote.cap_amount
+                ),
+                customer_token="",  # V1 mock default — B-4 stored card yok
+                psp=build_mock_psp(),
+            )
+        except payment_svc.PaymentDeclinedError as exc:
+            # 402 Payment Required — settlement yok, dispatch başlamaz
+            await db.rollback()
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "type": "preauth_declined",
+                    "error_code": exc.error_code,
+                    "message": str(exc),
+                },
+            ) from exc
+
         try:
             decision = await dispatch_svc.initiate_dispatch(db, case)
             result["first_attempt"] = {
@@ -460,7 +489,9 @@ async def cancel(
         if case.customer_user_id == user.id
         else TowCancellationActor.TECHNICIAN
     )
-    await lifecycle_svc.cancel_case(
+    # P0-1 fix: authoritative fee = lifecycle service return value (stage_at_cancel
+    # bazında, yeniden hesaplama YOK). Route sadece refund PSP çağrısını orchestre eder.
+    effective_fee = await lifecycle_svc.cancel_case(
         db,
         case=case,
         actor=actor,
@@ -470,14 +501,18 @@ async def cancel(
     )
     settlement = await tow_repo.get_settlement_by_case(db, case.id)
     if settlement is not None and settlement.preauth_id is not None:
-        from app.services.tow_dispatch import compute_cancellation_fee
-
-        fee = compute_cancellation_fee(case.tow_mode, case.tow_stage)  # type: ignore[arg-type]
         await payment_svc.refund_cancellation(
-            db, settlement=settlement, fee_amount=fee if fee > 0 else Decimal("0"), psp=psp,
+            db,
+            settlement=settlement,
+            fee_amount=effective_fee if effective_fee > 0 else Decimal("0"),
+            psp=psp,
         )
     await db.commit()
-    return {"cancelled": True, "case_id": str(case.id)}
+    return {
+        "cancelled": True,
+        "case_id": str(case.id),
+        "cancellation_fee": str(effective_fee),
+    }
 
 
 # ─── 10. Kasko declaration ──────────────────────────────────────────────────

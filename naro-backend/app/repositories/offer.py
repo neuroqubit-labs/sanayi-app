@@ -132,8 +132,39 @@ async def customer_reject_offer(session: AsyncSession, offer_id: UUID) -> None:
     )
 
 
+async def mark_accepted_atomic(
+    session: AsyncSession, offer_id: UUID
+) -> CaseOffer | None:
+    """P1-5 fix: atomic UPDATE...WHERE status IN RETURNING pattern.
+
+    Double accept / concurrency / retry'a dayanıklı. Başarılıysa
+    güncellenmiş satırı döner; race kaybedildiyse None.
+
+    Eski `mark_accepted` check-then-update idi; service layer'ın
+    get → status check → update sırası yarışa açıktı.
+    """
+    stmt = (
+        update(CaseOffer)
+        .where(
+            and_(
+                CaseOffer.id == offer_id,
+                CaseOffer.status.in_(
+                    (CaseOfferStatus.PENDING, CaseOfferStatus.SHORTLISTED)
+                ),
+            )
+        )
+        .values(
+            status=CaseOfferStatus.ACCEPTED,
+            accepted_at=datetime.now(UTC),
+        )
+        .returning(CaseOffer)
+    )
+    result = (await session.execute(stmt)).scalar_one_or_none()
+    return result
+
+
 async def mark_accepted(session: AsyncSession, offer_id: UUID) -> None:
-    """Düşük seviye — service `offer_acceptance.accept_offer` bunu çağırır."""
+    """Legacy — direct UPDATE. Yeni kullanım için `mark_accepted_atomic`."""
     await session.execute(
         update(CaseOffer)
         .where(CaseOffer.id == offer_id)
