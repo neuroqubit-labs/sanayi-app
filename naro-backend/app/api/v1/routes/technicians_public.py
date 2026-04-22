@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import and_, case, exists, literal_column, select
+from sqlalchemy import and_, case, exists, select
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -144,6 +144,120 @@ def _accepting_new_jobs(availability: TechnicianAvailability) -> bool:
     return availability == TechnicianAvailability.AVAILABLE
 
 
+@router.get(
+    "/feed",
+    response_model=PaginatedResponse[TechnicianFeedItem],
+    summary="Public teknisyen feed — admission quick-check filter + tier sort",
+)
+async def get_public_feed(
+    _user: CurrentUserDep,
+    db: DbDep,
+    redis: RedisDep,
+    cursor: CursorQuery = None,
+    limit: LimitQuery = 20,
+) -> PaginatedResponse[TechnicianFeedItem]:
+    cache_key = public_feed_key(cursor=cursor, limit=limit)
+    cached_raw = await redis.get(cache_key)
+    if cached_raw is not None:
+        try:
+            payload_str = (
+                cached_raw if isinstance(cached_raw, str) else cached_raw.decode()
+            )
+            return PaginatedResponse[TechnicianFeedItem].model_validate_json(
+                payload_str
+            )
+        except Exception:
+            pass  # cache corrupt — fall through
+
+    cursor_data = decode_cursor(cursor)
+
+    tier_rank = case(
+        (TechnicianProfile.verified_level == TechnicianVerifiedLevel.PREMIUM, 2),
+        (TechnicianProfile.verified_level == TechnicianVerifiedLevel.VERIFIED, 1),
+        else_=0,
+    ).label("tier_rank")
+
+    service_domain_exists = exists().where(
+        TechnicianServiceDomain.profile_id == TechnicianProfile.id
+    )
+    service_area_exists = exists().where(
+        TechnicianServiceArea.profile_id == TechnicianProfile.id
+    )
+
+    conds = [
+        TechnicianProfile.deleted_at.is_(None),
+        TechnicianProfile.availability.in_(
+            [TechnicianAvailability.AVAILABLE, TechnicianAvailability.BUSY]
+        ),
+        User.status == UserStatus.ACTIVE,
+        User.approval_status == UserApprovalStatus.ACTIVE,
+        User.role == UserRole.TECHNICIAN,
+        service_domain_exists,
+        service_area_exists,
+    ]
+
+    if cursor_data is not None:
+        last_sort = cursor_data.get("sort")
+        last_id = cursor_data.get("id")
+        if isinstance(last_sort, int) and isinstance(last_id, str):
+            conds.append(
+                (tier_rank < last_sort)
+                | (
+                    (tier_rank == last_sort)
+                    & (TechnicianProfile.id > UUID(last_id))
+                )
+            )
+
+    stmt = (
+        select(TechnicianProfile)
+        .join(User, User.id == TechnicianProfile.user_id)
+        .where(and_(*conds))
+        .order_by(tier_rank.desc(), TechnicianProfile.id.asc())
+        .limit(limit + 1)
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+
+    snapshots = await _load_snapshot_aggregates(db, [p.id for p in rows])
+
+    items: list[TechnicianFeedItem] = []
+    for p in rows:
+        snap = snapshots.get(p.id)
+        rating_bayesian = snap[1] if snap else None
+        rating_count = int(snap[2]) if snap else 0
+        completed_jobs_30d = int(snap[3]) if snap else 0
+        location = await _build_location_summary(db, p.id)
+        items.append(
+            TechnicianFeedItem(
+                id=p.id,
+                display_name=p.display_name,
+                tagline=p.tagline,
+                avatar_asset_id=p.avatar_asset_id,
+                verified_level=p.verified_level,
+                provider_type=p.provider_type,
+                secondary_provider_types=list(p.secondary_provider_types or []),
+                active_provider_type=p.active_provider_type,
+                accepting_new_jobs=_accepting_new_jobs(p.availability),
+                rating_bayesian=rating_bayesian,
+                rating_count=rating_count,
+                completed_jobs_30d=completed_jobs_30d,
+                location_summary=location,
+            )
+        )
+
+    paginated = build_paginated(
+        items,
+        limit=limit,
+        cursor_fn=lambda item: encode_cursor(
+            id_=item.id, sort_value=_VERIFIED_TIER_ORDER[item.verified_level]
+        ),
+    )
+
+    await redis.set(
+        cache_key, paginated.model_dump_json(), ex=PUBLIC_FEED_TTL_SECONDS
+    )
+    return paginated
+
+
 @router.get("/{technician_id}", response_model=TechnicianPublicView)
 async def get_public_profile(
     technician_id: UUID,
@@ -214,130 +328,3 @@ async def get_public_profile(
         redis, key=cache_key, value=view, ttl=PUBLIC_PROFILE_TTL_SECONDS
     )
     return view
-
-
-@router.get(
-    "/feed",
-    response_model=PaginatedResponse[TechnicianFeedItem],
-    summary="Public teknisyen feed — admission quick-check filter + tier sort",
-)
-async def get_public_feed(
-    _user: CurrentUserDep,
-    db: DbDep,
-    redis: RedisDep,
-    cursor: CursorQuery = None,
-    limit: LimitQuery = 20,
-) -> PaginatedResponse[TechnicianFeedItem]:
-    cache_key = public_feed_key(cursor=cursor, limit=limit)
-    # Cache read — feed'de list-pydantic wrapper; basitliğe model=pagination
-    cached_raw = await redis.get(cache_key)
-    if cached_raw is not None:
-        try:
-            payload_str = (
-                cached_raw if isinstance(cached_raw, str) else cached_raw.decode()
-            )
-            return PaginatedResponse[TechnicianFeedItem].model_validate_json(
-                payload_str
-            )
-        except Exception:
-            pass  # cache corrupt — fall through
-
-    cursor_data = decode_cursor(cursor)
-
-    # Composite tier order as SQL expression (enum doesn't sort by tier)
-    tier_rank = case(
-        (TechnicianProfile.verified_level == TechnicianVerifiedLevel.PREMIUM, 2),
-        (TechnicianProfile.verified_level == TechnicianVerifiedLevel.VERIFIED, 1),
-        else_=0,
-    ).label("tier_rank")
-
-    # Admission quick-check — JOIN User + EXISTS signal model
-    service_domain_exists = exists().where(
-        TechnicianServiceDomain.profile_id == TechnicianProfile.id
-    )
-    service_area_exists = exists().where(
-        TechnicianServiceArea.profile_id == TechnicianProfile.id
-    )
-
-    conds = [
-        TechnicianProfile.deleted_at.is_(None),
-        TechnicianProfile.availability.in_(
-            [TechnicianAvailability.AVAILABLE, TechnicianAvailability.BUSY]
-        ),
-        User.status == UserStatus.ACTIVE,
-        User.approval_status == UserApprovalStatus.ACTIVE,
-        User.role == UserRole.TECHNICIAN,
-        service_domain_exists,
-        service_area_exists,
-    ]
-
-    # Cursor: (tier_rank, id) — ilerletme için (< cursor)
-    if cursor_data is not None:
-        last_sort = cursor_data.get("sort")
-        last_id = cursor_data.get("id")
-        if isinstance(last_sort, int) and isinstance(last_id, str):
-            # Aynı tier içinde id > last_id VEYA tier < last_tier
-            conds.append(
-                literal_column("0").is_(None)  # placeholder — actual below
-            )
-            conds.pop()
-            # Proper compound: (tier_rank, id) > (last_sort, last_id) pattern
-            # Basit sürüm: tier < last_sort OR (tier == last_sort AND id > last_id)
-            conds.append(
-                (tier_rank < last_sort)
-                | (
-                    (tier_rank == last_sort)
-                    & (TechnicianProfile.id > UUID(last_id))
-                )
-            )
-
-    stmt = (
-        select(TechnicianProfile)
-        .join(User, User.id == TechnicianProfile.user_id)
-        .where(and_(*conds))
-        .order_by(tier_rank.desc(), TechnicianProfile.id.asc())
-        .limit(limit + 1)
-    )
-    rows = list((await db.execute(stmt)).scalars().all())
-
-    # Snapshot aggregate batched
-    snapshots = await _load_snapshot_aggregates(db, [p.id for p in rows])
-
-    items: list[TechnicianFeedItem] = []
-    for p in rows:
-        snap = snapshots.get(p.id)
-        rating_bayesian = snap[1] if snap else None
-        rating_count = int(snap[2]) if snap else 0
-        completed_jobs_30d = int(snap[3]) if snap else 0
-        location = await _build_location_summary(db, p.id)
-        items.append(
-            TechnicianFeedItem(
-                id=p.id,
-                display_name=p.display_name,
-                tagline=p.tagline,
-                avatar_asset_id=p.avatar_asset_id,
-                verified_level=p.verified_level,
-                provider_type=p.provider_type,
-                secondary_provider_types=list(p.secondary_provider_types or []),
-                active_provider_type=p.active_provider_type,
-                accepting_new_jobs=_accepting_new_jobs(p.availability),
-                rating_bayesian=rating_bayesian,
-                rating_count=rating_count,
-                completed_jobs_30d=completed_jobs_30d,
-                location_summary=location,
-            )
-        )
-
-    paginated = build_paginated(
-        items,
-        limit=limit,
-        cursor_fn=lambda item: encode_cursor(
-            id_=item.id, sort_value=_VERIFIED_TIER_ORDER[item.verified_level]
-        ),
-    )
-
-    # Cache write
-    await redis.set(
-        cache_key, paginated.model_dump_json(), ex=PUBLIC_FEED_TTL_SECONDS
-    )
-    return paginated

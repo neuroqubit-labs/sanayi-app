@@ -190,6 +190,11 @@ class TechnicianProfile(UUIDPkMixin, TimestampMixin, Base):
         SmallInteger, nullable=False, default=1, server_default="1"
     )
 
+    # Faz B seed kick — pilot mock flag (Kayseri 10+10)
+    is_mock: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+
 
 class TechnicianCapability(Base):
     """4 boolean flag — 1:1 technician_profiles."""
