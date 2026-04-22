@@ -73,9 +73,11 @@ export function isAvailableInPool(
   return isCaseKindAvailableForProviderType(caseItem.kind, providerType);
 }
 
+// Canonical rule: towing → yalnızca cekici (tow-priority audit 2026-04-23
+// P0-6 + invariant checklist "towing sadece cekici adaylarına görünür").
 const CASE_KIND_PROVIDERS: Record<ServiceRequestKind, ProviderType[]> = {
   accident: ["usta", "kaporta_boya", "cekici"],
-  towing: ["cekici", "usta"],
+  towing: ["cekici"],
   breakdown: ["usta", "oto_elektrik", "lastik", "cekici"],
   maintenance: ["usta", "lastik", "oto_elektrik", "oto_aksesuar"],
 };

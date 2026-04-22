@@ -47,7 +47,9 @@ export function useTechTowBroadcaster({
   const sendLocation = useCallback(
     async (payload: LocationPostPayload) => {
       if (!caseId) return;
-      await apiClient(`/tow/${caseId}/location`, {
+      // Canonical backend route: /api/v1/tow/cases/{case_id}/location
+      // (tow-priority audit 2026-04-23 P0-5; apiClient baseUrl zaten /api/v1).
+      await apiClient(`/tow/cases/${caseId}/location`, {
         method: "POST",
         body: payload,
       });

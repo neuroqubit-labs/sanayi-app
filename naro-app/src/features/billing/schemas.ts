@@ -188,21 +188,7 @@ export const CancellationRequestSchema = z.object({
 });
 export type CancellationRequest = z.infer<typeof CancellationRequestSchema>;
 
-// ─── Dispute (brief §6.2) ──────────────────────────────────────────────────
-
-export const DisputeCategorySchema = z.enum([
-  "work_not_done",
-  "different_from_estimate",
-  "quality_issue",
-  "other",
-]);
-export type DisputeCategory = z.infer<typeof DisputeCategorySchema>;
-
-export const DisputeRequestSchema = z.object({
-  category: DisputeCategorySchema,
-  detail: z.string().min(1).max(2000),
-  attachment_media_ids: z.array(z.string().uuid()).default([]),
-});
-export type DisputeRequest = z.infer<typeof DisputeRequestSchema>;
+// Dispute schema V1.1'e ertelendi — BE'de endpoint yok (tow-priority
+// audit 2026-04-23 P1-1 + contract matrix "BE fix veya feature erteleme").
 
 // ApprovalDecision* feature/approvals'a taşındı.
