@@ -1,12 +1,20 @@
-import type { TowDispatchStage, TowEvidenceKind } from "@naro/domain";
+import type { LatLng, TowDispatchStage, TowEvidenceKind } from "@naro/domain";
 import {
   Avatar,
   BackButton,
   Button,
+  ETABadge,
+  GpsPulse,
   Icon,
+  MapView,
+  PinMarker,
+  RouteLine,
   Screen,
   StatusChip,
   Text,
+  TruckMarker,
+  bearingDeg,
+  type BroadcasterStatus,
 } from "@naro/ui";
 import { useRouter } from "expo-router";
 import {
@@ -19,7 +27,7 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Linking,
@@ -30,6 +38,7 @@ import {
   View,
 } from "react-native";
 
+import { useTechTowBroadcaster } from "../hooks/useTechTowBroadcaster";
 import { type TowActiveJob, useTowServiceStore } from "../store";
 
 const STAGE_LABELS: Record<TowDispatchStage, string> = {
@@ -91,6 +100,11 @@ export function TowActiveJobScreen() {
   const submitEvidence = useTowServiceStore((s) => s.submitEvidence);
   const finish = useTowServiceStore((s) => s.finish);
 
+  const broadcaster = useTechTowBroadcaster({
+    caseId: job?.id ?? null,
+    stage: job?.stage ?? null,
+  });
+
   if (!job) {
     return (
       <Screen backgroundClassName="bg-app-bg" padded={false} className="flex-1">
@@ -139,6 +153,20 @@ export function TowActiveJobScreen() {
             vehicle_plate={job.vehicle_plate}
             vehicle_description={job.vehicle_description}
             phone={job.customer_phone}
+          />
+
+          <TowJobMap
+            job={job}
+            selfLocation={
+              broadcaster.lastSample
+                ? {
+                    lat: broadcaster.lastSample.lat,
+                    lng: broadcaster.lastSample.lng,
+                  }
+                : job.current_location
+            }
+            broadcasterStatus={broadcaster.status}
+            queueDepth={broadcaster.queueDepth}
           />
 
           <LocationsCard
@@ -191,6 +219,127 @@ export function TowActiveJobScreen() {
       </View>
     </Screen>
   );
+}
+
+const TRANSIT_STAGES: TowDispatchStage[] = ["in_transit", "delivered"];
+
+function TowJobMap({
+  job,
+  selfLocation,
+  broadcasterStatus,
+  queueDepth,
+}: {
+  job: TowActiveJob;
+  selfLocation: LatLng;
+  broadcasterStatus: BroadcasterStatus;
+  queueDepth: number;
+}) {
+  const { stage, pickup_lat_lng, dropoff_lat_lng, eta_minutes } = job;
+  const showTransitRoute = TRANSIT_STAGES.includes(stage);
+  const showTruck = stage !== "delivered" && stage !== "cancelled";
+
+  const routeFrom = showTransitRoute ? pickup_lat_lng : selfLocation;
+  const routeTo = showTransitRoute ? dropoff_lat_lng : pickup_lat_lng;
+
+  const fitCoords = useMemo(
+    () =>
+      [selfLocation, pickup_lat_lng, dropoff_lat_lng].filter(
+        (c): c is LatLng => c !== null && c !== undefined,
+      ),
+    [selfLocation, pickup_lat_lng, dropoff_lat_lng],
+  );
+
+  const truckHeading = useMemo(() => {
+    const target = showTransitRoute ? dropoff_lat_lng : pickup_lat_lng;
+    if (!target || !showTruck) return undefined;
+    return bearingDeg(selfLocation, target);
+  }, [selfLocation, pickup_lat_lng, dropoff_lat_lng, showTransitRoute, showTruck]);
+
+  const statusLabel = resolveBroadcasterLabel(broadcasterStatus, queueDepth);
+
+  return (
+    <View className="gap-2">
+      <View style={{ height: 240 }}>
+        <MapView
+          fitCoords={fitCoords}
+          theme="dark"
+          className="flex-1"
+          hideFallbackBadge
+        >
+          {pickup_lat_lng ? (
+            <PinMarker kind="pickup" coord={pickup_lat_lng} label="Alım" />
+          ) : null}
+          {dropoff_lat_lng ? (
+            <PinMarker kind="dropoff" coord={dropoff_lat_lng} label="Teslim" />
+          ) : null}
+          {routeFrom && routeTo ? (
+            <RouteLine coords={[routeFrom, routeTo]} dotCount={18} />
+          ) : null}
+          {stage === "arrived" && pickup_lat_lng ? (
+            <GpsPulse coord={pickup_lat_lng} color="#2dd28d" />
+          ) : null}
+          {showTruck ? (
+            <TruckMarker coord={selfLocation} heading={truckHeading} pulse />
+          ) : null}
+          {eta_minutes > 0 && showTruck ? (
+            <ETABadge
+              minutes={eta_minutes}
+              coord={selfLocation}
+              tone="accent"
+              label="ETA"
+            />
+          ) : null}
+        </MapView>
+      </View>
+
+      {statusLabel ? (
+        <View className="flex-row items-center gap-2 self-start rounded-full border border-app-outline bg-app-surface-2 px-3 py-1">
+          <View
+            className={[
+              "h-1.5 w-1.5 rounded-full",
+              broadcasterStatus === "streaming_foreground" ||
+              broadcasterStatus === "streaming_background"
+                ? "bg-app-success"
+                : broadcasterStatus === "offline_queued"
+                  ? "bg-app-warning"
+                  : "bg-app-text-subtle",
+            ].join(" ")}
+          />
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[11px]"
+          >
+            {statusLabel}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function resolveBroadcasterLabel(
+  status: BroadcasterStatus,
+  queueDepth: number,
+): string | null {
+  switch (status) {
+    case "streaming_foreground":
+      return "Canlı konum akıyor";
+    case "streaming_background":
+      return "Arka planda konum";
+    case "offline_queued":
+      return `Offline · ${queueDepth} ölçüm bekliyor`;
+    case "paused":
+      return "Duraklatıldı";
+    case "awaiting_permission":
+      return "Konum izni bekleniyor";
+    case "error":
+      return "Konum izni yok";
+    case "idle":
+      return null;
+    default:
+      return null;
+  }
 }
 
 function CustomerCard({
