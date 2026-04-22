@@ -3,8 +3,6 @@ import type {
   PricePreference,
   ServiceRequestDraft,
 } from "@naro/domain";
-// ServiceModeCard artık kullanılmıyor — tercihler checkbox modelinde
-// (bkz CheckPreferenceRow, talep vs koşul prensibi).
 import {
   Icon,
   StatusChip,
@@ -15,12 +13,14 @@ import {
 import {
   AlertTriangle,
   Camera,
+  Car,
   Check,
   ChevronDown,
   ChevronUp,
   Home,
   Image as ImageIcon,
   KeySquare,
+  Sparkles,
   Truck,
   type LucideIcon,
 } from "lucide-react-native";
@@ -30,6 +30,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { CategoryTile } from "./components/CategoryTile";
 import { ComposerSection } from "./components/ComposerSection";
 import { EvidenceStepCard } from "./components/EvidenceStepCard";
+import { LocationPicker } from "./components/LocationPicker";
 import { QuestionDispatcher } from "./components/questionFields";
 import {
   BREAKDOWN_CATEGORIES,
@@ -50,6 +51,7 @@ const PREFERRED_WINDOWS = [
   "Yarın sabah",
   "Yarın öğleden sonra",
   "Hafta içi",
+  "Esnek",
 ];
 
 const PRICE_OPTIONS: { value: PricePreference; label: string }[] = [
@@ -70,21 +72,16 @@ function summarizeServicePreferences(draft: ServiceRequestDraft): string {
 
 function CategoryStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const selected = draft.breakdown_category;
+  const template = selected ? BREAKDOWN_TEMPLATES[selected] : null;
 
   return (
     <View className="gap-4">
-      <View className="gap-1">
-        <Text variant="eyebrow" tone="subtle">
-          Adım 1
-        </Text>
-        <Text variant="h3" tone="inverse">
-          Hangi alanla ilgili?
-        </Text>
-        <Text tone="muted" className="text-app-text-muted leading-5">
-          En baskın olanı seç. Bir sonraki adımda seçimine özel sorular
-          geliyor.
-        </Text>
-      </View>
+      <Text
+        tone="muted"
+        className="text-app-text-muted text-[13px] leading-[18px]"
+      >
+        Ne oluyor? En baskın alanı seç — sonra belirtileri işaretle.
+      </Text>
 
       <View className="flex-row flex-wrap gap-3">
         {BREAKDOWN_CATEGORIES.map((category) => (
@@ -98,13 +95,125 @@ function CategoryStep({ draft, updateDraft }: ComposerStepRenderProps) {
                 updateDraft({
                   breakdown_category:
                     selected === category.id ? null : category.id,
-                  symptoms: [],
+                  symptoms: selected === category.id ? draft.symptoms : [],
                 })
               }
             />
           </View>
         ))}
       </View>
+
+      {selected && template ? (
+        <View className="gap-4">
+          <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
+            <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
+              <Icon icon={template.hero.icon} size={18} color="#0ea5e9" />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text
+                variant="h3"
+                tone="inverse"
+                className="text-[15px] leading-[19px]"
+              >
+                {template.hero.title}
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px] leading-[16px]"
+              >
+                {template.hero.subtitle}
+              </Text>
+            </View>
+          </View>
+
+          {template.questions.map((question) => (
+            <QuestionDispatcher
+              key={question.id}
+              question={question}
+              symptoms={draft.symptoms}
+              onChange={(next) => updateDraft({ symptoms: next })}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function VehicleStateStep({
+  draft,
+  updateDraft,
+}: ComposerStepRenderProps) {
+  const drivable = draft.vehicle_drivable;
+
+  return (
+    <View className="gap-4">
+      <Text
+        tone="muted"
+        className="text-app-text-muted text-[13px] leading-[18px]"
+      >
+        Aracın ne durumda? Buna göre teklifler + servis şekli yönleniyor.
+      </Text>
+
+      <ComposerSection title="Sürülebiliyor mu?">
+        <View className="gap-2">
+          <DrivableOption
+            title="Evet, sürülebiliyor"
+            subtitle="Aracı servise ben götürebilirim"
+            selected={drivable === true}
+            onPress={() =>
+              updateDraft({ vehicle_drivable: true, towing_required: false })
+            }
+          />
+          <DrivableOption
+            title="Hayır, sürülemiyor"
+            subtitle="Çekici gerek — randevu onayıyla otomatik talep açılır"
+            selected={drivable === false}
+            onPress={() =>
+              updateDraft({ vehicle_drivable: false, towing_required: true })
+            }
+          />
+        </View>
+      </ComposerSection>
+
+      <ComposerSection
+        title="Servis tercihlerin"
+        description="Talep — usta uygun bulursa karşılar. Dayatma değil."
+      >
+        <View className="gap-2.5">
+          <CheckPreferenceRow
+            icon={Home}
+            title="Yerinde onarım istiyorum"
+            subtitle="Mobil tamirci sana gelsin"
+            checked={draft.on_site_repair}
+            onPress={() =>
+              updateDraft({ on_site_repair: !draft.on_site_repair })
+            }
+          />
+          <CheckPreferenceRow
+            icon={KeySquare}
+            title="Vale servis istiyorum"
+            subtitle="Aracı alıp götürsün, onarıp getirsin"
+            checked={draft.valet_requested}
+            onPress={() =>
+              updateDraft({ valet_requested: !draft.valet_requested })
+            }
+          />
+        </View>
+      </ComposerSection>
+
+      <ComposerSection title="Açıklama (opsiyonel)">
+        <TextInput
+          value={draft.notes ?? ""}
+          onChangeText={(value) => updateDraft({ notes: value })}
+          placeholder="Ne zaman başladı, hangi koşullarda artıyor, daha önce müdahale oldu mu?"
+          placeholderTextColor="#6f7b97"
+          multiline
+          textAlignVertical="top"
+          className={[INPUT_CLASS, "min-h-[110px] py-3"].join(" ")}
+        />
+      </ComposerSection>
     </View>
   );
 }
@@ -169,68 +278,61 @@ function CheckPreferenceRow({
   );
 }
 
-function DetailStep({ draft, updateDraft }: ComposerStepRenderProps) {
-  const category = draft.breakdown_category;
-  if (!category) {
-    return (
-      <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
-        <Text tone="muted" className="text-app-text-muted">
-          Önce 1. adımda bir kategori seç.
-        </Text>
-      </View>
-    );
-  }
-
-  const template = BREAKDOWN_TEMPLATES[category];
-  const categoryLabel = BREAKDOWN_CATEGORY_LABEL[category];
-  const HeroIcon = template.hero.icon;
-
+function DrivableOption({
+  title,
+  subtitle,
+  selected,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
   return (
-    <View className="gap-4">
-      <View className="gap-3 rounded-[24px] border border-brand-500/30 bg-brand-500/10 px-4 py-4">
-        <View className="flex-row items-center gap-3">
-          <View className="h-11 w-11 items-center justify-center rounded-[16px] bg-brand-500/20">
-            <Icon icon={HeroIcon} size={20} color="#0ea5e9" />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text variant="eyebrow" tone="subtle">
-              {categoryLabel}
-            </Text>
-            <Text variant="h3" tone="inverse">
-              {template.hero.title}
-            </Text>
-          </View>
-        </View>
-        <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
-          {template.hero.subtitle}
-        </Text>
-        <View className="flex-row flex-wrap items-center gap-2">
-          <StatusChip
-            label={draft.towing_required ? "Çekici gerekli" : "Sürülebilir"}
-            tone={draft.towing_required ? "warning" : "success"}
-          />
-          {draft.on_site_repair ? (
-            <StatusChip label="Yerinde onarım talep" tone="info" />
-          ) : null}
-          {draft.valet_requested ? (
-            <StatusChip label="Vale servis talep" tone="info" />
-          ) : null}
-        </View>
-      </View>
-
-      {template.questions.map((question) => (
-        <QuestionDispatcher
-          key={question.id}
-          question={question}
-          symptoms={draft.symptoms}
-          onChange={(nextSymptoms) => updateDraft({ symptoms: nextSymptoms })}
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={title}
+      onPress={onPress}
+      className={[
+        "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
+        selected
+          ? "border-brand-500/40 bg-brand-500/10"
+          : "border-app-outline bg-app-surface",
+      ].join(" ")}
+    >
+      <View
+        className={[
+          "h-10 w-10 items-center justify-center rounded-full border",
+          selected
+            ? "border-brand-500/40 bg-brand-500/20"
+            : "border-app-outline bg-app-surface-2",
+        ].join(" ")}
+      >
+        <Icon
+          icon={selected ? Check : Car}
+          size={18}
+          color={selected ? "#0ea5e9" : "#83a7ff"}
         />
-      ))}
-    </View>
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text variant="label" tone="inverse">
+          {title}
+        </Text>
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted text-[12px]"
+        >
+          {subtitle}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
 
-function MediaStep({ draft, updateDraft }: ComposerStepRenderProps) {
+function EvidenceStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const category = draft.breakdown_category;
   if (!category) {
     return (
@@ -250,32 +352,38 @@ function MediaStep({ draft, updateDraft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
-      <View className="gap-3 rounded-[28px] border border-brand-500/30 bg-brand-500/10 px-4 py-4">
-        <View className="flex-row items-center gap-2">
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-brand-500/20">
-            <Icon icon={Camera} size={16} color="#0ea5e9" />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text variant="eyebrow" tone="subtle">
-              {BREAKDOWN_CATEGORY_LABEL[category]} · kanıt
-            </Text>
-            <Text variant="h3" tone="inverse">
-              Tamircinin teşhisi için
-            </Text>
-          </View>
-          <View className="items-end gap-0.5">
-            <Text variant="label" tone="accent">
-              {mediaCount}
-            </Text>
-            <Text variant="caption" tone="muted" className="text-app-text-muted">
-              Medya
-            </Text>
-          </View>
+      <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
+        <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
+          <Icon icon={Camera} size={18} color="#0ea5e9" />
         </View>
-        <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
-          Fotoğraf, video ve ses kaydı teklif kalitesini doğrudan etkiler.
-          Kategoriye göre öne çıkan kartlar aşağıda.
-        </Text>
+        <View className="flex-1 gap-0.5">
+          <Text
+            variant="h3"
+            tone="inverse"
+            className="text-[15px] leading-[19px]"
+          >
+            Usta için ipucu
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[12px] leading-[16px]"
+          >
+            Kanıt tekliflerin kalitesini doğrudan etkiler. Ses kaydı da güçlü.
+          </Text>
+        </View>
+        <View className="items-end gap-0.5">
+          <Text variant="label" tone="accent">
+            {mediaCount}
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-subtle text-[10px]"
+          >
+            Medya
+          </Text>
+        </View>
       </View>
 
       {evidence.map((step) => (
@@ -296,41 +404,30 @@ function MediaStep({ draft, updateDraft }: ComposerStepRenderProps) {
           }
         />
       ))}
-
-      <ComposerSection title="Kısa açıklama (opsiyonel)">
-        <TextInput
-          value={draft.notes ?? ""}
-          onChangeText={(value) => updateDraft({ notes: value })}
-          placeholder="Ne zaman başladı, hangi koşullarda artıyor, daha önce müdahale edildi mi?"
-          placeholderTextColor="#6f7b97"
-          multiline
-          textAlignVertical="top"
-          className={[INPUT_CLASS, "min-h-[110px] py-3"].join(" ")}
-        />
-      </ComposerSection>
     </View>
   );
 }
 
 function LogisticsStep({ draft, updateDraft }: ComposerStepRenderProps) {
-  const locationDescription = draft.on_site_repair || draft.valet_requested
-    ? "Ustanın / vale servisinin geleceği adres"
-    : "Bulunduğun semt / ilçe";
+  const locationDescription =
+    draft.on_site_repair || draft.valet_requested
+      ? "Ustanın / vale servisinin geleceği adres"
+      : "Bulunduğun semt / ilçe";
 
   return (
     <View className="gap-4">
-      <ComposerSection
-        title="Konum"
-        description={locationDescription}
+      <Text
+        tone="muted"
+        className="text-app-text-muted text-[13px] leading-[18px]"
       >
-        <TextInput
-          value={draft.location_label}
-          onChangeText={(value) => updateDraft({ location_label: value })}
-          placeholder="Örn: Maslak / Sarıyer"
-          placeholderTextColor="#6f7b97"
-          className={INPUT_CLASS}
-        />
-      </ComposerSection>
+        Nerede ve ne zaman?
+      </Text>
+
+      <LocationPicker
+        value={draft.location_label}
+        onChange={(next) => updateDraft({ location_label: next })}
+        description={locationDescription}
+      />
 
       <ComposerSection title="Zaman tercihi">
         <View className="flex-row flex-wrap gap-2">
@@ -350,32 +447,6 @@ function LogisticsStep({ draft, updateDraft }: ComposerStepRenderProps) {
         </View>
       </ComposerSection>
 
-      <ComposerSection
-        title="Servis tercihlerin"
-        description="Bunlar bir talep — usta uygun bulursa gelir. Zorunluluk yok, teklif veren ustalar tercihini değerlendirir."
-      >
-        <View className="gap-2.5">
-          <CheckPreferenceRow
-            icon={Home}
-            title="Yerinde onarım istiyorum"
-            subtitle="Mobil tamirci sana gelsin"
-            checked={draft.on_site_repair}
-            onPress={() =>
-              updateDraft({ on_site_repair: !draft.on_site_repair })
-            }
-          />
-          <CheckPreferenceRow
-            icon={KeySquare}
-            title="Vale servis istiyorum"
-            subtitle="Aracı alıp götürsün, onarıp getirsin"
-            checked={draft.valet_requested}
-            onPress={() =>
-              updateDraft({ valet_requested: !draft.valet_requested })
-            }
-          />
-        </View>
-      </ComposerSection>
-
       <ComposerSection title="Öncelik tercihin?">
         <View className="flex-row flex-wrap gap-2">
           {PRICE_OPTIONS.map((option) => (
@@ -386,7 +457,9 @@ function LogisticsStep({ draft, updateDraft }: ComposerStepRenderProps) {
               onPress={() =>
                 updateDraft({
                   price_preference:
-                    draft.price_preference === option.value ? null : option.value,
+                    draft.price_preference === option.value
+                      ? null
+                      : option.value,
                 })
               }
             />
@@ -439,51 +512,53 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
-      <View className="gap-4 rounded-[28px] border border-app-outline-strong bg-app-surface-2 px-5 py-5">
-        <View className="gap-1.5">
-          <View className="flex-row flex-wrap items-center gap-2">
-            <TrustBadge label="Önizleme" tone="info" />
-            {severity !== "low" ? (
-              <StatusChip
-                label={SEVERITY_LABEL[severity]}
-                tone={severity === "high" ? "critical" : "warning"}
-                icon={AlertTriangle}
-              />
-            ) : null}
-          </View>
-          <Text variant="h2" tone="inverse">
-            Arıza bildirimi özeti
-          </Text>
-          <Text tone="muted" className="text-app-text-muted leading-5">
-            Bilgileri kontrol et. Aracın yola dayanıksızsa aşağıdaki butonla
-            çekici çağırabilirsin.
-          </Text>
+      <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+        <View className="flex-row flex-wrap items-center gap-2">
+          <TrustBadge label="Önizleme" tone="info" />
+          {severity !== "low" ? (
+            <StatusChip
+              label={SEVERITY_LABEL[severity]}
+              tone={severity === "high" ? "critical" : "warning"}
+              icon={AlertTriangle}
+            />
+          ) : null}
         </View>
-
-        <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
-          <SummaryRow label="Arıza tipi" value={categoryLabel} />
-          <SummaryRow
-            label="Belirtiler"
-            value={symptomsSummary}
-            tone={totalSymptomEntries === 0 ? "warning" : "neutral"}
-          />
-          <SummaryRow label="Medya" value={`${mediaCount} dosya`} />
-          <SummaryRow
-            label="Servis tercihin"
-            value={servicePreferenceLabel}
-            tone={hasAnyPreference ? "accent" : "neutral"}
-          />
-          <SummaryRow
-            label="Konum"
-            value={draft.location_label || "—"}
-            tone={draft.location_label ? "neutral" : "warning"}
-          />
-          <SummaryRow
-            label="Zaman"
-            value={draft.preferred_window ?? "Belirtilmedi"}
-          />
-          <SummaryRow label="Öncelik" value={priceLabel} />
-        </View>
+        <SummaryRow label="Arıza tipi" value={categoryLabel} />
+        <SummaryRow
+          label="Belirtiler"
+          value={symptomsSummary}
+          tone={totalSymptomEntries === 0 ? "warning" : "neutral"}
+        />
+        <SummaryRow
+          label="Araç durumu"
+          value={
+            draft.vehicle_drivable === false
+              ? "Sürülemiyor"
+              : draft.vehicle_drivable === true
+                ? "Sürülebiliyor"
+                : "Belirtilmedi"
+          }
+          tone={draft.vehicle_drivable === false ? "warning" : "neutral"}
+        />
+        <SummaryRow
+          label="Medya"
+          value={mediaCount > 0 ? `${mediaCount} dosya` : "Yok"}
+        />
+        <SummaryRow
+          label="Servis tercihi"
+          value={servicePreferenceLabel}
+          tone={hasAnyPreference ? "accent" : "neutral"}
+        />
+        <SummaryRow
+          label="Konum"
+          value={draft.location_label || "—"}
+          tone={draft.location_label ? "neutral" : "warning"}
+        />
+        <SummaryRow
+          label="Zaman"
+          value={draft.preferred_window ?? "Belirtilmedi"}
+        />
+        <SummaryRow label="Öncelik" value={priceLabel} />
       </View>
 
       <Pressable
@@ -497,48 +572,45 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
           "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
           towing
             ? "border border-app-warning/40 bg-app-warning-soft"
-            : "bg-[#a75e1f]",
+            : "border border-app-outline bg-app-surface",
         ].join(" ")}
       >
         <View
           className={[
             "h-11 w-11 items-center justify-center rounded-full",
-            towing ? "bg-app-warning/20" : "bg-white/15",
+            towing ? "bg-app-warning/20" : "bg-app-surface-2",
           ].join(" ")}
         >
           <Icon
             icon={Truck}
             size={22}
-            color={towing ? "#f5b33f" : "#ffffff"}
+            color={towing ? "#f5b33f" : "#83a7ff"}
           />
         </View>
         <View className="flex-1 gap-0.5">
           <Text
             variant="h3"
-            className={towing ? "text-app-warning" : "text-white"}
+            tone={towing ? "warning" : "inverse"}
+            className="text-[15px]"
           >
-            {towing ? "Çekici çağrıldı" : "Çekici istiyorum"}
+            {towing ? "Çekici çağrıldı" : "Çekici eklemek ister misin?"}
           </Text>
           <Text
             variant="caption"
-            className={towing ? "text-app-warning" : "text-white/80"}
+            tone="muted"
+            className="text-app-text-muted text-[12px] leading-[16px]"
           >
             {towing
-              ? "Araç sürülemez olarak işaretlendi — dokunarak iptal edebilirsin"
-              : "Aracım sürülemez durumda — yola çıkamıyorum"}
+              ? "Araç sürülemez olarak işaretlendi — dokunarak kaldır"
+              : "Aracım sürülemez durumda — randevu onayında çekici otomatik açılır"}
           </Text>
         </View>
-        {towing ? (
-          <View className="h-7 w-7 items-center justify-center rounded-full bg-app-warning/20">
-            <Icon icon={Check} size={14} color="#f5b33f" />
-          </View>
-        ) : null}
       </Pressable>
 
       <AccordionRow
         title="Tüm semptomlar"
         count={totalSymptomEntries}
-        icon={AlertTriangle}
+        icon={Sparkles}
         defaultOpen={false}
       >
         {symptomsByQuestion.length > 0 ? (
@@ -593,11 +665,7 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
       </AccordionRow>
 
       {draft.notes ? (
-        <AccordionRow
-          title="Açıklama"
-          icon={AlertTriangle}
-          defaultOpen
-        >
+        <AccordionRow title="Açıklama" icon={Sparkles} defaultOpen>
           <View className="rounded-[16px] border border-app-outline bg-app-surface px-4 py-3">
             <Text tone="muted" className="text-app-text-muted leading-5">
               {draft.notes}
@@ -609,8 +677,7 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
   );
 }
 
-type BreakdownQuestionRef =
-  BreakdownTemplate["questions"][number];
+type BreakdownQuestionRef = BreakdownTemplate["questions"][number];
 
 type GroupedQuestion = {
   question: BreakdownQuestionRef;
@@ -645,7 +712,6 @@ function resolveOptionLabel(
   if (question.kind === "icon_grid") {
     return question.items.find((item) => item.id === value)?.label ?? value;
   }
-  // short_text
   return value;
 }
 
@@ -711,46 +777,44 @@ function AccordionRow({
 
 export const BREAKDOWN_FLOW: ComposerFlow = {
   kind: "breakdown",
-  eyebrow: "Arıza bildirimi",
-  title: "Arızayı sakin bir akışta tamamla",
-  description:
-    "Kategoriye özel sorular, fotoğraflar ve servis tercihi adım adım toplanır.",
-  progressVariant: "bar",
+  eyebrow: "",
+  title: "Arıza bildirimi",
+  description: "",
+  progressVariant: "bar-thin",
+  submitLabel: "Arıza bildirimimi gönder",
   steps: [
     {
       key: "breakdown_category",
-      title: "Kategori",
-      description: "Hasar alanı",
-      validate: (draft) =>
-        draft.breakdown_category ? null : "Bir kategori seç.",
+      title: "Kategori + belirti",
+      description: "Ne oluyor?",
+      validate: (draft) => {
+        if (!draft.breakdown_category) return "Bir kategori seç.";
+        if (draft.symptoms.length === 0) return "En az bir belirti seç.";
+        return null;
+      },
       render: (props) => <CategoryStep {...props} />,
     },
     {
-      key: "breakdown_detail",
-      title: "Detay",
-      description: "Belirtiler",
-      validate: (draft) =>
-        draft.symptoms.length === 0
-          ? "En az bir belirti seç."
-          : null,
-      render: (props) => <DetailStep {...props} />,
+      key: "breakdown_drivable",
+      title: "Araç durumu",
+      description: "Aracın ne durumda?",
+      validate: () => null,
+      render: (props) => <VehicleStateStep {...props} />,
     },
     {
       key: "breakdown_media",
       title: "Kanıt",
-      description: "Fotoğraf / not",
+      description: "Usta için ipucu ekle",
       validate: () => null,
-      render: (props) => <MediaStep {...props} />,
+      render: (props) => <EvidenceStep {...props} />,
       optional: true,
     },
     {
       key: "breakdown_service",
-      title: "Konum",
-      description: "Adres ve zaman",
+      title: "Konum + zaman",
+      description: "Nerede ve ne zaman?",
       validate: (draft) =>
-        draft.location_label.trim().length >= 3
-          ? null
-          : "Konum gerekli.",
+        draft.location_label.trim().length >= 3 ? null : "Konum gerekli.",
       render: (props) => <LogisticsStep {...props} />,
     },
     {

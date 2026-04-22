@@ -1,51 +1,40 @@
-import type { ServiceRequestDraft } from "@naro/domain";
-import { Icon, StatusChip, Text } from "@naro/ui";
+import type {
+  ServiceRequestDraft,
+  ServiceRequestUrgency,
+} from "@naro/domain";
+import { Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
+import { type Href, useRouter } from "expo-router";
 import {
   AlertCircle,
-  Battery,
   Calendar,
+  Car,
   CarFront,
+  Check,
+  ChevronDown,
+  ChevronUp,
   Clock,
-  Droplet,
-  Gauge,
-  Key,
-  MapPin,
+  Info,
   ShieldCheck,
-  Wrench,
   Zap,
   type LucideIcon,
 } from "lucide-react-native";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 
 import { ComposerSection } from "./components/ComposerSection";
+import { LocationPicker } from "./components/LocationPicker";
 import type { ComposerFlow, ComposerStepRenderProps } from "./types";
 
-const INPUT_CLASS = "flex-1 text-base text-app-text";
-const NOTE_CLASS =
-  "rounded-[18px] border border-app-outline bg-app-surface px-4 py-3 text-base text-app-text min-h-[88px]";
+const INPUT_CLASS =
+  "rounded-[20px] border border-app-outline bg-app-surface px-4 py-3 text-base text-app-text";
 
-type IncidentId =
-  | "not_running"
-  | "accident"
-  | "flat_tire"
-  | "battery"
-  | "fuel"
-  | "locked_keys"
-  | "stuck";
-
-const INCIDENT_OPTIONS: {
-  id: IncidentId;
-  label: string;
-  icon: LucideIcon;
-}[] = [
-  { id: "not_running", label: "Çalışmıyor", icon: AlertCircle },
-  { id: "accident", label: "Kaza", icon: ShieldCheck },
-  { id: "flat_tire", label: "Lastik", icon: Gauge },
-  { id: "battery", label: "Akü", icon: Battery },
-  { id: "fuel", label: "Yakıt", icon: Droplet },
-  { id: "locked_keys", label: "Anahtar", icon: Key },
-  { id: "stuck", label: "Hendek/Saplandı", icon: Wrench },
+const PREFERRED_WINDOWS = [
+  "Bugün öğleden sonra",
+  "Bugün akşam",
+  "Yarın sabah",
+  "Yarın öğleden sonra",
+  "Hafta içi gün seç",
+  "Esnek",
 ];
 
 const LUXURY_KEYWORDS = [
@@ -58,18 +47,27 @@ const LUXURY_KEYWORDS = [
   "volvo",
 ];
 
+type EquipmentHint = "flatbed" | "hook" | "wheel_lift";
+
+const EQUIPMENT_OPTIONS: {
+  id: EquipmentHint;
+  label: string;
+  hint: string;
+}[] = [
+  { id: "flatbed", label: "Flatbed", hint: "Lüks / hasarlı / uzun mesafe" },
+  { id: "hook", label: "Hook", hint: "Kısa mesafe, sağlam araç" },
+  { id: "wheel_lift", label: "Tekerlek-kaldıran", hint: "Otopark içi hareket" },
+];
+
 type TowingEstimate = {
   distanceKm: number;
-  capLabel: string;
   capAmount: number;
-  equipmentLabel: string;
+  capLabel: string;
+  suggestedEquipment: EquipmentHint;
   equipmentReason: string;
 };
 
-function estimateTowing(
-  draft: ServiceRequestDraft,
-  incident: IncidentId | null,
-): TowingEstimate {
+function estimateTowing(draft: ServiceRequestDraft): TowingEstimate {
   const pickup = draft.location_label.toLowerCase();
   const dropoff = (draft.dropoff_label ?? "").toLowerCase();
   const longHaul =
@@ -86,200 +84,265 @@ function estimateTowing(
 
   const hint = `${pickup} ${dropoff}`.toLowerCase();
   const isLuxury = LUXURY_KEYWORDS.some((kw) => hint.includes(kw));
-  const needsFlatbed = incident === "accident" || isLuxury || distanceKm > 15;
+  const needsFlatbed = isLuxury || distanceKm > 15;
+  const suggestedEquipment: EquipmentHint = needsFlatbed ? "flatbed" : "hook";
 
   return {
     distanceKm,
     capAmount,
     capLabel: `₺${capAmount.toLocaleString("tr-TR")}`,
-    equipmentLabel: needsFlatbed ? "Flatbed" : "Hook",
+    suggestedEquipment,
     equipmentReason: needsFlatbed
-      ? incident === "accident"
-        ? "Kaza için güvenli taşıma"
-        : isLuxury
-          ? "Lüks araç yatay platform"
-          : "Uzun mesafe"
+      ? isLuxury
+        ? "Lüks araç yatay platform"
+        : "Uzun mesafe"
       : "Kısa mesafe yeterli",
   };
 }
 
-function TowingScreenStep({ draft, updateDraft }: ComposerStepRenderProps) {
-  const [incident, setIncident] = useState<IncidentId | null>(null);
-  const [scheduledDate, setScheduledDate] = useState("");
-  const [scheduledTime, setScheduledTime] = useState("");
+function LocationsStep({ draft, updateDraft }: ComposerStepRenderProps) {
+  return (
+    <View className="gap-4">
+      <Text
+        tone="muted"
+        className="text-app-text-muted text-[13px] leading-[18px]"
+      >
+        Nereden nereye? Teslim boşsa "anlaşırız" notu iletilir.
+      </Text>
 
-  const isNow = draft.urgency === "urgent";
-  const hasPickup = draft.location_label.trim().length >= 3;
-  const estimate = estimateTowing(draft, incident);
+      <LocationPicker
+        value={draft.location_label}
+        onChange={(next) => updateDraft({ location_label: next })}
+        description="Alınacak konum — şu an nereden?"
+        mapPurpose="pickup"
+      />
 
-  const switchToNow = () => {
-    updateDraft({ urgency: "urgent", preferred_window: undefined });
-    setScheduledDate("");
-    setScheduledTime("");
-  };
-  const switchToScheduled = () => {
-    updateDraft({ urgency: "today" });
-  };
+      <LocationPicker
+        value={draft.dropoff_label ?? ""}
+        onChange={(next) =>
+          updateDraft({ dropoff_label: next.length === 0 ? undefined : next })
+        }
+        description="Teslim noktası — opsiyonel (boşsa usta ile anlaşır)"
+        mapPurpose="dropoff"
+      />
+    </View>
+  );
+}
 
-  const applyIncident = (id: IncidentId) => {
-    setIncident(id === incident ? null : id);
-  };
+function VehicleStateStep({
+  draft,
+  updateDraft,
+}: ComposerStepRenderProps) {
+  const drivable = draft.vehicle_drivable;
+  const [equipmentPreference, setEquipmentPreference] =
+    useState<EquipmentHint | null>(null);
 
-  const applySchedule = (date: string, time: string) => {
-    setScheduledDate(date);
-    setScheduledTime(time);
-    if (date && time) {
-      updateDraft({ preferred_window: `${date} ${time}` });
-    } else {
-      updateDraft({ preferred_window: undefined });
-    }
+  return (
+    <View className="gap-4">
+      <Text
+        tone="muted"
+        className="text-app-text-muted text-[13px] leading-[18px]"
+      >
+        Aracın durumu? Çekme ekipmanını usta kesin olarak karar verir — bu
+        sadece ipucu.
+      </Text>
+
+      <ComposerSection title="Araç çalışıyor mu?">
+        <View className="gap-2">
+          <DrivableOption
+            title="Çalışıyor / sürülebiliyor"
+            subtitle="Marş alıyor, kısa hareket edebilir"
+            selected={drivable === true}
+            onPress={() => updateDraft({ vehicle_drivable: true })}
+          />
+          <DrivableOption
+            title="Çalışmıyor / sürülemiyor"
+            subtitle="Marş almıyor, hasarlı veya hareket edemiyor"
+            selected={drivable === false}
+            onPress={() => updateDraft({ vehicle_drivable: false })}
+          />
+        </View>
+      </ComposerSection>
+
+      <ComposerSection
+        title="Çekme tipi tercihin (opsiyonel)"
+        description="Usta karar verir; bu sadece sinyal."
+      >
+        <View className="flex-row flex-wrap gap-2">
+          {EQUIPMENT_OPTIONS.map((option) => (
+            <ToggleChip
+              key={option.id}
+              label={option.label}
+              selected={equipmentPreference === option.id}
+              onPress={() =>
+                setEquipmentPreference((prev) =>
+                  prev === option.id ? null : option.id,
+                )
+              }
+            />
+          ))}
+        </View>
+        {equipmentPreference ? (
+          <View className="flex-row items-center gap-2 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2">
+            <Icon icon={Info} size={12} color="#83a7ff" />
+            <Text
+              variant="caption"
+              tone="muted"
+              className="text-app-text-muted text-[11px]"
+            >
+              {EQUIPMENT_OPTIONS.find((o) => o.id === equipmentPreference)?.hint}
+            </Text>
+          </View>
+        ) : null}
+      </ComposerSection>
+
+      <ComposerSection title="Not (opsiyonel)">
+        <TextInput
+          value={draft.notes ?? ""}
+          onChangeText={(value) => updateDraft({ notes: value })}
+          placeholder="Örn: Araç otopark 2. katta, çift çeker gerekebilir…"
+          placeholderTextColor="#6f7b97"
+          multiline
+          textAlignVertical="top"
+          className={[INPUT_CLASS, "min-h-[88px] py-3"].join(" ")}
+        />
+      </ComposerSection>
+    </View>
+  );
+}
+
+function ScheduleStep({ draft, updateDraft }: ComposerStepRenderProps) {
+  const router = useRouter();
+  const urgency = draft.urgency;
+
+  const setUrgency = (next: ServiceRequestUrgency) => {
+    updateDraft({
+      urgency: next,
+      // urgent veya today'den planned'a dönerken preferred_window temizle
+      ...(next === "urgent" ? { preferred_window: undefined } : {}),
+    });
   };
 
   return (
     <View className="gap-4">
-      {/* TAB — Hemen / Randevulu */}
-      <View className="flex-row gap-1 rounded-[18px] border border-app-outline-strong bg-app-surface p-1">
-        <ModeTab
-          icon={Zap}
-          label="Hemen"
-          description="5-30 dk"
-          selected={isNow}
-          onPress={switchToNow}
-        />
-        <ModeTab
-          icon={Calendar}
-          label="Randevulu"
-          description="min 2 sa sonra"
-          selected={!isNow}
-          onPress={switchToScheduled}
-        />
-      </View>
+      <Text
+        tone="muted"
+        className="text-app-text-muted text-[13px] leading-[18px]"
+      >
+        Ne zaman?
+      </Text>
 
-      <MapHero isNow={isNow} />
-
-      {/* Konum */}
-      <View className="overflow-hidden rounded-[22px] border border-app-outline bg-app-surface">
-        <View className="flex-row items-center gap-3 border-b border-app-outline px-4 py-3.5">
-          <View className="h-2.5 w-2.5 rounded-full bg-app-success" />
-          <TextInput
-            value={draft.location_label}
-            onChangeText={(value) => updateDraft({ location_label: value })}
-            placeholder="Alınacak konum — şu an nereden?"
-            placeholderTextColor="#6f7b97"
-            className={INPUT_CLASS}
+      <ComposerSection title="Aciliyet">
+        <View className="gap-2">
+          <UrgencyOption
+            icon={Calendar}
+            title="Planlanmış"
+            subtitle="Haftalık veya sonraki bir tarihe"
+            selected={urgency === "planned"}
+            onPress={() => setUrgency("planned")}
+          />
+          <UrgencyOption
+            icon={Clock}
+            title="Bugün"
+            subtitle="Bugün içinde; zamanlama belirt"
+            selected={urgency === "today"}
+            onPress={() => setUrgency("today")}
+          />
+          <UrgencyOption
+            icon={Zap}
+            title="Acil — şimdi"
+            subtitle="5-30 dk içinde yola çıksın"
+            selected={urgency === "urgent"}
+            onPress={() => setUrgency("urgent")}
+            tone="warning"
           />
         </View>
-        <View className="flex-row items-center gap-3 px-4 py-3.5">
-          <View className="h-2.5 w-2.5 rounded-full bg-app-critical" />
-          <TextInput
-            value={draft.dropoff_label ?? ""}
-            onChangeText={(value) => updateDraft({ dropoff_label: value })}
-            placeholder="Varış noktası (opsiyonel)"
-            placeholderTextColor="#6f7b97"
-            className={INPUT_CLASS}
-          />
-        </View>
-      </View>
+      </ComposerSection>
 
-      {/* Randevulu → tarih + saat */}
-      {!isNow ? (
-        <View className="flex-row gap-2">
-          <View className="flex-1 overflow-hidden rounded-[18px] border border-app-outline bg-app-surface">
-            <View className="flex-row items-center gap-2 border-b border-app-outline px-3 py-2">
-              <Icon icon={Calendar} size={12} color="#83a7ff" />
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-subtle text-[11px]"
-              >
-                Tarih
-              </Text>
-            </View>
-            <TextInput
-              value={scheduledDate}
-              onChangeText={(v) => applySchedule(v, scheduledTime)}
-              placeholder="26 Nis"
-              placeholderTextColor="#6f7b97"
-              className="px-3 py-2.5 text-base text-app-text"
-            />
+      {urgency === "urgent" ? (
+        <View className="gap-3 rounded-[22px] border border-app-warning/40 bg-app-warning-soft px-4 py-4">
+          <View className="flex-row items-center gap-2">
+            <Icon icon={AlertCircle} size={16} color="#f5b33f" />
+            <Text variant="label" tone="warning" className="text-[14px]">
+              Acil için daha hızlı bir akışımız var
+            </Text>
           </View>
-          <View className="flex-1 overflow-hidden rounded-[18px] border border-app-outline bg-app-surface">
-            <View className="flex-row items-center gap-2 border-b border-app-outline px-3 py-2">
-              <Icon icon={Clock} size={12} color="#83a7ff" />
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-subtle text-[11px]"
-              >
-                Saat (min 2 sa)
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[12px] leading-[17px]"
+          >
+            Anasayfadan{" "}
+            <Text variant="label" tone="inverse" className="text-[12px]">
+              "+ → Çekici"
+            </Text>{" "}
+            ile tek tıkla en yakın çekiciye dispatch gönderebilirsin. Bu akışta
+            devam edersen talep havuza düşer, teklif toplar.
+          </Text>
+          <View className="flex-row gap-2">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/(modal)/cekici-cagir" as Href)}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-[16px] bg-[#a75e1f] px-3 py-2.5 active:opacity-90"
+            >
+              <Icon icon={Zap} size={13} color="#ffffff" />
+              <Text variant="label" className="text-white text-[12px]">
+                Hızlı akışa git
               </Text>
-            </View>
-            <TextInput
-              value={scheduledTime}
-              onChangeText={(v) => applySchedule(scheduledDate, v)}
-              placeholder="14:00"
-              placeholderTextColor="#6f7b97"
-              className="px-3 py-2.5 text-base text-app-text"
-            />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setUrgency("today")}
+              className="flex-row items-center justify-center gap-2 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-2"
+            >
+              <Text variant="label" tone="inverse" className="text-[12px]">
+                Planlı devam et
+              </Text>
+            </Pressable>
           </View>
         </View>
       ) : null}
 
-      {/* İncident — 7 pill */}
-      <View className="gap-2">
-        <Text variant="eyebrow" tone="subtle">
-          Durum
-        </Text>
-        <View className="flex-row flex-wrap gap-2">
-          {INCIDENT_OPTIONS.map((option) => {
-            const selected = incident === option.id;
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                accessibilityLabel={option.label}
-                onPress={() => applyIncident(option.id)}
-                className={[
-                  "flex-row items-center gap-1.5 rounded-full border px-3 py-1.5 active:opacity-90",
-                  selected
-                    ? "border-brand-500 bg-brand-500/15"
-                    : "border-app-outline bg-app-surface",
-                ].join(" ")}
-              >
-                <Icon
-                  icon={option.icon}
-                  size={13}
-                  color={selected ? "#0ea5e9" : "#83a7ff"}
-                />
-                <Text
-                  variant="label"
-                  tone={selected ? "accent" : "inverse"}
-                  className="text-[12px]"
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {incident === "accident" ? (
-          <View className="flex-row items-start gap-2 rounded-[14px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
-            <Icon icon={AlertCircle} size={14} color="#ff7e7e" />
-            <Text
-              variant="caption"
-              tone="muted"
-              className="flex-1 text-app-text text-[12px] leading-[17px]"
-            >
-              Kazanın kayıt dosyası (kasko, tutanak, fotoğraflar) için "Kaza
-              bildir" akışını da başlatmak ister misin? Zincirli süreç daha
-              güçlü kanıt izi bırakır.
-            </Text>
+      {urgency !== "urgent" ? (
+        <ComposerSection title="Zaman tercihi">
+          <View className="flex-row flex-wrap gap-2">
+            {PREFERRED_WINDOWS.map((window) => (
+              <ToggleChip
+                key={window}
+                label={window}
+                selected={draft.preferred_window === window}
+                onPress={() =>
+                  updateDraft({
+                    preferred_window:
+                      draft.preferred_window === window ? undefined : window,
+                  })
+                }
+              />
+            ))}
           </View>
-        ) : null}
-      </View>
+        </ComposerSection>
+      ) : null}
+    </View>
+  );
+}
 
-      {/* CAP — HONK pattern */}
+function ReviewStep({ draft }: ComposerStepRenderProps) {
+  const estimate = useMemo(() => estimateTowing(draft), [draft]);
+  const hasPickup = draft.location_label.trim().length >= 3;
+  const urgencyLabel: Record<ServiceRequestUrgency, string> = {
+    planned: "Planlanmış",
+    today: "Bugün",
+    urgent: "Acil — şimdi",
+  };
+  const drivableLabel =
+    draft.vehicle_drivable === false
+      ? "Sürülemiyor"
+      : draft.vehicle_drivable === true
+        ? "Sürülebiliyor"
+        : "Belirtilmedi";
+
+  return (
+    <View className="gap-4">
       <View
         className={[
           "gap-3 overflow-hidden rounded-[22px] border",
@@ -319,7 +382,7 @@ function TowingScreenStep({ draft, updateDraft }: ComposerStepRenderProps) {
                 className="text-app-text-muted text-[12px] leading-[17px]"
               >
                 ~{estimate.distanceKm} km · Gerçek ücret mesafeye göre
-                hesaplanır; bu tavan aşılmaz. Aşılırsa platform üstlenir.
+                hesaplanır; bu tavan aşılmaz.
               </Text>
             ) : null}
           </View>
@@ -332,9 +395,11 @@ function TowingScreenStep({ draft, updateDraft }: ComposerStepRenderProps) {
               tone="muted"
               className="flex-1 text-app-text-muted text-[11px]"
             >
-              Otomatik ekipman:{" "}
+              Önerilen ekipman:{" "}
               <Text variant="label" tone="inverse" className="text-[11px]">
-                {estimate.equipmentLabel}
+                {estimate.suggestedEquipment === "flatbed"
+                  ? "Flatbed"
+                  : "Hook"}
               </Text>
             </Text>
             <StatusChip label={estimate.equipmentReason} tone="neutral" />
@@ -342,119 +407,266 @@ function TowingScreenStep({ draft, updateDraft }: ComposerStepRenderProps) {
         ) : null}
       </View>
 
-      <ComposerSection title="Not (opsiyonel)">
-        <TextInput
-          value={draft.notes ?? ""}
-          onChangeText={(value) => updateDraft({ notes: value })}
-          placeholder="Örn: Araç otopark 2. katta, çift çeker gerekebilir…"
-          placeholderTextColor="#6f7b97"
-          multiline
-          textAlignVertical="top"
-          className={NOTE_CLASS}
+      <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+        <SummaryRow
+          label="Alım"
+          value={draft.location_label || "—"}
+          tone={draft.location_label ? "neutral" : "warning"}
         />
-      </ComposerSection>
+        <SummaryRow
+          label="Teslim"
+          value={draft.dropoff_label || "Usta ile anlaşırız"}
+          tone={draft.dropoff_label ? "neutral" : "neutral"}
+        />
+        <SummaryRow label="Aciliyet" value={urgencyLabel[draft.urgency]} />
+        <SummaryRow
+          label="Zaman"
+          value={
+            draft.urgency === "urgent"
+              ? "5-30 dk"
+              : (draft.preferred_window ?? "Belirtilmedi")
+          }
+        />
+        <SummaryRow
+          label="Araç durumu"
+          value={drivableLabel}
+          tone={draft.vehicle_drivable === false ? "warning" : "neutral"}
+        />
+      </View>
+
+      {draft.notes ? (
+        <AccordionRow title="Not" icon={Info} defaultOpen>
+          <View className="rounded-[16px] border border-app-outline bg-app-surface px-4 py-3">
+            <Text tone="muted" className="text-app-text-muted leading-5">
+              {draft.notes}
+            </Text>
+          </View>
+        </AccordionRow>
+      ) : null}
     </View>
   );
 }
 
-function MapHero({ isNow }: { isNow: boolean }) {
-  return (
-    <View className="relative h-44 overflow-hidden rounded-[22px] border border-app-outline bg-app-surface-2">
-      <View className="absolute inset-0 opacity-30">
-        <View className="absolute left-0 right-0 top-[25%] h-px bg-app-outline" />
-        <View className="absolute left-0 right-0 top-[50%] h-px bg-app-outline" />
-        <View className="absolute left-0 right-0 top-[75%] h-px bg-app-outline" />
-        <View className="absolute bottom-0 top-0 left-[25%] w-px bg-app-outline" />
-        <View className="absolute bottom-0 top-0 left-[50%] w-px bg-app-outline" />
-        <View className="absolute bottom-0 top-0 left-[75%] w-px bg-app-outline" />
-      </View>
-      <View className="absolute inset-0 items-center justify-center">
-        <View className="h-14 w-14 items-center justify-center rounded-full border border-brand-500/40 bg-brand-500/20">
-          <Icon icon={MapPin} size={24} color="#0ea5e9" />
-        </View>
-      </View>
-      <View className="absolute bottom-3 right-3 flex-row items-center gap-1.5 rounded-full border border-app-outline bg-app-surface/80 px-3 py-1.5">
-        <View
-          className={[
-            "h-1.5 w-1.5 rounded-full",
-            isNow ? "bg-app-success" : "bg-app-warning",
-          ].join(" ")}
-        />
-        <Text variant="caption" tone="muted" className="text-app-text-muted">
-          {isNow ? "Canlı konum yakında" : "Randevu zamanı aktif olacak"}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function ModeTab({
-  icon,
-  label,
-  description,
-  selected,
-  onPress,
-}: {
-  icon: LucideIcon;
-  label: string;
-  description: string;
+type DrivableOptionProps = {
+  title: string;
+  subtitle: string;
   selected: boolean;
   onPress: () => void;
-}) {
+};
+
+function DrivableOption({
+  title,
+  subtitle,
+  selected,
+  onPress,
+}: DrivableOptionProps) {
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={label}
+      accessibilityLabel={title}
       onPress={onPress}
       className={[
-        "flex-1 flex-row items-center justify-center gap-2 rounded-[14px] px-3 py-3 active:opacity-90",
-        selected ? "bg-brand-500/15" : "bg-transparent",
+        "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
+        selected
+          ? "border-brand-500/40 bg-brand-500/10"
+          : "border-app-outline bg-app-surface",
       ].join(" ")}
     >
-      <Icon icon={icon} size={15} color={selected ? "#0ea5e9" : "#83a7ff"} />
-      <View>
-        <Text
-          variant="label"
-          tone={selected ? "accent" : "inverse"}
-          className="text-[13px]"
-        >
-          {label}
+      <View
+        className={[
+          "h-10 w-10 items-center justify-center rounded-full border",
+          selected
+            ? "border-brand-500/40 bg-brand-500/20"
+            : "border-app-outline bg-app-surface-2",
+        ].join(" ")}
+      >
+        <Icon
+          icon={selected ? Check : Car}
+          size={18}
+          color={selected ? "#0ea5e9" : "#83a7ff"}
+        />
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text variant="label" tone="inverse">
+          {title}
         </Text>
         <Text
           variant="caption"
           tone="muted"
-          className="text-app-text-subtle text-[10px]"
+          className="text-app-text-muted text-[12px]"
         >
-          {description}
+          {subtitle}
         </Text>
       </View>
     </Pressable>
   );
 }
 
+type UrgencyOptionProps = {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  selected: boolean;
+  onPress: () => void;
+  tone?: "default" | "warning";
+};
+
+function UrgencyOption({
+  icon,
+  title,
+  subtitle,
+  selected,
+  onPress,
+  tone = "default",
+}: UrgencyOptionProps) {
+  const accentColor = tone === "warning" ? "#f5b33f" : "#0ea5e9";
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={title}
+      onPress={onPress}
+      className={[
+        "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
+        selected
+          ? tone === "warning"
+            ? "border-app-warning/40 bg-app-warning-soft"
+            : "border-brand-500/40 bg-brand-500/10"
+          : "border-app-outline bg-app-surface",
+      ].join(" ")}
+    >
+      <View
+        className={[
+          "h-10 w-10 items-center justify-center rounded-full border",
+          selected
+            ? tone === "warning"
+              ? "border-app-warning/40 bg-app-warning/20"
+              : "border-brand-500/40 bg-brand-500/20"
+            : "border-app-outline bg-app-surface-2",
+        ].join(" ")}
+      >
+        <Icon icon={icon} size={18} color={selected ? accentColor : "#83a7ff"} />
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text variant="label" tone="inverse">
+          {title}
+        </Text>
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted text-[12px]"
+        >
+          {subtitle}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+type SummaryRowProps = {
+  label: string;
+  value: string;
+  tone?: "neutral" | "success" | "warning" | "critical" | "accent";
+};
+
+function SummaryRow({ label, value, tone = "neutral" }: SummaryRowProps) {
+  const valueTone: "inverse" | "success" | "warning" | "critical" | "accent" =
+    tone === "neutral" ? "inverse" : tone;
+  return (
+    <View className="flex-row items-center justify-between gap-3 border-b border-app-outline/60 pb-2 last:border-0 last:pb-0">
+      <Text variant="caption" tone="muted" className="text-app-text-muted">
+        {label}
+      </Text>
+      <Text variant="label" tone={valueTone}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+type AccordionRowProps = {
+  title: string;
+  icon: LucideIcon;
+  count?: number;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+};
+
+function AccordionRow({
+  title,
+  icon,
+  count,
+  defaultOpen = false,
+  children,
+}: AccordionRowProps) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-3.5">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((prev) => !prev)}
+        className="flex-row items-center gap-3"
+      >
+        <View className="h-9 w-9 items-center justify-center rounded-full bg-app-surface-2">
+          <Icon icon={icon} size={16} color="#83a7ff" />
+        </View>
+        <Text variant="label" tone="inverse" className="flex-1">
+          {title}
+          {typeof count === "number" ? ` (${count})` : ""}
+        </Text>
+        <Icon icon={open ? ChevronUp : ChevronDown} size={18} color="#83a7ff" />
+      </Pressable>
+      {open ? <View className="gap-3 pt-1">{children}</View> : null}
+    </View>
+  );
+}
+
 export const TOWING_FLOW: ComposerFlow = {
   kind: "towing",
-  eyebrow: "Çekici çağır",
-  title: "Yol desteği",
-  description:
-    "Hemen veya randevulu — maksimum ücret vaadimizle. Çağırdıktan sonra en yakın çekici atanır.",
-  submitLabel: "Çekici Çağır",
+  eyebrow: "",
+  title: "Çekici talebi",
+  description: "",
+  progressVariant: "bar-thin",
+  submitLabel: "Çekici talebimi gönder",
   steps: [
     {
       key: "location",
-      title: "Çekici",
-      description: "Mod + konum + durum",
+      title: "Alım + teslim",
+      description: "Nereden nereye?",
+      validate: (draft) =>
+        draft.location_label.trim().length >= 3
+          ? null
+          : "Alınacak konumu gir.",
+      render: (props) => <LocationsStep {...props} />,
+    },
+    {
+      key: "breakdown_drivable",
+      title: "Araç durumu",
+      description: "Aracın durumu?",
+      validate: () => null,
+      render: (props) => <VehicleStateStep {...props} />,
+    },
+    {
+      key: "timing",
+      title: "Zaman",
+      description: "Ne zaman?",
       validate: (draft) => {
-        if (draft.location_label.trim().length < 3) {
-          return "Alınacak konumu yaz.";
-        }
-        if (draft.urgency !== "urgent" && !draft.preferred_window?.trim()) {
-          return "Randevulu ise tarih + saat gir (min 2 sa sonrası).";
-        }
-        return null;
+        if (draft.urgency === "urgent") return null;
+        return draft.preferred_window
+          ? null
+          : "Zaman tercihini seç.";
       },
-      render: (props) => <TowingScreenStep {...props} />,
+      render: (props) => <ScheduleStep {...props} />,
+    },
+    {
+      key: "review",
+      title: "Önizleme",
+      description: "Son kontrol",
+      validate: () => null,
+      render: (props) => <ReviewStep {...props} />,
       isTerminal: true,
     },
   ],

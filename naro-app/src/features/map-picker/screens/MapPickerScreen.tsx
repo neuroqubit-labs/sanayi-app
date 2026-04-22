@@ -2,7 +2,6 @@ import type { LatLng } from "@naro/domain";
 import {
   BackButton,
   Button,
-  Icon,
   MapControlCluster,
   MapView,
   PinMarker,
