@@ -2,6 +2,8 @@ import {
   Button,
   Icon,
   MetricPill,
+  PressableCard,
+  Surface,
   Text,
   TrustBadge,
 } from "@naro/ui";
@@ -80,11 +82,13 @@ type SearchPillProps = {
 
 function SearchPill({ onPress }: SearchPillProps) {
   return (
-    <Pressable
+    <PressableCard
       accessibilityRole="button"
       accessibilityLabel="Usta, servis, kampanya ara"
       onPress={onPress}
-      className="flex-1 flex-row items-center gap-3 rounded-[24px] border border-app-outline-strong bg-app-surface px-4 py-4 active:bg-app-surface-2"
+      variant="flat"
+      radius="lg"
+      className="flex-1 flex-row items-center gap-3 border-app-outline-strong px-4 py-4"
     >
       <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
         <Icon icon={Search} size={20} color="#0ea5e9" />
@@ -97,7 +101,7 @@ function SearchPill({ onPress }: SearchPillProps) {
           Usta, servis, kampanya — 50+ hizmet keşfet
         </Text>
       </View>
-    </Pressable>
+    </PressableCard>
   );
 }
 
@@ -108,11 +112,13 @@ type NotificationButtonProps = {
 
 function NotificationButton({ hasUnread, onPress }: NotificationButtonProps) {
   return (
-    <Pressable
+    <PressableCard
       accessibilityRole="button"
       accessibilityLabel="Bildirimler"
       onPress={onPress}
-      className="w-[60px] items-center justify-center rounded-[24px] border border-app-outline-strong bg-app-surface active:bg-app-surface-2"
+      variant="flat"
+      radius="lg"
+      className="w-[60px] items-center justify-center border-app-outline-strong"
     >
       <View>
         <Icon icon={Bell} size={22} color="#f5f7ff" />
@@ -120,7 +126,7 @@ function NotificationButton({ hasUnread, onPress }: NotificationButtonProps) {
           <View className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-app-surface bg-app-critical" />
         ) : null}
       </View>
-    </Pressable>
+    </PressableCard>
   );
 }
 
@@ -152,11 +158,13 @@ function ActiveProcessPinned({
   onPrimary,
 }: ActiveProcessPinnedProps) {
   return (
-    <Pressable
+    <PressableCard
       accessibilityRole="button"
       accessibilityLabel={`${title} vakasını aç`}
       onPress={onPress}
-      className="gap-4 rounded-[24px] border border-brand-500/30 bg-app-surface-2 px-4 py-4 active:opacity-95"
+      variant="elevated"
+      radius="lg"
+      className="gap-4 border-brand-500/30 bg-app-surface-2 px-4 py-4"
     >
       <View className="flex-row flex-wrap items-center gap-2">
         <TrustBadge label="İşlem devam ediyor" tone="accent" />
@@ -202,7 +210,7 @@ function ActiveProcessPinned({
           fullWidth
         />
       ) : null}
-    </Pressable>
+    </PressableCard>
   );
 }
 
@@ -228,7 +236,11 @@ function CalmDecisionPinned({
   metrics,
 }: CalmDecisionPinnedProps) {
   return (
-    <View className="gap-4 rounded-[24px] border border-app-outline-strong bg-app-surface-2 px-4 py-5">
+    <Surface
+      variant="raised"
+      radius="lg"
+      className="gap-4 border-app-outline-strong bg-app-surface-2 px-4 py-5"
+    >
       <View className="gap-1.5">
         <Text variant="eyebrow" tone="subtle">
           {eyebrow}
@@ -267,6 +279,6 @@ function CalmDecisionPinned({
           ) : null}
         </View>
       ) : null}
-    </View>
+    </Surface>
   );
 }
