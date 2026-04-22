@@ -20,12 +20,11 @@ import { useVehicleStore } from "./store";
 import type { Vehicle, VehicleDraft } from "./types";
 
 const FUEL_MAP: Record<string, NonNullable<VehicleCreatePayload["fuel_type"]>> = {
-  Benzin: "gasoline",
+  Benzin: "petrol",
   Dizel: "diesel",
   LPG: "lpg",
   Hibrit: "hybrid",
   Elektrik: "electric",
-  CNG: "cng",
 };
 
 function draftToPayload(draft: VehicleDraft): VehicleCreatePayload {
@@ -51,12 +50,11 @@ function fuelLabel(
 ): string | undefined {
   if (!type) return undefined;
   const inv: Record<string, string> = {
-    gasoline: "Benzin",
+    petrol: "Benzin",
     diesel: "Dizel",
     lpg: "LPG",
     hybrid: "Hibrit",
     electric: "Elektrik",
-    cng: "CNG",
     other: "Diğer",
   };
   return inv[type];
