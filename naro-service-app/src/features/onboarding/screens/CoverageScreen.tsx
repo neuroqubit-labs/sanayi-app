@@ -121,8 +121,8 @@ export default function CoverageScreen() {
             tone="muted"
             className="text-app-text-muted text-[12px]"
           >
-            Havuz eşleştirmesi bu 4 boyut üstünden çalışır: alan → işlem →
-            marka → motor tipi.
+            Bu 4 boyut kaydedilir: alan → işlem → marka → motor tipi.
+            Eşleştirme algoritması geliştikçe aktif kullanılacak.
           </Text>
         </View>
       </View>

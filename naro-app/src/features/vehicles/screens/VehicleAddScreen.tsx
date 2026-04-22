@@ -27,16 +27,19 @@ const INPUT_CLASS =
   "rounded-[22px] border border-app-outline bg-app-surface px-4 py-3 text-base text-app-text";
 
 const FUEL_OPTIONS = ["Benzin", "Dizel", "LPG", "Elektrik", "Hibrit"];
-const TRANSMISSION_OPTIONS = ["Otomatik", "Manuel"];
 
 const PLATE_REGEX = /^\d{2}\s?[A-ZÇĞİÖŞÜ]{1,3}\s?\d{2,4}$/;
 
 type Step = {
-  key: "basics" | "usage" | "technical" | "history";
+  key: "basics" | "usage" | "details" | "history";
   title: string;
   description: string;
 };
 
+// NOTE: transmission + engine + chronicNotes alanları kaldırıldı
+// (matching-structural-audit 2026-04-23 P0-2: backend schema'da yok, FE
+// payload'a düşürülüyordu — kullanıcıya "kaydedildi" illüzyonu yaratma).
+// V1.1'de BE schema extend edilirse geri gelir.
 const STEPS: Step[] = [
   {
     key: "basics",
@@ -46,12 +49,12 @@ const STEPS: Step[] = [
   {
     key: "usage",
     title: "Kullanım",
-    description: "Km, kronik notlar",
+    description: "Kilometre + yakıt",
   },
   {
-    key: "technical",
-    title: "Teknik",
-    description: "Motor, renk, ek",
+    key: "details",
+    title: "Detay",
+    description: "Renk + not",
   },
   {
     key: "history",
@@ -70,12 +73,7 @@ export function VehicleAddScreen() {
   const [model, setModel] = useState("");
   const [year, setYear] = useState("");
   const [fuel, setFuel] = useState<string | undefined>("Benzin");
-  const [transmission, setTransmission] = useState<string | undefined>(
-    "Otomatik",
-  );
   const [mileage, setMileage] = useState("");
-  const [chronicNotes, setChronicNotes] = useState("");
-  const [engine, setEngine] = useState("");
   const [color, setColor] = useState("");
   const [note, setNote] = useState("");
   const [historyAccessGranted, setHistoryAccessGranted] = useState(false);
@@ -87,8 +85,6 @@ export function VehicleAddScreen() {
     plate.trim() ||
       make.trim() ||
       model.trim() ||
-      chronicNotes.trim() ||
-      engine.trim() ||
       color.trim() ||
       note.trim() ||
       mileage.trim(),
@@ -132,15 +128,10 @@ export function VehicleAddScreen() {
       model: model.trim(),
       year: year ? Number(year) : undefined,
       fuel,
-      transmission,
       mileageKm: mileage ? Number(mileage.replace(/\./g, "")) : undefined,
       color: color.trim() || undefined,
-      engine: engine.trim() || undefined,
       note: note.trim() || undefined,
-      chronicNotes: chronicNotes
-        .split(/\r?\n/)
-        .map((entry) => entry.trim())
-        .filter(Boolean),
+      chronicNotes: [],
       historyAccessGranted,
     };
 
@@ -268,22 +259,6 @@ export function VehicleAddScreen() {
                 />
               ))}
             </View>
-
-            <Text variant="label" tone="inverse" className="mt-2">
-              Vites
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {TRANSMISSION_OPTIONS.map((option) => (
-                <ToggleChip
-                  key={option}
-                  label={option}
-                  selected={transmission === option}
-                  onPress={() =>
-                    setTransmission(transmission === option ? undefined : option)
-                  }
-                />
-              ))}
-            </View>
           </SectionCard>
         </View>
       ) : null}
@@ -303,34 +278,12 @@ export function VehicleAddScreen() {
               className={INPUT_CLASS}
             />
           </SectionCard>
-
-          <SectionCard
-            title="Kronik sorunlar"
-            description="Her satırda bir not — servis baştan bilir, teşhis kolaylaşır."
-          >
-            <TextInput
-              value={chronicNotes}
-              onChangeText={setChronicNotes}
-              placeholder={"Örn: Soğukta çalıştırmada ses\nArka sol kapıda çizik"}
-              placeholderTextColor="#6f7b97"
-              className={[INPUT_CLASS, "min-h-[120px] py-3"].join(" ")}
-              multiline
-              textAlignVertical="top"
-            />
-          </SectionCard>
         </View>
       ) : null}
 
-      {step.key === "technical" ? (
+      {step.key === "details" ? (
         <View className="gap-4">
-          <SectionCard title="Motor, renk, ek not (hepsi opsiyonel)">
-            <TextInput
-              value={engine}
-              onChangeText={setEngine}
-              placeholder="Motor — örn: 2.0L Turbo"
-              placeholderTextColor="#6f7b97"
-              className={INPUT_CLASS}
-            />
+          <SectionCard title="Renk + ek not (opsiyonel)">
             <TextInput
               value={color}
               onChangeText={setColor}
