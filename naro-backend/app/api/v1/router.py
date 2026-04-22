@@ -17,6 +17,7 @@ from app.api.v1.routes import (
     tow,
     tow_ws,
     vehicles,
+    webhooks,
 )
 
 api_router = APIRouter()
@@ -35,5 +36,6 @@ api_router.include_router(insurance_claims.admin_router)
 api_router.include_router(pool.router)
 api_router.include_router(reviews.router)
 api_router.include_router(admin.router)
+api_router.include_router(webhooks.router)
 api_router.include_router(tow.router)
 api_router.include_router(tow_ws.router)

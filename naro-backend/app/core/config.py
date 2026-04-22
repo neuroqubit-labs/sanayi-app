@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     iyzico_base_url: str = "https://sandbox-api.iyzipay.com"
     iyzico_api_key: str = ""
     iyzico_secret_key: str = ""
+    # Faz B-2 — Iyzico 3DS callback + webhook (PO sandbox başvuru 3-7g)
+    iyzico_webhook_secret: str = ""
+    iyzico_callback_url: str = "https://api-sandbox.naro.app/api/v1/webhooks/iyzico/payment"
     maps_provider: Literal["mapbox", "offline"] = "offline"
     mapbox_backend_token: str = ""
     mapbox_public_token: str = ""
