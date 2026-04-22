@@ -31,6 +31,7 @@ import { TowMapCanvas } from "../components/TowMapCanvas";
 import { TowOtpPanel } from "../components/TowOtpPanel";
 import { TowRatingPanel } from "../components/TowRatingPanel";
 import { TowTechnicianCard } from "../components/TowTechnicianCard";
+import { useTowLiveChannel } from "../hooks/useTowLiveChannel";
 import {
   formatTry,
   getTowStagePresentation,
@@ -68,16 +69,28 @@ export function TowCaseScreen() {
     return () => clearInterval(iv);
   }, []);
 
+  const liveChannel = useTowLiveChannel(id ?? null);
+
   const presentation = snapshot ? getTowStagePresentation(snapshot.stage) : null;
 
   const arrivalOtp = useMemo(() => {
     if (!snapshot) return null;
+    // Live WS'ten gelen arrival OTP varsa önce onu göster
+    if (liveChannel.pickupOtp) {
+      return {
+        id: "live-arrival",
+        code: liveChannel.pickupOtp,
+        purpose: "arrival" as const,
+        verified_at: null,
+        issued_at: new Date().toISOString(),
+      };
+    }
     return (
       [...snapshot.otp_challenges]
         .reverse()
         .find((c) => c.purpose === "arrival") ?? null
     );
-  }, [snapshot]);
+  }, [snapshot, liveChannel.pickupOtp]);
 
   const deliveryOtp = useMemo(() => {
     if (!snapshot) return null;
@@ -159,6 +172,15 @@ export function TowCaseScreen() {
           <StageChip stage={snapshot.stage} />
         </View>
 
+        {liveChannel.isConnected ? (
+          <View className="mx-5 mt-3 flex-row items-center gap-2 rounded-full border border-app-success/40 bg-app-success-soft px-3 py-1 self-start">
+            <View className="h-1.5 w-1.5 rounded-full bg-app-success" />
+            <Text variant="caption" tone="success" className="text-[11px]">
+              Canlı bağlantı
+            </Text>
+          </View>
+        ) : null}
+
         <View className="px-5 pt-4">
           <Text
             variant="caption"
@@ -172,10 +194,17 @@ export function TowCaseScreen() {
         {isBidding ? null : (
           <View className="mt-4 px-5">
             <TowMapCanvas
-              stage={snapshot.stage}
+              stage={liveChannel.stage ?? snapshot.stage}
               pickup={request.pickup_lat_lng}
               dropoff={request.dropoff_lat_lng}
-              current={snapshot.current_location}
+              current={
+                liveChannel.latest
+                  ? {
+                      lat: liveChannel.latest.lat,
+                      lng: liveChannel.latest.lng,
+                    }
+                  : snapshot.current_location
+              }
               etaMinutes={snapshot.eta_minutes}
             />
           </View>
