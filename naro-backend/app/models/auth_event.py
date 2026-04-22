@@ -53,6 +53,18 @@ class AuthEventType(StrEnum):
     # Faz A PR 6 — vehicle history consent (audit P1-1)
     VEHICLE_CONSENT_GRANTED = "vehicle_consent_granted"
     VEHICLE_CONSENT_REVOKED = "vehicle_consent_revoked"
+    # Faz A PR 9 — admin actions (audit trail)
+    ADMIN_TECHNICIAN_APPROVED = "admin_technician_approved"
+    ADMIN_TECHNICIAN_REJECTED = "admin_technician_rejected"
+    ADMIN_TECHNICIAN_SUSPENDED = "admin_technician_suspended"
+    ADMIN_CERT_APPROVED = "admin_cert_approved"
+    ADMIN_CERT_REJECTED = "admin_cert_rejected"
+    ADMIN_INSURANCE_CLAIM_ACCEPTED = "admin_insurance_claim_accepted"
+    ADMIN_INSURANCE_CLAIM_REJECTED = "admin_insurance_claim_rejected"
+    ADMIN_INSURANCE_CLAIM_PAID = "admin_insurance_claim_paid"
+    ADMIN_CASE_OVERRIDE = "admin_case_override"
+    ADMIN_USER_SUSPENDED = "admin_user_suspended"
+    ADMIN_USER_UNSUSPENDED = "admin_user_unsuspended"
 
 
 class AuthEvent(UUIDPkMixin, Base):

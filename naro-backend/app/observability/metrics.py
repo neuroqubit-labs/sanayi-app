@@ -122,6 +122,15 @@ case_create_validation_fail_total = Counter(
     registry=registry,
 )
 
+# ─── Faz A PR 9 — Admin action metrics ────────────────────────────────────
+
+admin_action_total = Counter(
+    "naro_admin_action_total",
+    "Admin aksiyon sayısı (label: action)",
+    labelnames=("action",),
+    registry=registry,
+)
+
 
 def render_metrics() -> tuple[bytes, str]:
     return generate_latest(registry), "text/plain; version=0.0.4"

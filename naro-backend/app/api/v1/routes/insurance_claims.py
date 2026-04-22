@@ -17,13 +17,26 @@ Brief: docs/backend-rest-api-faz-a-brief.md §8 + §11.3.
 
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import and_, select
 
+from app.api.pagination import (
+    CursorQuery,
+    LimitQuery,
+    PaginatedResponse,
+    build_paginated,
+    decode_cursor,
+    encode_cursor,
+)
 from app.api.v1.deps import AdminDep, CurrentUserDep, CustomerDep, DbDep
+from app.models.auth_event import AuthEvent, AuthEventType
 from app.models.case import ServiceCase, ServiceRequestKind
+from app.models.insurance_claim import InsuranceClaim, InsuranceClaimStatus
 from app.models.user import UserRole
+from app.observability.metrics import admin_action_total
 from app.repositories import case as case_repo
 from app.repositories import insurance_claim as claim_repo
 from app.schemas.insurance_claim import (
@@ -160,6 +173,28 @@ async def get_claim_endpoint(
 # ─── Admin moderation endpoints ───────────────────────────────────────────
 
 
+def _emit_admin_event(
+    db: DbDep,
+    *,
+    admin_user_id: UUID,
+    event_type: AuthEventType,
+    claim_id: UUID,
+    context_extra: dict[str, object] | None = None,
+) -> None:
+    ctx: dict[str, object] = {"claim_id": str(claim_id)}
+    if context_extra:
+        ctx.update(context_extra)
+    db.add(
+        AuthEvent(
+            user_id=admin_user_id,
+            event_type=event_type,
+            actor="admin",
+            target=str(claim_id),
+            context=ctx,
+        )
+    )
+
+
 def _map_transition_error(exc: Exception) -> HTTPException:
     if isinstance(exc, claim_flow.ClaimNotFoundError):
         return HTTPException(
@@ -171,6 +206,54 @@ def _map_transition_error(exc: Exception) -> HTTPException:
             detail={"type": "invalid_claim_transition", "message": str(exc)},
         )
     raise exc
+
+
+@admin_router.get(
+    "",
+    response_model=PaginatedResponse[InsuranceClaimResponse],
+    summary="Admin claim kuyruğu (status filter + cursor)",
+)
+async def list_admin_claims(
+    admin: AdminDep,
+    db: DbDep,
+    status_filter: Annotated[
+        InsuranceClaimStatus, Query(alias="status")
+    ] = InsuranceClaimStatus.SUBMITTED,
+    cursor: CursorQuery = None,
+    limit: LimitQuery = 20,
+) -> PaginatedResponse[InsuranceClaimResponse]:
+    _ = admin
+    cursor_data = decode_cursor(cursor)
+    conds = [InsuranceClaim.status == status_filter]
+    if cursor_data is not None:
+        from datetime import datetime
+
+        last_sort = cursor_data.get("sort")
+        last_id = cursor_data.get("id")
+        if isinstance(last_sort, str) and isinstance(last_id, str):
+            last_dt = datetime.fromisoformat(last_sort)
+            conds.append(
+                (InsuranceClaim.submitted_at < last_dt)
+                | (
+                    (InsuranceClaim.submitted_at == last_dt)
+                    & (InsuranceClaim.id > UUID(last_id))
+                )
+            )
+    stmt = (
+        select(InsuranceClaim)
+        .where(and_(*conds))
+        .order_by(InsuranceClaim.submitted_at.desc(), InsuranceClaim.id.asc())
+        .limit(limit + 1)
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+    items = [InsuranceClaimResponse.model_validate(r) for r in rows]
+    return build_paginated(
+        items,
+        limit=limit,
+        cursor_fn=lambda item: encode_cursor(
+            id_=item.id, sort_value=item.submitted_at
+        ),
+    )
 
 
 @admin_router.patch(
@@ -197,6 +280,14 @@ async def admin_accept_claim(
         claim_flow.InvalidClaimTransitionError,
     ) as exc:
         raise _map_transition_error(exc) from exc
+    _emit_admin_event(
+        db,
+        admin_user_id=admin.id,
+        event_type=AuthEventType.ADMIN_INSURANCE_CLAIM_ACCEPTED,
+        claim_id=claim_id,
+        context_extra={"accepted_amount": str(payload.accepted_amount)},
+    )
+    admin_action_total.labels(action="insurance_claim_accepted").inc()
     await db.commit()
     await db.refresh(claim)
     return InsuranceClaimResponse.model_validate(claim)
@@ -225,6 +316,14 @@ async def admin_reject_claim(
         claim_flow.InvalidClaimTransitionError,
     ) as exc:
         raise _map_transition_error(exc) from exc
+    _emit_admin_event(
+        db,
+        admin_user_id=admin.id,
+        event_type=AuthEventType.ADMIN_INSURANCE_CLAIM_REJECTED,
+        claim_id=claim_id,
+        context_extra={"reason": payload.reason},
+    )
+    admin_action_total.labels(action="insurance_claim_rejected").inc()
     await db.commit()
     await db.refresh(claim)
     return InsuranceClaimResponse.model_validate(claim)
@@ -259,6 +358,14 @@ async def admin_mark_paid(
             status_code=422,
             detail={"type": "paid_amount_required", "message": str(exc)},
         ) from exc
+    _emit_admin_event(
+        db,
+        admin_user_id=admin.id,
+        event_type=AuthEventType.ADMIN_INSURANCE_CLAIM_PAID,
+        claim_id=claim_id,
+        context_extra={"paid_amount": str(payload.paid_amount) if payload.paid_amount else None},
+    )
+    admin_action_total.labels(action="insurance_claim_paid").inc()
     await db.commit()
     await db.refresh(claim)
     return InsuranceClaimResponse.model_validate(claim)
