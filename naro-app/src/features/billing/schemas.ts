@@ -72,16 +72,20 @@ export const PaymentStatusSchema = z.enum([
 ]);
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
 
+/**
+ * BE canonical flat response — brief §4.1 + parity audit P0-1 (2026-04-22):
+ * - `checkout_url` → Iyzico WebView source (her zaman döner; peşin ödeme
+ *   gerekmiyorsa endpoint çağrılmaz)
+ * - `idempotency_key` → PSP retry güvenliği (FE telemetry + retry)
+ * - `preauth_amount` → Decimal string (BE Pydantic v2 Decimal serialize)
+ * - 3DS `payment_id` callback URL query'den gelir (ThreeDSCallbackParams),
+ *   initiate response'ta yoktur.
+ */
 export const PaymentInitiateResponseSchema = z.object({
+  checkout_url: z.string().url(),
+  idempotency_key: z.string(),
+  preauth_amount: z.string(),
   case_id: z.string().uuid(),
-  payment: z.object({
-    required: z.boolean(),
-    status: PaymentStatusSchema,
-    /** Iyzico checkout URL — mobil WebView source. Null ise 3DS gerekmez. */
-    redirect_url: z.string().url().nullable(),
-    /** Idempotency key — client retry güvenliği. */
-    payment_id: z.string().uuid().nullable(),
-  }),
 });
 export type PaymentInitiateResponse = z.infer<
   typeof PaymentInitiateResponseSchema

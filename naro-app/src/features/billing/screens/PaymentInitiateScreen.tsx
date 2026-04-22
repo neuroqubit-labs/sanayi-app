@@ -89,25 +89,12 @@ export function PaymentInitiateScreen() {
     setPhase({ kind: "initiating" });
     try {
       const response: PaymentInitiateResponse = await initiate.mutateAsync();
-      if (!response.payment.required) {
-        setPhase({
-          kind: "success",
-          paymentId: response.payment.payment_id,
-        });
-        return;
-      }
-      if (!response.payment.redirect_url) {
-        // Backend hold tamamlandı ama redirect yok — normal success
-        setPhase({
-          kind: "success",
-          paymentId: response.payment.payment_id,
-        });
-        return;
-      }
+      // BE canonical flat: checkout_url her zaman döner. 3DS payment_id
+      // callback URL'den gelir (ThreeDSCallbackParams).
       setPhase({
         kind: "3ds",
-        redirectUrl: response.payment.redirect_url,
-        paymentId: response.payment.payment_id,
+        redirectUrl: response.checkout_url,
+        paymentId: null,
         attempt: 1,
       });
     } catch (err) {
