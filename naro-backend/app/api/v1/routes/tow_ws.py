@@ -20,7 +20,7 @@ from app.core.security import validate_access_token
 from app.db.session import get_db
 from app.models.case import ServiceCase, ServiceRequestKind
 
-router = APIRouter()
+router = APIRouter(tags=["tow-ws"])
 
 
 async def _validate_ws_auth(token: str) -> UUID:

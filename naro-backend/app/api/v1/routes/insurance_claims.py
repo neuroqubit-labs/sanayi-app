@@ -52,7 +52,7 @@ customer_router = APIRouter(
     prefix="/insurance-claims", tags=["insurance-claims"]
 )
 admin_router = APIRouter(
-    prefix="/admin/insurance-claims", tags=["insurance-claims-admin"]
+    prefix="/admin/insurance-claims", tags=["insurance-claims"]
 )
 
 

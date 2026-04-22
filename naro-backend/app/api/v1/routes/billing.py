@@ -83,11 +83,9 @@ from app.services import case_billing
 from app.services.case_billing_state import BillingState
 
 customer_router = APIRouter(prefix="/cases", tags=["billing"])
-technician_router = APIRouter(
-    prefix="/technicians/me", tags=["billing-technician"]
-)
-admin_router = APIRouter(prefix="/admin/billing", tags=["billing-admin"])
-admin_case_router = APIRouter(prefix="/admin/cases", tags=["billing-admin"])
+technician_router = APIRouter(prefix="/technicians/me", tags=["billing"])
+admin_router = APIRouter(prefix="/admin/billing", tags=["billing"])
+admin_case_router = APIRouter(prefix="/admin/cases", tags=["billing"])
 
 
 # ─── PSP factory ──────────────────────────────────────────────────────────

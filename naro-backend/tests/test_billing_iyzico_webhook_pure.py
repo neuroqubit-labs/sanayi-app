@@ -182,7 +182,8 @@ def test_iyzico_psp_with_credentials_constructs() -> None:
         api_key="sandbox-key",
         secret_key="sandbox-secret",
     )
-    assert psp._base_url == "https://sandbox-api.iyzipay.com"
+    # Scheme strip — SDK scheme kabul etmiyor (iyzico.py __init__)
+    assert psp._base_url == "sandbox-api.iyzipay.com"
 
 
 # ─── Idempotency decorator — pure (mocked fn) ──────────────────────────────

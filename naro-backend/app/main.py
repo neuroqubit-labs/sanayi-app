@@ -52,7 +52,7 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
-    @app.get("/metrics")
+    @app.get("/metrics", tags=["observability"])
     async def prometheus_metrics() -> Response:
         body, ctype = render_metrics()
         return Response(content=body, media_type=ctype)
