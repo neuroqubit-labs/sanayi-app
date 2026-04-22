@@ -1,6 +1,8 @@
 import {
   Icon,
+  PressableCard,
   Screen,
+  Surface,
   Text,
   ToggleChip,
   TrustBadge,
@@ -199,7 +201,11 @@ export function RecordsScreen() {
         ListEmptyComponent={
           totalCompleted === 0 && !isEmpty ? null : totalCompleted > 0 &&
             archiveItems.length === 0 ? (
-            <View className="mx-5 gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+            <Surface
+              variant="flat"
+              radius="lg"
+              className="mx-5 gap-2 px-4 py-4"
+            >
               <Text variant="label" tone="inverse">
                 Bu filtreyle eşleşen kayıt yok
               </Text>
@@ -210,7 +216,7 @@ export function RecordsScreen() {
               >
                 Farklı bir kategori dene ya da yeni bir talep başlat.
               </Text>
-            </View>
+            </Surface>
           ) : null
         }
       />
@@ -248,7 +254,11 @@ const GUIDANCE_ACTIONS = [
 
 function GuidanceCard({ onAction }: EmptyStateProps) {
   return (
-    <View className="gap-3 overflow-hidden rounded-[24px] border border-brand-500/20 bg-app-surface-2 px-4 py-4">
+    <Surface
+      variant="raised"
+      radius="xl"
+      className="gap-3 overflow-hidden border-brand-500/20 bg-app-surface-2 px-4 py-4"
+    >
       <View className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-500/10" />
       <View className="flex-row items-center gap-2">
         <Icon icon={Sparkles} size={13} color="#83a7ff" />
@@ -261,12 +271,14 @@ function GuidanceCard({ onAction }: EmptyStateProps) {
       </Text>
       <View className="gap-2">
         {GUIDANCE_ACTIONS.map((action) => (
-          <Pressable
+          <PressableCard
             key={action.key}
             accessibilityRole="button"
             accessibilityLabel={action.title}
             onPress={() => onAction(action.route)}
-            className="flex-row items-center gap-3 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-2"
+            variant="flat"
+            radius="md"
+            className="flex-row items-center gap-3 px-3 py-2.5"
           >
             <View className="h-8 w-8 items-center justify-center rounded-full bg-brand-500/10">
               <Icon icon={action.icon} size={14} color="#83a7ff" />
@@ -284,16 +296,16 @@ function GuidanceCard({ onAction }: EmptyStateProps) {
               </Text>
             </View>
             <Icon icon={ArrowRight} size={12} color="#83a7ff" />
-          </Pressable>
+          </PressableCard>
         ))}
       </View>
-    </View>
+    </Surface>
   );
 }
 
 function EmptyState({ onAction }: EmptyStateProps) {
   return (
-    <View className="gap-4 rounded-[28px] border border-app-outline bg-app-surface px-4 py-5">
+    <Surface variant="raised" radius="xl" className="gap-4 px-4 py-5">
       <View className="gap-2">
         <Text variant="h3" tone="inverse">
           Şu an açık vaka yok
@@ -305,12 +317,14 @@ function EmptyState({ onAction }: EmptyStateProps) {
       </View>
       <View className="gap-3">
         {EMPTY_ACTIONS.map((action) => (
-          <Pressable
+          <PressableCard
             key={action.key}
             accessibilityRole="button"
             accessibilityLabel={action.title}
             onPress={() => onAction(action.route)}
-            className="flex-row items-center gap-3 rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-3.5 active:bg-app-surface-3"
+            variant="elevated"
+            radius="lg"
+            className="flex-row items-center gap-3 px-4 py-3.5"
           >
             <View className="h-11 w-11 items-center justify-center rounded-full border border-app-outline bg-app-surface">
               <Icon icon={action.icon} size={18} color="#f5f7ff" />
@@ -328,9 +342,9 @@ function EmptyState({ onAction }: EmptyStateProps) {
               </Text>
             </View>
             <TrustBadge label="Başlat" tone={action.tone} />
-          </Pressable>
+          </PressableCard>
         ))}
       </View>
-    </View>
+    </Surface>
   );
 }

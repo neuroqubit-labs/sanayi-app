@@ -1,4 +1,4 @@
-import { PremiumListRow, Text, TrustBadge } from "@naro/ui";
+import { PremiumListRow, PressableCard, Text, TrustBadge } from "@naro/ui";
 import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
 
@@ -14,11 +14,13 @@ export function RecordCard({ item, prominent = false }: RecordCardProps) {
 
   if (prominent) {
     return (
-      <Pressable
+      <PressableCard
         accessibilityRole="button"
         accessibilityLabel={`${item.title} kaydini ac`}
         onPress={() => router.push(item.route as never)}
-        className="gap-4 rounded-[28px] border border-app-outline bg-app-surface px-4 py-4"
+        variant="elevated"
+        radius="xl"
+        className="gap-4 px-4 py-4"
       >
         <View className="flex-row items-center justify-between gap-3">
           <TrustBadge label={item.statusLabel} tone={item.statusTone} />
@@ -52,7 +54,7 @@ export function RecordCard({ item, prominent = false }: RecordCardProps) {
             </View>
           </View>
         ) : null}
-      </Pressable>
+      </PressableCard>
     );
   }
 
