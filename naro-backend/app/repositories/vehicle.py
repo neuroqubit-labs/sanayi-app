@@ -129,12 +129,15 @@ async def list_vehicles_for_user(
     ]
     if active_only:
         conds.append(UserVehicleLink.ownership_to.is_(None))
+    # DISTINCT kaldırıldı: user_vehicle_links PK=(user_id, vehicle_id) +
+    # soft delete durumunda aynı user × vehicle için aktif tek link var
+    # (ownership_to IS NULL filter). Duplicate riski yok; Postgres
+    # `DISTINCT + ORDER BY outside SELECT list` hatasından kaçınır.
     stmt = (
         select(Vehicle)
         .join(UserVehicleLink, UserVehicleLink.vehicle_id == Vehicle.id)
         .where(and_(*conds))
         .order_by(UserVehicleLink.is_primary.desc(), Vehicle.updated_at.desc())
-        .distinct()
     )
     return list((await session.execute(stmt)).scalars().all())
 
