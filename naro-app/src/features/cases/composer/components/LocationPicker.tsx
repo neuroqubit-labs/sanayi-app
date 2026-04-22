@@ -1,4 +1,11 @@
-import { Icon, StatusChip, Text } from "@naro/ui";
+import type { LatLng } from "@naro/domain";
+import {
+  Icon,
+  StaticMapPreview,
+  StatusChip,
+  Text,
+  useMapPicker,
+} from "@naro/ui";
 import {
   Building,
   Home,
@@ -7,7 +14,7 @@ import {
   Pencil,
   Sparkles,
 } from "lucide-react-native";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 
 export type FrequentPlace = {
@@ -15,6 +22,7 @@ export type FrequentPlace = {
   label: string;
   address: string;
   kind: "home" | "work" | "previous";
+  coord?: LatLng;
 };
 
 type Props = {
@@ -23,7 +31,10 @@ type Props = {
   description?: string;
   frequentPlaces?: FrequentPlace[];
   onOpenMapPicker?: () => void;
-  onUseCurrentLocation?: () => Promise<string | null> | string | null;
+  /** Şu an seçili koordinat — map preview pin'i için. */
+  coord?: LatLng | null;
+  /** Koordinat değişince caller çağrılır (GPS veya map pick). */
+  onCoordChange?: (next: LatLng | null) => void;
 };
 
 const DEFAULT_FREQUENT_PLACES: FrequentPlace[] = [
@@ -32,18 +43,21 @@ const DEFAULT_FREQUENT_PLACES: FrequentPlace[] = [
     label: "Ev",
     address: "Maslak Mah. Sarıyer / İstanbul",
     kind: "home",
+    coord: { lat: 41.112, lng: 29.022 },
   },
   {
     id: "work",
     label: "İş",
     address: "Levent 4. Lev · Beşiktaş / İstanbul",
     kind: "work",
+    coord: { lat: 41.083, lng: 29.011 },
   },
   {
     id: "previous-1",
     label: "Önceki",
     address: "AutoPro Servis · Güngören Sanayi",
     kind: "previous",
+    coord: { lat: 41.028, lng: 28.889 },
   },
 ];
 
@@ -53,32 +67,54 @@ export function LocationPicker({
   description,
   frequentPlaces = DEFAULT_FREQUENT_PLACES,
   onOpenMapPicker,
-  onUseCurrentLocation,
+  coord = null,
+  onCoordChange,
 }: Props) {
   const [showManual, setShowManual] = useState(!value);
-  const [detecting, setDetecting] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
-  const handleUseCurrent = async () => {
-    setDetecting(true);
-    try {
-      if (onUseCurrentLocation) {
-        const result = await onUseCurrentLocation();
-        if (result) {
-          onChange(result);
-          setPermissionDenied(false);
-        } else {
-          setPermissionDenied(true);
-        }
-      } else {
-        // V1 scaffold: gerçek expo-location yok; mock reverse geocode cevabı.
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        onChange("Maslak Mah. Sarıyer / İstanbul");
+  const picker = useMapPicker({
+    initialCoord: coord,
+    frequentPlaces: frequentPlaces
+      .filter((p): p is FrequentPlace & { coord: LatLng } => p.coord !== undefined)
+      .map((p) => ({ id: p.id, label: p.label, coord: p.coord, short_label: p.address })),
+    onChange: ({ coord: nextCoord, address }) => {
+      onCoordChange?.(nextCoord);
+      if (address?.address) {
+        onChange(address.address);
       }
-    } finally {
-      setDetecting(false);
+    },
+  });
+
+  // Caller koordinat prop'u değiştirirse picker state'i de sync olsun
+  const pickerCoord = picker.coord;
+  const pickerSetCoord = picker.setCoord;
+  useEffect(() => {
+    if (coord && (pickerCoord?.lat !== coord.lat || pickerCoord?.lng !== coord.lng)) {
+      pickerSetCoord(coord);
     }
-  };
+  }, [coord, pickerCoord, pickerSetCoord]);
+
+  const handleUseCurrent = useCallback(async () => {
+    const result = await picker.requestGps();
+    if (!result.ok) {
+      setPermissionDenied(result.reason === "permission_denied");
+    } else {
+      setPermissionDenied(false);
+    }
+  }, [picker]);
+
+  const handleSelectFrequent = useCallback(
+    (place: FrequentPlace) => {
+      if (place.coord) {
+        picker.setCoord(place.coord);
+      }
+      onChange(place.address);
+      onCoordChange?.(place.coord ?? null);
+      setShowManual(false);
+    },
+    [picker, onChange, onCoordChange],
+  );
 
   return (
     <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-4">
@@ -97,55 +133,67 @@ export function LocationPicker({
         ) : null}
       </View>
 
-      {/* Harita preview scaffold — gerçek Mapbox V2'de devreye girer */}
+      {/* Harita preview — coord varsa pin, yoksa skeleton */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Haritada seç"
         onPress={onOpenMapPicker}
-        className="relative h-32 overflow-hidden rounded-[18px] border border-app-outline bg-app-surface active:opacity-90"
+        className="active:opacity-90"
       >
-        <View className="absolute inset-0 opacity-25">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <View
-              key={`h-${i}`}
-              className="absolute left-0 right-0 h-px bg-app-outline"
-              style={{ top: `${(i + 1) * 20}%` }}
-            />
-          ))}
-          {Array.from({ length: 4 }).map((_, i) => (
-            <View
-              key={`v-${i}`}
-              className="absolute bottom-0 top-0 w-px bg-app-outline"
-              style={{ left: `${(i + 1) * 20}%` }}
-            />
-          ))}
-        </View>
-        <View className="absolute inset-0 items-center justify-center">
-          <View className="h-11 w-11 items-center justify-center rounded-full border-2 border-brand-500/40 bg-brand-500/20">
-            <Icon icon={MapPin} size={20} color="#0ea5e9" />
-          </View>
-        </View>
-        {value ? (
-          <View className="absolute bottom-2 left-2 right-2 rounded-full border border-app-outline bg-app-surface/90 px-3 py-1.5">
-            <Text
-              variant="caption"
-              tone="inverse"
-              className="text-[11px]"
-              numberOfLines={1}
-            >
-              📍 {value}
-            </Text>
-          </View>
+        {picker.coord ? (
+          <StaticMapPreview
+            height={132}
+            pins={[
+              {
+                coord: picker.coord,
+                kind: "pickup",
+                label: picker.address?.short_label ?? "Seçili konum",
+              },
+            ]}
+            bottomCaption={
+              <Text
+                variant="caption"
+                tone="inverse"
+                className="text-[11px]"
+                numberOfLines={1}
+              >
+                📍 {value || picker.address?.address || "Konum seçildi"}
+              </Text>
+            }
+          />
         ) : (
-          <View className="absolute bottom-2 left-2 right-2 rounded-full border border-dashed border-app-outline bg-app-surface/80 px-3 py-1.5">
-            <Text
-              variant="caption"
-              tone="muted"
-              className="text-app-text-muted text-[11px]"
-              numberOfLines={1}
-            >
-              Haritadan seç veya aşağıdan doldur
-            </Text>
+          <View className="relative h-32 overflow-hidden rounded-[18px] border border-app-outline bg-app-surface">
+            <View className="absolute inset-0 opacity-25">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <View
+                  key={`h-${i}`}
+                  className="absolute left-0 right-0 h-px bg-app-outline"
+                  style={{ top: `${(i + 1) * 20}%` }}
+                />
+              ))}
+              {Array.from({ length: 4 }).map((_, i) => (
+                <View
+                  key={`v-${i}`}
+                  className="absolute bottom-0 top-0 w-px bg-app-outline"
+                  style={{ left: `${(i + 1) * 20}%` }}
+                />
+              ))}
+            </View>
+            <View className="absolute inset-0 items-center justify-center">
+              <View className="h-11 w-11 items-center justify-center rounded-full border-2 border-brand-500/40 bg-brand-500/20">
+                <Icon icon={MapPin} size={20} color="#0ea5e9" />
+              </View>
+            </View>
+            <View className="absolute bottom-2 left-2 right-2 rounded-full border border-dashed border-app-outline bg-app-surface/80 px-3 py-1.5">
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[11px]"
+                numberOfLines={1}
+              >
+                {value ? `📍 ${value}` : "Haritadan seç veya aşağıdan doldur"}
+              </Text>
+            </View>
           </View>
         )}
       </Pressable>
@@ -156,16 +204,12 @@ export function LocationPicker({
           accessibilityRole="button"
           accessibilityLabel="Konumumu kullan"
           onPress={handleUseCurrent}
-          disabled={detecting}
+          disabled={picker.gpsFetching}
           className="flex-1 flex-row items-center justify-center gap-2 rounded-[16px] border border-brand-500/30 bg-brand-500/10 px-3 py-2.5 active:opacity-85"
         >
           <Icon icon={Navigation} size={14} color="#0ea5e9" />
-          <Text
-            variant="label"
-            tone="accent"
-            className="text-[13px]"
-          >
-            {detecting ? "Bulunuyor..." : "Konumumu kullan"}
+          <Text variant="label" tone="accent" className="text-[13px]">
+            {picker.gpsFetching ? "Bulunuyor..." : "Konumumu kullan"}
           </Text>
         </Pressable>
         <Pressable
@@ -175,11 +219,7 @@ export function LocationPicker({
           className="flex-row items-center justify-center gap-2 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-2"
         >
           <Icon icon={Pencil} size={13} color="#83a7ff" />
-          <Text
-            variant="label"
-            tone="inverse"
-            className="text-[12px]"
-          >
+          <Text variant="label" tone="inverse" className="text-[12px]">
             Değiştir
           </Text>
         </Pressable>
@@ -200,10 +240,7 @@ export function LocationPicker({
               <FrequentPlaceChip
                 key={place.id}
                 place={place}
-                onPress={() => {
-                  onChange(place.address);
-                  setShowManual(false);
-                }}
+                onPress={() => handleSelectFrequent(place)}
               />
             ))}
           </View>
@@ -214,10 +251,16 @@ export function LocationPicker({
       {showManual || permissionDenied ? (
         <View className="gap-1.5">
           {permissionDenied ? (
-            <StatusChip
-              label="Konum izni verilmedi — manuel yaz"
-              tone="warning"
-            />
+            <Pressable
+              onPress={picker.permission.openSettings}
+              accessibilityRole="button"
+              accessibilityLabel="Ayarlara git"
+            >
+              <StatusChip
+                label="Konum izni verilmedi — ayarlara git"
+                tone="warning"
+              />
+            </Pressable>
           ) : null}
           <TextInput
             value={value}
