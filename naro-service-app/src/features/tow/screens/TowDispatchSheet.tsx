@@ -1,4 +1,12 @@
-import { BackButton, Button, Icon, Screen, StatusChip, Text } from "@naro/ui";
+import {
+  BackButton,
+  Button,
+  Icon,
+  Screen,
+  StaticMapPreview,
+  StatusChip,
+  Text,
+} from "@naro/ui";
 import { useRouter } from "expo-router";
 import { MapPin, MapPinned, Truck } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -11,6 +19,7 @@ const COUNTDOWN_SECONDS = 15;
 export function TowDispatchSheet() {
   const router = useRouter();
   const incoming = useTowServiceStore((s) => s.incoming_dispatch);
+  const techLocation = useTowServiceStore((s) => s.starting_location);
   const accept = useTowServiceStore((s) => s.acceptDispatch);
   const decline = useTowServiceStore((s) => s.declineDispatch);
 
@@ -78,6 +87,24 @@ export function TowDispatchSheet() {
       </View>
 
       <View className="mt-4 gap-4 px-5">
+        <StaticMapPreview
+          height={160}
+          pins={[
+            { coord: incoming.pickup_lat_lng, kind: "pickup", label: "Alım" },
+            { coord: techLocation, kind: "self", label: "Sen" },
+          ]}
+          routeCoords={[techLocation, incoming.pickup_lat_lng]}
+          bottomCaption={
+            <Text
+              variant="caption"
+              tone="muted"
+              className="text-[11px] text-app-text-muted"
+            >
+              {incoming.distance_km.toFixed(1)} km · ETA {incoming.eta_minutes} dk
+            </Text>
+          }
+        />
+
         <View className="gap-2 rounded-[22px] border border-brand-500/40 bg-brand-500/10 px-4 py-4">
           <View className="flex-row items-center gap-2">
             <Icon icon={Truck} size={14} color="#0ea5e9" />
