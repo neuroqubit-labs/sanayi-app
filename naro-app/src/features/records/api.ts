@@ -1,56 +1,76 @@
-import { buildCustomerTrackingView } from "@naro/mobile-core";
 import { useQuery } from "@tanstack/react-query";
 
+import { useMyCasesLive } from "@/features/cases/api";
 import {
   getCaseProgressValue,
   getCaseRoute,
   getCaseStatusLabel,
   getCaseStatusTone,
-  isActiveServiceCase,
 } from "@/features/cases/presentation";
-import { useCasesStore } from "@/features/cases/store";
-import { useActiveVehicle } from "@/features/vehicles";
-import { mockDelay } from "@/shared/lib/mock";
+import type { CaseSummaryResponse } from "@/features/cases/schemas/case-create";
 
 import type { RecordItem, RecordsFeed } from "./types";
 
-const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
+const ACTIVE_STATUSES = new Set([
+  "matching",
+  "offers_ready",
+  "appointment_pending",
+  "scheduled",
+  "service_in_progress",
+  "parts_approval",
+  "invoice_approval",
+]);
 
+function isActiveSummary(item: CaseSummaryResponse): boolean {
+  return ACTIVE_STATUSES.has(item.status);
+}
+
+function formatDateLabel(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("tr-TR", {
+      day: "numeric",
+      month: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function toRecordItem(summary: CaseSummaryResponse): RecordItem {
+  return {
+    id: summary.id,
+    title: summary.title,
+    subtitle: summary.summary?.trim() || summary.location_label || "",
+    route: getCaseRoute(summary.id),
+    dateLabel: formatDateLabel(summary.updated_at),
+    statusLabel: getCaseStatusLabel(summary.status),
+    statusTone: getCaseStatusTone(summary.status),
+    progressValue: getCaseProgressValue(summary.status),
+    kind: summary.kind,
+    stateCategory: isActiveSummary(summary) ? "active" : "completed",
+  };
+}
+
+/**
+ * Customer kayıtlar feed — canlı GET /cases/me.
+ * Mock useCasesStore bağı koparıldı; araç/vaka yoksa boş döner →
+ * RecordsScreen empty state gösterir.
+ */
 export function useRecordsFeed() {
-  const { data: activeVehicle } = useActiveVehicle();
-  const vehicleId = activeVehicle?.id ?? DEFAULT_VEHICLE_ID;
+  const cases = useMyCasesLive();
 
   return useQuery<RecordsFeed>({
-    queryKey: ["records", vehicleId],
-    queryFn: async (): Promise<RecordsFeed> => {
-      const cases = useCasesStore
-        .getState()
-        .cases.filter((caseItem) => caseItem.vehicle_id === vehicleId)
-        .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
-
-      const items: RecordItem[] = cases.map((caseItem) => {
-        const trackingView = buildCustomerTrackingView(caseItem);
-
-        return {
-          id: caseItem.id,
-          title: caseItem.title,
-          subtitle: `${trackingView.header.waitLabel} · ${trackingView.header.summaryDescription}`,
-          route: getCaseRoute(caseItem.id),
-          dateLabel: caseItem.updated_at_label,
-          amountLabel: caseItem.total_label ?? undefined,
-          statusLabel: getCaseStatusLabel(caseItem.status),
-          statusTone: getCaseStatusTone(caseItem.status),
-          progressValue: getCaseProgressValue(caseItem.status),
-          progressLabel: trackingView.header.nextLabel,
-          kind: caseItem.kind,
-          stateCategory: isActiveServiceCase(caseItem) ? "active" : "completed",
-        };
-      });
-
-      return mockDelay({
-        activeRecords: items.filter((item) => item.stateCategory === "active"),
-        items: items.filter((item) => item.stateCategory === "completed"),
-      });
+    queryKey: ["records", "feed", cases.data?.map((c) => c.id).join(",") ?? ""],
+    enabled: !cases.isPending,
+    queryFn: () => {
+      const sorted = [...(cases.data ?? [])].sort((a, b) =>
+        b.updated_at.localeCompare(a.updated_at),
+      );
+      const items = sorted.map(toRecordItem);
+      return {
+        activeRecords: items.filter((i) => i.stateCategory === "active"),
+        items: items.filter((i) => i.stateCategory === "completed"),
+      };
     },
   });
 }
