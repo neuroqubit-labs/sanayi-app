@@ -2,30 +2,22 @@ import {
   Avatar,
   Icon,
   PressableCard,
-  StatusChip,
   Text,
   TrustBadge,
 } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
-import { CheckCircle2, MapPin, Star } from "lucide-react-native";
+import { CheckCircle2, MapPin, Star, Wrench } from "lucide-react-native";
 import { View } from "react-native";
 
 import type { TechnicianFeedItem } from "../schemas";
 
 const PROVIDER_TYPE_LABEL: Record<string, string> = {
-  towing: "Çekici",
-  motorcycle: "Motor ustası",
-  mechanic: "Oto tamirci",
-  body: "Kaporta / boya",
-  glass: "Cam",
-  tire: "Lastik",
-  battery: "Akü",
-  parts: "Oto parça",
-  detailing: "Detailing",
-  electrical: "Elektrik",
-  diagnostic: "Teşhis",
-  specialty: "Uzman servis",
-  other: "Servis",
+  usta: "Usta",
+  cekici: "Çekici",
+  oto_aksesuar: "Oto aksesuar",
+  kaporta_boya: "Kaporta & boya",
+  lastik: "Lastik",
+  oto_elektrik: "Oto elektrik",
 };
 
 const VERIFIED_META: Record<
@@ -43,21 +35,27 @@ export type TechnicianFeedCardProps = {
 
 export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
   const router = useRouter();
-  const providerLabel =
-    PROVIDER_TYPE_LABEL[item.active_provider_type ?? item.provider_type] ??
-    PROVIDER_TYPE_LABEL.other ??
-    "Servis";
+  const activeType = item.active_provider_type ?? item.provider_type;
+  const primaryLabel =
+    PROVIDER_TYPE_LABEL[activeType] ?? PROVIDER_TYPE_LABEL.usta ?? "Servis";
+  const secondaryLabels = item.secondary_provider_types
+    .filter((t) => t !== activeType)
+    .map((t) => PROVIDER_TYPE_LABEL[t])
+    .filter((label): label is string => Boolean(label));
   const verified = VERIFIED_META[item.verified_level];
+
   const ratingValue =
-    item.rating_bayesian !== null
-      ? item.rating_bayesian.toFixed(1)
-      : null;
-  const locationLabel = [
-    item.location_summary.primary_district_label,
-    item.location_summary.city_label,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(" · ");
+    item.rating_bayesian !== null ? item.rating_bayesian.toFixed(1) : null;
+
+  const districtLabel = item.location_summary.primary_district_label;
+  const cityLabel = item.location_summary.city_label;
+  const radiusKm = item.location_summary.service_radius_km;
+
+  const quickBarParts: string[] = [];
+  if (ratingValue) quickBarParts.push(`${ratingValue}★`);
+  if (districtLabel) quickBarParts.push(districtLabel);
+  if (radiusKm) quickBarParts.push(`${radiusKm} km hizmet`);
+  const quickBarLabel = quickBarParts.join(" · ");
 
   const openProfile = () => router.push(`/usta/${item.id}` as Href);
 
@@ -65,100 +63,152 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
     <PressableCard
       variant="elevated"
       radius="xl"
-      className="gap-3 px-4 py-4"
+      className="overflow-hidden"
       onPress={openProfile}
       accessibilityLabel={`${item.display_name} profilini aç`}
     >
-      <View className="flex-row items-start gap-3">
-        <Avatar name={item.display_name} size="lg" />
-        <View className="flex-1 gap-1">
-          <View className="flex-row flex-wrap items-center gap-2">
-            <Text
-              variant="h3"
-              tone="inverse"
-              className="text-[15px] leading-[19px]"
-              numberOfLines={1}
-            >
-              {item.display_name}
-            </Text>
-            <TrustBadge label={verified.label} tone={verified.tone} />
-          </View>
+      <View className="relative h-28 overflow-hidden bg-brand-500/12">
+        <View className="absolute -right-6 -top-6 h-40 w-40 rounded-full bg-brand-500/18" />
+        <View className="absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-brand-500/10" />
+        <View className="absolute left-4 top-4 flex-row items-center gap-2">
+          <TrustBadge label={verified.label} tone={verified.tone} />
+          {item.accepting_new_jobs ? (
+            <TrustBadge label="İş alıyor" tone="success" icon={CheckCircle2} />
+          ) : null}
+        </View>
+        <View className="absolute inset-x-0 bottom-0 translate-y-6 items-center">
+          <Avatar name={item.display_name} size="xl" />
+        </View>
+      </View>
+
+      <View className="gap-4 px-5 pb-5 pt-10">
+        <View className="gap-1.5">
+          <Text
+            variant="h2"
+            tone="inverse"
+            className="text-center text-[20px] leading-[24px]"
+            numberOfLines={1}
+          >
+            {item.display_name}
+          </Text>
           {item.tagline ? (
             <Text
               variant="caption"
               tone="muted"
-              className="text-app-text-muted text-[12px] leading-[16px]"
+              className="text-center text-app-text-muted text-[12px] leading-[16px]"
               numberOfLines={2}
             >
               {item.tagline}
             </Text>
           ) : null}
-          <View className="flex-row flex-wrap items-center gap-1.5 pt-0.5">
-            <StatusChip label={providerLabel} tone="info" />
-            {item.accepting_new_jobs ? (
-              <StatusChip label="İş alıyor" tone="success" icon={CheckCircle2} />
-            ) : (
-              <StatusChip label="Yoğun" tone="neutral" />
-            )}
-          </View>
         </View>
-      </View>
 
-      <View className="flex-row items-center gap-4 border-t border-app-outline/50 pt-2.5">
-        {ratingValue ? (
-          <View className="flex-row items-center gap-1.5">
-            <Icon icon={Star} size={13} color="#f5b33f" />
-            <Text
-              variant="label"
-              tone="inverse"
-              className="text-[13px]"
-            >
-              {ratingValue}
-            </Text>
-            <Text
-              variant="caption"
-              tone="muted"
-              className="text-app-text-subtle text-[11px]"
-            >
-              · {item.rating_count} değerlendirme
+        <View className="flex-row gap-2">
+          <MetricCell
+            icon={<Icon icon={Star} size={14} color="#f5b33f" />}
+            value={ratingValue ?? "Yeni"}
+            label={
+              ratingValue
+                ? `${item.rating_count} yorum`
+                : "İlk işini sen aç"
+            }
+          />
+          <MetricCell
+            icon={<Icon icon={MapPin} size={14} color="#83a7ff" />}
+            value={districtLabel ?? cityLabel ?? "—"}
+            label={cityLabel && districtLabel ? cityLabel : "Konum"}
+          />
+          <MetricCell
+            icon={<Icon icon={Wrench} size={14} color="#2dd28d" />}
+            value={
+              item.completed_jobs_30d > 0
+                ? item.completed_jobs_30d.toString()
+                : radiusKm
+                  ? `${radiusKm} km`
+                  : "—"
+            }
+            label={
+              item.completed_jobs_30d > 0 ? "30g iş" : "Hizmet alanı"
+            }
+          />
+        </View>
+
+        {quickBarLabel ? (
+          <View className="items-center rounded-[14px] border border-brand-500/30 bg-brand-500/10 px-3 py-2.5">
+            <Text variant="label" tone="accent" className="text-[13px]">
+              {quickBarLabel}
             </Text>
           </View>
-        ) : (
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-subtle text-[11px]"
-          >
-            Henüz değerlendirme yok
-          </Text>
-        )}
-        {item.completed_jobs_30d > 0 ? (
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted text-[11px]"
-          >
-            {item.completed_jobs_30d} iş · 30g
-          </Text>
+        ) : null}
+
+        {secondaryLabels.length > 0 || primaryLabel ? (
+          <View className="flex-row flex-wrap justify-center gap-2">
+            <SpecialtyChip label={primaryLabel} highlighted />
+            {secondaryLabels.map((label) => (
+              <SpecialtyChip key={label} label={label} />
+            ))}
+          </View>
         ) : null}
       </View>
-
-      {locationLabel ? (
-        <View className="flex-row items-center gap-1.5">
-          <Icon icon={MapPin} size={12} color="#83a7ff" />
-          <Text
-            variant="caption"
-            tone="muted"
-            className="flex-1 text-app-text-muted text-[11px]"
-            numberOfLines={1}
-          >
-            {locationLabel}
-            {item.location_summary.service_radius_km
-              ? ` · ${item.location_summary.service_radius_km} km hizmet`
-              : ""}
-          </Text>
-        </View>
-      ) : null}
     </PressableCard>
+  );
+}
+
+function MetricCell({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  label: string;
+}) {
+  return (
+    <View className="flex-1 items-center gap-1 rounded-[14px] border border-app-outline bg-app-surface px-2 py-2.5">
+      {icon}
+      <Text
+        variant="label"
+        tone="inverse"
+        className="text-[13px] leading-[16px]"
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
+      <Text
+        variant="caption"
+        tone="muted"
+        className="text-app-text-subtle text-[10px] leading-[13px]"
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function SpecialtyChip({
+  label,
+  highlighted,
+}: {
+  label: string;
+  highlighted?: boolean;
+}) {
+  return (
+    <View
+      className={[
+        "rounded-full border px-3 py-1.5",
+        highlighted
+          ? "border-brand-500/40 bg-brand-500/10"
+          : "border-app-outline bg-app-surface-2",
+      ].join(" ")}
+    >
+      <Text
+        variant="caption"
+        tone={highlighted ? "accent" : "muted"}
+        className="text-[11px]"
+      >
+        {label}
+      </Text>
+    </View>
   );
 }
