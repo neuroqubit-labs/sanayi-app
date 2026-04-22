@@ -99,7 +99,19 @@ export function CaseComposerScreen() {
 
   const currentStep = flow.steps[stepIndex] ?? flow.steps[0]!;
   const isLastStep = stepIndex === flow.steps.length - 1;
-  const validationMessage = draft ? currentStep.validate(draft) : null;
+  const stepValidationMessage = draft ? currentStep.validate(draft) : null;
+  // PO K3 karar 2026-04-23: kaza (accident) vakalarında en az 1 fotoğraf
+  // ZORUNLU (sigorta dosyası için kritik). towing/breakdown/maintenance
+  // opsiyonel. Submit gate sadece son adımda uygulanır.
+  const accidentPhotoGap =
+    isLastStep &&
+    kind === "accident" &&
+    (draft?.attachments.length ?? 0) === 0;
+  const validationMessage =
+    stepValidationMessage ??
+    (accidentPhotoGap
+      ? "Kaza vakası için en az 1 fotoğraf zorunlu (sigorta dosyası)."
+      : null);
   const canFastTrackToAppointment = Boolean(
     technicianId &&
     preferredTechnician &&
