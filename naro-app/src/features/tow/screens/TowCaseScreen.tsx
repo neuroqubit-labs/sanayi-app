@@ -5,6 +5,7 @@ import {
   Icon,
   Screen,
   StatusChip,
+  Surface,
   Text,
 } from "@naro/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -350,7 +351,11 @@ function SearchingCard({
   canSimulate: boolean;
 }) {
   return (
-    <View className="gap-3 rounded-[22px] border border-brand-500/30 bg-brand-500/10 px-4 py-4">
+    <Surface
+      variant="flat"
+      radius="lg"
+      className="gap-3 border-brand-500/30 bg-brand-500/10 px-4 py-4"
+    >
       <View className="flex-row items-center gap-2">
         <View className="h-2 w-2 rounded-full bg-brand-500" />
         <Text variant="eyebrow" tone="accent">
@@ -377,7 +382,7 @@ function SearchingCard({
           </Text>
         </Pressable>
       ) : null}
-    </View>
+    </Surface>
   );
 }
 
@@ -389,7 +394,11 @@ function CancelledSummary({
   fee: number | null;
 }) {
   return (
-    <View className="gap-2 rounded-[22px] border border-app-critical/30 bg-app-critical-soft px-4 py-4">
+    <Surface
+      variant="flat"
+      radius="lg"
+      className="gap-2 border-app-critical/30 bg-app-critical-soft px-4 py-4"
+    >
       <View className="flex-row items-center gap-2">
         <Icon icon={X} size={14} color="#ff7e7e" />
         <Text variant="eyebrow" tone="critical">
@@ -404,7 +413,7 @@ function CancelledSummary({
       <Text variant="label" tone="inverse">
         {fee && fee > 0 ? `${formatTry(fee)} iptal bedeli` : "İptal bedeli uygulanmadı"}
       </Text>
-    </View>
+    </Surface>
   );
 }
 
@@ -415,7 +424,11 @@ function RequestSummaryCard({
 }) {
   const request = snapshot.request;
   return (
-    <View className="gap-2.5 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+    <Surface
+      variant="raised"
+      radius="lg"
+      className="gap-2.5 px-4 py-4"
+    >
       <Text variant="eyebrow" tone="subtle">
         Talep özetin
       </Text>
@@ -455,7 +468,7 @@ function RequestSummaryCard({
           value={request.kasko.insurer_name ?? "Kasko dosyası açık"}
         />
       ) : null}
-    </View>
+    </Surface>
   );
 }
 
@@ -472,7 +485,11 @@ function FareSummaryCard({
 }) {
   const paid = finalAmount !== null && settlement === "final_charged";
   return (
-    <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+    <Surface
+      variant="raised"
+      radius="lg"
+      className="gap-2 px-4 py-4"
+    >
       <View className="flex-row items-center gap-2">
         <Icon icon={Receipt} size={14} color="#83a7ff" />
         <Text variant="eyebrow" tone="subtle">
@@ -489,7 +506,7 @@ function FareSummaryCard({
             ? "Gerçek ücret mesafeye göre hesaplanır; bu tavan aşılmaz."
             : "Teklif kabul edildiğinde fiyat kilitlenir."}
       </Text>
-    </View>
+    </Surface>
   );
 }
 

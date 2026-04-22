@@ -1,5 +1,5 @@
 import type { AppointmentSlotKind } from "@naro/domain";
-import { BackButton, Button, Icon, Text, ToggleChip } from "@naro/ui";
+import { BackButton, Button, Icon, Surface, Text, ToggleChip } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
   CalendarClock,
@@ -200,7 +200,11 @@ export function RandevuRequestScreen() {
         ) : null}
 
         {/* Summary */}
-        <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-3.5">
+        <Surface
+          variant="raised"
+          radius="lg"
+          className="gap-3 px-4 py-3.5"
+        >
           <SummaryRow label="Usta" value={technician.name} />
           <View className="h-px bg-app-outline" />
           <SummaryRow
@@ -221,7 +225,7 @@ export function RandevuRequestScreen() {
           <SummaryRow label="Süre" value={durationLabel} />
           <View className="h-px bg-app-outline" />
           <SummaryRow label="Garanti" value={warrantyLabel} />
-        </View>
+        </Surface>
 
         <View className="rounded-[18px] border border-brand-500/30 bg-brand-500/10 px-4 py-3">
           <View className="flex-row items-center gap-2">
