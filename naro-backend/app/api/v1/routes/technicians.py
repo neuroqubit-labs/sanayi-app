@@ -29,6 +29,7 @@ from sqlalchemy import select
 
 from app.api.v1.deps import CurrentTechnicianDep, DbDep, RedisDep
 from app.models.auth_event import AuthEvent, AuthEventType
+from app.models.case import TowEquipment
 from app.models.technician import (
     ProviderMode,
     ProviderType,
@@ -40,6 +41,7 @@ from app.models.technician import (
     TechnicianProfile,
     TechnicianVerifiedLevel,
 )
+from app.repositories import technician as technician_repo
 from app.schemas.shell_config import ShellConfig
 from app.services import technician_mutations, technician_shell
 from app.services.technician_admission import (
@@ -792,3 +794,68 @@ async def patch_me_capabilities(
     )
     await db.commit()
     return TechnicianCapabilityResponse.model_validate(capability)
+
+
+# ─── Tow equipment (matching audit P0 — minimal CRUD) ─────────────────────
+
+
+class TowEquipmentPayload(BaseModel):
+    """PUT /technicians/me/tow-equipment body — atomic replace.
+
+    Pilot V1 minimal CRUD: tek transaction'da tüm liste replace. V1.1'de
+    bireysel add/remove opsiyonları.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    equipment: list[TowEquipment] = Field(default_factory=list)
+
+
+class TowEquipmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    equipment: list[TowEquipment]
+
+
+@router.get(
+    "/tow-equipment",
+    response_model=TowEquipmentResponse,
+    summary="Teknisyenin çekici ekipman listesi",
+)
+async def get_me_tow_equipment(
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> TowEquipmentResponse:
+    profile = await _get_profile_for_user(db, user.id)
+    equipment = await technician_repo.list_tow_equipment(db, profile.id)
+    return TowEquipmentResponse(equipment=equipment)
+
+
+@router.put(
+    "/tow-equipment",
+    response_model=TowEquipmentResponse,
+    summary="Çekici ekipmanları atomic replace (I-PR4-7 pattern)",
+)
+async def put_me_tow_equipment(
+    payload: TowEquipmentPayload,
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> TowEquipmentResponse:
+    profile = await _get_profile_for_user(db, user.id)
+    # Deduplicate — aynı equipment iki kez gelirse tekile indir
+    equipment = list(dict.fromkeys(payload.equipment))
+    await technician_repo.replace_tow_equipment(
+        db, profile_id=profile.id, equipment=equipment
+    )
+    await bump_role_config_version(db, profile.id)
+    await _emit_auth_event(
+        db,
+        user.id,
+        AuthEventType.TECHNICIAN_COVERAGE_REPLACED,
+        {
+            "scope": "tow_equipment",
+            "count": len(equipment),
+            "values": [e.value for e in equipment],
+        },
+    )
+    await db.commit()
+    return TowEquipmentResponse(equipment=equipment)

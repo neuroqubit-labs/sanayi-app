@@ -13,6 +13,7 @@ from sqlalchemy import and_, delete, select, update
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.case import TowEquipment
 from app.models.technician import (
     GalleryItemKind,
     ProviderType,
@@ -25,6 +26,7 @@ from app.models.technician import (
     TechnicianProfile,
     TechnicianSpecialty,
     TechnicianSpecialtyKind,
+    TechnicianTowEquipmentLink,
 )
 
 # ─── Profile ────────────────────────────────────────────────────────────────
@@ -386,3 +388,43 @@ async def delete_gallery_item(
     await session.execute(
         delete(TechnicianGalleryItem).where(TechnicianGalleryItem.id == item_id)
     )
+
+
+# ─── Tow equipment (P0-audit minimal CRUD) ─────────────────────────────────
+
+
+async def list_tow_equipment(
+    session: AsyncSession, profile_id: UUID
+) -> list[TowEquipment]:
+    stmt = select(TechnicianTowEquipmentLink.equipment).where(
+        TechnicianTowEquipmentLink.profile_id == profile_id
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    return [TowEquipment(r) for r in rows]
+
+
+async def replace_tow_equipment(
+    session: AsyncSession,
+    *,
+    profile_id: UUID,
+    equipment: list[TowEquipment],
+) -> list[TowEquipment]:
+    """Atomic replace — tek transaction'da delete + insert.
+
+    Pilot için V1 minimal CRUD (PUT all-set). V1.1'de bireysel add/remove
+    opsiyonları.
+    """
+    await session.execute(
+        delete(TechnicianTowEquipmentLink).where(
+            TechnicianTowEquipmentLink.profile_id == profile_id
+        )
+    )
+    for eq in equipment:
+        session.add(
+            TechnicianTowEquipmentLink(
+                profile_id=profile_id,
+                equipment=eq.value,
+            )
+        )
+    await session.flush()
+    return equipment

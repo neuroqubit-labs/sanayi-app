@@ -6013,6 +6013,48 @@
         "title": "TowDispatchStageSchema",
         "type": "string"
       },
+      "TowEquipment": {
+        "enum": [
+          "flatbed",
+          "hook",
+          "wheel_lift",
+          "heavy_duty",
+          "motorcycle"
+        ],
+        "title": "TowEquipment",
+        "type": "string"
+      },
+      "TowEquipmentPayload": {
+        "additionalProperties": false,
+        "description": "PUT /technicians/me/tow-equipment body — atomic replace.\n\nPilot V1 minimal CRUD: tek transaction'da tüm liste replace. V1.1'de\nbireysel add/remove opsiyonları.",
+        "properties": {
+          "equipment": {
+            "items": {
+              "$ref": "#/components/schemas/TowEquipment"
+            },
+            "title": "Equipment",
+            "type": "array"
+          }
+        },
+        "title": "TowEquipmentPayload",
+        "type": "object"
+      },
+      "TowEquipmentResponse": {
+        "properties": {
+          "equipment": {
+            "items": {
+              "$ref": "#/components/schemas/TowEquipment"
+            },
+            "title": "Equipment",
+            "type": "array"
+          }
+        },
+        "required": [
+          "equipment"
+        ],
+        "title": "TowEquipmentResponse",
+        "type": "object"
+      },
       "TowEquipmentSchema": {
         "enum": [
           "flatbed",
@@ -12127,6 +12169,76 @@
           }
         ],
         "summary": "Multi-role kişi: active_provider_type değiştir",
+        "tags": [
+          "technicians-me"
+        ]
+      }
+    },
+    "/api/v1/technicians/me/tow-equipment": {
+      "get": {
+        "operationId": "get_me_tow_equipment_api_v1_technicians_me_tow_equipment_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TowEquipmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Teknisyenin çekici ekipman listesi",
+        "tags": [
+          "technicians-me"
+        ]
+      },
+      "put": {
+        "operationId": "put_me_tow_equipment_api_v1_technicians_me_tow_equipment_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TowEquipmentPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TowEquipmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Çekici ekipmanları atomic replace (I-PR4-7 pattern)",
         "tags": [
           "technicians-me"
         ]

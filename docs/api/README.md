@@ -5,7 +5,7 @@
 **Auth:** Bearer JWT (Authorization header), OTP login üzerinden
 **Content-Type:** `application/json`
 
-**Kapsam:** 113 endpoint, 107 unique path, 19 tag.
+**Kapsam:** 115 endpoint, 108 unique path, 19 tag.
 
 > Bu dokümana `scripts/export_openapi.py` + `scripts/render_api_readme.py`
 > ile `docs/api/openapi.json`'dan üretilir — manuel düzenleme YAPMA;
@@ -27,7 +27,7 @@
 - [pool](#pool) (2 endpoint)
 - [reviews](#reviews) (3 endpoint)
 - [taxonomy](#taxonomy) (5 endpoint)
-- [technicians-me](#technicians-me) (15 endpoint)
+- [technicians-me](#technicians-me) (17 endpoint)
 - [technicians-public](#technicians-public) (2 endpoint)
 - [tow](#tow) (14 endpoint)
 - [vehicles](#vehicles) (7 endpoint)
@@ -865,6 +865,22 @@ Teknisyen kendi profil + cert + capability + availability yönetimi.
   - `200` — TechnicianProfileResponse Successful Response
   - `422` — HTTPValidationError Validation Error
 
+### GET /api/v1/technicians/me/tow-equipment
+
+- **Auth:** technician
+- **Özet:** Teknisyenin çekici ekipman listesi
+- **Responses:**
+  - `200` — TowEquipmentResponse Successful Response
+
+### PUT /api/v1/technicians/me/tow-equipment
+
+- **Auth:** technician
+- **Özet:** Çekici ekipmanları atomic replace (I-PR4-7 pattern)
+- **Request:** `TowEquipmentPayload`
+- **Responses:**
+  - `200` — TowEquipmentResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
 ---
 
 ## technicians-public
@@ -1250,6 +1266,9 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `TowDispatchResponseOutput`
 - `TowDispatchResponseSchema`
 - `TowDispatchStageSchema`
+- `TowEquipment`
+- `TowEquipmentPayload`
+- `TowEquipmentResponse`
 - `TowEquipmentSchema`
 - `TowFareQuote-Input`
 - `TowFareQuote-Output`
