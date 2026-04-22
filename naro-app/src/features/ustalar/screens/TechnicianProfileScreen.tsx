@@ -3,93 +3,135 @@ import {
   BackButton,
   Button,
   Icon,
+  Screen,
   StatusChip,
   Text,
   TrustBadge,
 } from "@naro/ui";
-import { Href, useLocalSearchParams, useRouter } from "expo-router";
+import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
-  BadgeCheck,
-  Briefcase,
   CheckCircle2,
   Clock,
   Heart,
   MapPin,
-  Quote,
-  Sparkles,
   Star,
-  Tag,
   Wrench,
 } from "lucide-react-native";
-import { Pressable, ScrollView, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-  attachTechnicianToCase,
-  prefillDraftForTechnician,
-  useActiveCase,
-  useTechnicianCaseAction,
-} from "@/features/cases";
 import { useFavoriteTechniciansStore } from "@/features/profile";
-import { useActiveVehicle } from "@/features/vehicles";
 
-import { useTechnicianProfile } from "../api";
+import { useTechnicianPublicView } from "../api";
 
-const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
+const PROVIDER_TYPE_LABEL: Record<string, string> = {
+  usta: "Usta",
+  cekici: "Çekici",
+  oto_aksesuar: "Oto aksesuar",
+  kaporta_boya: "Kaporta & boya",
+  lastik: "Lastik",
+  oto_elektrik: "Oto elektrik",
+};
 
+const VERIFIED_META: Record<
+  "basic" | "verified" | "premium",
+  { label: string; tone: "info" | "accent" | "success" }
+> = {
+  basic: { label: "Yeni", tone: "info" },
+  verified: { label: "Doğrulandı", tone: "accent" },
+  premium: { label: "Premium", tone: "success" },
+};
+
+/**
+ * Teknisyen tam profili — canlı `/technicians/public/{id}`.
+ * PII mask invariant (I-9): phone/email/business detayları response'ta
+ * yok; whitelist enforce.
+ *
+ * Launch scope: rating + response time + completed jobs 30d + konum +
+ * specialty chips. Distance + reviews + campaigns + live offer BE
+ * genişletildikçe eklenir.
+ */
 export function TechnicianProfileScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: technician } = useTechnicianProfile(id ?? "");
-  const action = useTechnicianCaseAction(id ?? "");
-  const { data: activeCase } = useActiveCase();
-  const { data: activeVehicle } = useActiveVehicle();
-  const technicianId = technician?.id ?? "";
+  const technicianId = id ?? "";
+
+  const { data: technician, isLoading, isError, refetch } =
+    useTechnicianPublicView(technicianId);
+
   const isFavorite = useFavoriteTechniciansStore((state) =>
     state.ids.includes(technicianId),
   );
   const toggleFavorite = useFavoriteTechniciansStore((state) => state.toggle);
 
-  if (!technician) {
+  if (isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-app-bg">
-        <View className="flex-1 justify-center gap-4 px-6">
-          <Text variant="h2" tone="inverse">
-            Servis profili bulunamadı
+        <View className="flex-1 items-center justify-center gap-3">
+          <ActivityIndicator color="#83a7ff" />
+          <Text tone="muted" variant="caption">
+            Profil yükleniyor…
           </Text>
-          <Button
-            label="Listeye dön"
-            variant="outline"
-            onPress={() => router.back()}
-          />
         </View>
       </SafeAreaView>
     );
   }
 
-  const profile = technician;
-  const isOpen = profile.availabilityLabel.toLowerCase().includes("açık");
-  const verified = profile.badges.some((badge) => badge.id === "verified");
-
-  function handlePrimary() {
-    if (action.disabled) return;
-    if (action.attachOnPrimary && action.caseId) {
-      attachTechnicianToCase(action.caseId, profile.id);
-    }
-    if (action.prefillOnPrimary) {
-      prefillDraftForTechnician(
-        action.kind,
-        profile.id,
-        activeVehicle?.id ?? DEFAULT_VEHICLE_ID,
-      );
-    }
-    router.push(action.primaryRoute as Href);
+  if (isError || !technician) {
+    return (
+      <SafeAreaView className="flex-1 bg-app-bg">
+        <View className="flex-1 items-center justify-center gap-4 px-6">
+          <Text variant="h2" tone="inverse" className="text-center">
+            Servis profili yüklenemedi
+          </Text>
+          <Text variant="body" tone="muted" className="text-center">
+            Bağlantını kontrol edip yeniden dene.
+          </Text>
+          <View className="flex-row gap-2">
+            <Button
+              label="Tekrar dene"
+              variant="primary"
+              onPress={() => refetch()}
+            />
+            <Button
+              label="Listeye dön"
+              variant="outline"
+              onPress={() => router.back()}
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
   }
 
+  const verified = VERIFIED_META[technician.verified_level];
+  const activeType =
+    technician.active_provider_type ?? technician.provider_type;
+  const primaryLabel =
+    PROVIDER_TYPE_LABEL[activeType] ?? PROVIDER_TYPE_LABEL.usta ?? "Servis";
+  const secondaryLabels = technician.secondary_provider_types
+    .filter((t) => t !== activeType)
+    .map((t) => PROVIDER_TYPE_LABEL[t])
+    .filter((label): label is string => Boolean(label));
+
+  const ratingValue =
+    technician.rating_bayesian !== null
+      ? technician.rating_bayesian.toFixed(1)
+      : null;
+
+  const districtLabel = technician.location_summary.primary_district_label;
+  const cityLabel = technician.location_summary.city_label;
+  const radiusKm = technician.location_summary.service_radius_km;
+
+  const openCaseComposer = () => {
+    router.push(
+      `/(modal)/talep/breakdown?technicianId=${technician.id}` as Href,
+    );
+  };
+
   return (
-    <SafeAreaView className="flex-1 bg-app-bg" edges={["top"]}>
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-2">
+    <Screen backgroundClassName="bg-app-bg" padded={false} className="flex-1">
+      <View className="flex-row items-center justify-between px-4 pt-3 pb-2">
         <BackButton onPress={() => router.back()} />
         <Text variant="label" tone="inverse">
           Servis profili
@@ -100,7 +142,7 @@ export function TechnicianProfileScreen() {
             isFavorite ? "Favorilerden çıkar" : "Favorilere ekle"
           }
           accessibilityState={{ selected: isFavorite }}
-          onPress={() => toggleFavorite(profile.id)}
+          onPress={() => toggleFavorite(technician.id)}
           className={`h-11 w-11 items-center justify-center rounded-full border ${
             isFavorite
               ? "border-app-critical/40 bg-app-critical/10"
@@ -118,31 +160,27 @@ export function TechnicianProfileScreen() {
       </View>
 
       <ScrollView
-        contentContainerClassName="gap-5 pb-40"
+        contentContainerStyle={{ gap: 20, paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Hero */}
         <View className="mx-4 overflow-hidden rounded-[28px] border border-app-outline-strong bg-app-surface">
           <View className="relative h-40 overflow-hidden bg-brand-500/15">
             <View className="absolute -right-8 -top-10 h-40 w-40 rounded-full bg-brand-500/25" />
             <View className="absolute -left-10 bottom-[-30px] h-32 w-32 rounded-full bg-brand-500/10" />
-            <View className="absolute right-4 top-4">
-              <StatusChip
-                label={profile.availabilityLabel}
-                tone={isOpen ? "success" : "warning"}
-              />
+            <View className="absolute right-4 top-4 flex-row gap-2">
+              <TrustBadge label={verified.label} tone={verified.tone} />
+              {technician.accepting_new_jobs ? (
+                <StatusChip label="İş alıyor" tone="success" icon={CheckCircle2} />
+              ) : (
+                <StatusChip label="Yoğun" tone="neutral" />
+              )}
             </View>
           </View>
 
           <View className="-mt-12 items-center gap-3 px-5 pb-5">
-            <View className="relative">
-              <View className="rounded-full border-4 border-app-surface bg-app-surface-2 p-1">
-                <Avatar name={profile.name} size="xl" />
-              </View>
-              {verified ? (
-                <View className="absolute bottom-1 right-1 h-7 w-7 items-center justify-center rounded-full border-2 border-app-surface bg-app-success">
-                  <Icon icon={CheckCircle2} size={14} color="#0b0e1c" strokeWidth={3} />
-                </View>
-              ) : null}
+            <View className="rounded-full border-4 border-app-surface bg-app-surface-2 p-1">
+              <Avatar name={technician.display_name} size="xl" />
             </View>
 
             <View className="items-center gap-1">
@@ -151,377 +189,183 @@ export function TechnicianProfileScreen() {
                 tone="inverse"
                 className="text-center text-[24px] leading-[28px]"
               >
-                {profile.name}
+                {technician.display_name}
               </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-center text-app-text-muted"
-              >
-                {profile.tagline}
-              </Text>
-              {profile.verifiedSinceLabel || profile.completedJobs ? (
+              {technician.tagline ? (
                 <Text
                   variant="caption"
                   tone="muted"
-                  className="text-app-text-subtle text-[11px] text-center"
+                  className="text-center text-app-text-muted text-[13px] leading-[18px]"
                 >
-                  {[
-                    profile.verifiedSinceLabel,
-                    profile.completedJobs
-                      ? `${profile.completedJobs} iş tamamlandı`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {technician.tagline}
                 </Text>
               ) : null}
             </View>
 
-            {profile.badges.length ? (
-              <View className="flex-row flex-wrap justify-center gap-2">
-                {profile.badges.map((badge) => (
-                  <TrustBadge key={badge.id} label={badge.label} tone={badge.tone} />
-                ))}
-              </View>
-            ) : null}
-
-            <View className="mt-1 flex-row gap-2 self-stretch">
-              <HeroMetric
-                icon={Star}
-                iconColor="#f5b33f"
-                value={profile.rating.toFixed(1)}
-                label={`${profile.reviewCount} yorum`}
-              />
-              <HeroMetric
-                icon={MapPin}
-                iconColor="#83a7ff"
-                value={`${profile.distanceKm.toFixed(1)} km`}
-                label="Uzaklık"
-              />
-              <HeroMetric
-                icon={Clock}
-                iconColor="#2dd28d"
-                value={`${profile.responseMinutes} dk`}
-                label="Yanıt"
-              />
+            <View className="flex-row flex-wrap justify-center gap-2">
+              <SpecialtyChip label={primaryLabel} highlighted />
+              {secondaryLabels.map((label) => (
+                <SpecialtyChip key={label} label={label} />
+              ))}
+              {technician.provider_mode === "business" ? (
+                <SpecialtyChip label="İşletme" />
+              ) : technician.provider_mode === "individual" ? (
+                <SpecialtyChip label="Bireysel" />
+              ) : null}
             </View>
           </View>
         </View>
 
-        <View className="mx-4 gap-2 rounded-[20px] border border-brand-500/30 bg-brand-500/10 px-4 py-3.5">
-          <View className="flex-row items-center gap-2">
-            <Icon icon={Sparkles} size={13} color="#0ea5e9" />
+        {/* Metrics */}
+        <View className="mx-4 flex-row gap-2">
+          <MetricCard
+            icon={<Icon icon={Star} size={14} color="#f5b33f" />}
+            value={ratingValue ?? "Yeni"}
+            label={
+              ratingValue
+                ? `${technician.rating_count} yorum`
+                : "İlk işini sen aç"
+            }
+          />
+          <MetricCard
+            icon={<Icon icon={Clock} size={14} color="#2dd28d" />}
+            value={
+              technician.response_time_p50_minutes
+                ? `${technician.response_time_p50_minutes} dk`
+                : "—"
+            }
+            label={
+              technician.response_time_p50_minutes ? "Ort. yanıt" : "Yanıt"
+            }
+          />
+          <MetricCard
+            icon={<Icon icon={Wrench} size={14} color="#83a7ff" />}
+            value={
+              technician.completed_jobs_30d > 0
+                ? technician.completed_jobs_30d.toString()
+                : "—"
+            }
+            label={
+              technician.completed_jobs_30d > 0
+                ? "30 günde iş"
+                : "Yeni servis"
+            }
+          />
+        </View>
+
+        {/* Location */}
+        {(districtLabel || cityLabel || radiusKm) ? (
+          <View className="mx-4 gap-2 rounded-[20px] border border-app-outline bg-app-surface px-4 py-4">
+            <View className="flex-row items-center gap-2">
+              <Icon icon={MapPin} size={14} color="#83a7ff" />
+              <Text variant="eyebrow" tone="subtle">
+                Hizmet bölgesi
+              </Text>
+            </View>
+            <Text variant="label" tone="inverse" className="text-[14px]">
+              {[districtLabel, cityLabel].filter(Boolean).join(" · ")}
+            </Text>
+            {radiusKm ? (
+              <Text variant="caption" tone="muted" className="text-[12px]">
+                Atölye merkezinden {radiusKm} km çevre
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Biography */}
+        {technician.biography ? (
+          <View className="mx-4 gap-2 rounded-[20px] border border-app-outline bg-app-surface px-4 py-4">
             <Text variant="eyebrow" tone="subtle">
-              Neden önerildi
+              Hakkında
             </Text>
-            {activeCase ? (
-              <View className="ml-auto">
-                <TrustBadge
-                  label={action.mode === "open_case" ? "Bu vakada" : "Vaka uyumu"}
-                  tone={action.mode === "open_case" ? "success" : "accent"}
-                />
-              </View>
-            ) : null}
-          </View>
-          <Text
-            variant="label"
-            tone="inverse"
-            className="text-[14px] leading-[19px]"
-          >
-            {profile.reason}
-          </Text>
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted leading-[18px]"
-          >
-            {profile.summary}
-          </Text>
-        </View>
-
-        <Section title="Hakkında">
-          <View className="gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5">
             <Text
-              variant="caption"
+              variant="body"
               tone="muted"
-              className="text-app-text leading-[20px]"
+              className="text-app-text leading-6 text-[14px]"
             >
-              {profile.biography}
+              {technician.biography}
             </Text>
-            {profile.completedJobs ? (
-              <View className="flex-row items-center gap-2 self-start rounded-full border border-app-outline bg-app-surface-2 px-2.5 py-1">
-                <Icon icon={Briefcase} size={11} color="#83a7ff" strokeWidth={2.5} />
-                <Text variant="caption" tone="muted" className="text-[11px]">
-                  {profile.completedJobs} iş tamamlandı
-                </Text>
-              </View>
-            ) : null}
           </View>
-        </Section>
-
-        {profile.campaigns.length ? (
-          <Section
-            title="Kampanya & Paketler"
-            description="Bu ustanın hazır paket teklifleri"
-          >
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerClassName="gap-3 px-4"
-            >
-              {profile.campaigns.map((campaign) => (
-                <View
-                  key={campaign.id}
-                  className="w-[220px] gap-2 rounded-[20px] border border-app-success/30 bg-app-success-soft px-4 py-3.5"
-                >
-                  <View className="h-8 w-8 items-center justify-center rounded-full bg-app-success/20">
-                    <Icon icon={Tag} size={14} color="#2dd28d" />
-                  </View>
-                  <Text variant="label" tone="inverse" className="text-[14px]">
-                    {campaign.title}
-                  </Text>
-                  <Text
-                    variant="caption"
-                    tone="muted"
-                    className="text-app-text-muted text-[12px]"
-                  >
-                    {campaign.subtitle}
-                  </Text>
-                  <Text variant="label" tone="success">
-                    {campaign.priceLabel}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-          </Section>
-        ) : null}
-
-        <Section title="Hizmet detayları">
-          <View className="rounded-[20px] border border-app-outline bg-app-surface">
-            {profile.serviceDetails.map((detail, index) => (
-              <View
-                key={detail.label}
-                className={`flex-row items-center justify-between px-4 py-3 ${
-                  index < profile.serviceDetails.length - 1
-                    ? "border-b border-app-outline"
-                    : ""
-                }`}
-              >
-                <Text variant="caption" tone="muted" className="text-app-text-subtle">
-                  {detail.label}
-                </Text>
-                <Text
-                  variant="label"
-                  tone="inverse"
-                  className="flex-1 text-right text-[13px]"
-                  numberOfLines={2}
-                >
-                  {detail.value}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </Section>
-
-        {profile.expertise.length ? (
-          <Section title="Uzmanlık alanları">
-            <View className="flex-row flex-wrap gap-2 px-4">
-              {profile.expertise.map((item) => (
-                <View
-                  key={item}
-                  className="flex-row items-center gap-1.5 rounded-full border border-app-outline bg-app-surface-2 px-3 py-1.5"
-                >
-                  <Icon icon={Wrench} size={11} color="#83a7ff" />
-                  <Text variant="caption" tone="muted" className="text-[12px]">
-                    {item}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </Section>
-        ) : null}
-
-        {profile.workingHours ? (
-          <Section title="Müsaitlik saatleri">
-            <View className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5">
-              <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-                <Icon icon={Clock} size={16} color="#0ea5e9" />
-              </View>
-              <View className="flex-1 gap-0.5">
-                <Text variant="eyebrow" tone="subtle">
-                  Çalışma saatleri
-                </Text>
-                <Text variant="label" tone="inverse" className="text-[13px]">
-                  {profile.workingHours}
-                </Text>
-              </View>
-            </View>
-          </Section>
-        ) : null}
-
-        {profile.areaLabel ? (
-          <Section title="Konum">
-            <View className="mx-4 gap-3 overflow-hidden rounded-[20px] border border-app-outline bg-app-surface">
-              <View className="relative h-24 overflow-hidden bg-brand-500/10">
-                <View className="absolute inset-0 flex-row flex-wrap">
-                  {Array.from({ length: 32 }).map((_, idx) => (
-                    <View
-                      key={idx}
-                      className="h-6 border-b border-r border-brand-500/15"
-                      style={{ width: `${100 / 8}%` }}
-                    />
-                  ))}
-                </View>
-                <View className="absolute left-1/2 top-1/2 -ml-4 -mt-4 h-8 w-8 items-center justify-center rounded-full border-2 border-app-surface bg-brand-500">
-                  <Icon icon={MapPin} size={14} color="#0b0e1c" strokeWidth={3} />
-                </View>
-              </View>
-              <View className="flex-row items-center gap-3 px-4 pb-3.5">
-                <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-                  <Icon icon={MapPin} size={16} color="#83a7ff" />
-                </View>
-                <View className="flex-1 gap-0.5">
-                  <Text variant="eyebrow" tone="subtle">
-                    Hizmet bölgesi
-                  </Text>
-                  <Text variant="label" tone="inverse" className="text-[13px]">
-                    {profile.areaLabel}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Section>
-        ) : null}
-
-        {profile.reviews.length ? (
-          <Section title={`Yorumlar (${profile.reviewCount})`}>
-            <View className="gap-3 px-4">
-              {profile.reviews.slice(0, 3).map((review) => (
-                <View
-                  key={review.id}
-                  className="flex-row items-start gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5"
-                >
-                  <View className="h-8 w-8 items-center justify-center rounded-full bg-brand-500/15">
-                    <Icon icon={Quote} size={13} color="#0ea5e9" />
-                  </View>
-                  <View className="flex-1 gap-1">
-                    <Text
-                      variant="caption"
-                      tone="muted"
-                      className="text-app-text leading-[20px]"
-                    >
-                      "{review.body}"
-                    </Text>
-                    <View className="flex-row items-center gap-1.5">
-                      <Icon
-                        icon={BadgeCheck}
-                        size={11}
-                        color="#2dd28d"
-                        strokeWidth={2.5}
-                      />
-                      <Text
-                        variant="caption"
-                        tone="muted"
-                        className="text-app-text-subtle text-[11px]"
-                      >
-                        {review.author}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
-              {profile.reviews.length > 3 ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Tüm yorumları gör"
-                  onPress={() =>
-                    router.push(`/(modal)/usta-yorumlar/${profile.id}` as Href)
-                  }
-                  className="items-center rounded-[14px] border border-app-outline bg-app-surface-2 px-4 py-3 active:opacity-80"
-                >
-                  <Text variant="label" tone="inverse" className="text-[13px]">
-                    Tüm yorumları gör ({profile.reviewCount})
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </Section>
         ) : null}
       </ScrollView>
 
-      <View
-        className="absolute inset-x-0 bottom-0 gap-1.5 border-t border-app-outline bg-app-bg px-4 pt-3"
-        style={{ paddingBottom: insets.bottom + 12 }}
-      >
+      {/* Footer CTA */}
+      <View className="absolute inset-x-0 bottom-0 border-t border-app-outline bg-app-surface px-4 py-3 pb-6">
         <Button
-          label={action.primaryLabel}
+          label="Bu servise vaka aç"
+          variant="primary"
           size="lg"
           fullWidth
-          disabled={action.disabled}
-          variant={action.disabled ? "outline" : "primary"}
-          onPress={handlePrimary}
+          onPress={openCaseComposer}
+          disabled={!technician.accepting_new_jobs}
         />
-        {action.helperText ? (
+        {!technician.accepting_new_jobs ? (
           <Text
             variant="caption"
             tone="muted"
-            className="text-center text-app-text-subtle text-[11px]"
+            className="mt-1.5 text-center text-app-text-subtle text-[11px]"
           >
-            {action.helperText}
+            Servis şu an yeni iş almıyor
           </Text>
         ) : null}
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-type SectionProps = {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-};
-
-function Section({ title, description, children }: SectionProps) {
-  return (
-    <View className="gap-3">
-      <View className="gap-0.5 px-4">
-        <Text variant="h3" tone="inverse" className="text-[15px]">
-          {title}
-        </Text>
-        {description ? (
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted text-[12px]"
-          >
-            {description}
-          </Text>
-        ) : null}
-      </View>
-      {children}
-    </View>
-  );
-}
-
-type HeroMetricProps = {
-  icon: typeof Star;
-  iconColor: string;
+function MetricCard({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ReactNode;
   value: string;
   label: string;
-};
-
-function HeroMetric({ icon, iconColor, value, label }: HeroMetricProps) {
+}) {
   return (
-    <View className="flex-1 items-center gap-0.5 rounded-[14px] border border-app-outline bg-app-surface-2 px-2 py-2.5">
-      <Icon icon={icon} size={14} color={iconColor} strokeWidth={2.5} />
-      <Text variant="label" tone="inverse" className="text-[13px]">
+    <View className="flex-1 items-center gap-1 rounded-[14px] border border-app-outline bg-app-surface px-2 py-3">
+      {icon}
+      <Text
+        variant="label"
+        tone="inverse"
+        className="text-[13px] leading-[16px]"
+        numberOfLines={1}
+      >
         {value}
       </Text>
       <Text
         variant="caption"
         tone="muted"
-        className="text-app-text-subtle text-[11px]"
+        className="text-app-text-subtle text-[10px] leading-[13px]"
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function SpecialtyChip({
+  label,
+  highlighted,
+}: {
+  label: string;
+  highlighted?: boolean;
+}) {
+  return (
+    <View
+      className={[
+        "rounded-full border px-3 py-1.5",
+        highlighted
+          ? "border-brand-500/40 bg-brand-500/10"
+          : "border-app-outline bg-app-surface-2",
+      ].join(" ")}
+    >
+      <Text
+        variant="caption"
+        tone={highlighted ? "accent" : "muted"}
+        className="text-[11px]"
       >
         {label}
       </Text>

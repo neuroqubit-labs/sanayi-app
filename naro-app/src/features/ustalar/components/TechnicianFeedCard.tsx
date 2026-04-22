@@ -7,8 +7,9 @@ import {
 } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import { CheckCircle2, MapPin, Star, Wrench } from "lucide-react-native";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 
+import { useUstaPreviewStore } from "../preview-store";
 import type { TechnicianFeedItem } from "../schemas";
 
 const PROVIDER_TYPE_LABEL: Record<string, string> = {
@@ -57,15 +58,17 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
   if (radiusKm) quickBarParts.push(`${radiusKm} km hizmet`);
   const quickBarLabel = quickBarParts.join(" · ");
 
-  const openProfile = () => router.push(`/usta/${item.id}` as Href);
+  const openPreview = useUstaPreviewStore((state) => state.open);
+  const openFullProfile = () => router.push(`/usta/${item.id}` as Href);
+  const showPreview = () => openPreview(item.id);
 
   return (
     <PressableCard
       variant="elevated"
       radius="xl"
       className="flex-1 overflow-hidden"
-      onPress={openProfile}
-      accessibilityLabel={`${item.display_name} profilini aç`}
+      onPress={showPreview}
+      accessibilityLabel={`${item.display_name} önizlemesini aç`}
     >
       <View className="relative h-32 overflow-hidden bg-brand-500/12">
         <View className="absolute -right-6 -top-6 h-40 w-40 rounded-full bg-brand-500/18" />
@@ -77,7 +80,17 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
           ) : null}
         </View>
         <View className="absolute inset-x-0 bottom-0 translate-y-6 items-center">
-          <Avatar name={item.display_name} size="xl" />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.display_name} tam profiline git`}
+            onPress={openFullProfile}
+            hitSlop={8}
+            className="active:opacity-80"
+          >
+            <View className="rounded-full border-2 border-brand-500/60 p-[3px]">
+              <Avatar name={item.display_name} size="xl" />
+            </View>
+          </Pressable>
         </View>
       </View>
 
