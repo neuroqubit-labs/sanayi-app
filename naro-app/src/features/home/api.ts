@@ -1,236 +1,198 @@
-import { buildCustomerTrackingView } from "@naro/mobile-core";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
-import {
-  CASE_CAMPAIGNS,
-  CASE_NEARBY_SERVICES,
-} from "@/features/cases/data/fixtures";
-import {
-  getCaseTrackingRoute,
-  isActiveServiceCase,
-} from "@/features/cases/presentation";
-import { useCasesStore } from "@/features/cases/store";
-import { mockTechnicianMatchesByVehicle } from "@/features/ustalar/data/fixtures";
+import { useMyCasesLive } from "@/features/cases/api";
+import type { CaseSummaryResponse } from "@/features/cases/schemas/case-create";
 import { useActiveVehicle } from "@/features/vehicles";
-import { mockDelay } from "@/shared/lib/mock";
 
-import type { HomeSummary } from "./types";
+import type { ActiveProcess, HomeDecision, HomeSummary } from "./types";
 
-const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
-const DEFAULT_SUGGESTIONS =
-  mockTechnicianMatchesByVehicle[DEFAULT_VEHICLE_ID] ?? [];
+const ACTIVE_STATUSES = new Set([
+  "matching",
+  "offers_ready",
+  "appointment_pending",
+  "scheduled",
+  "service_in_progress",
+  "parts_approval",
+  "invoice_approval",
+]);
 
-type HomeBadgeTone = HomeSummary["decision"]["badges"][number]["tone"];
-type HomeActivityTone = HomeSummary["recentActivity"][number]["tone"];
+const STATUS_LABEL: Record<string, string> = {
+  matching: "Eşleşme bekleniyor",
+  offers_ready: "Teklifler geldi",
+  appointment_pending: "Randevu bekleniyor",
+  scheduled: "Randevu planlandı",
+  service_in_progress: "Servis sürüyor",
+  parts_approval: "Parça onayın bekleniyor",
+  invoice_approval: "Fatura onayın bekleniyor",
+  completed: "Tamamlandı",
+  cancelled: "İptal edildi",
+  archived: "Arşivlendi",
+};
 
-function toHomeBadgeTone(tone: "customer" | "technician" | "system") {
-  switch (tone) {
-    case "customer":
-      return "warning" as const;
-    case "technician":
-      return "accent" as const;
-    case "system":
-      return "info" as const;
-  }
+const STATUS_PROGRESS: Record<string, number> = {
+  matching: 12,
+  offers_ready: 28,
+  appointment_pending: 42,
+  scheduled: 55,
+  service_in_progress: 70,
+  parts_approval: 80,
+  invoice_approval: 90,
+  completed: 100,
+  cancelled: 100,
+  archived: 100,
+};
+
+const STATUS_NEXT_STEP: Record<string, string> = {
+  matching: "Ustalardan teklif geliyor",
+  offers_ready: "Teklif seç",
+  appointment_pending: "Onay bekleniyor",
+  scheduled: "Randevu günü",
+  service_in_progress: "Süreci takip et",
+  parts_approval: "Parça kalemini onayla",
+  invoice_approval: "Faturayı onayla",
+};
+
+const STATUS_PRIMARY_ACTION: Record<
+  string,
+  { label: string; routeSuffix: string } | undefined
+> = {
+  offers_ready: { label: "Teklifleri gör", routeSuffix: "" },
+  parts_approval: { label: "Parça onayını aç", routeSuffix: "" },
+  invoice_approval: { label: "Faturayı incele", routeSuffix: "" },
+};
+
+const KIND_LABEL: Record<string, string> = {
+  accident: "Hasar / kaza",
+  breakdown: "Arıza",
+  maintenance: "Bakım",
+  towing: "Çekici",
+};
+
+function isActive(caseItem: CaseSummaryResponse): boolean {
+  return ACTIVE_STATUSES.has(caseItem.status);
 }
 
-function normalizeActivityTone(
-  tone: HomeSummary["decision"]["statusTone"],
-): HomeActivityTone {
-  return tone === "neutral" ? "info" : tone;
+function deriveActiveProcess(caseItem: CaseSummaryResponse): ActiveProcess {
+  const statusLabel = STATUS_LABEL[caseItem.status] ?? caseItem.status;
+  const progressValue = STATUS_PROGRESS[caseItem.status] ?? 0;
+  const nextStepLabel = STATUS_NEXT_STEP[caseItem.status] ?? "Detayları aç";
+  const primary = STATUS_PRIMARY_ACTION[caseItem.status];
+  const kindLabel = KIND_LABEL[caseItem.kind] ?? caseItem.kind;
+  const cardRoute = `/vaka/${caseItem.id}`;
+
+  return {
+    id: caseItem.id,
+    servisAd: caseItem.title || kindLabel,
+    title: caseItem.summary?.trim() || kindLabel,
+    status: statusLabel,
+    waitLabel: caseItem.status === "matching" ? "Sırada" : statusLabel,
+    nextStepLabel,
+    note: caseItem.location_label ?? "",
+    progressLabel: `%${progressValue} tamamlandı`,
+    progressValue,
+    priceLabel: "Tutar netleşmedi",
+    cardRoute,
+    primaryActionLabel: primary?.label,
+    primaryActionRoute: primary ? `${cardRoute}${primary.routeSuffix}` : undefined,
+  };
 }
 
-function stageToneToBadgeTone(
-  state: "completed_compact" | "active_expanded" | "upcoming_visible" | "blocked" | "waiting_counterparty",
-): HomeBadgeTone {
-  switch (state) {
-    case "completed_compact":
-      return "success";
-    case "active_expanded":
-      return "accent";
-    case "blocked":
-      return "critical";
-    case "waiting_counterparty":
-      return "warning";
-    case "upcoming_visible":
-      return "info";
-  }
+function deriveCalmDecision(opts: {
+  vehicleKm: number;
+  totalCases: number;
+  hasMaintenanceNote: boolean;
+}): HomeDecision {
+  const { vehicleKm, totalCases, hasMaintenanceNote } = opts;
+  const maintenanceDue = hasMaintenanceNote;
+  return {
+    state: maintenanceDue ? "maintenance_due" : "quiet",
+    eyebrow: maintenanceDue ? "Bakım zamanı" : "Hazırsın",
+    title: maintenanceDue
+      ? "Bakım için sakin bir pencere var"
+      : "Bugün yeni bir talep açmak için temiz zemin var",
+    description: maintenanceDue
+      ? "Planlı bakım brief'ini önce kurarsan plansız duruş yerine kontrollü bir akışa girersin."
+      : "Arıza, bakım, kaza veya çekici ihtiyacı için guided composer hazır.",
+    statusLabel: maintenanceDue ? "Planlı" : "Sessiz dönem",
+    statusTone: maintenanceDue ? "accent" : "info",
+    cardRoute: maintenanceDue
+      ? "/(modal)/talep/maintenance"
+      : "/(modal)/talep/breakdown",
+    primaryActionLabel: maintenanceDue
+      ? "Bakım talebi oluştur"
+      : "Yeni talep başlat",
+    primaryActionRoute: maintenanceDue
+      ? "/(modal)/talep/maintenance"
+      : "/(modal)/quick-actions",
+    secondaryActionLabel: "Ustaları gör",
+    secondaryActionRoute: "/(tabs)/carsi",
+    metrics: [
+      {
+        value: `${vehicleKm.toLocaleString("tr-TR")} km`,
+        label: "Kilometre",
+      },
+      {
+        value: totalCases.toString(),
+        label: "Geçmiş vaka",
+      },
+      {
+        value: maintenanceDue ? "Planlı" : "Sessiz",
+        label: "Durum",
+      },
+    ],
+    badges: [],
+  };
 }
 
 export function useHomeSummary() {
   const { data: activeVehicle } = useActiveVehicle();
-  const vehicleId = activeVehicle?.id ?? DEFAULT_VEHICLE_ID;
+  const { data: cases, isPending, isError, refetch } = useMyCasesLive();
 
-  return useQuery<HomeSummary>({
-    queryKey: ["home", "summary", vehicleId],
-    queryFn: async (): Promise<HomeSummary> => {
-      const maintenanceDue =
-        activeVehicle?.note?.toLowerCase().includes("bakim") ?? false;
-      const cases = useCasesStore
-        .getState()
-        .cases.filter((caseItem) => caseItem.vehicle_id === vehicleId)
-        .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
-      const activeCase = cases.find(isActiveServiceCase) ?? null;
-      const trackingView = activeCase ? buildCustomerTrackingView(activeCase) : null;
-      const suggestions =
-        mockTechnicianMatchesByVehicle[vehicleId] ?? DEFAULT_SUGGESTIONS;
-      const campaigns =
-        CASE_CAMPAIGNS[vehicleId as keyof typeof CASE_CAMPAIGNS] ??
-        CASE_CAMPAIGNS[DEFAULT_VEHICLE_ID];
-      const nearbyServices =
-        CASE_NEARBY_SERVICES[vehicleId as keyof typeof CASE_NEARBY_SERVICES] ??
-        CASE_NEARBY_SERVICES[DEFAULT_VEHICLE_ID];
+  const summary: HomeSummary | undefined = useMemo(() => {
+    if (!cases) return undefined;
+    const sorted = [...cases].sort((a, b) =>
+      b.updated_at.localeCompare(a.updated_at),
+    );
+    const activeCase = sorted.find(isActive) ?? null;
+    const activeProcess = activeCase ? deriveActiveProcess(activeCase) : null;
+    const decision = activeCase
+      ? {
+          state:
+            activeCase.status === "offers_ready"
+              ? ("offers_ready" as const)
+              : ("service_in_progress" as const),
+          eyebrow: STATUS_LABEL[activeCase.status] ?? activeCase.status,
+          title: activeCase.title || (KIND_LABEL[activeCase.kind] ?? "Vaka"),
+          description: activeCase.summary ?? "",
+          statusLabel: STATUS_LABEL[activeCase.status] ?? activeCase.status,
+          statusTone: "accent" as const,
+          cardRoute: `/vaka/${activeCase.id}`,
+          metrics: [],
+          badges: [],
+        }
+      : deriveCalmDecision({
+          vehicleKm: activeVehicle?.mileageKm ?? 0,
+          totalCases: cases.length,
+          hasMaintenanceNote: Boolean(
+            activeVehicle?.note?.toLowerCase().includes("bakim"),
+          ),
+        });
 
-      const secondaryUtility = trackingView?.utilityPreviews.find(
-        (item) => item.route && item.kind !== "service_profile",
-      );
+    return {
+      decision,
+      activeProcess,
+      taskQueue: [],
+      recentActivity: [],
+      suggestions: [],
+      campaigns: [],
+      nearbyServices: [],
+    };
+  }, [cases, activeVehicle?.mileageKm, activeVehicle?.note]);
 
-      const decision: HomeSummary["decision"] = trackingView && activeCase
-        ? {
-            state:
-              activeCase.status === "offers_ready"
-                ? "offers_ready"
-                : "service_in_progress",
-            eyebrow: trackingView.header.eyebrow,
-            title: trackingView.header.summaryTitle,
-            description: trackingView.header.summaryDescription,
-            statusLabel: trackingView.header.statusLabel,
-            statusTone: trackingView.header.statusTone,
-            cardRoute: getCaseTrackingRoute(activeCase.id),
-            primaryActionLabel: trackingView.primaryAction?.label,
-            primaryActionRoute: trackingView.primaryAction?.route,
-            secondaryActionLabel: secondaryUtility?.title,
-            secondaryActionRoute: secondaryUtility?.route,
-            metrics: [
-              {
-                value: trackingView.header.waitLabel,
-                label: "Bekleyen taraf",
-              },
-              {
-                value: trackingView.header.totalLabel ?? "-",
-                label: "Guncel tutar",
-              },
-              {
-                value:
-                  trackingView.header.estimateLabel ?? trackingView.header.nextLabel,
-                label: trackingView.header.estimateLabel
-                  ? "Yaklasik bitis"
-                  : "Sonraki esik",
-              },
-            ],
-            badges: [
-              {
-                id: "wait-state",
-                label: trackingView.header.waitLabel,
-                tone: toHomeBadgeTone(
-                  trackingView.waitState.actor === "none"
-                    ? "system"
-                    : trackingView.waitState.actor,
-                ),
-              },
-              ...trackingView.stages
-                .filter((stage) => stage.isNew)
-                .map((stage) => ({
-                  id: stage.id,
-                  label: stage.title,
-                  tone: stageToneToBadgeTone(stage.state),
-                })),
-            ].slice(0, 3),
-          }
-        : {
-            state: maintenanceDue ? "maintenance_due" : "quiet",
-            eyebrow: maintenanceDue ? "Bakim zamani" : "Hazirsin",
-            title: maintenanceDue
-              ? "Bakim icin sakin ama net bir pencere var"
-              : "Bugun yeni bir talep acmak icin temiz bir zemin var",
-            description: maintenanceDue
-              ? "Planli bakim brief'ini once kurarsan plansiz durus yerine kontrollu bir akisa girersin."
-              : "Ariza, bakim, kaza veya cekici ihtiyaci icin guided composer hazir.",
-            statusLabel: maintenanceDue ? "Planli" : "Sessiz donem",
-            statusTone: maintenanceDue ? "accent" : "info",
-            cardRoute: maintenanceDue
-              ? "/(modal)/talep/maintenance"
-              : "/(modal)/talep/breakdown",
-            primaryActionLabel: maintenanceDue
-              ? "Bakim talebi olustur"
-              : "Yeni talep baslat",
-            primaryActionRoute: maintenanceDue
-              ? "/(modal)/talep/maintenance"
-              : "/(modal)/talep/breakdown",
-            secondaryActionLabel: "Ustalari gor",
-            secondaryActionRoute: "/(tabs)/carsi",
-            metrics: [
-              {
-                value: `${activeVehicle?.mileageKm.toLocaleString("tr-TR") ?? 0} km`,
-                label: "Kilometre",
-              },
-              {
-                value: `${suggestions.length} aday`,
-                label: "Hazir liste",
-              },
-              {
-                value: activeVehicle?.healthLabel ?? "Sessiz",
-                label: "Durum",
-              },
-            ],
-            badges: [
-              {
-                id: "calm",
-                label: "Mock workflow hazir",
-                tone: "info",
-              },
-            ],
-          };
-
-      return mockDelay({
-        decision,
-        activeProcess: trackingView && activeCase
-          ? {
-              id: activeCase.id,
-              servisAd: trackingView.serviceSummary?.name ?? "Servis secimi bekleniyor",
-              title: activeCase.title,
-              status: trackingView.header.statusLabel,
-              waitLabel: trackingView.header.waitLabel,
-              nextStepLabel: trackingView.header.nextLabel,
-              note: trackingView.header.summaryDescription,
-              progressLabel: `%${trackingView.progressValue} tamamlandi`,
-              progressValue: trackingView.progressValue,
-              priceLabel: trackingView.header.totalLabel ?? "Teklif bekleniyor",
-              cardRoute: getCaseTrackingRoute(activeCase.id),
-              primaryActionLabel: trackingView.primaryAction?.label,
-              primaryActionRoute: trackingView.primaryAction?.route,
-            }
-          : null,
-        taskQueue: trackingView && activeCase
-          ? trackingView.notificationQueue.map((intent) => ({
-              id: intent.id,
-              title: intent.title,
-              subtitle: intent.body,
-              route: intent.route_hint ?? getCaseTrackingRoute(activeCase.id),
-              tone: intent.type.includes("approval")
-                ? "warning"
-                : intent.type === "payment_review"
-                  ? "critical"
-                  : "info",
-            }))
-          : [],
-        recentActivity:
-          trackingView?.stages
-            .map((stage) => ({
-              id: stage.id,
-              title: stage.title,
-              subtitle: stage.evidencePreview[0]?.title ?? stage.subtitle,
-              meta: stage.evidencePreview[0]?.meta ?? stage.timeLabel,
-              tone: normalizeActivityTone(stageToneToBadgeTone(stage.state)),
-            }))
-            .slice(0, 4) ?? [],
-        suggestions,
-        campaigns: [...campaigns],
-        nearbyServices: nearbyServices.map((service) => ({
-          ...service,
-          badges: [...service.badges],
-        })),
-      });
-    },
-  });
+  return {
+    data: summary,
+    isPending,
+    isError,
+    refetch,
+  };
 }
