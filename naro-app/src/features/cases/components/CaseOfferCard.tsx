@@ -1,17 +1,35 @@
-import type { CaseOffer } from "@naro/domain";
 import { Avatar, Button, MetricPill, Text, TrustBadge } from "@naro/ui";
 import { View } from "react-native";
 
-import { mockTechnicianProfiles } from "@/features/ustalar/data/fixtures";
+import type { OfferResponse } from "@/features/offers";
+import { useTechnicianPublicView } from "@/features/ustalar/api";
 
 type CaseOfferCardProps = {
-  offer: CaseOffer;
+  offer: OfferResponse;
   hasAcceptedOffer: boolean;
   actionsLocked?: boolean;
   onSelect: () => void;
   onShortlist: () => void;
   onReject: () => void;
 };
+
+function formatMoney(amountRaw: string, currency: string): string {
+  const parsed = Number.parseFloat(amountRaw);
+  if (Number.isNaN(parsed)) return `${amountRaw} ${currency}`;
+  const formatted = parsed.toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const symbol = currency === "TRY" ? "₺" : currency;
+  return `${formatted} ${symbol}`;
+}
+
+function formatEta(minutes: number): string {
+  if (minutes < 60) return `${minutes} dk`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours} sa ${mins} dk` : `${hours} sa`;
+}
 
 export function CaseOfferCard({
   offer,
@@ -21,15 +39,16 @@ export function CaseOfferCard({
   onShortlist,
   onReject,
 }: CaseOfferCardProps) {
-  const technician = mockTechnicianProfiles.find(
-    (profile) => profile.id === offer.technician_id,
-  );
+  const { data: technician } = useTechnicianPublicView(offer.technician_id);
 
   const isAccepted = offer.status === "accepted";
   const isRejected = offer.status === "rejected";
   const isShortlisted = offer.status === "shortlisted";
   const canMutate =
     !isAccepted && !isRejected && !hasAcceptedOffer && !actionsLocked;
+
+  const priceLabel = formatMoney(offer.amount, offer.currency);
+  const etaLabel = formatEta(offer.eta_minutes);
 
   return (
     <View
@@ -45,18 +64,18 @@ export function CaseOfferCard({
       ].join(" ")}
     >
       <View className="flex-row items-start gap-3">
-        <Avatar name={technician?.name} size="lg" />
+        <Avatar name={technician?.display_name ?? "Servis"} size="lg" />
         <View className="flex-1 gap-2">
           <View className="gap-1">
             <Text variant="h3" tone="inverse">
-              {technician?.name ?? "Servis"}
+              {technician?.display_name ?? "Servis"}
             </Text>
             <Text tone="muted" className="text-app-text-muted">
               {offer.headline}
             </Text>
           </View>
           <View className="flex-row flex-wrap gap-2">
-            {(offer.badges.length ? offer.badges : ["Teklif hazir"]).map(
+            {(offer.badges.length ? offer.badges : ["Teklif hazır"]).map(
               (badge) => (
                 <TrustBadge
                   key={badge}
@@ -71,13 +90,15 @@ export function CaseOfferCard({
         </View>
       </View>
 
-      <Text tone="muted" className="text-app-text-muted">
-        {offer.description}
-      </Text>
+      {offer.description ? (
+        <Text tone="muted" className="text-app-text-muted">
+          {offer.description}
+        </Text>
+      ) : null}
 
       <View className="flex-row gap-3">
-        <MetricPill value={offer.price_label} label="Toplam" />
-        <MetricPill value={offer.eta_label} label="Tahmini süre" />
+        <MetricPill value={priceLabel} label="Toplam" />
+        <MetricPill value={etaLabel} label="Tahmini süre" />
         <MetricPill value={offer.delivery_mode} label="Teslim modu" />
       </View>
 
@@ -93,7 +114,7 @@ export function CaseOfferCard({
       {actionsLocked ? (
         <View className="rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-4">
           <Text variant="caption" tone="muted" className="text-app-text-muted">
-            Karar penceresi kapali. Bu teklif su an sadece referans olarak gorunur.
+            Karar penceresi kapalı. Bu teklif şu an sadece referans olarak görünür.
           </Text>
         </View>
       ) : (
@@ -136,19 +157,19 @@ export function CaseOfferCard({
 
       {isRejected ? (
         <Text variant="caption" tone="muted" className="text-app-text-muted">
-          Bu teklif elendi; karsilastirma disinda tutuluyor.
+          Bu teklif elendi; karşılaştırma dışında tutuluyor.
         </Text>
       ) : null}
 
       {isShortlisted ? (
         <Text variant="caption" tone="accent">
-          Bu servis karar listesinde one cikiyor.
+          Bu servis karar listesinde öne çıkıyor.
         </Text>
       ) : null}
 
       {isAccepted ? (
         <Text variant="caption" tone="success">
-          Bu teklif secildi; randevu baglami olustu.
+          Bu teklif seçildi; randevu bağlamı oluştu.
         </Text>
       ) : null}
     </View>

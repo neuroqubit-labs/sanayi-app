@@ -1,4 +1,3 @@
-import type { AppointmentSlotKind } from "@naro/domain";
 import { BackButton, Button, Icon, Surface, Text, ToggleChip } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -15,16 +14,11 @@ import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useCreateAppointment } from "@/features/appointments";
+import type { AppointmentSlotKind } from "@/features/appointments";
 import { useTechnicianCooldownStore } from "@/features/cases/cooldown-store";
-import { mockTechnicianProfiles } from "@/features/ustalar/data/fixtures";
-
-import {
-  useActiveAppointmentRequestsCount,
-  useCaseDetail,
-  useRequestAppointment,
-} from "../api";
-
-const MAX_PENDING = 3;
+import { useCaseOffers } from "@/features/offers";
+import { useTechnicianPublicView } from "@/features/ustalar/api";
 
 const SLOT_OPTIONS: { kind: AppointmentSlotKind; label: string }[] = [
   { kind: "today", label: "Bugün" },
@@ -69,19 +63,15 @@ export function RandevuRequestScreen() {
     offerId?: string;
   }>();
 
-  const technician = useMemo(
-    () => mockTechnicianProfiles.find((t) => t.id === technicianId),
-    [technicianId],
-  );
+  const { data: technician } = useTechnicianPublicView(technicianId ?? "");
 
-  const { data: caseItem } = useCaseDetail(caseId ?? "");
+  const { data: offers = [] } = useCaseOffers(caseId ?? "");
   const offer = offerId
-    ? caseItem?.offers.find((o) => o.id === offerId)
-    : caseItem?.offers.find((o) => o.technician_id === technicianId);
+    ? offers.find((o) => o.id === offerId)
+    : offers.find((o) => o.technician_id === technicianId);
   const hasBindingPrice = Boolean(offer);
 
-  const requestMutation = useRequestAppointment();
-  const pendingCount = useActiveAppointmentRequestsCount();
+  const requestMutation = useCreateAppointment();
   const isInCooldown = useTechnicianCooldownStore((state) =>
     technicianId ? state.isInCooldown(technicianId) : false,
   );
@@ -113,33 +103,38 @@ export function RandevuRequestScreen() {
     );
   }
 
-  const overLimit = !caseId && pendingCount >= MAX_PENDING;
   const cooldownBlocked = isInCooldown;
   const allConsents = consent1 && consent2 && consent3;
   const slotSelected = slotKind && (slotKind !== "custom" || customDate !== null);
   const submitEnabled =
-    !overLimit && !cooldownBlocked && allConsents && slotSelected && !!caseId;
+    !cooldownBlocked && allConsents && slotSelected && !!caseId && !!technicianId;
 
-  const priceLabel = offer?.price_label ?? technician.priceLabel;
-  const durationLabel =
-    offer?.eta_label ?? technician.estimatedDuration ?? "Usta belirleyecek";
-  const warrantyLabel = offer?.warranty_label ?? technician.guarantee;
+  const priceLabel = offer
+    ? formatOfferPrice(offer.amount, offer.currency)
+    : "Usta belirleyecek";
+  const durationLabel = offer
+    ? formatEtaLabel(offer.eta_minutes)
+    : "Usta belirleyecek";
+  const warrantyLabel = offer?.warranty_label ?? "Usta belirleyecek";
 
   const handleSubmit = async () => {
-    if (!submitEnabled || !caseId || !slotKind) return;
+    if (!submitEnabled || !caseId || !slotKind || !technicianId) return;
     const slot = {
       kind: slotKind,
-      dateLabel: slotKind === "custom" ? customLabel ?? undefined : undefined,
+      dateLabel: slotKind === "custom" ? customLabel ?? null : null,
     };
+    // BE default source "offer_accept" ama FE offer_id'siz de "direct_request"
+    // gönderebilir; burada offer varsa canonical offer_accept, yoksa direct.
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     try {
       await requestMutation.mutateAsync({
-        caseId,
-        payload: {
-          technician_id: technicianId,
-          offer_id: offer?.id ?? null,
-          slot,
-          note: "",
-        },
+        case_id: caseId,
+        technician_id: technicianId,
+        offer_id: offer?.id ?? null,
+        slot,
+        note: "",
+        expires_at: expiresAt,
+        source: offer ? "offer_accept" : "direct_request",
       });
       router.replace(`/vaka/${caseId}/surec` as Href);
     } catch {
@@ -171,19 +166,8 @@ export function RandevuRequestScreen() {
           </Text>
         </View>
 
-        {overLimit ? (
-          <View className="flex-row items-start gap-3 rounded-[18px] border border-app-warning/40 bg-app-warning/10 px-4 py-3">
-            <Icon icon={Info} size={16} color="#f5b33f" />
-            <View className="flex-1 gap-1">
-              <Text variant="label" tone="warning" className="text-[13px]">
-                {MAX_PENDING} randevu beklemede
-              </Text>
-              <Text variant="caption" tone="muted" className="text-app-text-muted">
-                Yeni talep atmak için birinin yanıtını veya 24 saatlik TTL'i bekle.
-              </Text>
-            </View>
-          </View>
-        ) : null}
+        {/* MAX_PENDING limit: canlı BE'de case başına 1 pending randevu;
+            caseId zorunlu olduğundan ayrı "overLimit" check'e ihtiyaç yok. */}
 
         {cooldownBlocked ? (
           <View className="flex-row items-start gap-3 rounded-[18px] border border-app-warning/40 bg-app-warning/10 px-4 py-3">
@@ -205,7 +189,7 @@ export function RandevuRequestScreen() {
           radius="lg"
           className="gap-3 px-4 py-3.5"
         >
-          <SummaryRow label="Usta" value={technician.name} />
+          <SummaryRow label="Usta" value={technician.display_name} />
           <View className="h-px bg-app-outline" />
           <SummaryRow
             label="Tutar"
@@ -439,4 +423,22 @@ function ConsentRow({ checked, onToggle, label }: ConsentRowProps) {
       </Text>
     </Pressable>
   );
+}
+
+function formatOfferPrice(amountRaw: string, currency: string): string {
+  const parsed = Number.parseFloat(amountRaw);
+  if (Number.isNaN(parsed)) return `${amountRaw} ${currency}`;
+  const formatted = parsed.toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const symbol = currency === "TRY" ? "₺" : currency;
+  return `${formatted} ${symbol}`;
+}
+
+function formatEtaLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} dk`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours} sa ${mins} dk` : `${hours} sa`;
 }

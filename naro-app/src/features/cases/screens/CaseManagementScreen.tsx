@@ -38,6 +38,7 @@ import {
   PartsApprovalSheet,
   type CaseBillingStage,
 } from "@/features/billing";
+import { useCaseOffers } from "@/features/offers";
 import { useUstaPreviewStore } from "@/features/ustalar";
 import { mockTechnicianProfiles } from "@/features/ustalar/data/fixtures";
 import { useVehicle } from "@/features/vehicles";
@@ -142,6 +143,8 @@ export function CaseManagementScreen() {
     () => (approvalsQuery.data ?? []).filter((a) => a.status === "pending"),
     [approvalsQuery.data],
   );
+  const offersQuery = useCaseOffers(caseId);
+  const offers = offersQuery.data ?? [];
 
   const assignedTechnician = useMemo(() => {
     if (!caseItem) return null;
@@ -170,7 +173,6 @@ export function CaseManagementScreen() {
 
   const isActive = !INACTIVE_STATUSES.has(caseItem.status);
   const isCancelled = caseItem.status === "cancelled";
-  const offers = caseItem.offers ?? [];
   const documents = caseItem.documents ?? [];
   const lastMessage =
     caseItem.thread.messages[caseItem.thread.messages.length - 1] ?? null;
@@ -536,7 +538,7 @@ export function CaseManagementScreen() {
                 Teklifler
               </Text>
               <Text variant="caption" tone="muted" className="text-app-text-muted text-[12px]">
-                {`${offers.length} teklif · ${offers[0]?.price_label ?? ""}`}
+                {`${offers.length} teklif${offers[0] ? ` · ${formatOfferPrice(offers[0].amount, offers[0].currency)}` : ""}`}
               </Text>
             </View>
             <Icon icon={ChevronRight} size={16} color="#83a7ff" />
@@ -695,6 +697,17 @@ export function CaseManagementScreen() {
       />
     </SafeAreaView>
   );
+}
+
+function formatOfferPrice(amountRaw: string, currency: string): string {
+  const parsed = Number.parseFloat(amountRaw);
+  if (Number.isNaN(parsed)) return `${amountRaw} ${currency}`;
+  const formatted = parsed.toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const symbol = currency === "TRY" ? "₺" : currency;
+  return `${formatted} ${symbol}`;
 }
 
 function deriveBillingStage(status: string): CaseBillingStage {
