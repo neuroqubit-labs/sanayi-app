@@ -11,6 +11,7 @@ import {
   RouteLine,
   Screen,
   StatusChip,
+  Surface,
   Text,
   TruckMarker,
   bearingDeg,
@@ -193,7 +194,11 @@ export function TowActiveJobScreen() {
           <FareCard amount={job.request.fare_quote.cap_amount} />
 
           {job.stage === "delivered" ? (
-            <View className="gap-2 rounded-[22px] border border-app-success/40 bg-app-success-soft px-4 py-4">
+            <Surface
+              variant="flat"
+              radius="lg"
+              className="gap-2 border-app-success/40 bg-app-success-soft px-4 py-4"
+            >
               <View className="flex-row items-center gap-2">
                 <Icon icon={CheckCircle2} size={16} color="#2dd28d" />
                 <Text variant="eyebrow" tone="success">
@@ -203,7 +208,7 @@ export function TowActiveJobScreen() {
               <Text variant="label" tone="inverse">
                 İş kaydı havuzdan düşürüldü. Kazanç hesabına yazıldı.
               </Text>
-            </View>
+            </Surface>
           ) : null}
         </View>
       </ScrollView>
@@ -354,7 +359,11 @@ function CustomerCard({
   phone: string;
 }) {
   return (
-    <View className="flex-row items-center gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+    <Surface
+      variant="raised"
+      radius="lg"
+      className="flex-row items-center gap-3 px-4 py-4"
+    >
       <Avatar name={name} size="lg" />
       <View className="flex-1 gap-0.5">
         <Text variant="h3" tone="inverse">
@@ -375,7 +384,7 @@ function CustomerCard({
       >
         <Icon icon={Phone} size={18} color="#ffffff" />
       </Pressable>
-    </View>
+    </Surface>
   );
 }
 
@@ -387,7 +396,7 @@ function LocationsCard({
   dropoff: string | null;
 }) {
   return (
-    <View className="gap-2.5 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+    <Surface variant="flat" radius="lg" className="gap-2.5 px-4 py-4">
       <View className="flex-row items-start gap-2.5">
         <Icon icon={MapPin} size={14} color="#2dd28d" />
         <View className="flex-1">
@@ -412,13 +421,13 @@ function LocationsCard({
           </View>
         </View>
       ) : null}
-    </View>
+    </Surface>
   );
 }
 
 function FareCard({ amount }: { amount: number }) {
   return (
-    <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+    <Surface variant="raised" radius="lg" className="gap-2 px-4 py-4">
       <View className="flex-row items-center gap-2">
         <Icon icon={Receipt} size={14} color="#83a7ff" />
         <Text variant="eyebrow" tone="subtle">
@@ -431,7 +440,7 @@ function FareCard({ amount }: { amount: number }) {
       <Text variant="caption" tone="muted" className="text-app-text-muted text-[12px]">
         Teslim doğrulandığında hesaba yazılır. Finalde mesafe/süre denetimi yapılır.
       </Text>
-    </View>
+    </Surface>
   );
 }
 
