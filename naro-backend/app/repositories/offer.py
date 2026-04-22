@@ -89,6 +89,49 @@ async def reject_offer(session: AsyncSession, offer_id: UUID) -> None:
     )
 
 
+async def shortlist_offer(session: AsyncSession, offer_id: UUID) -> None:
+    """pending → shortlisted (customer tarafı kısa listeye al).
+
+    Parallel shortlist — aynı case için birden fazla usta shortlisted
+    olabilir (PO kararı). Accept anında `offer_acceptance.accept_offer`
+    rakip shortlist'leri reject eder.
+    """
+    await session.execute(
+        update(CaseOffer)
+        .where(
+            and_(
+                CaseOffer.id == offer_id,
+                CaseOffer.status == CaseOfferStatus.PENDING,
+            )
+        )
+        .values(status=CaseOfferStatus.SHORTLISTED)
+    )
+
+
+async def customer_reject_offer(session: AsyncSession, offer_id: UUID) -> None:
+    """pending/shortlisted → rejected (müşteri red).
+
+    `reject_offer` ile aynı işi yapar ama filter: teknisyen witdraw'dan
+    farklı olarak case owner'dan geliyor. Status guard PENDING +
+    SHORTLISTED; ACCEPTED offer reddedilemez (status filter).
+    """
+    await session.execute(
+        update(CaseOffer)
+        .where(
+            and_(
+                CaseOffer.id == offer_id,
+                CaseOffer.status.in_(
+                    (CaseOfferStatus.PENDING, CaseOfferStatus.SHORTLISTED)
+                ),
+            )
+        )
+        .values(
+            status=CaseOfferStatus.REJECTED,
+            rejected_at=datetime.now(UTC),
+        )
+    )
+
+
 async def mark_accepted(session: AsyncSession, offer_id: UUID) -> None:
     """Düşük seviye — service `offer_acceptance.accept_offer` bunu çağırır."""
     await session.execute(

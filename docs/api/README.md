@@ -5,7 +5,7 @@
 **Auth:** Bearer JWT (Authorization header), OTP login üzerinden
 **Content-Type:** `application/json`
 
-**Kapsam:** 108 endpoint, 103 unique path, 18 tag.
+**Kapsam:** 113 endpoint, 107 unique path, 19 tag.
 
 > Bu dokümana `scripts/export_openapi.py` + `scripts/render_api_readme.py`
 > ile `docs/api/openapi.json`'dan üretilir — manuel düzenleme YAPMA;
@@ -15,6 +15,7 @@
 
 - [admin](#admin) (11 endpoint)
 - [appointments](#appointments) (8 endpoint)
+- [approvals](#approvals) (3 endpoint)
 - [auth](#auth) (5 endpoint)
 - [billing](#billing) (12 endpoint)
 - [cases](#cases) (4 endpoint)
@@ -22,7 +23,7 @@
 - [insurance-claims](#insurance-claims) (7 endpoint)
 - [media](#media) (4 endpoint)
 - [observability](#observability) (1 endpoint)
-- [offers](#offers) (5 endpoint)
+- [offers](#offers) (7 endpoint)
 - [pool](#pool) (2 endpoint)
 - [reviews](#reviews) (3 endpoint)
 - [taxonomy](#taxonomy) (5 endpoint)
@@ -207,6 +208,36 @@ Randevu yaşam döngüsü (request/accept/counter/cancel).
 - **Request:** `AppointmentReasonPayload`
 - **Responses:**
   - `200` — AppointmentResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+---
+
+## approvals
+
+### GET /api/v1/cases/{case_id}/approvals
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Case approval listesi (participant: customer + assigned tech + admin)
+- **Responses:**
+  - `200` — list[ApprovalResponse] Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### POST /api/v1/cases/{case_id}/approvals
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Usta onay talebi aç (parts_request / invoice / completion)
+- **Request:** `ApprovalRequestPayload`
+- **Responses:**
+  - `201` — ApprovalResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### POST /api/v1/cases/{case_id}/approvals/{approval_id}/decide
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Customer decide — approve/reject (parts_request / invoice / completion)
+- **Request:** `ApprovalDecidePayload`
+- **Responses:**
+  - `200` — ApprovalResponse Successful Response
   - `422` — HTTPValidationError Validation Error
 
 ---
@@ -569,6 +600,24 @@ Teklif yaşam döngüsü (technician submit/withdraw, customer accept/reject).
 
 - **Auth:** role-dependent (see route)
 - **Özet:** Teklif kabul (müşteri — atomic)
+- **Responses:**
+  - `200` — OfferResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### POST /api/v1/offers/{offer_id}/reject
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Teklifi reddet (müşteri)
+- **Request:** `OfferCustomerRejectPayload`
+- **Responses:**
+  - `200` — OfferResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### POST /api/v1/offers/{offer_id}/shortlist
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Teklifi kısa listeye al (müşteri)
+- **Request:** `OfferShortlistPayload`
 - **Responses:**
   - `200` — OfferResponse Successful Response
   - `422` — HTTPValidationError Validation Error
@@ -1069,6 +1118,11 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `AppointmentResponse`
 - `AppointmentSlotKind`
 - `AppointmentStatus`
+- `ApprovalDecidePayload`
+- `ApprovalLineItemInput`
+- `ApprovalLineItemOut`
+- `ApprovalRequestPayload`
+- `ApprovalResponse`
 - `AuthEventType`
 - `AvailabilityPatchPayload`
 - `BillingState`
@@ -1081,6 +1135,8 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `CapabilitiesPatchPayload`
 - `CapacityPayload`
 - `CaptureOverrideRequest`
+- `CaseApprovalKind`
+- `CaseApprovalStatus`
 - `CaseAttachmentDraft`
 - `CaseAttachmentKind`
 - `CaseCreateResponse`
@@ -1124,7 +1180,9 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `MediaPurpose`
 - `MediaStatus`
 - `MediaVisibility`
+- `OfferCustomerRejectPayload`
 - `OfferResponse`
+- `OfferShortlistPayload`
 - `OfferSubmitPayload`
 - `OfferWithdrawPayload`
 - `OtpRequest`

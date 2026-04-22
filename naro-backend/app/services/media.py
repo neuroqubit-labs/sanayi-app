@@ -28,6 +28,44 @@ from app.schemas.media import (
 )
 from app.services import media_policy
 
+# FE wrapper `owner_ref` prefix → BE polymorphic owner_kind mapping.
+# Faz A parity audit P2: FE tek `owner_ref` string gönderir; BE parse
+# edip owner_kind + owner_id'yi otomatik doldurur. Bilinmeyen prefix
+# veya draft-style composite ref (`draft:kind:vehicle:step`) → None
+# (fallback policy.rule.owner_kind + owner_id=None).
+_OWNER_REF_KIND_MAP: dict[str, str] = {
+    "case": "service_case",
+    "service_case": "service_case",
+    "vehicle": "vehicle",
+    "technician": "technician_profile",
+    "technician_profile": "technician_profile",
+    "technician_certificate": "technician_certificate",
+    "insurance_claim": "insurance_claim",
+    "user": "user",
+    "campaign": "campaign",
+}
+
+
+def _parse_owner_ref(owner_ref: str) -> tuple[str, UUID] | None:
+    """`kind:{uuid}` formatını parse et. Geçersizse None döner.
+
+    Örnek:
+        'vehicle:{uuid}'            → ('vehicle', UUID)
+        'case:{uuid}'               → ('service_case', UUID)
+        'draft:maintenance:..:step' → None (fallback policy'ye)
+    """
+    if ":" not in owner_ref:
+        return None
+    prefix, _, rest = owner_ref.partition(":")
+    kind = _OWNER_REF_KIND_MAP.get(prefix)
+    if kind is None:
+        return None
+    uuid_str = rest.partition(":")[0]
+    try:
+        return (kind, UUID(uuid_str))
+    except ValueError:
+        return None
+
 # Purpose → allowed uploader rol(s). Faz 11: 18 purpose matrix.
 TECHNICIAN_PURPOSES: frozenset[MediaPurpose] = frozenset({
     MediaPurpose.TECHNICIAN_CERTIFICATE,
@@ -106,13 +144,29 @@ class MediaService:
         bucket_name = self._bucket_for_purpose(payload.purpose)
         self._storage.ensure_bucket_exists(bucket=bucket_name)
 
+        # Faz A parity: owner_kind + owner_id'yi önce explicit payload,
+        # sonra owner_ref parse, son olarak policy rule fallback ile doldur
+        derived_kind: str
+        derived_id: UUID | None
+        if payload.owner_kind is not None:
+            derived_kind = payload.owner_kind.value
+            derived_id = payload.owner_id
+        else:
+            parsed = _parse_owner_ref(payload.owner_ref)
+            if parsed is not None:
+                derived_kind, parsed_id = parsed
+                derived_id = payload.owner_id or parsed_id
+            else:
+                derived_kind = rule.owner_kind
+                derived_id = payload.owner_id
+
         asset = MediaAsset(
             purpose=payload.purpose,
             visibility=rule.visibility,
             status=MediaStatus.PENDING_UPLOAD,
             owner_ref=payload.owner_ref,
-            owner_kind=(payload.owner_kind.value if payload.owner_kind else rule.owner_kind),
-            owner_id=payload.owner_id,
+            owner_kind=derived_kind,
+            owner_id=derived_id,
             bucket_name=bucket_name,
             object_key=f"pending/{uuid4()}",
             original_filename=payload.filename,

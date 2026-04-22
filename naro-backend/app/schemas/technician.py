@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.technician import (
     GalleryItemKind,
+    ProviderMode,
     ProviderType,
     TechnicianAvailability,
     TechnicianCertificateKind,
@@ -101,6 +102,8 @@ class TechnicianProfileResponse(BaseModel):
     verified_level: TechnicianVerifiedLevel
     provider_type: ProviderType
     secondary_provider_types: list[ProviderType]
+    provider_mode: ProviderMode
+    active_provider_type: ProviderType | None = None
     working_hours: str | None
     area_label: str | None
     business_info: dict[str, object]

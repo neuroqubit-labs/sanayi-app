@@ -76,6 +76,28 @@ class OfferWithdrawPayload(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class OfferShortlistPayload(BaseModel):
+    """Customer teklifi kısa listeye al — V1 opsiyonel not.
+
+    Pilot'ta not ignore edilebilir; V1.1'de `customer_note` analytics
+    için saklanır.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    note: str | None = Field(default=None, max_length=500)
+
+
+class OfferCustomerRejectPayload(BaseModel):
+    """Customer teklifi reddet — V1 opsiyonel sebep.
+
+    Pilot'ta sebep ignore edilebilir; V1.1'de `reason` analytics için
+    saklanır (PO karar).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    reason: str | None = Field(default=None, max_length=500)
+
+
 class OfferResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -315,6 +337,93 @@ async def accept_offer_endpoint(
 
     await db.commit()
     return OfferResponse.model_validate(accepted)
+
+
+@router.post(
+    "/{offer_id}/shortlist",
+    response_model=OfferResponse,
+    summary="Teklifi kısa listeye al (müşteri)",
+)
+async def shortlist_offer_endpoint(
+    offer_id: UUID,
+    payload: OfferShortlistPayload,
+    user: CurrentCustomerDep,
+    db: DbDep,
+) -> OfferResponse:
+    """pending → shortlisted. Parallel shortlist OK — aynı case için
+    birden fazla usta kısa listeye alınabilir. Accept anında rakipler
+    otomatik rejected (offer_acceptance.accept_offer).
+
+    V1'de `payload.note` ignore; V1.1 analytics için saklanır.
+    """
+    _ = payload  # V1 pilot: body içeriği ignore — PO karar
+    offer = await offer_repo.get_offer(db, offer_id)
+    if offer is None:
+        raise HTTPException(
+            status_code=404, detail={"type": "offer_not_found"}
+        )
+    case = await db.get(ServiceCase, offer.case_id)
+    if case is None or case.customer_user_id != user.id:
+        raise HTTPException(
+            status_code=403, detail={"type": "not_case_owner"}
+        )
+    if offer.status != CaseOfferStatus.PENDING:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "type": "offer_not_shortlistable",
+                "current_status": offer.status.value,
+            },
+        )
+    await offer_repo.shortlist_offer(db, offer_id)
+    await db.commit()
+    await db.refresh(offer)
+    return OfferResponse.model_validate(offer)
+
+
+@router.post(
+    "/{offer_id}/reject",
+    response_model=OfferResponse,
+    summary="Teklifi reddet (müşteri)",
+)
+async def reject_offer_endpoint(
+    offer_id: UUID,
+    payload: OfferCustomerRejectPayload,
+    user: CurrentCustomerDep,
+    db: DbDep,
+) -> OfferResponse:
+    """pending/shortlisted → rejected. Customer-side reject; usta
+    `withdraw` ayrı flow. ACCEPTED → 409 (accepted offer reddedilemez).
+
+    V1'de `payload.reason` ignore; V1.1 analytics için saklanır
+    (PO karar — cancellation_reason store).
+    """
+    _ = payload  # V1 pilot: body içeriği ignore — PO karar
+    offer = await offer_repo.get_offer(db, offer_id)
+    if offer is None:
+        raise HTTPException(
+            status_code=404, detail={"type": "offer_not_found"}
+        )
+    case = await db.get(ServiceCase, offer.case_id)
+    if case is None or case.customer_user_id != user.id:
+        raise HTTPException(
+            status_code=403, detail={"type": "not_case_owner"}
+        )
+    if offer.status not in (
+        CaseOfferStatus.PENDING,
+        CaseOfferStatus.SHORTLISTED,
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "type": "offer_not_rejectable",
+                "current_status": offer.status.value,
+            },
+        )
+    await offer_repo.customer_reject_offer(db, offer_id)
+    await db.commit()
+    await db.refresh(offer)
+    return OfferResponse.model_validate(offer)
 
 
 @router.post(

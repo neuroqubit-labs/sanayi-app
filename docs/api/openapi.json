@@ -285,6 +285,326 @@
         "title": "AppointmentStatus",
         "type": "string"
       },
+      "ApprovalDecidePayload": {
+        "additionalProperties": false,
+        "description": "Customer approve / reject kararı.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ApprovalDecidePayload",
+        "type": "object"
+      },
+      "ApprovalLineItemInput": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "value": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "ApprovalLineItemInput",
+        "type": "object"
+      },
+      "ApprovalLineItemOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "value",
+          "note",
+          "sequence"
+        ],
+        "title": "ApprovalLineItemOut",
+        "type": "object"
+      },
+      "ApprovalRequestPayload": {
+        "additionalProperties": false,
+        "description": "Usta parts_request / invoice / completion onay talebi açar.",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "default": "TRY",
+            "maxLength": 8,
+            "minLength": 3,
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CaseApprovalKind"
+          },
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalLineItemInput"
+            },
+            "title": "Line Items",
+            "type": "array"
+          },
+          "service_comment": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Comment"
+          },
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title"
+        ],
+        "title": "ApprovalRequestPayload",
+        "type": "object"
+      },
+      "ApprovalResponse": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CaseApprovalKind"
+          },
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalLineItemOut"
+            },
+            "title": "Line Items",
+            "type": "array"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "requested_by_snapshot_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By Snapshot Name"
+          },
+          "requested_by_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By User Id"
+          },
+          "responded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responded At"
+          },
+          "service_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Comment"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CaseApprovalStatus"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "case_id",
+          "kind",
+          "status",
+          "title",
+          "description",
+          "requested_by_user_id",
+          "requested_by_snapshot_name",
+          "requested_at",
+          "responded_at",
+          "amount",
+          "currency",
+          "service_comment",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ApprovalResponse",
+        "type": "object"
+      },
       "AuthEventType": {
         "enum": [
           "otp_requested",
@@ -788,6 +1108,24 @@
         ],
         "title": "CaptureOverrideRequest",
         "type": "object"
+      },
+      "CaseApprovalKind": {
+        "enum": [
+          "parts_request",
+          "invoice",
+          "completion"
+        ],
+        "title": "CaseApprovalKind",
+        "type": "string"
+      },
+      "CaseApprovalStatus": {
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ],
+        "title": "CaseApprovalStatus",
+        "type": "string"
       },
       "CaseAttachmentDraft": {
         "additionalProperties": false,
@@ -2417,6 +2755,26 @@
         "title": "MediaVisibility",
         "type": "string"
       },
+      "OfferCustomerRejectPayload": {
+        "additionalProperties": false,
+        "description": "Customer teklifi reddet — V1 opsiyonel sebep.\n\nPilot'ta sebep ignore edilebilir; V1.1'de `reason` analytics için\nsaklanır (PO karar).",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "OfferCustomerRejectPayload",
+        "type": "object"
+      },
       "OfferResponse": {
         "properties": {
           "amount": {
@@ -2526,6 +2884,26 @@
           "slot_is_firm"
         ],
         "title": "OfferResponse",
+        "type": "object"
+      },
+      "OfferShortlistPayload": {
+        "additionalProperties": false,
+        "description": "Customer teklifi kısa listeye al — V1 opsiyonel not.\n\nPilot'ta not ignore edilebilir; V1.1'de `customer_note` analytics\niçin saklanır.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "OfferShortlistPayload",
         "type": "object"
       },
       "OfferSubmitPayload": {
@@ -3009,20 +3387,8 @@
       },
       "PaymentInitiateRequest": {
         "additionalProperties": false,
-        "description": "POST /cases/{id}/payment/initiate body. Faz B-2'de card_token.",
-        "properties": {
-          "card_token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Card Token"
-          }
-        },
+        "description": "POST /cases/{id}/payment/initiate body.\n\nV1 — boş payload; kart verisi Iyzico checkout form (WebView) üzerinden\n3DS flow ile geçer (B-4 bayrak, stored card V1 yasak). Tokenization\nV1.1'de `card_token` alanı geri eklenecek.",
+        "properties": {},
         "title": "PaymentInitiateRequest",
         "type": "object"
       },
@@ -9480,6 +9846,183 @@
         ]
       }
     },
+    "/api/v1/cases/{case_id}/approvals": {
+      "get": {
+        "operationId": "list_approvals_endpoint_api_v1_cases__case_id__approvals_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalResponse"
+                  },
+                  "title": "Response List Approvals Endpoint Api V1 Cases  Case Id  Approvals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Case approval listesi (participant: customer + assigned tech + admin)",
+        "tags": [
+          "approvals"
+        ]
+      },
+      "post": {
+        "operationId": "request_approval_endpoint_api_v1_cases__case_id__approvals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalRequestPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Usta onay talebi aç (parts_request / invoice / completion)",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/approvals/{approval_id}/decide": {
+      "post": {
+        "description": "Pilot'ta note ignore (V1.1 store + analytics).",
+        "operationId": "decide_approval_endpoint_api_v1_cases__case_id__approvals__approval_id__decide_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalDecidePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Customer decide — approve/reject (parts_request / invoice / completion)",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
     "/api/v1/cases/{case_id}/billing/summary": {
       "get": {
         "operationId": "get_billing_summary_api_v1_cases__case_id__billing_summary_get",
@@ -10276,6 +10819,124 @@
           }
         ],
         "summary": "Teklif kabul (müşteri — atomic)",
+        "tags": [
+          "offers"
+        ]
+      }
+    },
+    "/api/v1/offers/{offer_id}/reject": {
+      "post": {
+        "description": "pending/shortlisted → rejected. Customer-side reject; usta\n`withdraw` ayrı flow. ACCEPTED → 409 (accepted offer reddedilemez).\n\nV1'de `payload.reason` ignore; V1.1 analytics için saklanır\n(PO karar — cancellation_reason store).",
+        "operationId": "reject_offer_endpoint_api_v1_offers__offer_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "offer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Offer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferCustomerRejectPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Teklifi reddet (müşteri)",
+        "tags": [
+          "offers"
+        ]
+      }
+    },
+    "/api/v1/offers/{offer_id}/shortlist": {
+      "post": {
+        "description": "pending → shortlisted. Parallel shortlist OK — aynı case için\nbirden fazla usta kısa listeye alınabilir. Accept anında rakipler\notomatik rejected (offer_acceptance.accept_offer).\n\nV1'de `payload.note` ignore; V1.1 analytics için saklanır.",
+        "operationId": "shortlist_offer_endpoint_api_v1_offers__offer_id__shortlist_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "offer_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Offer Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferShortlistPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Teklifi kısa listeye al (müşteri)",
         "tags": [
           "offers"
         ]

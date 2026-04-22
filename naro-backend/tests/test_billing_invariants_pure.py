@@ -385,10 +385,11 @@ def test_billing_transitions_full_coverage() -> None:
 # ─── Schema validation — PaymentInitiate + RefundRequest + KaskoReimburse ─
 
 
-def test_payment_initiate_request_optional_token() -> None:
-    # V1'de card_token optional (Iyzico checkout form → WebView)
+def test_payment_initiate_request_empty_body_ok() -> None:
+    # V1'de boş body; kart verisi Iyzico checkout WebView'den geçer.
+    # card_token V1.1'de geri eklenecek (B-4 enforcement).
     req = PaymentInitiateRequest()
-    assert req.card_token is None
+    assert req.model_dump() == {}
 
 
 def test_payment_initiate_rejects_extra() -> None:

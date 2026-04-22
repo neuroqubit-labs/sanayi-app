@@ -177,7 +177,7 @@ async def initiate_payment_endpoint(
     user: CustomerDep,
     db: DbDep,
 ) -> PaymentInitiateResponse:
-    _ = payload  # V1'de card_token kullanılmaz (B-4)
+    _ = payload  # V1 boş body; 3DS WebView flow, kart verisi FE→Iyzico
     case = await _load_case_or_404(db, case_id)
     _assert_case_owner(case, user.id)
     if case.estimate_amount is None:

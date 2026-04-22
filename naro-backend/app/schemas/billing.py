@@ -27,13 +27,14 @@ from app.services.case_billing_state import BillingState
 
 
 class PaymentInitiateRequest(BaseModel):
-    """POST /cases/{id}/payment/initiate body. Faz B-2'de card_token."""
+    """POST /cases/{id}/payment/initiate body.
+
+    V1 — boş payload; kart verisi Iyzico checkout form (WebView) üzerinden
+    3DS flow ile geçer (B-4 bayrak, stored card V1 yasak). Tokenization
+    V1.1'de `card_token` alanı geri eklenecek.
+    """
 
     model_config = ConfigDict(extra="forbid")
-
-    # V1'de kart bilgileri Iyzico checkout form'dan geçer; backend token bekler.
-    # card_token V1.1'de devreye girer — V1'de None.
-    card_token: str | None = None
 
 
 class PaymentInitiateResponse(BaseModel):
