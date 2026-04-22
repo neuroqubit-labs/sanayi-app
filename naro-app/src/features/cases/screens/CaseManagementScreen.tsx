@@ -5,6 +5,7 @@ import {
   Button,
   Icon,
   StatusChip,
+  Surface,
   Text,
   TrustBadge,
   VehicleContextBar,
@@ -178,7 +179,11 @@ export function CaseManagementScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Özet kartı */}
-        <View className="gap-3 rounded-[22px] border border-app-outline-strong bg-app-surface-2 px-4 py-4">
+        <Surface
+          variant="raised"
+          radius="lg"
+          className="gap-3 border-app-outline-strong bg-app-surface-2 px-4 py-4"
+        >
           <View className="flex-row flex-wrap items-center gap-2">
             <TrustBadge label={getCaseKindLabel(caseItem.kind)} tone="accent" />
             <StatusChip
@@ -192,7 +197,7 @@ export function CaseManagementScreen() {
           <Text variant="caption" tone="muted" className="text-app-text-subtle text-[11px]">
             {`Oluşturuldu · ${caseItem.created_at_label} · #${caseItem.id.slice(0, 8)}`}
           </Text>
-        </View>
+        </Surface>
 
         {/* Süreç köprüsü */}
         {hasProcessBridge ? (
@@ -237,7 +242,7 @@ export function CaseManagementScreen() {
 
         {/* Usta henüz yok */}
         {showFinderHint ? (
-          <View className="gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5">
+          <Surface variant="flat" radius="lg" className="gap-3 px-4 py-3.5">
             <View className="flex-row items-center gap-2">
               <Icon icon={Sparkles} size={14} color="#83a7ff" />
               <Text variant="label" tone="inverse" className="text-[14px]">
@@ -265,7 +270,7 @@ export function CaseManagementScreen() {
                 onPress={() => router.push("/(tabs)/carsi" as Href)}
               />
             )}
-          </View>
+          </Surface>
         ) : null}
 
         {/* Araç kartı */}
@@ -308,7 +313,7 @@ export function CaseManagementScreen() {
         ) : null}
 
         {/* Özet + notlar */}
-        <View className="gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-4">
+        <Surface variant="flat" radius="lg" className="gap-3 px-4 py-4">
           <View className="flex-row items-start justify-between gap-3">
             <View className="flex-1 gap-1">
               <Text variant="eyebrow" tone="subtle">
@@ -351,10 +356,10 @@ export function CaseManagementScreen() {
               </View>
             </>
           ) : null}
-        </View>
+        </Surface>
 
         {/* Dosyalar */}
-        <View className="gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-4">
+        <Surface variant="flat" radius="lg" className="gap-3 px-4 py-4">
           <View className="flex-row items-center justify-between">
             <Text variant="label" tone="inverse" className="text-[14px]">
               Dosyalar
@@ -421,7 +426,7 @@ export function CaseManagementScreen() {
               />
             ) : null}
           </View>
-        </View>
+        </Surface>
 
         {/* Mesajlar özeti */}
         <Pressable
@@ -511,7 +516,11 @@ export function CaseManagementScreen() {
 
         {/* Tehlikeli bölge */}
         {isActive ? (
-          <View className="mt-4 gap-3 rounded-[20px] border border-app-critical/30 bg-app-surface px-4 py-4">
+          <Surface
+            variant="flat"
+            radius="lg"
+            className="mt-4 gap-3 border-app-critical/30 px-4 py-4"
+          >
             <Text variant="eyebrow" tone="critical">
               Tehlikeli bölge
             </Text>
@@ -524,7 +533,7 @@ export function CaseManagementScreen() {
               loading={cancelCase.isPending}
               onPress={handleCancel}
             />
-          </View>
+          </Surface>
         ) : null}
       </ScrollView>
 
