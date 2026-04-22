@@ -63,11 +63,11 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
     <PressableCard
       variant="elevated"
       radius="xl"
-      className="overflow-hidden"
+      className="flex-1 overflow-hidden"
       onPress={openProfile}
       accessibilityLabel={`${item.display_name} profilini aç`}
     >
-      <View className="relative h-28 overflow-hidden bg-brand-500/12">
+      <View className="relative h-32 overflow-hidden bg-brand-500/12">
         <View className="absolute -right-6 -top-6 h-40 w-40 rounded-full bg-brand-500/18" />
         <View className="absolute -left-10 bottom-0 h-28 w-28 rounded-full bg-brand-500/10" />
         <View className="absolute left-4 top-4 flex-row items-center gap-2">
@@ -81,12 +81,12 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
         </View>
       </View>
 
-      <View className="gap-4 px-5 pb-5 pt-10">
+      <View className="flex-1 justify-between gap-4 px-5 pb-5 pt-12">
         <View className="gap-1.5">
           <Text
             variant="h2"
             tone="inverse"
-            className="text-center text-[20px] leading-[24px]"
+            className="text-center text-[22px] leading-[26px]"
             numberOfLines={1}
           >
             {item.display_name}
@@ -95,14 +95,15 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
             <Text
               variant="caption"
               tone="muted"
-              className="text-center text-app-text-muted text-[12px] leading-[16px]"
-              numberOfLines={2}
+              className="text-center text-app-text-muted text-[13px] leading-[18px]"
+              numberOfLines={3}
             >
               {item.tagline}
             </Text>
           ) : null}
         </View>
 
+        <View className="gap-4">
         <View className="flex-row gap-2">
           <MetricCell
             icon={<Icon icon={Star} size={14} color="#f5b33f" />}
@@ -149,6 +150,7 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
             ))}
           </View>
         ) : null}
+        </View>
       </View>
     </PressableCard>
   );
