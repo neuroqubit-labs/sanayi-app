@@ -9,19 +9,12 @@ import { z } from "zod";
  */
 
 export const ProviderTypeSchema = z.enum([
-  "towing",
-  "motorcycle",
-  "mechanic",
-  "body",
-  "glass",
-  "tire",
-  "battery",
-  "parts",
-  "detailing",
-  "electrical",
-  "diagnostic",
-  "specialty",
-  "other",
+  "usta",
+  "cekici",
+  "oto_aksesuar",
+  "kaporta_boya",
+  "lastik",
+  "oto_elektrik",
 ]);
 export type ProviderType = z.infer<typeof ProviderTypeSchema>;
 
