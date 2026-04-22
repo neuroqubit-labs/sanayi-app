@@ -1,6 +1,6 @@
 import type { TechnicianCertificateKind } from "@naro/domain";
 import { BackButton, Button, Screen, Text } from "@naro/ui";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import { useMemo } from "react";
 import { View } from "react-native";
 
@@ -43,7 +43,7 @@ export default function CertificatesStep() {
         <BackButton onPress={() => router.back()} />
         <View className="flex-1 gap-1">
           <Text variant="eyebrow" tone="subtle">
-            Adım 5 / 6 · Sertifikalar
+            Adım 5 / 7 · Sertifikalar
           </Text>
           <Text variant="h2" tone="inverse">
             Doğrulama belgeleri
@@ -71,7 +71,7 @@ export default function CertificatesStep() {
           size="lg"
           disabled={!allUploaded}
           variant={allUploaded ? "primary" : "outline"}
-          onPress={() => router.push("/(onboarding)/review")}
+          onPress={() => router.push("/(onboarding)/service-area" as Href)}
           fullWidth
         />
       </View>

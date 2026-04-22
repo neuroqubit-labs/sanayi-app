@@ -35,7 +35,7 @@ export default function ProviderTypeStep() {
         <BackButton onPress={() => router.back()} />
         <View className="flex-1 gap-1">
           <Text variant="eyebrow" tone="subtle">
-            Adım 1 / 6 · Başvuru
+            Adım 1 / 7 · Başvuru
           </Text>
           <Text variant="h2" tone="inverse">
             Hangi tip hizmet veriyorsun?
