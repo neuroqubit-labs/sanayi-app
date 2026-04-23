@@ -76,6 +76,21 @@ async def transition_case_status(
     values: dict[str, object] = {"status": new_status}
     if new_status in TERMINAL_STATES:
         values["closed_at"] = datetime.now(UTC)
+
+    # B-P2-1 fix: wait_state projection her transition'ta güncellenir —
+    # FE next_action projection bu alanları okur.
+    waits = _WAIT_STATE_MAP.get(new_status)
+    if waits is not None:
+        actor_w, label, description = waits
+        values["wait_state_actor"] = actor_w
+        values["wait_state_label"] = label
+        values["wait_state_description"] = description
+    else:
+        # Terminal / tanımsız → temizle
+        values["wait_state_actor"] = CaseWaitActor.SYSTEM
+        values["wait_state_label"] = None
+        values["wait_state_description"] = None
+
     await session.execute(
         update(ServiceCase).where(ServiceCase.id == case_id).values(**values)
     )
@@ -97,6 +112,49 @@ async def transition_case_status(
 
     await session.refresh(case)
     return case
+
+
+# B-P2-1 (2026-04-23): wait_state projection — her status için (actor,
+# label, description). FE L3-P0-2 next_action kartında render eder.
+_WAIT_STATE_MAP: dict[
+    ServiceCaseStatus, tuple[CaseWaitActor, str, str]
+] = {
+    ServiceCaseStatus.MATCHING: (
+        CaseWaitActor.SYSTEM,
+        "Aday aranıyor",
+        "Sisteme en yakın usta bulunuyor",
+    ),
+    ServiceCaseStatus.OFFERS_READY: (
+        CaseWaitActor.CUSTOMER,
+        "Tekliflerini incele",
+        "Gelen teklifleri değerlendir",
+    ),
+    ServiceCaseStatus.APPOINTMENT_PENDING: (
+        CaseWaitActor.TECHNICIAN,
+        "Usta randevuyu onaylıyor",
+        "Seçtiğin usta randevu slot'unu onaylayacak",
+    ),
+    ServiceCaseStatus.SCHEDULED: (
+        CaseWaitActor.TECHNICIAN,
+        "Randevu günü yaklaşıyor",
+        "İşe başlama saatini bekliyoruz",
+    ),
+    ServiceCaseStatus.SERVICE_IN_PROGRESS: (
+        CaseWaitActor.TECHNICIAN,
+        "İş sürüyor",
+        "Usta aracınla ilgileniyor",
+    ),
+    ServiceCaseStatus.PARTS_APPROVAL: (
+        CaseWaitActor.CUSTOMER,
+        "Parça talebi onayı",
+        "Usta ek parça talep etti",
+    ),
+    ServiceCaseStatus.INVOICE_APPROVAL: (
+        CaseWaitActor.CUSTOMER,
+        "Fatura onayı",
+        "İş tamamlandı — fatura onayı bekleniyor",
+    ),
+}
 
 
 def _event_type_for_status(status: ServiceCaseStatus) -> CaseEventType:
