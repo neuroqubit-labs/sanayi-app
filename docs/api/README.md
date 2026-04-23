@@ -5,7 +5,7 @@
 **Auth:** Bearer JWT (Authorization header), OTP login üzerinden
 **Content-Type:** `application/json`
 
-**Kapsam:** 115 endpoint, 108 unique path, 19 tag.
+**Kapsam:** 119 endpoint, 111 unique path, 20 tag.
 
 > Bu dokümana `scripts/export_openapi.py` + `scripts/render_api_readme.py`
 > ile `docs/api/openapi.json`'dan üretilir — manuel düzenleme YAPMA;
@@ -18,7 +18,8 @@
 - [approvals](#approvals) (3 endpoint)
 - [auth](#auth) (5 endpoint)
 - [billing](#billing) (12 endpoint)
-- [cases](#cases) (4 endpoint)
+- [case-thread](#case-thread) (3 endpoint)
+- [cases](#cases) (5 endpoint)
 - [health](#health) (1 endpoint)
 - [insurance-claims](#insurance-claims) (7 endpoint)
 - [media](#media) (4 endpoint)
@@ -395,6 +396,36 @@ OTP + JWT authentication + session lifecycle.
 
 ---
 
+## case-thread
+
+### GET /api/v1/cases/{case_id}/thread/messages
+
+- **Auth:** customer/technician
+- **Özet:** Thread mesajlarını listele (cursor)
+- **Query:** `cursor`, `limit`
+- **Responses:**
+  - `200` — ThreadMessageListResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### POST /api/v1/cases/{case_id}/thread/messages
+
+- **Auth:** customer/technician
+- **Özet:** Thread'e yeni mesaj
+- **Request:** `ThreadMessageCreatePayload`
+- **Responses:**
+  - `201` — ThreadMessageResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### POST /api/v1/cases/{case_id}/thread/seen
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Thread okundu işaretle
+- **Responses:**
+  - `204` — object Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+---
+
 ## cases
 
 Müşteri vaka (ServiceCase) CRUD + cancel.
@@ -429,6 +460,15 @@ Müşteri vaka (ServiceCase) CRUD + cancel.
 - **Özet:** Vaka iptal (müşteri/admin)
 - **Responses:**
   - `200` — CaseSummaryResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### PATCH /api/v1/cases/{case_id}/notes
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Müşteri notları güncelle (owner-only)
+- **Request:** `CaseNotesPayload`
+- **Responses:**
+  - `200` — CaseDetailResponse Successful Response
   - `422` — HTTPValidationError Validation Error
 
 ---
@@ -1158,6 +1198,7 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `CaseCreateResponse`
 - `CaseDetailResponse`
 - `CaseKaskoState`
+- `CaseNotesPayload`
 - `CaseOfferStatus`
 - `CaseOverrideRequest`
 - `CaseRefundReason`
@@ -1259,6 +1300,9 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `TechnicianReviewItem`
 - `TechnicianSuspendRequest`
 - `TechnicianVerifiedLevel`
+- `ThreadMessageCreatePayload`
+- `ThreadMessageListResponse`
+- `ThreadMessageResponse`
 - `TokenPair`
 - `TowCancelInput`
 - `TowCaseSnapshot`

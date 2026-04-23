@@ -31,6 +31,7 @@ from app.models.case_subtypes import (
 )
 from app.models.user import UserRole
 from app.repositories import case as case_repo
+from app.schemas.case_thread import CaseNotesPayload
 from app.schemas.service_request import ServiceRequestDraftCreate
 from app.services import case_create
 from app.services.case_events import append_event
@@ -95,6 +96,9 @@ class CaseDetailResponse(CaseSummaryResponse):
     subtype: dict[str, object] | None = None
     parent_case_id: UUID | None = None
     linked_tow_case_ids: list[UUID] = []
+    # İş 3 (2026-04-23) — customer_notes owner-private. Technician/admin
+    # response'unda null döner (owner bile olsa admin view'ında null).
+    customer_notes: str | None = None
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -177,6 +181,8 @@ async def get_case_endpoint(
         linked_tow_case_ids = await case_repo.list_linked_tow_case_ids(
             db, case.id
         )
+    # customer_notes sadece owner'a döner
+    notes = case.customer_notes if case.customer_user_id == user.id else None
     return CaseDetailResponse(
         id=case.id,
         kind=case.kind,
@@ -191,6 +197,58 @@ async def get_case_endpoint(
         subtype=_subtype_view(subtype),
         parent_case_id=parent_case_id,
         linked_tow_case_ids=linked_tow_case_ids,
+        customer_notes=notes,
+    )
+
+
+@router.patch(
+    "/{case_id}/notes",
+    response_model=CaseDetailResponse,
+    summary="Müşteri notları güncelle (owner-only)",
+)
+async def update_case_notes(
+    case_id: UUID,
+    payload: CaseNotesPayload,
+    user: CustomerDep,
+    db: DbDep,
+) -> CaseDetailResponse:
+    case, subtype = await case_repo.get_case_with_subtype(db, case_id)
+    if case is None or case.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
+    if case.customer_user_id != user.id:
+        raise HTTPException(
+            status_code=403, detail={"type": "not_case_owner"}
+        )
+    case.customer_notes = payload.content
+    await db.commit()
+    await db.refresh(case)
+
+    parent_case_id: UUID | None = None
+    linked_tow_case_ids: list[UUID] = []
+    if isinstance(subtype, TowCase):
+        parent_case_id = subtype.parent_case_id
+    elif case.kind in (
+        ServiceRequestKind.ACCIDENT,
+        ServiceRequestKind.BREAKDOWN,
+    ):
+        linked_tow_case_ids = await case_repo.list_linked_tow_case_ids(
+            db, case.id
+        )
+    return CaseDetailResponse(
+        id=case.id,
+        kind=case.kind,
+        status=case.status,
+        urgency=case.urgency.value,
+        title=case.title,
+        summary=case.summary,
+        location_label=case.location_label,
+        created_at=case.created_at,
+        updated_at=case.updated_at,
+        vehicle_snapshot=_vehicle_snapshot_view(subtype),
+        subtype=_subtype_view(subtype),
+        parent_case_id=parent_case_id,
+        linked_tow_case_ids=linked_tow_case_ids,
+        customer_notes=case.customer_notes,
     )
 
 

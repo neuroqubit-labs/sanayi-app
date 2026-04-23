@@ -6,6 +6,7 @@ from app.api.v1.routes import (
     approvals,
     auth,
     billing,
+    case_thread,
     cases,
     health,
     insurance_claims,
@@ -27,6 +28,7 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(media.router)
 api_router.include_router(cases.router)
+api_router.include_router(case_thread.router)
 api_router.include_router(approvals.router)
 api_router.include_router(offers.router)
 api_router.include_router(appointments.router)

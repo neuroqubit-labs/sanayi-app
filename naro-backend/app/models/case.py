@@ -167,6 +167,10 @@ class ServiceCase(UUIDPkMixin, TimestampMixin, Base):
     total_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
     estimate_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
 
+    # İş 3 (2026-04-23) — müşteri-özel not (max 2000, owner dışında
+    # görünmez; GET /cases/{id} response customer-only döner).
+    customer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Faz B-3 — billing lifecycle state (non-tow kind'lar). Tow case'lerinde
     # null kalır (tow_fare_settlements.state ayrı).
     billing_state: Mapped[str | None] = mapped_column(String(40), nullable=True)

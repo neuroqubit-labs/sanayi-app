@@ -1256,6 +1256,17 @@
             "title": "Created At",
             "type": "string"
           },
+          "customer_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Notes"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1369,6 +1380,26 @@
         ],
         "title": "CaseKaskoState",
         "type": "string"
+      },
+      "CaseNotesPayload": {
+        "additionalProperties": false,
+        "description": "PATCH /cases/{id}/notes body — owner-private.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          }
+        },
+        "title": "CaseNotesPayload",
+        "type": "object"
       },
       "CaseOfferStatus": {
         "enum": [
@@ -5717,6 +5748,86 @@
         ],
         "title": "TechnicianVerifiedLevel",
         "type": "string"
+      },
+      "ThreadMessageCreatePayload": {
+        "additionalProperties": false,
+        "description": "POST /cases/{id}/thread/messages body.",
+        "properties": {
+          "content": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "ThreadMessageCreatePayload",
+        "type": "object"
+      },
+      "ThreadMessageListResponse": {
+        "description": "GET /cases/{id}/thread/messages cursor paginated.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ThreadMessageResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ThreadMessageListResponse",
+        "type": "object"
+      },
+      "ThreadMessageResponse": {
+        "description": "Thread mesajı wire formatı — sender_role/content canonical isim.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "sender_role": {
+            "enum": [
+              "customer",
+              "technician"
+            ],
+            "title": "Sender Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sender_role",
+          "content",
+          "created_at"
+        ],
+        "title": "ThreadMessageResponse",
+        "type": "object"
       },
       "TokenPair": {
         "properties": {
@@ -10404,6 +10515,64 @@
         ]
       }
     },
+    "/api/v1/cases/{case_id}/notes": {
+      "patch": {
+        "operationId": "update_case_notes_api_v1_cases__case_id__notes_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseNotesPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Müşteri notları güncelle (owner-only)",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
     "/api/v1/cases/{case_id}/payment/initiate": {
       "post": {
         "operationId": "initiate_payment_endpoint_api_v1_cases__case_id__payment_initiate_post",
@@ -10459,6 +10628,179 @@
         "summary": "Ödeme başlat — 3DS checkout form URL (case owner)",
         "tags": [
           "billing"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/thread/messages": {
+      "get": {
+        "operationId": "list_thread_messages_api_v1_cases__case_id__thread_messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadMessageListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Thread mesajlarını listele (cursor)",
+        "tags": [
+          "case-thread"
+        ]
+      },
+      "post": {
+        "operationId": "create_thread_message_api_v1_cases__case_id__thread_messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ThreadMessageCreatePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreadMessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Thread'e yeni mesaj",
+        "tags": [
+          "case-thread"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/thread/seen": {
+      "post": {
+        "operationId": "mark_thread_seen_api_v1_cases__case_id__thread_seen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Thread okundu işaretle",
+        "tags": [
+          "case-thread"
         ]
       }
     },
