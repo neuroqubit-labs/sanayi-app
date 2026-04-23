@@ -196,6 +196,18 @@ function deriveSummary(draft: ServiceRequestDraft, kind: ServiceRequestKind): st
   return kindLabel[kind];
 }
 
+/**
+ * Subtype-aware payload adapter — İŞ 2 (2026-04-23).
+ *
+ * BE Faz 1c subtype dispatch canlı: POST /cases kind'a göre subtype
+ * tabloya yazıyor. FE draft'ın subtype-relevant alanlarını payload'a
+ * taşır; forbidden alanları kind başına default'a zorlar (BE
+ * _KIND_FIELD_RULES ihlali olmasın).
+ *
+ * Matching-audit P0-5: damage_severity, maintenance_detail,
+ * attachment.category artık gerçek payload'a gidiyor (eski hardcoded
+ * null'lar kaldırıldı).
+ */
 function draftToCreatePayload(
   draft: ServiceRequestDraft,
   kind: ServiceRequestKind,
@@ -208,47 +220,112 @@ function draftToCreatePayload(
     subtitle: item.subtitle ?? null,
     statusLabel: item.statusLabel ?? null,
     asset_id: item.asset?.id ?? null,
-    category: null,
+    category: item.category ?? null,
   }));
 
-  return ServiceRequestDraftCreateSchema.parse({
-    schema_version: "v1",
+  // Ortak alanlar (tüm kind'lar için geçerli)
+  const base = {
+    schema_version: "v1" as const,
     kind,
     vehicle_id: vehicleId,
     urgency: draft.urgency ?? "planned",
     summary: deriveSummary(draft, kind),
     location_label: draft.location_label?.trim() || "Konum belirtilmedi",
     location_lat_lng: null,
-    dropoff_label: draft.dropoff_label ?? null,
-    dropoff_lat_lng: null,
     notes: draft.notes ?? null,
     attachments,
-    symptoms: draft.symptoms ?? [],
-    maintenance_items: draft.maintenance_items ?? [],
     preferred_window: draft.preferred_window ?? null,
-    vehicle_drivable: draft.vehicle_drivable ?? null,
-    towing_required: draft.towing_required ?? false,
-    pickup_preference: draft.pickup_preference ?? null,
     mileage_km: draft.mileage_km ?? null,
     preferred_technician_id: draft.preferred_technician_id ?? null,
-    counterparty_note: draft.counterparty_note ?? null,
-    counterparty_vehicle_count: draft.counterparty_vehicle_count ?? null,
-    damage_area: draft.damage_area ?? null,
-    damage_severity: null,
-    valet_requested: draft.valet_requested ?? false,
-    report_method: draft.report_method ?? null,
-    kasko_selected: draft.kasko_selected ?? false,
-    kasko_brand: draft.kasko_brand ?? null,
-    sigorta_selected: draft.sigorta_selected ?? false,
-    sigorta_brand: draft.sigorta_brand ?? null,
-    ambulance_contacted: draft.ambulance_contacted ?? false,
-    emergency_acknowledged: draft.emergency_acknowledged ?? false,
-    breakdown_category: draft.breakdown_category ?? null,
-    on_site_repair: draft.on_site_repair ?? false,
-    price_preference: draft.price_preference ?? null,
-    maintenance_category: draft.maintenance_category ?? null,
-    maintenance_detail: null,
-    maintenance_tier: draft.maintenance_tier ?? null,
+    towing_required: draft.towing_required ?? false,
+  };
+
+  // Tüm subtype-specific alanlar default'larla başla; aşağıda kind'a göre
+  // sadece ilgili olanlar draft'tan doldurulur.
+  const subtypeDefaults = {
+    dropoff_label: null as string | null,
+    dropoff_lat_lng: null,
+    symptoms: [] as string[],
+    maintenance_items: [] as string[],
+    vehicle_drivable: null as boolean | null,
+    pickup_preference: null as ServiceRequestDraftCreate["pickup_preference"],
+    counterparty_note: null as string | null,
+    counterparty_vehicle_count: null as number | null,
+    damage_area: null as string | null,
+    damage_severity:
+      null as ServiceRequestDraftCreate["damage_severity"],
+    valet_requested: false,
+    report_method: null as ServiceRequestDraftCreate["report_method"],
+    kasko_selected: false,
+    kasko_brand: null as string | null,
+    sigorta_selected: false,
+    sigorta_brand: null as string | null,
+    ambulance_contacted: false,
+    emergency_acknowledged: false,
+    breakdown_category:
+      null as ServiceRequestDraftCreate["breakdown_category"],
+    on_site_repair: false,
+    price_preference:
+      null as ServiceRequestDraftCreate["price_preference"],
+    maintenance_category:
+      null as ServiceRequestDraftCreate["maintenance_category"],
+    maintenance_detail: null as Record<string, unknown> | null,
+    maintenance_tier: null as string | null,
+  };
+
+  const subtypePayload = (() => {
+    switch (kind) {
+      case "accident":
+        return {
+          ...subtypeDefaults,
+          counterparty_note: draft.counterparty_note ?? null,
+          counterparty_vehicle_count:
+            draft.counterparty_vehicle_count ?? null,
+          damage_area: draft.damage_area ?? null,
+          damage_severity: draft.damage_severity ?? null,
+          report_method: draft.report_method ?? null,
+          kasko_selected: draft.kasko_selected ?? false,
+          kasko_brand: draft.kasko_brand ?? null,
+          sigorta_selected: draft.sigorta_selected ?? false,
+          sigorta_brand: draft.sigorta_brand ?? null,
+          ambulance_contacted: draft.ambulance_contacted ?? false,
+          emergency_acknowledged: draft.emergency_acknowledged ?? true,
+        };
+      case "breakdown":
+        return {
+          ...subtypeDefaults,
+          symptoms: draft.symptoms ?? [],
+          vehicle_drivable: draft.vehicle_drivable ?? null,
+          breakdown_category: draft.breakdown_category ?? null,
+          on_site_repair: draft.on_site_repair ?? false,
+          valet_requested: draft.valet_requested ?? false,
+          pickup_preference: draft.pickup_preference ?? null,
+          price_preference: draft.price_preference ?? null,
+        };
+      case "maintenance":
+        return {
+          ...subtypeDefaults,
+          maintenance_items: draft.maintenance_items ?? [],
+          maintenance_category: draft.maintenance_category ?? null,
+          maintenance_detail: draft.maintenance_detail ?? null,
+          maintenance_tier: draft.maintenance_tier ?? null,
+          valet_requested: draft.valet_requested ?? false,
+          pickup_preference: draft.pickup_preference ?? null,
+          price_preference: draft.price_preference ?? null,
+          mileage_km: draft.mileage_km ?? null,
+        };
+      case "towing":
+        return {
+          ...subtypeDefaults,
+          dropoff_label: draft.dropoff_label ?? null,
+          vehicle_drivable: draft.vehicle_drivable ?? null,
+        };
+    }
+  })();
+
+  return ServiceRequestDraftCreateSchema.parse({
+    ...base,
+    ...subtypePayload,
   });
 }
 

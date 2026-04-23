@@ -65,6 +65,14 @@ export const CaseAttachmentSchema = z.object({
   subtitle: z.string().optional(),
   statusLabel: z.string().optional(),
   asset: MediaAssetSchema.nullable().default(null),
+  /**
+   * Subtype-aware semantik etiket (matching-audit 2026-04-23 P0-5):
+   * scene_overview, damage_detail, counterparty_plate, mileage_photo,
+   * tire_photo, glass_current_view, vb. Subtype tablolarına attachment
+   * snapshot ile gider; matching motoru ipucu olarak kullanabilir.
+   * optional — mevcut fixture/mock'ları kırmamak için.
+   */
+  category: z.string().max(64).nullable().optional(),
 });
 export type CaseAttachment = z.infer<typeof CaseAttachmentSchema>;
 
@@ -164,6 +172,19 @@ export const BreakdownCategorySchema = z.enum([
 ]);
 export type BreakdownCategory = z.infer<typeof BreakdownCategorySchema>;
 
+/**
+ * Kaza hasar derecesi — BE DamageSeverity canonical.
+ * Subtype refactor Faz 1c (2026-04-23): matching motoru skorunda
+ * kullanılır; accident composer'da kullanıcı seçer.
+ */
+export const DamageSeveritySchema = z.enum([
+  "minor",
+  "moderate",
+  "major",
+  "total_loss",
+]);
+export type DamageSeverity = z.infer<typeof DamageSeveritySchema>;
+
 export const PricePreferenceSchema = z.enum([
   "any",
   "nearby",
@@ -210,6 +231,13 @@ export const ServiceRequestDraftSchema = z.object({
   counterparty_note: z.string().optional(),
   counterparty_vehicle_count: z.number().int().nullable().default(null),
   damage_area: z.string().optional(),
+  /**
+   * Matching-audit P0-5 + subtype refactor Faz 1c (2026-04-23):
+   * damage_severity artık subtype payload'a gidiyor (accident_case
+   * tablosuna yazılır). Accident composer'da kullanıcı seçer.
+   * optional — mevcut mock/fixture'ları kırmamak için.
+   */
+  damage_severity: DamageSeveritySchema.nullable().optional(),
   valet_requested: z.boolean().default(false),
   report_method: AccidentReportMethodSchema.nullable().default(null),
   kasko_selected: z.boolean().default(false),
@@ -222,6 +250,12 @@ export const ServiceRequestDraftSchema = z.object({
   on_site_repair: z.boolean().default(false),
   price_preference: PricePreferenceSchema.nullable().default(null),
   maintenance_category: MaintenanceCategorySchema.nullable().default(null),
+  /**
+   * Serbest-şema JSONB (bakım paketi detayları: yağ viskozitesi, lastik
+   * ebadı, film tonu vb.). BE maintenance_case tablosuna yazılır.
+   * optional — mevcut mock/fixture'ları kırmamak için.
+   */
+  maintenance_detail: z.record(z.unknown()).nullable().optional(),
   maintenance_tier: z.string().optional(),
 });
 export type ServiceRequestDraft = z.infer<typeof ServiceRequestDraftSchema>;
