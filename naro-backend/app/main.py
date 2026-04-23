@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -7,16 +9,48 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_exception_handlers
 from app.api.v1.router import api_router
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
+from app.integrations.storage import build_storage_gateway
 from app.middleware.idempotency import IdempotencyMiddleware
 from app.middleware.request_id import RequestIdMiddleware
 from app.observability.metrics import render_metrics
+
+_startup_logger = logging.getLogger("naro.startup")
+
+
+def _ensure_dev_s3_buckets(settings: Settings) -> None:
+    """P0-B fix (QA tur 1): dev environment LocalStack bucket bootstrap.
+
+    QA smoke'da `awslocal s3 ls` boş → accident + maintenance upload
+    intent 422 (missing required attachments). Startup'ta idempotent
+    ensure.
+
+    Production/staging'de çağrılmaz — bucket'ı terraform yönetir.
+    """
+    if settings.environment != "development":
+        return
+    if not settings.aws_s3_endpoint_url:
+        # Gerçek AWS S3'e idempotent bucket create yetkisi yok; sadece
+        # LocalStack endpoint set edildiğinde ensure et.
+        return
+    storage = build_storage_gateway(settings)
+    for bucket in (settings.s3_private_bucket, settings.s3_public_bucket):
+        if not bucket:
+            continue
+        try:
+            storage.ensure_bucket_exists(bucket=bucket)
+            _startup_logger.info("s3 bucket ensured: %s", bucket)
+        except Exception:  # bootstrap'ı startup'ı engellemesin
+            _startup_logger.exception(
+                "s3 bucket bootstrap failed: %s", bucket
+            )
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging()
+    await asyncio.to_thread(_ensure_dev_s3_buckets, get_settings())
     yield
 
 
