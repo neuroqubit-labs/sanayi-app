@@ -275,6 +275,25 @@ async def update_financials(
     )
 
 
+async def list_stale_matching_cases(
+    session: AsyncSession, *, threshold: datetime
+) -> list[ServiceCase]:
+    """B-P1-7 fix: MATCHING statüsünde updated_at <= threshold olan
+    soft-delete olmayan case'ler — cron stale archive."""
+    stmt = (
+        select(ServiceCase)
+        .where(
+            and_(
+                ServiceCase.status == ServiceCaseStatus.MATCHING,
+                ServiceCase.updated_at <= threshold,
+                ServiceCase.deleted_at.is_(None),
+            )
+        )
+        .order_by(ServiceCase.updated_at.asc())
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
 async def count_cases_for_vehicle(
     session: AsyncSession, vehicle_id: UUID
 ) -> int:

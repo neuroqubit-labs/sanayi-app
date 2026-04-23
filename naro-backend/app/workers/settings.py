@@ -9,6 +9,7 @@ from app.workers.media_antivirus import media_antivirus_scan
 from app.workers.media_orphan_purge import media_orphan_purge
 from app.workers.media_retention_sweep import media_retention_sweep
 from app.workers.offer_expiry import offer_expiry_job
+from app.workers.stale_case_archive import stale_case_archive_job
 from app.workers.tow.dispatch_timeouts import (
     current_offer_expiry,
     dispatch_attempt_timeout,
@@ -50,6 +51,8 @@ class WorkerSettings:
             minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
             unique=True,
         ),
+        # B-P1-7: stale MATCHING case auto-archive (saatte bir)
+        cron(stale_case_archive_job, minute={0}, unique=True),
     ]
     on_startup = startup
     on_shutdown = shutdown
