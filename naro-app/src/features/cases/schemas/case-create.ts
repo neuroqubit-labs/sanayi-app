@@ -186,6 +186,25 @@ export const CaseCreateResponseSchema = z.object({
 });
 export type CaseCreateResponse = z.infer<typeof CaseCreateResponseSchema>;
 
+/**
+ * Vehicle snapshot — case create anında immutable 7-alan snapshot.
+ * BE subtype tablolarında `snapshot_*` kolonları; response'ta flat
+ * `vehicle_snapshot` object olarak gelir (plate zorunlu, diğerleri
+ * nullable).
+ */
+export const VehicleSnapshotResponseSchema = z.object({
+  plate: z.string(),
+  make: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  year: z.number().int().nullable().optional(),
+  fuel_type: z.string().nullable().optional(),
+  vin: z.string().nullable().optional(),
+  current_km: z.number().int().nullable().optional(),
+});
+export type VehicleSnapshotResponse = z.infer<
+  typeof VehicleSnapshotResponseSchema
+>;
+
 export const CaseSummaryResponseSchema = z.object({
   id: z.string().uuid(),
   kind: ServiceRequestKindSchema,
@@ -198,3 +217,26 @@ export const CaseSummaryResponseSchema = z.object({
   updated_at: z.string(),
 });
 export type CaseSummaryResponse = z.infer<typeof CaseSummaryResponseSchema>;
+
+/**
+ * CaseDetailResponse — BE Faz 1 (shell + subtype + snapshot) + Faz 2
+ * (parent/linked tow case). BE subtype dict kind'a göre discriminated;
+ * FE V1'de `Record<string, unknown>` geçiyor, V2'de openapi codegen ile
+ * union olarak daraltılır.
+ *
+ * Linkage (Faz 2, 2026-04-23):
+ * - `parent_case_id` — tow kind'da dolu ise accident/breakdown parent
+ * - `linked_tow_case_ids` — accident/breakdown kind'da 0..n child tow
+ *
+ * İş A (2026-04-23):
+ * - `customer_notes` — owner-private. Technician/admin view'ında null.
+ *   FE conditional render: technician tarafında notes kartı gösterme.
+ */
+export const CaseDetailResponseSchema = CaseSummaryResponseSchema.extend({
+  vehicle_snapshot: VehicleSnapshotResponseSchema.nullable().optional(),
+  subtype: z.record(z.unknown()).nullable().optional(),
+  parent_case_id: z.string().uuid().nullable().optional(),
+  linked_tow_case_ids: z.array(z.string().uuid()).default([]),
+  customer_notes: z.string().nullable().optional(),
+});
+export type CaseDetailResponse = z.infer<typeof CaseDetailResponseSchema>;

@@ -53,6 +53,8 @@ import {
 } from "../api";
 import { AddAttachmentSheet } from "../components/AddAttachmentSheet";
 import { EditCaseNotesSheet } from "../components/EditCaseNotesSheet";
+import { SubtypeDetailCard } from "../components/SubtypeDetailCard";
+import { VehicleSnapshotCard } from "../components/VehicleSnapshotCard";
 import { useCanonicalCase } from "../hooks/useCanonicalCase";
 import { getCaseKindLabel, getCaseStatusLabel, getCaseStatusTone } from "../presentation";
 
@@ -385,13 +387,25 @@ export function CaseManagementScreen() {
           </Surface>
         ) : null}
 
-        {/* Araç kartı */}
+        {/* Araç kartı — customer store'da kayıtlı ise VehicleContextBar
+            (arac detay linkli), yoksa canonical snapshot kartı (QA tur 0
+            T4 fix — match plaka snapshot'tan). */}
         {vehicle ? (
           <VehicleContextBar
             plate={vehicle.plate}
             vehicle={`${vehicle.make} ${vehicle.model} · ${vehicle.year}`}
             subtitle={vehicle.note}
             onPress={() => router.push(`/arac/${vehicle.id}` as Href)}
+          />
+        ) : (
+          <VehicleSnapshotCard snapshot={linkage?.vehicle_snapshot} />
+        )}
+
+        {/* Subtype detail (canonical) */}
+        {linkage?.subtype ? (
+          <SubtypeDetailCard
+            kind={caseItem.kind}
+            subtype={linkage.subtype}
           />
         ) : null}
 

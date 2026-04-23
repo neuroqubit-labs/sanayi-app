@@ -63,10 +63,12 @@ export function CaseComposerScreen() {
     kind: rawKind,
     vehicleId,
     technicianId,
+    parentCaseId,
   } = useLocalSearchParams<{
     kind: string;
     vehicleId?: string;
     technicianId?: string;
+    parentCaseId?: string;
   }>();
   const { data: activeVehicle } = useActiveVehicle();
   const {
@@ -296,6 +298,7 @@ export function CaseComposerScreen() {
             pre_auth_on_customer_card: true,
           },
           attachments: [],
+          parent_case_id: parentCaseId ?? null,
         });
         resetDraft();
         router.replace(`/cekici/${snapshot.id}` as Href);

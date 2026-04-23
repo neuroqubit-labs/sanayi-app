@@ -259,6 +259,31 @@ function buildThread(
   };
 }
 
+function parseSymptoms(input: unknown): string[] {
+  // QA tur 0 T4 fix (2026-04-23): BE `BreakdownCase.symptoms` TEXT
+  // kolonu (virgüllü string). FE domain `ServiceRequestDraft.symptoms`
+  // `string[]`. Projeksiyonda split + trim.
+  if (Array.isArray(input)) {
+    return input.filter((v): v is string => typeof v === "string");
+  }
+  if (typeof input !== "string") return [];
+  return input
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+function parseStringArray(input: unknown): string[] {
+  if (Array.isArray(input)) {
+    return input.filter((v): v is string => typeof v === "string");
+  }
+  if (typeof input !== "string") return [];
+  return input
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 function buildRequestFromSubtype(
   detail: CaseDetailResponse,
 ): ServiceRequestDraft {
@@ -276,9 +301,8 @@ function buildRequestFromSubtype(
     dropoff_label: (subtype.dropoff_address as string | undefined) ?? undefined,
     notes: detail.customer_notes ?? undefined,
     attachments: [],
-    symptoms: (subtype.symptoms as string[] | undefined) ?? [],
-    maintenance_items:
-      (subtype.maintenance_items as string[] | undefined) ?? [],
+    symptoms: parseSymptoms(subtype.symptoms),
+    maintenance_items: parseStringArray(subtype.maintenance_items),
     preferred_window:
       (subtype.scheduled_at as string | undefined) ?? undefined,
     vehicle_drivable:

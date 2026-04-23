@@ -128,6 +128,11 @@ export const TowCreateCaseRequestSchema = z.object({
     pre_auth_on_customer_card: true,
   }),
   attachments: z.array(z.string().uuid()).default([]),
+  /**
+   * BE Faz 2 (2026-04-23): accident/breakdown parent'ı (opsiyonel).
+   * BE validate eder: owned + accident/breakdown kind + not deleted.
+   */
+  parent_case_id: z.string().uuid().nullable().optional(),
 });
 export type TowCreateCaseRequest = z.infer<typeof TowCreateCaseRequestSchema>;
 

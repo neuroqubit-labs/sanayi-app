@@ -14,6 +14,8 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useCancelAppointment } from "@/features/appointments";
 
+import { SubtypeDetailCard } from "../components/SubtypeDetailCard";
+import { VehicleSnapshotCard } from "../components/VehicleSnapshotCard";
 import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
 type StickyVariant =
@@ -90,7 +92,9 @@ export function CustomerCaseProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: caseItem } = useCanonicalCase(id ?? "");
+  const canonicalQuery = useCanonicalCase(id ?? "");
+  const caseItem = canonicalQuery.data;
+  const linkage = canonicalQuery.linkage;
   const cancelAppointment = useCancelAppointment(
     caseItem?.appointment?.id ?? "",
     id ?? "",
@@ -157,6 +161,13 @@ export function CustomerCaseProfileScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Canonical vehicle_snapshot + subtype render (QA tur 0 T4 fix) —
+            CaseInspectionView mock lookup'a düştüğü için yukarıya canlı
+            kartlar eklendi. */}
+        <VehicleSnapshotCard snapshot={linkage?.vehicle_snapshot} />
+        {linkage?.subtype ? (
+          <SubtypeDetailCard kind={caseItem.kind} subtype={linkage.subtype} />
+        ) : null}
         <CaseInspectionView
           caseItem={caseItem}
           contextState={context}

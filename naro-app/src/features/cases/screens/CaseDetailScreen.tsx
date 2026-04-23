@@ -41,6 +41,8 @@ import {
   useAppointmentCountdown,
   useMarkCaseSeen,
 } from "../api";
+import { SubtypeDetailCard } from "../components/SubtypeDetailCard";
+import { VehicleSnapshotCard } from "../components/VehicleSnapshotCard";
 import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
 type StageTone = "accent" | "neutral" | "success" | "warning" | "critical" | "info";
@@ -354,6 +356,12 @@ export function CaseDetailScreen() {
             router.push(`/(modal)/vaka-profili/${caseItem.id}` as Href)
           }
         />
+
+        {/* Canonical vehicle_snapshot + subtype (QA tur 0 T4 fix) */}
+        <VehicleSnapshotCard snapshot={linkage?.vehicle_snapshot} />
+        {linkage?.subtype ? (
+          <SubtypeDetailCard kind={caseItem.kind} subtype={linkage.subtype} />
+        ) : null}
 
         {canLinkTow && linkedTowCaseIds.length > 0
           ? linkedTowCaseIds.map((towId) => (

@@ -6,10 +6,12 @@ import {
   StatusChip,
   Text,
 } from "@naro/ui";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronRight,
+  FileText,
   KeyRound,
   MapPin,
   Star,
@@ -25,6 +27,7 @@ import {
   View,
 } from "react-native";
 
+import { useCaseDetailLive } from "@/features/cases/api";
 import { useTechnicianPublicView } from "@/features/ustalar/api";
 
 import {
@@ -88,6 +91,12 @@ export function TowCaseScreenLive() {
   const cancel = useCancelTowCase(caseId);
   const verifyOtp = useVerifyTowOtp(caseId);
   const submitRating = useSubmitTowRating(caseId);
+
+  // BE Faz 2 (2026-04-23) — çekici, accident/breakdown parent'tan doğduysa
+  // "şu vakadan geldi" link CTA'sı. Canonical case detail endpoint'inden
+  // okunur (tow snapshot parent_case_id expose etmiyor).
+  const detailLive = useCaseDetailLive(caseId);
+  const parentCaseId = detailLive.data?.parent_case_id ?? null;
 
   if (snapshotQuery.isLoading) {
     return (
@@ -182,6 +191,30 @@ export function TowCaseScreenLive() {
             {presentation.description}
           </Text>
         </View>
+
+        {parentCaseId ? (
+          <View className="mt-3 px-5">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Bu çekicinin bağlı olduğu vakayı aç"
+              onPress={() => router.push(`/vaka/${parentCaseId}` as Href)}
+              className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/40 bg-brand-500/10 px-4 py-3.5 active:opacity-90"
+            >
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/20">
+                <Icon icon={FileText} size={18} color="#0ea5e9" />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text variant="eyebrow" tone="subtle">
+                  Bu çekici şu vakadan geldi
+                </Text>
+                <Text variant="label" tone="inverse" className="text-[14px]">
+                  {`Vaka #${parentCaseId.slice(0, 8)}`}
+                </Text>
+              </View>
+              <Icon icon={ChevronRight} size={16} color="#83a7ff" />
+            </Pressable>
+          </View>
+        ) : null}
 
         {!isTerminal ? (
           <View className="mt-4 px-5">
