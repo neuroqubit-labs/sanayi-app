@@ -4,7 +4,6 @@ import type {
   ServiceRequestDraft,
   ServiceRequestKind,
 } from "@naro/domain";
-import { buildCustomerTrackingView } from "@naro/mobile-core";
 import { ApiError } from "@naro/mobile-core";
 import {
   useInfiniteQuery,
@@ -130,34 +129,6 @@ export function useCaseDetail(caseId: string) {
           .getState()
           .cases.find((caseItem) => caseItem.id === caseId) ?? null,
       ),
-  });
-}
-
-export function useCustomerTrackingView(caseId: string) {
-  return useQuery({
-    queryKey: ["cases", "tracking-view", caseId],
-    queryFn: async () => {
-      const caseItem = useCasesStore
-        .getState()
-        .cases.find((entry) => entry.id === caseId);
-
-      return mockDelay(caseItem ? buildCustomerTrackingView(caseItem) : null);
-    },
-  });
-}
-
-export function useCaseTask(caseId: string, taskId: string) {
-  return useQuery({
-    queryKey: ["cases", "task", caseId, taskId],
-    queryFn: async () => {
-      const caseItem = useCasesStore
-        .getState()
-        .cases.find((entry) => entry.id === caseId);
-
-      return mockDelay(
-        caseItem?.tasks.find((task) => task.id === taskId) ?? null,
-      );
-    },
   });
 }
 
