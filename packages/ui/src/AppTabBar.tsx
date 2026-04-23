@@ -129,11 +129,15 @@ export function AppTabBar({
               accessibilityRole="button"
               accessibilityLabel={centerAction.accessibilityLabel}
               onPress={centerAction.onPress}
-              android_ripple={{ color: palette.centerButtonHighlight, borderless: false, radius: 32 }}
+              android_ripple={{
+                color: palette.centerButtonHighlight,
+                borderless: false,
+                radius: 32,
+              }}
               style={{
-                width: 52,
-                height: 52,
-                borderRadius: 26,
+                width: 56,
+                height: 56,
+                borderRadius: 18,
                 borderWidth: 1,
                 borderColor: palette.centerButtonBorder,
                 backgroundColor: palette.centerButtonBackground,
@@ -146,7 +150,53 @@ export function AppTabBar({
                 elevation: CENTER_BUTTON_SHADOW.elevation,
               }}
             >
-              {centerAction.icon}
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  top: 1,
+                  left: 1,
+                  right: 1,
+                  bottom: 1,
+                  borderRadius: 17,
+                  overflow: "hidden",
+                }}
+              >
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 4,
+                    right: 4,
+                    top: 3,
+                    height: 18,
+                    borderRadius: 999,
+                    backgroundColor: palette.centerButtonHighlight,
+                  }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 22,
+                    backgroundColor: palette.centerButtonDepth,
+                  }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    borderRadius: 17,
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.10)",
+                  }}
+                />
+              </View>
+              <View style={{ zIndex: 1 }}>{centerAction.icon}</View>
             </Pressable>
           </View>
         ) : null}
