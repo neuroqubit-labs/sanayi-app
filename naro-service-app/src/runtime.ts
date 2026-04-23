@@ -93,14 +93,27 @@ export const useAuthStore = createAuthStore<ApprovalStatus>({
 /**
  * 401 handler — apiClient expired access token için çağırır.
  * Refresh fail → authStore clear → _layout auth guard login'e yönlendirir.
+ *
+ * Smoke report BUG 2 parity fix (2026-04-23):
+ * - Concurrent 401 race mutex (inflight refresh tek promise).
+ * - Hydrate tamamlanmadan refresh no-op (pre-hydrate boş tokenla 401
+ *   yenir ve storage wipe edilmez).
  */
+let inflightRefresh: Promise<string | null> | null = null;
+
 async function refreshAuthToken(): Promise<string | null> {
+  if (inflightRefresh) return inflightRefresh;
+  inflightRefresh = executeRefresh().finally(() => {
+    inflightRefresh = null;
+  });
+  return inflightRefresh;
+}
+
+async function executeRefresh(): Promise<string | null> {
   const authState = useAuthStore.getState();
+  if (!authState.hydrated) return null;
   const refreshToken = authState.refreshToken;
-  if (!refreshToken) {
-    await authState.setSession({ accessToken: null, refreshToken: null });
-    return null;
-  }
+  if (!refreshToken) return null;
   try {
     const response = await fetch(`${env.apiUrl}/auth/refresh`, {
       method: "POST",

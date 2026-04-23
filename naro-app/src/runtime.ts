@@ -79,15 +79,32 @@ export const useAuthStore = createAuthStore({
  * Başarısız: auth session temizlenir (bootstrapState → "anonymous");
  * _layout.tsx auth guard login'e yönlendirir.
  *
+ * Smoke report BUG 2 (2026-04-23) — concurrent 401 race:
+ * - Paralel queries aynı anda 401 alırsa iki refresh isteği BE'ye
+ *   aynı refresh_token ile gider; BE ilkini rotate eder, ikincisi
+ *   stale refresh token → 401 → session wipe → tokens silinir.
+ * - Mutex'le dedup: inflight refresh varken yeni caller aynı promise'i
+ *   bekler.
+ * - Hydrate tamamlanmadan refresh tentative'i no-op: pre-hydrate
+ *   accessToken=null ile fırlayan query 401 alır ve storage'ı temizler.
+ *
  * Çağrı apiClient bypass'lı doğrudan fetch (circular önle).
  */
+let inflightRefresh: Promise<string | null> | null = null;
+
 async function refreshAuthToken(): Promise<string | null> {
+  if (inflightRefresh) return inflightRefresh;
+  inflightRefresh = executeRefresh().finally(() => {
+    inflightRefresh = null;
+  });
+  return inflightRefresh;
+}
+
+async function executeRefresh(): Promise<string | null> {
   const authState = useAuthStore.getState();
+  if (!authState.hydrated) return null;
   const refreshToken = authState.refreshToken;
-  if (!refreshToken) {
-    await authState.setSession({ accessToken: null, refreshToken: null });
-    return null;
-  }
+  if (!refreshToken) return null;
   try {
     const response = await fetch(`${env.apiUrl}/auth/refresh`, {
       method: "POST",
