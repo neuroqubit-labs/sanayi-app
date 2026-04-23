@@ -1,8 +1,8 @@
-import type { ServiceCase } from "@naro/domain";
 import { Icon, Screen, Text } from "@naro/ui";
 import { Search, X } from "lucide-react-native";
 import { useDeferredValue, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Pressable,
@@ -11,13 +11,20 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useCasePool } from "@/features/jobs/api";
+import { useCasePoolLive } from "@/features/jobs/api.live";
+import type { PoolCaseItem } from "@/features/jobs/schemas";
 
-import { PoolReelsCard } from "../components/PoolReelsCard";
+import { PoolReelsCardLive } from "../components/PoolReelsCardLive";
 
 const HEADER_HEIGHT = 68;
 const TAB_BAR_BASE = 68;
 
+/**
+ * Canonical live pool screen — P1-4 iter 2 consumer migration 2026-04-23.
+ * useCasePool (mock) → useCasePoolLive (GET /pool/feed cursor paginated).
+ * PoolReelsCard (mock ServiceCase) → PoolReelsCardLive (canonical thin).
+ * Search artık title + subtitle + location + kind'a göre client-side.
+ */
 export function PoolScreen() {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -26,28 +33,31 @@ export function PoolScreen() {
   const cardHeight =
     screenHeight - HEADER_HEIGHT - TAB_BAR_BASE - insets.bottom - insets.top;
 
-  const { data: cases = [] } = useCasePool();
+  const feedQuery = useCasePoolLive();
+  const rawCases = useMemo(
+    () => feedQuery.data?.pages.flatMap((page) => page.items) ?? [],
+    [feedQuery.data],
+  );
 
   const filtered = useMemo(() => {
     const needle = deferredQuery.trim().toLowerCase();
-    if (!needle) return cases;
-    return cases.filter((caseItem) => {
+    if (!needle) return rawCases;
+    return rawCases.filter((caseItem) => {
       const haystacks = [
         caseItem.title,
-        caseItem.subtitle,
-        caseItem.summary,
+        caseItem.subtitle ?? "",
+        caseItem.location_label ?? "",
         caseItem.kind,
-        caseItem.request.breakdown_category ?? "",
-        caseItem.request.damage_area ?? "",
       ];
-      return haystacks.some((field) =>
-        field.toLowerCase().includes(needle),
-      );
+      return haystacks.some((field) => field.toLowerCase().includes(needle));
     });
-  }, [cases, deferredQuery]);
+  }, [rawCases, deferredQuery]);
 
   const getItemLayout = useMemo(() => {
-    return (_data: ArrayLike<ServiceCase> | null | undefined, index: number) => ({
+    return (
+      _data: ArrayLike<PoolCaseItem> | null | undefined,
+      index: number,
+    ) => ({
       length: cardHeight,
       offset: cardHeight * index,
       index,
@@ -88,12 +98,37 @@ export function PoolScreen() {
         </View>
       </View>
 
-      {hasResults ? (
-        <FlatList<ServiceCase>
+      {feedQuery.isLoading ? (
+        <View className="flex-1 items-center justify-center gap-2">
+          <ActivityIndicator color="#83a7ff" />
+          <Text tone="muted" variant="caption">
+            Havuz yükleniyor…
+          </Text>
+        </View>
+      ) : feedQuery.isError ? (
+        <View className="flex-1 items-center justify-center gap-3 px-6">
+          <Text variant="h3" tone="inverse" className="text-center">
+            Havuz yüklenemedi
+          </Text>
+          <Text tone="muted" className="text-center text-app-text-muted">
+            Bağlantını kontrol edip tekrar dene.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => feedQuery.refetch()}
+            className="rounded-full border border-brand-500/40 bg-brand-500/10 px-4 py-2 active:opacity-80"
+          >
+            <Text variant="label" tone="accent" className="text-[13px]">
+              Tekrar dene
+            </Text>
+          </Pressable>
+        </View>
+      ) : hasResults ? (
+        <FlatList<PoolCaseItem>
           data={filtered}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <PoolReelsCard caseItem={item} cardHeight={cardHeight} />
+            <PoolReelsCardLive caseItem={item} cardHeight={cardHeight} />
           )}
           showsVerticalScrollIndicator={false}
           snapToOffsets={snapOffsets}
@@ -102,12 +137,18 @@ export function PoolScreen() {
           initialNumToRender={2}
           maxToRenderPerBatch={3}
           windowSize={3}
+          onEndReached={() => {
+            if (feedQuery.hasNextPage && !feedQuery.isFetchingNextPage) {
+              feedQuery.fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.4}
         />
       ) : (
         <EmptyPool
           query={deferredQuery}
           hasQuery={hasQuery}
-          totalCases={cases.length}
+          totalCases={rawCases.length}
           onClearQuery={() => setQuery("")}
         />
       )}

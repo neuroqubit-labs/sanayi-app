@@ -109,9 +109,15 @@ function updateCaseById(
   };
 }
 
+// P1-4 launch migration (2026-04-23): `seedTrackingCases()` demo source
+// disable — launch path canlı `useCasePoolLive` + consumer migration.
+// Demo data sadece DEV ortamında test fixture olarak çağrılır (şu an
+// import edilmiş ama kullanılmıyor; preview mode V1.1'de flag'lenir).
+void seedTrackingCases;
+
 export const useJobsStore = create<JobsState>((set) => ({
   technicianId: PRIMARY_TECHNICIAN_ID,
-  cases: seedTrackingCases(),
+  cases: [],
   markSeen: (caseId) => {
     let updatedCase: ServiceCase | null = null;
 
