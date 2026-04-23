@@ -1,6 +1,10 @@
 services:
   postgres:
     image: postgis/postgis:16-3.4-alpine
+    # P0-2 follow-up: infra servislere restart policy — stop'ta worker
+    # bağlantı kaybedip crash-loop'a giriyordu (redis/postgres down →
+    # worker ConnectionError Exit 1).
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-naro}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-naro_dev}
@@ -17,6 +21,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "${REDIS_PUBLISHED_PORT:-6379}:6379"
     volumes:
@@ -29,6 +34,7 @@ services:
 
   localstack:
     image: localstack/localstack:3.8
+    restart: unless-stopped
     environment:
       SERVICES: s3
       AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
