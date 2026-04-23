@@ -1248,6 +1248,95 @@
         "title": "CaseCreateResponse",
         "type": "object"
       },
+      "CaseDetailResponse": {
+        "description": "Faz 1 canonical case architecture — shell + subtype + snapshot.\n\nSubtype dict kind'a göre shape alır (tow/accident/breakdown/maintenance).\nFE parity: kind bazlı discriminated union. Pilot V1 pratik şema; V2'de\ngeneric code generation (openapi → Zod) ile tip disipline edilecek.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ServiceRequestKind"
+          },
+          "location_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Label"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ServiceCaseStatus"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "urgency": {
+            "title": "Urgency",
+            "type": "string"
+          },
+          "vehicle_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VehicleSnapshotResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "urgency",
+          "title",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CaseDetailResponse",
+        "type": "object"
+      },
       "CaseKaskoState": {
         "enum": [
           "pending",
@@ -7509,6 +7598,86 @@
         "title": "VehicleResponse",
         "type": "object"
       },
+      "VehicleSnapshotResponse": {
+        "description": "Immutable vehicle snapshot — case create anında alınır.",
+        "properties": {
+          "current_km": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Km"
+          },
+          "fuel_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuel Type"
+          },
+          "make": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Make"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "plate": {
+            "title": "Plate",
+            "type": "string"
+          },
+          "vin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vin"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "plate"
+        ],
+        "title": "VehicleSnapshotResponse",
+        "type": "object"
+      },
       "VehicleUpdate": {
         "additionalProperties": false,
         "properties": {
@@ -9860,7 +10029,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CaseSummaryResponse"
+                  "$ref": "#/components/schemas/CaseDetailResponse"
                 }
               }
             },

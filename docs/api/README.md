@@ -420,7 +420,7 @@ Müşteri vaka (ServiceCase) CRUD + cancel.
 - **Auth:** role-dependent (see route)
 - **Özet:** Vaka detay (participant-only)
 - **Responses:**
-  - `200` — CaseSummaryResponse Successful Response
+  - `200` — CaseDetailResponse Successful Response
   - `422` — HTTPValidationError Validation Error
 
 ### POST /api/v1/cases/{case_id}/cancel
@@ -1156,6 +1156,7 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `CaseAttachmentDraft`
 - `CaseAttachmentKind`
 - `CaseCreateResponse`
+- `CaseDetailResponse`
 - `CaseKaskoState`
 - `CaseOfferStatus`
 - `CaseOverrideRequest`
@@ -1295,6 +1296,7 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `VehicleDossierView`
 - `VehicleFuelType`
 - `VehicleResponse`
+- `VehicleSnapshotResponse`
 - `VehicleUpdate`
 - `app__schemas__service_request__LatLng`
 - `app__schemas__tow__LatLng`

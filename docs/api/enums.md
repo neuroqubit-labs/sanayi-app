@@ -521,6 +521,9 @@ damage_insured
 damage_uninsured
 maintenance_standard
 maintenance_major
+breakdown_standard
+towing_immediate
+towing_scheduled
 ```
 
 **Kaynak:** `app/models/case_process.py`
