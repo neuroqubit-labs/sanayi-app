@@ -60,7 +60,12 @@ BILLING_TRANSITIONS: dict[BillingState, frozenset[BillingState]] = {
             BillingState.FULL_REFUNDED,
         }
     ),
-    BillingState.PREAUTH_FAILED: frozenset({BillingState.CANCELLED}),
+    # B-P0-3 fix: PREAUTH_FAILED → ESTIMATE retry path açık. Müşteri kart
+    # değiştirip yeni preauth deneyebilir (idempotency key retry attempt
+    # sayısıyla çeşitlenir: authorize:{case_id}:retry_{N}).
+    BillingState.PREAUTH_FAILED: frozenset(
+        {BillingState.ESTIMATE, BillingState.CANCELLED}
+    ),
     BillingState.ADDITIONAL_HOLD_REQUESTED: frozenset(
         {BillingState.ADDITIONAL_HELD, BillingState.PREAUTH_HELD}
     ),

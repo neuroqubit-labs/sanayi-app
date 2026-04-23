@@ -156,12 +156,23 @@ async def initiate_payment(
     5. FE 3DS tamamlandıktan sonra webhook gelir → process_3ds_callback
        state'i SUCCESS/FAILED'e çevirir + PREAUTH_HELD transition.
     """
+    # B-P0-3 fix: retry path — PREAUTH_FAILED ise önce ESTIMATE'e dön.
+    current_state = (
+        BillingState(case.billing_state) if case.billing_state else None
+    )
+    attempt_suffix = "initial"
+    if current_state == BillingState.PREAUTH_FAILED:
+        await _transition_billing_state(session, case, BillingState.ESTIMATE)
+        # Retry key — idempotency çakışmaz
+        attempt_n = await idem_repo.count_authorize_attempts(session, case.id)
+        attempt_suffix = f"retry_{attempt_n}"
+
     await _transition_billing_state(
         session, case, BillingState.PREAUTH_REQUESTED
     )
     buffer_factor = Decimal("1.2")
     preauth_amount = quantize_money(estimate_amount * buffer_factor)
-    idempotency_key = f"authorize:{case.id}:initial"
+    idempotency_key = f"authorize:{case.id}:{attempt_suffix}"
 
     # Idempotency cache — mevcutsa replay
     existing = await idem_repo.get_record(session, idempotency_key)

@@ -37,6 +37,21 @@ async def get_record(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+async def count_authorize_attempts(
+    session: AsyncSession, case_id: UUID
+) -> int:
+    """B-P0-3 fix: retry-aware idempotency key için mevcut authorize:*
+    attempt sayısı. Yeni retry key = `authorize:{case_id}:retry_{N}` ile
+    sonraki attempt.
+    """
+    stmt = select(PaymentIdempotency).where(
+        PaymentIdempotency.case_id == case_id,
+        PaymentIdempotency.operation == PaymentOperation.AUTHORIZE,
+    )
+    rows = list((await session.execute(stmt)).scalars().all())
+    return len(rows)
+
+
 async def insert_pending(
     session: AsyncSession,
     *,
