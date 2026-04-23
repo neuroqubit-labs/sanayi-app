@@ -468,42 +468,6 @@ export function useAppointmentCountdown(caseId: string) {
   return { label: `${minutes} dk ${seconds} sn kaldı`, expired: false };
 }
 
-export function useApprovePartsRequest(caseId: string) {
-  return useMutation({
-    mutationFn: async (approvalId: string) => {
-      const updatedCase = useCasesStore
-        .getState()
-        .approvePartsRequest(caseId, approvalId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
-export function useApproveInvoice(caseId: string) {
-  return useMutation({
-    mutationFn: async (approvalId: string) => {
-      const updatedCase = useCasesStore
-        .getState()
-        .approveInvoice(caseId, approvalId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
-export function useConfirmCompletion(caseId: string) {
-  return useMutation({
-    mutationFn: async (approvalId: string) => {
-      const updatedCase = useCasesStore
-        .getState()
-        .confirmCompletion(caseId, approvalId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
 export function useSendCaseMessage(caseId: string) {
   return useMutation({
     mutationFn: async ({

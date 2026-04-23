@@ -10,13 +10,10 @@ import type { AppointmentRequestPayload } from "@naro/mobile-core";
 import {
   appendCaseAttachment,
   approveAppointmentForCase,
-  approveCaseInvoice,
-  approveCaseParts,
   attachTechnicianToTrackingCase,
   cancelAppointmentForCase,
   cancelCaseByCustomer,
   confirmCaseAppointment,
-  confirmCaseCompletion,
   createTrackingDraftForKind,
   declineAppointmentForCase,
   expireAppointmentForCase,
@@ -50,15 +47,6 @@ type CasesState = {
   ) => ServiceCase;
   refreshMatching: (caseId: string) => ServiceCase | null;
   confirmAppointment: (caseId: string) => ServiceCase | null;
-  approvePartsRequest: (
-    caseId: string,
-    approvalId: string,
-  ) => ServiceCase | null;
-  approveInvoice: (caseId: string, approvalId: string) => ServiceCase | null;
-  confirmCompletion: (
-    caseId: string,
-    approvalId: string,
-  ) => ServiceCase | null;
   sendMessage: (
     caseId: string,
     body: string,
@@ -361,45 +349,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
 
     set((state) => {
       const result = updateCaseById(state.cases, caseId, confirmCaseAppointment);
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  approvePartsRequest: (caseId, approvalId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        approveCaseParts(caseItem, approvalId),
-      );
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  approveInvoice: (caseId, approvalId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        approveCaseInvoice(caseItem, approvalId),
-      );
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  confirmCompletion: (caseId, approvalId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        confirmCaseCompletion(caseItem, approvalId),
-      );
       updatedCase = result.updatedCase;
       return { cases: result.cases };
     });

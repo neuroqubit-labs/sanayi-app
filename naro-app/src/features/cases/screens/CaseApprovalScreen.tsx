@@ -4,12 +4,9 @@ import { ArrowLeft, FileText } from "lucide-react-native";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-  useApproveInvoice,
-  useApprovePartsRequest,
-  useCaseDetail,
-  useConfirmCompletion,
-} from "../api";
+import { useDecideApproval } from "@/features/approvals";
+
+import { useCaseDetail } from "../api";
 
 export function CaseApprovalScreen() {
   const router = useRouter();
@@ -18,9 +15,7 @@ export function CaseApprovalScreen() {
     approvalId: string;
   }>();
   const { data: caseItem } = useCaseDetail(id ?? "");
-  const approveParts = useApprovePartsRequest(id ?? "");
-  const approveInvoice = useApproveInvoice(id ?? "");
-  const confirmCompletion = useConfirmCompletion(id ?? "");
+  const decideApproval = useDecideApproval(id ?? "", approvalId ?? "");
 
   if (!caseItem) {
     return (
@@ -76,24 +71,11 @@ export function CaseApprovalScreen() {
         : "Teslimi onayla");
 
   async function onApprove() {
-    if (currentApproval.kind === "parts_request") {
-      await approveParts.mutateAsync(currentApproval.id);
-      router.replace(`/vaka/${currentCase.id}` as Href);
-      return;
-    }
-
-    if (currentApproval.kind === "invoice") {
-      await approveInvoice.mutateAsync(currentApproval.id);
-      router.replace(`/vaka/${currentCase.id}` as Href);
-      return;
-    }
-
-    await confirmCompletion.mutateAsync(currentApproval.id);
+    await decideApproval.mutateAsync({ decision: "approve" });
     router.replace(`/vaka/${currentCase.id}` as Href);
   }
 
-  const isLoading =
-    approveParts.isPending || approveInvoice.isPending || confirmCompletion.isPending;
+  const isLoading = decideApproval.isPending;
 
   return (
     <SafeAreaView className="flex-1 bg-app-bg">
