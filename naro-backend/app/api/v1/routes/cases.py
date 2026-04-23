@@ -315,6 +315,22 @@ async def cancel_case_endpoint(
     cascaded_approvals = await approval_flow.reject_all_pending_for_case(
         db, case.id
     )
+    # QA tur 2 P0-3 fix: linked tow cascade — accident/breakdown parent
+    # iptal edildiğinde child tow case'leri de TERMINAL'e taşı (system
+    # actor, fee 0). Faz 2 tow_case.parent_case_id reverse lookup.
+    cascaded_tow_case_ids: list[UUID] = []
+    if case.kind in (
+        ServiceRequestKind.ACCIDENT,
+        ServiceRequestKind.BREAKDOWN,
+    ):
+        linked_tow_ids = await case_repo.list_linked_tow_case_ids(db, case.id)
+        for child_tow_case_id in linked_tow_ids:
+            moved = await _cancel_linked_tow_case(
+                db, child_tow_case_id, actor_user_id=user.id
+            )
+            if moved:
+                cascaded_tow_case_ids.append(child_tow_case_id)
+
     await db.commit()
     await db.refresh(case)
 
@@ -355,6 +371,33 @@ async def cancel_case_endpoint(
                 context={
                     "approval_id": str(approval_id),
                     "reason": "case_cancelled",
+                },
+            )
+        # QA tur 2 P0-3: linked tow cascade event'leri — hem parent'a hem
+        # child tow shell'e CANCELLED emit (child timeline de dahil).
+        for child_tow_case_id in cascaded_tow_case_ids:
+            await append_event(
+                db,
+                case_id=case.id,
+                event_type=CaseEventType.CANCELLED,
+                title="Bağlı çekici talebi otomatik iptal edildi",
+                tone=CaseTone.NEUTRAL,
+                actor_user_id=user.id,
+                context={
+                    "linked_tow_case_id": str(child_tow_case_id),
+                    "reason": "parent_case_cancelled",
+                },
+            )
+            await append_event(
+                db,
+                case_id=child_tow_case_id,
+                event_type=CaseEventType.CANCELLED,
+                title="Çekici talebi otomatik iptal edildi (ana vaka iptal)",
+                tone=CaseTone.WARNING,
+                actor_user_id=user.id,
+                context={
+                    "parent_case_id": str(case.id),
+                    "reason": "parent_case_cancelled",
                 },
             )
         await db.commit()
@@ -545,3 +588,55 @@ async def list_case_events(
         for event, actor_role in page.items
     ]
     return CaseEventListResponse(items=items, next_cursor=page.next_cursor)
+
+
+# QA tur 2 P0-3 — linked tow cascade helper
+from datetime import UTC  # noqa: E402
+
+from sqlalchemy import update as _update  # noqa: E402
+
+from app.models.case import TowDispatchStage as _TowStage  # noqa: E402
+from app.models.case_subtypes import TowCase as _TowCaseModel  # noqa: E402
+
+
+async def _cancel_linked_tow_case(
+    db: DbDep, tow_case_id: UUID, *, actor_user_id: UUID
+) -> bool:
+    """Parent cascade tow iptali — fee 0, system actor, minimal
+    state mutation. `tow_lifecycle.cancel_case` full path (settlement,
+    refund, fee compute) kullanılmıyor çünkü parent cascade semantic
+    farklı: customer'a yeni charge yok, refund yok, sadece stage +
+    shell TERMINAL'e geçer.
+    """
+    tow = await db.get(_TowCaseModel, tow_case_id)
+    child_case = await db.get(ServiceCase, tow_case_id)
+    if tow is None or child_case is None:
+        return False
+    if child_case.status in (
+        ServiceCaseStatus.COMPLETED,
+        ServiceCaseStatus.CANCELLED,
+        ServiceCaseStatus.ARCHIVED,
+    ):
+        return False
+    # Tow stage her ne olursa olsun CANCELLED'e çek (parent cascade'de
+    # allowed transitions bypass — system actor full fare gerekli değil).
+    await db.execute(
+        _update(_TowCaseModel)
+        .where(_TowCaseModel.case_id == tow_case_id)
+        .values(tow_stage=_TowStage.CANCELLED)
+    )
+    # Shell CANCELLED (transition_case_status authority, wait_state temizler).
+    from app.services.case_lifecycle import transition_case_status as _tr
+
+    await _tr(
+        db, tow_case_id, ServiceCaseStatus.CANCELLED, actor_user_id=actor_user_id
+    )
+    # Occupancy lock release (assigned_technician_id varsa)
+    if child_case.assigned_technician_id:
+        from app.repositories import tow as _tow_repo
+
+        await _tow_repo.release_technician_offer(
+            db, child_case.assigned_technician_id
+        )
+    child_case.closed_at = datetime.now(UTC)
+    return True
