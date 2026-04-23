@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 import { useTechnicianPublicView } from "@/features/ustalar/api";
 import { useActiveVehicle } from "@/features/vehicles";
 import type { Vehicle } from "@/features/vehicles/types";
-import { apiClient } from "@/runtime";
+import { apiClient, useAuthStore } from "@/runtime";
 import { mockDelay } from "@/shared/lib/mock";
 import { queryClient } from "@/shared/lib/query";
 
@@ -355,9 +355,21 @@ export function useSubmitCase(kind: ServiceRequestKind) {
   });
 }
 
+/**
+ * Auth-ready guard — TanStack Query'nin `enabled`'i tetiklenmeden önce
+ * hydrate tamamlanıp accessToken'ın bulunmasını bekler. Login ekranda
+ * global sheet'ler mount olduğunda protected hook'ların fırlamaması
+ * için (QA tur 0 T3 fail).
+ */
+function useAuthReady(): boolean {
+  return useAuthStore((s) => s.hydrated && Boolean(s.accessToken));
+}
+
 export function useMyCasesLive() {
+  const authReady = useAuthReady();
   return useQuery({
     queryKey: ["cases", "me", "live"],
+    enabled: authReady,
     queryFn: async () => {
       const raw = await apiClient("/cases/me");
       return CaseSummaryResponseSchema.array().parse(raw);

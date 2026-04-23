@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import { apiClient } from "@/runtime";
+import { apiClient, useAuthStore } from "@/runtime";
 
 import {
   HistoryConsentPayloadSchema,
@@ -118,9 +118,16 @@ async function fetchVehicleDossier(id: string): Promise<VehicleDossier> {
 export function useVehicles() {
   const activeVehicleId = useVehicleStore((s) => s.activeVehicleId);
   const setActiveVehicle = useVehicleStore((s) => s.setActiveVehicle);
+  // QA tur 0 T3 fix (2026-04-23): login ekranda global
+  // VehicleSwitcherSheet mount'u `/vehicles/me` 401 attırıyordu.
+  // authReady gate → hydrate + accessToken şartını bekle.
+  const authReady = useAuthStore(
+    (s) => s.hydrated && Boolean(s.accessToken),
+  );
 
   const query = useQuery<VehicleResponse[]>({
     queryKey: ["vehicles", "me"],
+    enabled: authReady,
     queryFn: fetchMyVehicles,
     staleTime: 30 * 1000,
   });
