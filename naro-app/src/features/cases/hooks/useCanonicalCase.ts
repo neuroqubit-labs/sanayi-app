@@ -288,13 +288,17 @@ function buildRequestFromSubtype(
   detail: CaseDetailResponse,
 ): ServiceRequestDraft {
   const subtype = (detail.subtype ?? {}) as Record<string, unknown>;
-  const snapshot = detail.vehicle_snapshot;
   // Subtype attachment listesi BE response'ta exposed değil (v1).
   // request.attachments mock akış için boş kalır; canonical documents
   // `useCaseDocumentsLive`'dan zaten ayrı geliyor.
   const base: ServiceRequestDraft = {
     kind: detail.kind,
-    vehicle_id: snapshot?.plate ?? "",
+    // QA tur 1 P1-D fix: BE CaseDetailResponse'ta `vehicle_id` UUID
+    // henüz exposed değil (BE P1-F pending). Plaka display-only
+    // alan — `ServiceRequestDraft.vehicle_id` bir UUID beklediği için
+    // yazmıyoruz; consumer `useVehicle('')` guard'lı olduğundan 422
+    // atılmaz. Plaka zaten `VehicleSnapshotCard`'dan render ediliyor.
+    vehicle_id: "",
     urgency: (detail.urgency as ServiceRequestDraft["urgency"]) ?? "planned",
     summary: detail.summary ?? "",
     location_label: detail.location_label ?? "",
@@ -396,7 +400,10 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
     // Initial ServiceCase (syncTrackingCase bunu rich shape'e doldurur).
     const primary: ServiceCase = {
       id: detail.id,
-      vehicle_id: detail.vehicle_snapshot?.plate ?? "",
+      // QA tur 1 P1-D fix: plaka UUID alanına yazılamaz (BE vehicle_id
+      // expose etmiyor; CaseManagementScreen.useVehicle 422 atıyordu).
+      // Canonical vehicle_snapshot `VehicleSnapshotCard`'dan render edilir.
+      vehicle_id: "",
       kind: detail.kind as ServiceRequestKind,
       status: detail.status as ServiceCaseStatus,
       title: detail.title,
