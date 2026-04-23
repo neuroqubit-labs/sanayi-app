@@ -474,10 +474,9 @@ async def handle_invoice_approval(
         },
     )
 
-    # Case status → COMPLETED
-    case.status = ServiceCaseStatus.COMPLETED
-    case.closed_at = datetime.now(UTC)
-
+    # B-P1-2 fix: direct case.status COMPLETED write kaldırıldı.
+    # Billing SETTLED sonrası orchestrator try_complete gate'leri
+    # kontrol eder (completion approve + terminal guard dahil).
     # Kasko branching
     if has_kasko_claim:
         await _transition_billing_state(
@@ -493,6 +492,11 @@ async def handle_invoice_approval(
         await _transition_billing_state(
             session, case, BillingState.SETTLED
         )
+        # SETTLED sonrası orchestrator'a sor — completion approve varsa
+        # case COMPLETED'e geçer, yoksa INVOICE_APPROVAL'da bekler.
+        from app.services.case_completion import try_complete
+
+        await try_complete(session, case.id)
     return result
 
 

@@ -258,9 +258,13 @@ async def approve(
                     "required": "settled",
                 },
             )
-        await transition_case_status(
-            session, approval.case_id, ServiceCaseStatus.COMPLETED,
-            actor_user_id=actor_user_id,
+        # B-P1-2 fix: orchestrator authority — direct transition yerine
+        # try_complete, böylece 3 gate (operasyonel + billing + terminal)
+        # tek yerden enforce.
+        from app.services.case_completion import try_complete
+
+        await try_complete(
+            session, approval.case_id, actor_user_id=actor_user_id
         )
 
     await session.refresh(approval)
