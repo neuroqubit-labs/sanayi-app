@@ -5,7 +5,7 @@
 **Auth:** Bearer JWT (Authorization header), OTP login üzerinden
 **Content-Type:** `application/json`
 
-**Kapsam:** 119 endpoint, 111 unique path, 20 tag.
+**Kapsam:** 121 endpoint, 113 unique path, 20 tag.
 
 > Bu dokümana `scripts/export_openapi.py` + `scripts/render_api_readme.py`
 > ile `docs/api/openapi.json`'dan üretilir — manuel düzenleme YAPMA;
@@ -19,7 +19,7 @@
 - [auth](#auth) (5 endpoint)
 - [billing](#billing) (12 endpoint)
 - [case-thread](#case-thread) (3 endpoint)
-- [cases](#cases) (5 endpoint)
+- [cases](#cases) (7 endpoint)
 - [health](#health) (1 endpoint)
 - [insurance-claims](#insurance-claims) (7 endpoint)
 - [media](#media) (4 endpoint)
@@ -460,6 +460,23 @@ Müşteri vaka (ServiceCase) CRUD + cancel.
 - **Özet:** Vaka iptal (müşteri/admin)
 - **Responses:**
   - `200` — CaseSummaryResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### GET /api/v1/cases/{case_id}/documents
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Vaka belgeleri (participant-only)
+- **Responses:**
+  - `200` — CaseDocumentListResponse Successful Response
+  - `422` — HTTPValidationError Validation Error
+
+### GET /api/v1/cases/{case_id}/events
+
+- **Auth:** role-dependent (see route)
+- **Özet:** Vaka timeline (participant-only, cursor ASC)
+- **Query:** `cursor`, `limit`
+- **Responses:**
+  - `200` — CaseEventListResponse Successful Response
   - `422` — HTTPValidationError Validation Error
 
 ### PATCH /api/v1/cases/{case_id}/notes
@@ -1197,6 +1214,12 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `CaseAttachmentKind`
 - `CaseCreateResponse`
 - `CaseDetailResponse`
+- `CaseDocumentItem`
+- `CaseDocumentKind`
+- `CaseDocumentListResponse`
+- `CaseEventItem`
+- `CaseEventListResponse`
+- `CaseEventType`
 - `CaseKaskoState`
 - `CaseNotesPayload`
 - `CaseOfferStatus`
@@ -1204,6 +1227,7 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `CaseRefundReason`
 - `CaseRefundState`
 - `CaseSummaryResponse`
+- `CaseTone`
 - `CertResubmitPayload`
 - `CertSubmitPayload`
 - `CertificatePendingItem`

@@ -11,12 +11,14 @@ Draft endpoint'leri (POST/GET/DELETE /cases/drafts/*) ayrı brief kapsamında.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 
-from app.api.v1.deps import CurrentUserDep, CustomerDep, DbDep
+from app.api.v1.deps import CurrentUserDep, CustomerDep, DbDep, SettingsDep
+from app.integrations.storage import build_storage_gateway
 from app.models.case import (
     ServiceCase,
     ServiceCaseStatus,
@@ -31,9 +33,15 @@ from app.models.case_subtypes import (
 )
 from app.models.user import UserRole
 from app.repositories import case as case_repo
+from app.schemas.case_document import (
+    CaseDocumentItem,
+    CaseDocumentListResponse,
+    CaseEventItem,
+    CaseEventListResponse,
+)
 from app.schemas.case_thread import CaseNotesPayload
 from app.schemas.service_request import ServiceRequestDraftCreate
-from app.services import case_create
+from app.services import case_create, case_documents
 from app.services.case_events import append_event
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -391,3 +399,86 @@ def _subtype_view(
             "price_preference": subtype.price_preference,
         }
     return None
+
+
+# ─── Documents + Events (İş 5 — FE engine.ts blocker) ──────────────────
+
+
+@router.get(
+    "/{case_id}/documents",
+    response_model=CaseDocumentListResponse,
+    summary="Vaka belgeleri (participant-only)",
+)
+async def list_case_documents(
+    case_id: UUID,
+    user: CurrentUserDep,
+    db: DbDep,
+    settings: SettingsDep,
+) -> CaseDocumentListResponse:
+    case = await case_repo.get_case(db, case_id)
+    if case is None or case.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
+    _assert_participant(case, user_id=user.id, role=user.role)
+    storage = build_storage_gateway(settings)
+    views = await case_documents.list_documents(
+        db, case_id=case_id, storage=storage
+    )
+    items = [
+        CaseDocumentItem(
+            id=v.asset.id,
+            kind=case_documents.classify_document_kind(v.asset.purpose),
+            title=v.asset.original_filename or v.asset.object_key,
+            signed_url=v.signed_url,
+            uploader_role=v.uploader_role,
+            uploader_user_id=v.asset.uploaded_by_user_id,
+            uploaded_at=v.asset.uploaded_at or v.asset.created_at,
+            size_bytes=v.asset.size_bytes,
+            mime_type=v.asset.mime_type,
+            antivirus_verdict=case_documents.antivirus_verdict(
+                v.asset.antivirus_verdict
+            ),
+        )
+        for v in views
+    ]
+    return CaseDocumentListResponse(items=items)
+
+
+@router.get(
+    "/{case_id}/events",
+    response_model=CaseEventListResponse,
+    summary="Vaka timeline (participant-only, cursor ASC)",
+)
+async def list_case_events(
+    case_id: UUID,
+    user: CurrentUserDep,
+    db: DbDep,
+    cursor: str | None = Query(default=None),
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> CaseEventListResponse:
+    case = await case_repo.get_case(db, case_id)
+    if case is None or case.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
+    _assert_participant(case, user_id=user.id, role=user.role)
+    try:
+        page = await case_documents.list_events(
+            db, case_id=case_id, limit=limit, cursor=cursor
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail={"type": "invalid_cursor"}
+        ) from exc
+    items = [
+        CaseEventItem(
+            id=event.id,
+            type=event.event_type,
+            title=event.title,
+            body=event.body,
+            tone=CaseTone(event.tone),
+            actor_user_id=event.actor_user_id,
+            actor_role=actor_role,
+            context=event.context,
+            created_at=event.created_at,
+        )
+        for event, actor_role in page.items
+    ]
+    return CaseEventListResponse(items=items, next_cursor=page.next_cursor)

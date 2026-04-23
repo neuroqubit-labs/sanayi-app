@@ -1369,6 +1369,275 @@
         "title": "CaseDetailResponse",
         "type": "object"
       },
+      "CaseDocumentItem": {
+        "properties": {
+          "antivirus_verdict": {
+            "enum": [
+              "clean",
+              "pending",
+              "infected"
+            ],
+            "title": "Antivirus Verdict",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CaseDocumentKind"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "signed_url": {
+            "title": "Signed Url",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "uploaded_at": {
+            "format": "date-time",
+            "title": "Uploaded At",
+            "type": "string"
+          },
+          "uploader_role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "customer",
+                  "technician",
+                  "admin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploader Role"
+          },
+          "uploader_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploader User Id"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "signed_url",
+          "uploaded_at",
+          "size_bytes",
+          "mime_type",
+          "antivirus_verdict"
+        ],
+        "title": "CaseDocumentItem",
+        "type": "object"
+      },
+      "CaseDocumentKind": {
+        "description": "Case belge kategorisi (UI grouping için — 6 değer).\n\nMapping: media_assets.purpose (18 değer) → 6 kategori (helper:\napp.services.case_documents.classify_document_kind).",
+        "enum": [
+          "damage_photo",
+          "invoice",
+          "kasko_form",
+          "police_report",
+          "parts_receipt",
+          "other"
+        ],
+        "title": "CaseDocumentKind",
+        "type": "string"
+      },
+      "CaseDocumentListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseDocumentItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CaseDocumentListResponse",
+        "type": "object"
+      },
+      "CaseEventItem": {
+        "properties": {
+          "actor_role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "customer",
+                  "technician",
+                  "admin",
+                  "system"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Role"
+          },
+          "actor_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor User Id"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "context": {
+            "additionalProperties": true,
+            "title": "Context",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "tone": {
+            "$ref": "#/components/schemas/CaseTone"
+          },
+          "type": {
+            "$ref": "#/components/schemas/CaseEventType"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "tone",
+          "context",
+          "created_at"
+        ],
+        "title": "CaseEventItem",
+        "type": "object"
+      },
+      "CaseEventListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseEventItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CaseEventListResponse",
+        "type": "object"
+      },
+      "CaseEventType": {
+        "enum": [
+          "submitted",
+          "offer_received",
+          "offer_accepted",
+          "offer_rejected",
+          "offer_withdrawn",
+          "appointment_requested",
+          "appointment_approved",
+          "appointment_declined",
+          "appointment_cancelled",
+          "appointment_expired",
+          "appointment_counter",
+          "technician_selected",
+          "technician_unassigned",
+          "status_update",
+          "parts_requested",
+          "parts_approved",
+          "parts_rejected",
+          "invoice_shared",
+          "invoice_approved",
+          "evidence_added",
+          "document_added",
+          "message",
+          "wait_state_changed",
+          "completed",
+          "cancelled",
+          "archived",
+          "soft_deleted",
+          "insurance_claim_submitted",
+          "insurance_claim_accepted",
+          "insurance_claim_paid",
+          "insurance_claim_rejected",
+          "tow_stage_requested",
+          "tow_stage_committed",
+          "tow_evidence_added",
+          "tow_location_recorded",
+          "tow_fare_captured",
+          "tow_dispatch_candidate_selected",
+          "payment_initiated",
+          "payment_authorized",
+          "payment_captured",
+          "payment_refunded",
+          "commission_calculated",
+          "payout_scheduled",
+          "payout_completed",
+          "billing_state_changed",
+          "invoice_issued"
+        ],
+        "title": "CaseEventType",
+        "type": "string"
+      },
       "CaseKaskoState": {
         "enum": [
           "pending",
@@ -1518,6 +1787,18 @@
         ],
         "title": "CaseSummaryResponse",
         "type": "object"
+      },
+      "CaseTone": {
+        "enum": [
+          "accent",
+          "neutral",
+          "success",
+          "warning",
+          "critical",
+          "info"
+        ],
+        "title": "CaseTone",
+        "type": "string"
       },
       "CertResubmitPayload": {
         "additionalProperties": false,
@@ -10512,6 +10793,130 @@
         "summary": "Pre-auth void + case iptal (case owner, V1 %0 fee non-tow)",
         "tags": [
           "billing"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/documents": {
+      "get": {
+        "operationId": "list_case_documents_api_v1_cases__case_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseDocumentListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vaka belgeleri (participant-only)",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/api/v1/cases/{case_id}/events": {
+      "get": {
+        "operationId": "list_case_events_api_v1_cases__case_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEventListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vaka timeline (participant-only, cursor ASC)",
+        "tags": [
+          "cases"
         ]
       }
     },
