@@ -66,6 +66,12 @@ from app.models.case_process import (
     CaseTaskUrgency,
     CaseWorkflowBlueprint,
 )
+from app.models.case_subtypes import (
+    AccidentCase,
+    BreakdownCase,
+    MaintenanceCase,
+    TowCase,
+)
 from app.models.insurance_claim import (
     InsuranceClaim,
     InsuranceClaimStatus,
@@ -134,6 +140,7 @@ from app.models.user_payment_method import UserPaymentMethod
 from app.models.vehicle import UserVehicleLink, UserVehicleRole, Vehicle, VehicleFuelType
 
 __all__ = [
+    "AccidentCase",
     "Appointment",
     "AppointmentSlotKind",
     "AppointmentSource",
@@ -143,6 +150,7 @@ __all__ = [
     "AuthIdentityProvider",
     "AuthSession",
     "BrandTier",
+    "BreakdownCase",
     "CaseActor",
     "CaseApproval",
     "CaseApprovalEvidenceLink",
@@ -185,6 +193,7 @@ __all__ = [
     "InsuranceClaim",
     "InsuranceClaimStatus",
     "InsuranceCoverageKind",
+    "MaintenanceCase",
     "MediaAsset",
     "OtpChannel",
     "OtpCode",
@@ -228,6 +237,7 @@ __all__ = [
     "TechnicianWorkingSchedule",
     "TowCancellation",
     "TowCancellationActor",
+    "TowCase",
     "TowDispatchAttempt",
     "TowDispatchResponse",
     "TowDispatchStage",
