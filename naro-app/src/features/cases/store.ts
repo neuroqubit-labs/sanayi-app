@@ -6,7 +6,6 @@ import type {
   ServiceRequestDraft,
   ServiceRequestKind,
 } from "@naro/domain";
-import type { AppointmentRequestPayload } from "@naro/mobile-core";
 import {
   appendCaseAttachment,
   attachTechnicianToTrackingCase,
@@ -15,7 +14,6 @@ import {
   getTrackingServiceSnapshot,
   markCaseSeen,
   refreshMatchingCase,
-  requestAppointmentForCase,
   seedTrackingCases,
   sendCaseMessage,
   syncTrackingCase,
@@ -54,10 +52,6 @@ type CasesState = {
     vehicleId: string,
     technicianId: string,
   ) => ServiceRequestDraft;
-  requestAppointment: (
-    caseId: string,
-    payload: AppointmentRequestPayload,
-  ) => ServiceCase | null;
   addAttachment: (
     caseId: string,
     attachment: CaseAttachment,
@@ -399,19 +393,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
     }));
 
     return nextDraft;
-  },
-  requestAppointment: (caseId, payload) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        requestAppointmentForCase(caseItem, payload),
-      );
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
   },
   addAttachment: (caseId, attachment) => {
     let updatedCase: ServiceCase | null = null;
