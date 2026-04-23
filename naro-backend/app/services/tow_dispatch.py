@@ -23,6 +23,7 @@ from app.models.case import (
     TowMode,
 )
 from app.models.case_audit import CaseEventType
+from app.models.case_subtypes import TowCase
 from app.models.tow import TowDispatchResponse
 from app.repositories import tow as tow_repo
 from app.services.case_events import append_event
@@ -52,16 +53,21 @@ class DispatchDecision:
 async def initiate_dispatch(
     session: AsyncSession,
     case: ServiceCase,
+    tow_case: TowCase,
 ) -> DispatchDecision:
-    """Initial candidate selection + attempt INSERT + optimistic lock."""
-    if case.tow_mode != TowMode.IMMEDIATE:
+    """Initial candidate selection + attempt INSERT + optimistic lock.
+
+    Faz 1 canonical case architecture — tow state TowCase subtype'tan okunur.
+    """
+    if tow_case.tow_mode != TowMode.IMMEDIATE:
         raise ValueError("initiate_dispatch only valid for immediate mode")
-    if case.pickup_lat is None or case.pickup_lng is None:
-        raise ValueError("case has no pickup location")
+    if tow_case.pickup_lat is None or tow_case.pickup_lng is None:
+        raise ValueError("tow_case has no pickup location")
 
     return await _attempt_next_candidate(
         session,
         case=case,
+        tow_case=tow_case,
         attempt_order=1,
         excluded=[],
     )
@@ -71,6 +77,7 @@ async def record_dispatch_response(
     session: AsyncSession,
     *,
     case: ServiceCase,
+    tow_case: TowCase,
     attempt_id: UUID,
     response: TowDispatchResponse,
     actor_user_id: UUID,
@@ -92,7 +99,9 @@ async def record_dispatch_response(
         await tow_repo.pin_technician_to_case(
             session, attempt.technician_id, case.id
         )
-        await _transition_to_accepted(session, case, attempt.technician_id, actor_user_id)
+        await _transition_to_accepted(
+            session, case, tow_case, attempt.technician_id, actor_user_id
+        )
         return None
 
     # Decline or timeout → release lock + try next
@@ -100,14 +109,18 @@ async def record_dispatch_response(
     excluded = await tow_repo.list_attempt_technicians(session, case.id)
     next_order = attempt.attempt_order + 1
     if next_order > MAX_ATTEMPTS_BEFORE_POOL:
-        await _transition_to_pool_offered(session, case, actor_user_id)
+        await _transition_to_pool_offered(session, case, tow_case, actor_user_id)
         return None
     try:
         return await _attempt_next_candidate(
-            session, case=case, attempt_order=next_order, excluded=excluded
+            session,
+            case=case,
+            tow_case=tow_case,
+            attempt_order=next_order,
+            excluded=excluded,
         )
     except NoCandidateFoundError:
-        await _transition_to_pool_offered(session, case, actor_user_id)
+        await _transition_to_pool_offered(session, case, tow_case, actor_user_id)
         return None
 
 
@@ -115,22 +128,26 @@ async def _attempt_next_candidate(
     session: AsyncSession,
     *,
     case: ServiceCase,
+    tow_case: TowCase,
     attempt_order: int,
     excluded: list[UUID],
 ) -> DispatchDecision:
     required_equipment = (
-        [e.value if isinstance(e, TowEquipment) else e for e in case.tow_required_equipment]
-        if case.tow_required_equipment
+        [
+            e.value if isinstance(e, TowEquipment) else e
+            for e in tow_case.tow_required_equipment
+        ]
+        if tow_case.tow_required_equipment
         else None
     )
-    assert case.pickup_lat is not None and case.pickup_lng is not None
+    assert tow_case.pickup_lat is not None and tow_case.pickup_lng is not None
     candidate: dict[str, object] | None = None
     used_radius = DISPATCH_RADIUS_LADDER_KM[-1]
     for radius in DISPATCH_RADIUS_LADDER_KM:
         candidate = await tow_repo.select_next_candidate(
             session,
-            pickup_lat=case.pickup_lat,
-            pickup_lng=case.pickup_lng,
+            pickup_lat=tow_case.pickup_lat,
+            pickup_lng=tow_case.pickup_lng,
             radius_km=radius,
             excluded_technician_ids=excluded,
             required_equipment=required_equipment,
@@ -151,7 +168,11 @@ async def _attempt_next_candidate(
         # Another case grabbed the slot; skip and retry with exclusion
         excluded = [*excluded, tech_id]
         return await _attempt_next_candidate(
-            session, case=case, attempt_order=attempt_order, excluded=excluded
+            session,
+            case=case,
+            tow_case=tow_case,
+            attempt_order=attempt_order,
+            excluded=excluded,
         )
 
     distance = candidate["distance_km"]
@@ -198,6 +219,7 @@ async def _attempt_next_candidate(
 async def _transition_to_accepted(
     session: AsyncSession,
     case: ServiceCase,
+    tow_case: TowCase,
     technician_id: UUID,
     actor_user_id: UUID,
 ) -> None:
@@ -209,6 +231,7 @@ async def _transition_to_accepted(
     )
     if not moved:
         return
+    tow_case.tow_stage = TowDispatchStage.ACCEPTED
     case.assigned_technician_id = technician_id
     case.status = ServiceCaseStatus.SERVICE_IN_PROGRESS
     await append_event(
@@ -228,6 +251,7 @@ async def _transition_to_accepted(
 async def _transition_to_pool_offered(
     session: AsyncSession,
     case: ServiceCase,
+    tow_case: TowCase,
     actor_user_id: UUID,
 ) -> None:
     moved = await tow_repo.update_tow_stage_with_lock(
@@ -238,6 +262,7 @@ async def _transition_to_pool_offered(
     )
     if not moved:
         return
+    tow_case.tow_stage = TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL
     await append_event(
         session,
         case_id=case.id,

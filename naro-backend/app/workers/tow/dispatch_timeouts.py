@@ -24,13 +24,18 @@ async def dispatch_attempt_timeout(
         if attempt is None or attempt.response != TowDispatchResponse.PENDING:
             return
         from app.models.case import ServiceCase
+        from app.models.case_subtypes import TowCase
 
         case = await session.get(ServiceCase, attempt.case_id)
         if case is None:
             return
+        tow_case = await session.get(TowCase, attempt.case_id)
+        if tow_case is None:
+            return
         await dispatch_svc.record_dispatch_response(
             session,
             case=case,
+            tow_case=tow_case,
             attempt_id=attempt_uuid,
             response=TowDispatchResponse.TIMEOUT,
             actor_user_id=attempt.technician_id,

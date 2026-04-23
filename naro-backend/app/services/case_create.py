@@ -280,16 +280,6 @@ async def create_case(
             request_draft=draft.model_dump(mode="json"),
             preferred_technician_id=draft.preferred_technician_id,
         )
-        # Towing için case.py'daki tow_* kolonlar
-        if draft.kind == ServiceRequestKind.TOWING and draft.location_lat_lng:
-            case.pickup_lat = draft.location_lat_lng.lat
-            case.pickup_lng = draft.location_lat_lng.lng
-            case.pickup_address = draft.location_label
-            if draft.dropoff_lat_lng:
-                case.dropoff_lat = draft.dropoff_lat_lng.lat
-                case.dropoff_lng = draft.dropoff_lat_lng.lng
-                case.dropoff_address = draft.dropoff_label
-
         session.add(case)
         await session.flush()
 
@@ -334,7 +324,7 @@ async def create_case(
 # ─── Subtype dispatch (Faz 1c canonical case architecture) ───────────────
 
 
-async def _build_vehicle_snapshot(
+async def build_vehicle_snapshot(
     session: AsyncSession, vehicle_id: UUID
 ) -> dict[str, object]:
     """Immutable vehicle snapshot — case create anında populate.
@@ -375,7 +365,7 @@ async def _insert_subtype_row(
 
     Invariant: bir ServiceCase için bir subtype row (FK UNIQUE zaten PK).
     """
-    snapshot = await _build_vehicle_snapshot(session, case.vehicle_id)
+    snapshot = await build_vehicle_snapshot(session, case.vehicle_id)
     if draft.kind == ServiceRequestKind.TOWING:
         tow = TowCase(
             case_id=case.id,

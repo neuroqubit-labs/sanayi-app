@@ -24,6 +24,7 @@ from app.models.case import (
     TowDispatchStage,
 )
 from app.models.case_audit import CaseEventType, CaseTone
+from app.models.case_subtypes import TowCase
 from app.models.tow import TowCancellationActor
 from app.repositories import tow as tow_repo
 from app.services.case_events import append_event
@@ -114,14 +115,16 @@ async def transition_stage(
     session: AsyncSession,
     *,
     case: ServiceCase,
+    tow_case: TowCase,
     to_stage: TowDispatchStage,
     actor_user_id: UUID,
     skip_evidence_gate: bool = False,
 ) -> CommittedTransition:
-    """Outbox pattern — request event + atomic update + commit event."""
-    if case.tow_stage is None:
-        raise InvalidStageTransitionError("case has no tow_stage")
-    from_stage = case.tow_stage
+    """Outbox pattern — request event + atomic update + commit event.
+
+    Faz 1 canonical case architecture — tow_stage TowCase subtype'ta.
+    """
+    from_stage = tow_case.tow_stage
 
     allowed = _ALLOWED.get(from_stage, frozenset())
     if to_stage not in allowed:
@@ -154,10 +157,10 @@ async def transition_stage(
     )
     if not moved:
         raise InvalidStageTransitionError(
-            "concurrent update — case.tow_stage changed"
+            "concurrent update — tow_case.tow_stage changed"
         )
 
-    case.tow_stage = to_stage
+    tow_case.tow_stage = to_stage
     _sync_case_status(case, to_stage)
 
     # P0-2 fix: DELIVERED terminal → occupancy lock release (usta bir sonraki
@@ -195,6 +198,7 @@ async def cancel_case(
     session: AsyncSession,
     *,
     case: ServiceCase,
+    tow_case: TowCase,
     actor: TowCancellationActor,
     actor_user_id: UUID | None,
     reason_code: str,
@@ -203,11 +207,13 @@ async def cancel_case(
 ) -> Decimal:
     """Return: effective_fee (authoritative — route katmanı yeniden hesap
     yapmaz). `tow_cancellations.cancellation_fee` ile aynı değer.
+
+    Faz 1 canonical case architecture — tow state TowCase subtype'tan okunur.
     """
-    if case.tow_stage is None or case.tow_mode is None:
-        raise InvalidStageTransitionError("case has no tow state")
-    stage_at_cancel = case.tow_stage
-    fee = compute_cancellation_fee(case.tow_mode, stage_at_cancel, locked_price=locked_price)
+    stage_at_cancel = tow_case.tow_stage
+    fee = compute_cancellation_fee(
+        tow_case.tow_mode, stage_at_cancel, locked_price=locked_price
+    )
     # -1 → full fare (locked_price or estimate)
     effective_fee = (
         locked_price or case.estimate_amount or Decimal("0")
@@ -222,7 +228,7 @@ async def cancel_case(
     if not moved:
         raise InvalidStageTransitionError("concurrent update")
 
-    case.tow_stage = TowDispatchStage.CANCELLED
+    tow_case.tow_stage = TowDispatchStage.CANCELLED
     case.status = ServiceCaseStatus.CANCELLED
     case.closed_at = datetime.now(UTC)
 

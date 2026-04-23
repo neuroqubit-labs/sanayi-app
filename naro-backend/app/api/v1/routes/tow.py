@@ -33,7 +33,6 @@ from app.models.case import (
     ServiceRequestUrgency,
     TowDispatchStage,
     TowEquipment,
-    TowIncidentReason,
     TowMode,
 )
 from app.models.case_subtypes import TowCase
@@ -171,28 +170,13 @@ async def create_case(
         if tow_mode == TowMode.IMMEDIATE
         else "towing_scheduled",
         request_draft=payload.model_dump(mode="json"),
-        tow_mode=tow_mode,
-        tow_stage=initial_stage,
-        tow_required_equipment=[
-            TowEquipment(e.value) for e in payload.required_equipment
-        ] or None,
-        incident_reason=TowIncidentReason(payload.incident_reason.value),
-        scheduled_at=payload.scheduled_at,
-        pickup_lat=payload.pickup_lat_lng.lat,
-        pickup_lng=payload.pickup_lat_lng.lng,
-        pickup_address=payload.pickup_label,
-        dropoff_lat=payload.dropoff_lat_lng.lat if payload.dropoff_lat_lng else None,
-        dropoff_lng=payload.dropoff_lat_lng.lng if payload.dropoff_lat_lng else None,
-        dropoff_address=payload.dropoff_label,
-        tow_fare_quote=payload.fare_quote.model_dump(mode="json"),
     )
     db.add(case)
     await db.flush()
 
-    # Faz 1 canonical case architecture: TowCase subtype row + snapshot
-    # (mevcut service_cases.tow_* yazma paralel tutulur — Commit 5 DROP'ta
-    # kaldırılacak)
-    await _insert_tow_subtype_row(db, case, payload)
+    # Faz 1 canonical case architecture: TowCase subtype tek kaynak
+    # (service_cases.tow_* migration 0032 ile DROP edildi).
+    tow_case = await _insert_tow_subtype_row(db, case, payload)
 
     result: dict[str, object] = {"case_id": str(case.id), "stage": initial_stage.value}
 
@@ -226,7 +210,7 @@ async def create_case(
             ) from exc
 
         try:
-            decision = await dispatch_svc.initiate_dispatch(db, case)
+            decision = await dispatch_svc.initiate_dispatch(db, case, tow_case)
             result["first_attempt"] = {
                 "attempt_id": str(decision.attempt_id),
                 "technician_id": str(decision.technician_id),
@@ -235,7 +219,9 @@ async def create_case(
                 "radius_km": decision.radius_km,
             }
         except dispatch_svc.NoCandidateFoundError:
-            await dispatch_svc._transition_to_pool_offered(db, case, user.id)
+            await dispatch_svc._transition_to_pool_offered(
+                db, case, tow_case, user.id
+            )
             result["stage"] = TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL.value
 
     await db.commit()
@@ -260,6 +246,9 @@ async def get_case(
     if case is None or case.kind != ServiceRequestKind.TOWING:
         raise HTTPException(status_code=404, detail="tow case not found")
     _ensure_participant(case, user)
+    tow_case = await db.get(TowCase, case.id)
+    if tow_case is None:
+        raise HTTPException(status_code=404, detail="tow subtype not found")
     settlement = await tow_repo.get_settlement_by_case(db, case.id)
     from app.schemas.tow import LatLng
 
@@ -267,19 +256,36 @@ async def get_case(
         id=case.id,
         created_at=case.created_at,
         updated_at=case.updated_at,
-        mode=TowModeSchema(case.tow_mode.value) if case.tow_mode else TowModeSchema.IMMEDIATE,
-        stage=TowDispatchStageSchema(case.tow_stage.value) if case.tow_stage else TowDispatchStageSchema.SEARCHING,
+        mode=TowModeSchema(tow_case.tow_mode.value),
+        stage=TowDispatchStageSchema(tow_case.tow_stage.value),
         status=case.status.value,
-        pickup_lat_lng=LatLng(lat=case.pickup_lat, lng=case.pickup_lng) if case.pickup_lat is not None and case.pickup_lng is not None else None,
-        pickup_label=case.pickup_address,
-        dropoff_lat_lng=LatLng(lat=case.dropoff_lat, lng=case.dropoff_lng) if case.dropoff_lat is not None and case.dropoff_lng is not None else None,
-        dropoff_label=case.dropoff_address,
-        incident_reason=case.incident_reason,
-        required_equipment=case.tow_required_equipment or [],
-        scheduled_at=case.scheduled_at,
-        fare_quote=TowFareQuote(**case.tow_fare_quote) if case.tow_fare_quote else None,
+        pickup_lat_lng=(
+            LatLng(lat=tow_case.pickup_lat, lng=tow_case.pickup_lng)
+            if tow_case.pickup_lat is not None and tow_case.pickup_lng is not None
+            else None
+        ),
+        pickup_label=tow_case.pickup_address,
+        dropoff_lat_lng=(
+            LatLng(lat=tow_case.dropoff_lat, lng=tow_case.dropoff_lng)
+            if tow_case.dropoff_lat is not None
+            and tow_case.dropoff_lng is not None
+            else None
+        ),
+        dropoff_label=tow_case.dropoff_address,
+        incident_reason=tow_case.incident_reason,
+        required_equipment=tow_case.tow_required_equipment or [],
+        scheduled_at=tow_case.scheduled_at,
+        fare_quote=(
+            TowFareQuote(**tow_case.tow_fare_quote)
+            if tow_case.tow_fare_quote
+            else None
+        ),
         assigned_technician_id=case.assigned_technician_id,
-        settlement_status=TowSettlementStatusSchema(settlement.state.value) if settlement else TowSettlementStatusSchema.NONE,
+        settlement_status=(
+            TowSettlementStatusSchema(settlement.state.value)
+            if settlement
+            else TowSettlementStatusSchema.NONE
+        ),
         final_amount=settlement.final_amount if settlement else None,
         cancellation_fee=None,
     )
@@ -303,6 +309,9 @@ async def get_tracking(
     if case is None or case.kind != ServiceRequestKind.TOWING:
         raise HTTPException(status_code=404, detail="tow case not found")
     _ensure_participant(case, user)
+    tow_case = await db.get(TowCase, case.id)
+    if tow_case is None:
+        raise HTTPException(status_code=404, detail="tow subtype not found")
 
     last_location = None
     last_location_at = None
@@ -319,7 +328,7 @@ async def get_tracking(
 
     return TowTrackingSnapshot(
         case_id=case.id,
-        stage=TowDispatchStageSchema(case.tow_stage.value) if case.tow_stage else TowDispatchStageSchema.SEARCHING,
+        stage=TowDispatchStageSchema(tow_case.tow_stage.value),
         technician_id=case.assigned_technician_id,
         last_location=last_location,
         last_location_at=last_location_at,
@@ -345,6 +354,9 @@ async def respond_dispatch(
     case = await db.get(ServiceCase, case_id)
     if case is None or case.kind != ServiceRequestKind.TOWING:
         raise HTTPException(status_code=404, detail="tow case not found")
+    tow_case = await db.get(TowCase, case.id)
+    if tow_case is None:
+        raise HTTPException(status_code=404, detail="tow subtype not found")
     attempt = await db.get(
         __import__("app.models.tow", fromlist=["TowDispatchAttempt"]).TowDispatchAttempt,
         payload.attempt_id,
@@ -360,17 +372,14 @@ async def respond_dispatch(
     await dispatch_svc.record_dispatch_response(
         db,
         case=case,
+        tow_case=tow_case,
         attempt_id=payload.attempt_id,
         response=response,
         actor_user_id=tech.id,
         rejection_reason=payload.rejection_reason,
     )
     await db.commit()
-    next_stage = (
-        TowDispatchStageSchema(case.tow_stage.value)
-        if case.tow_stage is not None
-        else None
-    )
+    next_stage = TowDispatchStageSchema(tow_case.tow_stage.value)
     from app.schemas.tow import TowDispatchResponseSchema
 
     return TowDispatchResponseOutput(
@@ -492,6 +501,9 @@ async def cancel(
     if case is None or case.kind != ServiceRequestKind.TOWING:
         raise HTTPException(status_code=404, detail="tow case not found")
     _ensure_participant(case, user)
+    tow_case = await db.get(TowCase, case.id)
+    if tow_case is None:
+        raise HTTPException(status_code=404, detail="tow subtype not found")
     actor = (
         TowCancellationActor.CUSTOMER
         if case.customer_user_id == user.id
@@ -502,6 +514,7 @@ async def cancel(
     effective_fee = await lifecycle_svc.cancel_case(
         db,
         case=case,
+        tow_case=tow_case,
         actor=actor,
         actor_user_id=user.id,
         reason_code=payload.reason_code,
@@ -640,11 +653,10 @@ async def _insert_tow_subtype_row(
     db: AsyncSession,
     case: ServiceCase,
     payload: TowCreateCaseRequest,
-) -> None:
-    """Faz 1a canonical case architecture — TowCase subtype + snapshot.
+) -> TowCase:
+    """Faz 1 canonical case architecture — TowCase subtype + snapshot.
 
-    Shell (service_cases.tow_*) ile paralel yazılır; Commit 5 migration 0032
-    service_cases.tow_* DROP'tan sonra subtype tek kaynak olur.
+    service_cases.tow_* migration 0032 ile DROP edildi; subtype tek kaynak.
     """
     snapshot = await build_vehicle_snapshot(db, case.vehicle_id)
     tow_mode = TowMode(payload.mode.value)
@@ -656,6 +668,8 @@ async def _insert_tow_subtype_row(
     equipment = [
         TowEquipment(e.value) for e in payload.required_equipment
     ] or None
+    from app.models.case import TowIncidentReason
+
     tow_row = TowCase(
         case_id=case.id,
         tow_mode=tow_mode,
@@ -678,3 +692,4 @@ async def _insert_tow_subtype_row(
     )
     db.add(tow_row)
     await db.flush()
+    return tow_row

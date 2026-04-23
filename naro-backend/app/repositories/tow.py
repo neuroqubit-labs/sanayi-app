@@ -18,7 +18,8 @@ from sqlalchemy import and_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.case import ServiceCase, TowDispatchStage
+from app.models.case import TowDispatchStage
+from app.models.case_subtypes import TowCase
 from app.models.technician import TechnicianProfile
 from app.models.tow import (
     TowCancellation,
@@ -320,7 +321,10 @@ async def distance_from_pickup_m(
     tech_lat: float,
     tech_lng: float,
 ) -> float | None:
-    """Tech current position distance to case pickup (m) via PostGIS."""
+    """Tech current position distance to case pickup (m) via PostGIS.
+
+    Faz 1 canonical case architecture — pickup geography TowCase subtype'ta.
+    """
     row = (
         await session.execute(
             text(
@@ -329,8 +333,8 @@ async def distance_from_pickup_m(
                     pickup_location,
                     ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
                 ) AS meters
-                FROM service_cases
-                WHERE id = :case_id AND pickup_location IS NOT NULL
+                FROM tow_case
+                WHERE case_id = :case_id AND pickup_location IS NOT NULL
                 """
             ),
             {"case_id": case_id, "lat": tech_lat, "lng": tech_lng},
@@ -613,16 +617,19 @@ async def update_tow_stage_with_lock(
     from_stage: TowDispatchStage,
     to_stage: TowDispatchStage,
 ) -> bool:
-    """Atomic optimistic-locked transition. Returns True if stage moved."""
+    """Atomic optimistic-locked transition. Returns True if stage moved.
+
+    Faz 1 canonical case architecture — TowCase subtype authoritative.
+    """
     result = await session.execute(
-        update(ServiceCase)
+        update(TowCase)
         .where(
             and_(
-                ServiceCase.id == case_id,
-                ServiceCase.tow_stage == from_stage,
+                TowCase.case_id == case_id,
+                TowCase.tow_stage == from_stage,
             )
         )
-        .values(tow_stage=to_stage, updated_at=datetime.now(UTC))
+        .values(tow_stage=to_stage)
     )
     rowcount: int = int(getattr(result, "rowcount", 0) or 0)
     return rowcount > 0

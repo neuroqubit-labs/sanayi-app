@@ -14,9 +14,8 @@ from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID
 
-from geoalchemy2 import Geography
-from sqlalchemy import Computed, DateTime, Float, ForeignKey, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -179,49 +178,8 @@ class ServiceCase(UUIDPkMixin, TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
 
-    # Faz 10 — tow dispatch kolonları (kind='towing' için zorunlu; CHECK XOR)
-    tow_mode: Mapped[TowMode | None] = mapped_column(
-        pg_enum(TowMode, name="tow_mode"), nullable=True
-    )
-    tow_stage: Mapped[TowDispatchStage | None] = mapped_column(
-        pg_enum(TowDispatchStage, name="tow_dispatch_stage"), nullable=True
-    )
-    tow_required_equipment: Mapped[list[TowEquipment] | None] = mapped_column(
-        ARRAY(pg_enum(TowEquipment, name="tow_equipment", create_type=False)),
-        nullable=True,
-    )
-    incident_reason: Mapped[TowIncidentReason | None] = mapped_column(
-        pg_enum(TowIncidentReason, name="tow_incident_reason"), nullable=True
-    )
-    scheduled_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    pickup_lat: Mapped[float | None] = mapped_column(Float)
-    pickup_lng: Mapped[float | None] = mapped_column(Float)
-    pickup_address: Mapped[str | None] = mapped_column(String(500))
-    dropoff_lat: Mapped[float | None] = mapped_column(Float)
-    dropoff_lng: Mapped[float | None] = mapped_column(Float)
-    dropoff_address: Mapped[str | None] = mapped_column(String(500))
-    tow_fare_quote: Mapped[dict[str, object] | None] = mapped_column(JSONB)
-    # Generated columns — read-only (DB computed; INSERT/UPDATE yasak).
-    # SQLAlchemy `Computed` işareti ile ORM DML'lerden hariç tutulur.
-    _PICKUP_LOC_EXPR = (
-        "CASE WHEN pickup_lng IS NOT NULL AND pickup_lat IS NOT NULL "
-        "THEN ST_SetSRID(ST_MakePoint(pickup_lng, pickup_lat), 4326)::geography "
-        "ELSE NULL END"
-    )
-    _DROPOFF_LOC_EXPR = (
-        "CASE WHEN dropoff_lng IS NOT NULL AND dropoff_lat IS NOT NULL "
-        "THEN ST_SetSRID(ST_MakePoint(dropoff_lng, dropoff_lat), 4326)::geography "
-        "ELSE NULL END"
-    )
-    pickup_location: Mapped[str | None] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326),
-        Computed(_PICKUP_LOC_EXPR, persisted=True),
-        nullable=True,
-    )
-    dropoff_location: Mapped[str | None] = mapped_column(
-        Geography(geometry_type="POINT", srid=4326),
-        Computed(_DROPOFF_LOC_EXPR, persisted=True),
-        nullable=True,
-    )
+    # Faz 1 canonical case architecture (migration 0032):
+    # tow_mode / tow_stage / pickup+dropoff geo / incident_reason / scheduled_at
+    # / tow_fare_quote kolonları TowCase subtype tablosuna taşındı.
+    # Enum tipleri (TowMode/TowDispatchStage/TowEquipment/TowIncidentReason)
+    # aynı enumlar — tow_case'te create_type=False ile yeniden kullanılır.

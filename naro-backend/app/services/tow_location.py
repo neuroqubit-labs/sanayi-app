@@ -19,8 +19,8 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.case import ServiceCase
 from app.models.case_audit import CaseEventType
+from app.models.case_subtypes import TowCase
 from app.repositories import tow as tow_repo
 from app.services.case_events import append_event
 
@@ -121,18 +121,19 @@ async def record_location(
 async def sanity_check_arrival_distance(
     session: AsyncSession,
     *,
-    case: ServiceCase,
+    tow_case: TowCase,
     tech_lat: float,
     tech_lng: float,
 ) -> float:
     """Plan R7: arrived transition öncesi distance ≤ 500m kontrol.
 
     Fraud suspected → caller `auth_events.fraud_suspected` atar.
+    Faz 1 canonical case architecture — pickup TowCase subtype'tan okunur.
     """
-    assert case.pickup_lat is not None and case.pickup_lng is not None
+    assert tow_case.pickup_lat is not None and tow_case.pickup_lng is not None
     meters = await tow_repo.distance_from_pickup_m(
         session,
-        case_id=case.id,
+        case_id=tow_case.case_id,
         tech_lat=tech_lat,
         tech_lng=tech_lng,
     )
