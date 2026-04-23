@@ -16,6 +16,7 @@ import {
   Wrench,
   X,
 } from "lucide-react-native";
+import { useEffect, useRef } from "react";
 import { ActivityIndicator, Modal, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -66,8 +67,25 @@ export function UstaPreviewSheet() {
 
   const isOpen = Boolean(technicianId);
 
+  // Android Modal slide animasyonu sırasında, kart tıklamasındaki parmak hâlâ
+  // ekrandayken sheet yukarı kayıyor ve avatar Pressable tıklanan koordinata
+  // "altına" gelip phantom tap yutuyor → ilk açılışta openFullProfile fire ediyor.
+  // 350ms settle gate ile bunu önlüyoruz — kullanıcı gerçekten tekrar dokunana kadar navigate etme.
+  const navigateReady = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      navigateReady.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      navigateReady.current = true;
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [isOpen]);
+
   const openFullProfile = () => {
     if (!technicianId) return;
+    if (!navigateReady.current) return;
     close();
     router.push(`/usta/${technicianId}` as Href);
   };
