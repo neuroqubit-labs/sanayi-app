@@ -8,8 +8,7 @@ import { buildCustomerTrackingView } from "@naro/mobile-core";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import { pushNotification } from "@/features/notifications/api";
-import { mockTechnicianProfiles } from "@/features/ustalar/data/fixtures";
+import { useTechnicianPublicView } from "@/features/ustalar/api";
 import { useActiveVehicle } from "@/features/vehicles";
 import type { Vehicle } from "@/features/vehicles/types";
 import { apiClient } from "@/runtime";
@@ -395,65 +394,6 @@ export function useConfirmAppointment(caseId: string) {
   });
 }
 
-const MOCK_RESPONSE_DELAY_MS = 8000;
-const MOCK_APPROVE_RATE = 0.9;
-
-function scheduleMockAppointmentResponse(caseId: string, technicianId: string) {
-  const technician = mockTechnicianProfiles.find((t) => t.id === technicianId);
-  const technicianName = technician?.name ?? "Usta";
-  setTimeout(() => {
-    const current = useCasesStore
-      .getState()
-      .cases.find((item) => item.id === caseId);
-    if (!current || current.status !== "appointment_pending") {
-      return;
-    }
-    const shouldApprove = Math.random() < MOCK_APPROVE_RATE;
-    if (shouldApprove) {
-      useCasesStore.getState().approveAppointment(caseId);
-      pushNotification({
-        kind: "case_status",
-        title: `Randevu onaylandı — ${technicianName}`,
-        body: "Süreç başladı. Hazırlıkları görmek için vakaya dokun.",
-        route: `/vaka/${caseId}/surec`,
-      });
-    } else {
-      useCasesStore
-        .getState()
-        .declineAppointment(caseId, "Planlarım son dakikada değişti");
-      useTechnicianCooldownStore.getState().registerDecline(technicianId);
-      pushNotification({
-        kind: "case_status",
-        title: `Randevu reddedildi — ${technicianName}`,
-        body: "Usta şu an uygun değil. Alternatif önerilere bakabilirsin.",
-        route: `/vaka/${caseId}/surec`,
-      });
-    }
-    void invalidateCaseConsumers();
-  }, MOCK_RESPONSE_DELAY_MS);
-}
-
-export function useRequestAppointment() {
-  return useMutation({
-    mutationFn: async (input: {
-      caseId: string;
-      payload: import("@naro/mobile-core").AppointmentRequestPayload;
-    }) => {
-      const updatedCase = useCasesStore
-        .getState()
-        .requestAppointment(input.caseId, input.payload);
-      await invalidateCaseConsumers();
-      if (updatedCase) {
-        scheduleMockAppointmentResponse(
-          updatedCase.id,
-          input.payload.technician_id,
-        );
-      }
-      return updatedCase;
-    },
-  });
-}
-
 export function useCancelAppointment(caseId: string) {
   return useMutation({
     mutationFn: async () => {
@@ -643,7 +583,6 @@ export type TechnicianActionMode =
   | "open_case"
   | "attach_case"
   | "unavailable_busy"
-  | "unavailable_offline"
   | "unavailable_cooldown";
 
 export type TechnicianCaseAction = {
@@ -672,8 +611,8 @@ export function useTechnicianCaseAction(
   );
 
   const kind = getSuggestedRequestKindForVehicle(activeVehicle ?? null);
-  const technician = mockTechnicianProfiles.find((t) => t.id === technicianId);
-  const availability = technician?.availability ?? "available";
+  const { data: technician } = useTechnicianPublicView(technicianId);
+  const acceptingNewJobs = technician?.accepting_new_jobs ?? true;
 
   const isAttached = Boolean(
     activeCase &&
@@ -715,23 +654,7 @@ export function useTechnicianCaseAction(
       };
     }
 
-    if (availability === "offline") {
-      return {
-        mode: "unavailable_offline",
-        primaryLabel: "Çevrimdışı",
-        primaryRoute: "",
-        disabled: true,
-        helperText: "Usta şu an çevrimdışı.",
-        attachOnPrimary: false,
-        prefillOnPrimary: false,
-        description: "Usta çevrimdışı.",
-        kind,
-        caseId: activeCase.id,
-        offerId: null,
-      };
-    }
-
-    if (availability === "busy") {
+    if (!acceptingNewJobs) {
       return {
         mode: "unavailable_busy",
         primaryLabel: "Şu an müsait değil",

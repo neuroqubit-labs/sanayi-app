@@ -40,7 +40,7 @@ import {
 } from "@/features/billing";
 import { useCaseOffers } from "@/features/offers";
 import { useUstaPreviewStore } from "@/features/ustalar";
-import { mockTechnicianProfiles } from "@/features/ustalar/data/fixtures";
+import { useTechnicianPublicView } from "@/features/ustalar/api";
 import { useVehicle } from "@/features/vehicles";
 import { openMediaAsset } from "@/shared/media/openAsset";
 
@@ -146,13 +146,11 @@ export function CaseManagementScreen() {
   const offersQuery = useCaseOffers(caseId);
   const offers = offersQuery.data ?? [];
 
-  const assignedTechnician = useMemo(() => {
-    if (!caseItem) return null;
-    const techId =
-      caseItem.assigned_technician_id ?? caseItem.preferred_technician_id;
-    if (!techId) return null;
-    return mockTechnicianProfiles.find((t) => t.id === techId) ?? null;
-  }, [caseItem]);
+  const assignedTechnicianId =
+    caseItem?.assigned_technician_id ?? caseItem?.preferred_technician_id ?? "";
+  const { data: assignedTechnician } = useTechnicianPublicView(
+    assignedTechnicianId,
+  );
 
   if (!caseItem) {
     return (
@@ -336,26 +334,28 @@ export function CaseManagementScreen() {
         {assignedTechnician && !showFinderHint ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${assignedTechnician.name} önizleme`}
+            accessibilityLabel={`${assignedTechnician.display_name} önizleme`}
             onPress={() => openPreview(assignedTechnician.id)}
             className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
           >
-            <Avatar name={assignedTechnician.name} size="md" />
+            <Avatar name={assignedTechnician.display_name} size="md" />
             <View className="flex-1 gap-0.5">
               <Text variant="eyebrow" tone="subtle">
                 Atanan usta
               </Text>
               <Text variant="label" tone="inverse" className="text-[14px]">
-                {assignedTechnician.name}
+                {assignedTechnician.display_name}
               </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-muted text-[12px]"
-                numberOfLines={1}
-              >
-                {assignedTechnician.tagline}
-              </Text>
+              {assignedTechnician.tagline ? (
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted text-[12px]"
+                  numberOfLines={1}
+                >
+                  {assignedTechnician.tagline}
+                </Text>
+              ) : null}
             </View>
             <Icon icon={ChevronRight} size={16} color="#83a7ff" />
           </Pressable>

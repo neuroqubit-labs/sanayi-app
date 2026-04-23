@@ -25,7 +25,6 @@ import { useMemo } from "react";
 import { Alert, Pressable, ScrollView, View } from "react-native";
 
 import { useUnreadNotificationCount } from "@/features/notifications";
-import { mockTechnicianProfiles } from "@/features/ustalar/data/fixtures";
 import {
   useActiveVehicle,
   useVehicleSwitcherStore,
@@ -40,7 +39,6 @@ import {
   MEMBERSHIP_LABEL,
   PROFILE_MENU_SECTIONS,
 } from "../data/fixtures";
-import { useFavoriteTechniciansStore } from "../favorites-store";
 import { useUserProfileStore } from "../user-store";
 
 export function ProfileScreen() {
@@ -50,20 +48,8 @@ export function ProfileScreen() {
   const { data: activeVehicle } = useActiveVehicle();
   const openVehicleSwitcher = useVehicleSwitcherStore((state) => state.open);
   const unreadNotifications = useUnreadNotificationCount();
-  const favoriteIds = useFavoriteTechniciansStore((state) => state.ids);
   const userName = useUserProfileStore((state) => state.name);
   const userPhone = useUserProfileStore((state) => state.phone);
-
-  const favoriteTechnicians = useMemo(
-    () =>
-      favoriteIds
-        .map((id) => mockTechnicianProfiles.find((profile) => profile.id === id))
-        .filter(
-          (profile): profile is (typeof mockTechnicianProfiles)[number] =>
-            Boolean(profile),
-        ),
-    [favoriteIds],
-  );
 
   const maintenanceReminders = useMemo(() => {
     return (vehicles ?? []).flatMap((vehicle) =>
@@ -292,48 +278,21 @@ export function ProfileScreen() {
         </View>
       ) : null}
 
-      {/* Favori ustalar */}
+      {/* Favori ustalar — V1.1 */}
       <View className="gap-3">
         <SectionHeader
           title="Favori ustalar"
           description="Usta profilinde kalbe basarak buraya eklediklerin."
-          actionLabel="Çarşıya git"
-          onActionPress={() => router.push("/(tabs)/carsi")}
         />
-        {favoriteTechnicians.length > 0 ? (
-          <View className="gap-3">
-            {favoriteTechnicians.map((technician) => (
-              <PremiumListRow
-                key={technician.id}
-                title={technician.name}
-                subtitle={technician.tagline}
-                leading={<Avatar name={technician.name} size="md" />}
-                badge={
-                  <TrustBadge
-                    label={technician.rating.toFixed(1)}
-                    tone="accent"
-                  />
-                }
-                trailing={
-                  <Text variant="caption" tone="subtle">
-                    {technician.distanceKm.toFixed(1)} km
-                  </Text>
-                }
-                onPress={() => router.push(`/usta/${technician.id}` as Href)}
-              />
-            ))}
-          </View>
-        ) : (
-          <View className="items-start gap-2 rounded-[22px] border border-dashed border-app-outline bg-app-surface px-4 py-4">
-            <Text variant="label" tone="inverse">
-              Henüz favorin yok
-            </Text>
-            <Text tone="muted" className="text-app-text-muted">
-              Çarşı'dan beğendiğin ustanın profiline gir ve üstteki kalp
-              ikonuna dokun — buradan tek tıkla tekrar ulaşırsın.
-            </Text>
-          </View>
-        )}
+        <View className="items-start gap-2 rounded-[22px] border border-dashed border-app-outline bg-app-surface px-4 py-4">
+          <Text variant="label" tone="inverse">
+            Yakında
+          </Text>
+          <Text tone="muted" className="text-app-text-muted">
+            Favori ustalar listesi pilot sonrası açılacak. Şimdilik Çarşı'dan
+            beğendiğin ustaların profiline her zaman erişebilirsin.
+          </Text>
+        </View>
       </View>
 
       {/* Korunmuş ödemeler */}
