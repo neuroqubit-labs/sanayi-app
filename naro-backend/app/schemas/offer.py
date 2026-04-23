@@ -13,10 +13,16 @@ from app.schemas.appointment import AppointmentSlot
 
 
 class OfferSubmit(BaseModel):
+    """Canonical usta teklif submit payload.
+
+    B-P2-3 (2026-04-23): technician_id schema'dan çıkarıldı — auth'dan
+    türetilir (security: teknisyen başka kişi adına teklif gönderemesin).
+    Route inline payload artık canonical import'tan geliyor.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     case_id: UUID
-    technician_id: UUID
     headline: str = Field(min_length=1, max_length=255)
     description: str | None = None
     amount: Decimal = Field(ge=0)

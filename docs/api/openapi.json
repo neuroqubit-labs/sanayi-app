@@ -1697,7 +1697,12 @@
           "payout_scheduled",
           "payout_completed",
           "billing_state_changed",
-          "invoice_issued"
+          "invoice_issued",
+          "offer_auto_rejected",
+          "appointment_auto_cancelled",
+          "approval_auto_rejected",
+          "offer_expired",
+          "auto_archived"
         ],
         "title": "CaseEventType",
         "type": "string"
