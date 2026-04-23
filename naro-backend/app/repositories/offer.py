@@ -282,3 +282,26 @@ async def expire_stale_offers(
         .values(status=CaseOfferStatus.EXPIRED)
     )
     return int(result.rowcount or 0)
+
+
+async def expire_stale_offers_returning(
+    session: AsyncSession, *, before: datetime | None = None
+) -> list[tuple[UUID, UUID]]:
+    """B-P1-6 fix: expire + RETURNING (offer_id, case_id) — cron event emit
+    için per-offer context döner.
+    """
+    threshold = before or datetime.now(UTC)
+    stmt = (
+        update(CaseOffer)
+        .where(
+            and_(
+                CaseOffer.status == CaseOfferStatus.PENDING,
+                CaseOffer.expires_at.is_not(None),
+                CaseOffer.expires_at <= threshold,
+            )
+        )
+        .values(status=CaseOfferStatus.EXPIRED)
+        .returning(CaseOffer.id, CaseOffer.case_id)
+    )
+    rows = (await session.execute(stmt)).all()
+    return [(r[0], r[1]) for r in rows]

@@ -8,6 +8,7 @@ from app.workers.media import process_media_asset
 from app.workers.media_antivirus import media_antivirus_scan
 from app.workers.media_orphan_purge import media_orphan_purge
 from app.workers.media_retention_sweep import media_retention_sweep
+from app.workers.offer_expiry import offer_expiry_job
 from app.workers.tow.dispatch_timeouts import (
     current_offer_expiry,
     dispatch_attempt_timeout,
@@ -43,6 +44,12 @@ class WorkerSettings:
         cron(location_retention_purge, hour={3}, minute={0}, unique=True),
         cron(media_orphan_purge, hour={3}, minute={30}, unique=True),
         cron(media_retention_sweep, hour={4}, minute={0}, unique=True),
+        # B-P1-6: offer expiry sweep (pilot ölçeğinde 5 dk yeter)
+        cron(
+            offer_expiry_job,
+            minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
+            unique=True,
+        ),
     ]
     on_startup = startup
     on_shutdown = shutdown
