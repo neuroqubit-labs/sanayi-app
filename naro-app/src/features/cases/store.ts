@@ -9,14 +9,11 @@ import type {
 import type { AppointmentRequestPayload } from "@naro/mobile-core";
 import {
   appendCaseAttachment,
-  approveAppointmentForCase,
   attachTechnicianToTrackingCase,
   cancelAppointmentForCase,
   cancelCaseByCustomer,
   confirmCaseAppointment,
   createTrackingDraftForKind,
-  declineAppointmentForCase,
-  expireAppointmentForCase,
   getTrackingServiceSnapshot,
   markCaseSeen,
   refreshMatchingCase,
@@ -63,9 +60,6 @@ type CasesState = {
     caseId: string,
     payload: AppointmentRequestPayload,
   ) => ServiceCase | null;
-  approveAppointment: (caseId: string) => ServiceCase | null;
-  declineAppointment: (caseId: string, reason?: string) => ServiceCase | null;
-  expireAppointment: (caseId: string) => ServiceCase | null;
   cancelAppointment: (caseId: string) => ServiceCase | null;
   cancelCase: (caseId: string, reason?: string) => ServiceCase | null;
   addAttachment: (
@@ -417,41 +411,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
       const result = updateCaseById(state.cases, caseId, (caseItem) =>
         requestAppointmentForCase(caseItem, payload),
       );
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  approveAppointment: (caseId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, approveAppointmentForCase);
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  declineAppointment: (caseId, reason) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        declineAppointmentForCase(caseItem, reason),
-      );
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  expireAppointment: (caseId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, expireAppointmentForCase);
       updatedCase = result.updatedCase;
       return { cases: result.cases };
     });

@@ -35,11 +35,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   useAppointmentCountdown,
-  useApproveAppointmentMock,
   useCancelAppointment,
   useCaseDetail,
   useCustomerTrackingView,
-  useDeclineAppointmentMock,
   useMarkCaseSeen,
 } from "../api";
 
@@ -301,8 +299,6 @@ export function CaseDetailScreen() {
   const markSeen = useMarkCaseSeen(id ?? "");
   const countdown = useAppointmentCountdown(id ?? "");
   const cancelAppointment = useCancelAppointment(id ?? "");
-  const approveAppointmentMock = useApproveAppointmentMock(id ?? "");
-  const declineAppointmentMock = useDeclineAppointmentMock(id ?? "");
 
   useEffect(() => {
     if (id) {
@@ -325,8 +321,6 @@ export function CaseDetailScreen() {
   const isPendingAppointment = caseItem.status === "appointment_pending";
   const appointmentDeclined = caseItem.appointment?.status === "declined";
   const appointmentExpired = caseItem.appointment?.status === "expired";
-  const isDev = typeof __DEV__ !== "undefined" && __DEV__;
-
   return (
     <SafeAreaView className="flex-1 bg-app-bg">
       <Screen scroll backgroundClassName="bg-app-bg" className="gap-5 pb-32">
@@ -397,24 +391,6 @@ export function CaseDetailScreen() {
                 />
               </View>
             </View>
-            {isDev ? (
-              <View className="flex-row gap-2 border-t border-app-warning/30 pt-3">
-                <Button
-                  label="[dev] Onayla"
-                  size="sm"
-                  variant="outline"
-                  className="flex-1"
-                  onPress={() => void approveAppointmentMock.mutateAsync()}
-                />
-                <Button
-                  label="[dev] Reddet"
-                  size="sm"
-                  variant="outline"
-                  className="flex-1"
-                  onPress={() => void declineAppointmentMock.mutateAsync()}
-                />
-              </View>
-            ) : null}
           </Surface>
         ) : null}
 

@@ -405,28 +405,6 @@ export function useUpdateCaseNotes() {
   });
 }
 
-export function useApproveAppointmentMock(caseId: string) {
-  return useMutation({
-    mutationFn: async () => {
-      const updatedCase = useCasesStore.getState().approveAppointment(caseId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
-export function useDeclineAppointmentMock(caseId: string) {
-  return useMutation({
-    mutationFn: async () => {
-      const updatedCase = useCasesStore
-        .getState()
-        .declineAppointment(caseId, "Planlarım değişti");
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
 export function useActiveAppointmentRequestsCount() {
   const { data } = useCasesFeed();
   return (data ?? []).filter(
