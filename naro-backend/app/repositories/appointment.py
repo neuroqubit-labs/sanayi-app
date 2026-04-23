@@ -127,6 +127,33 @@ async def get_pending_for_technician(
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def cancel_all_for_case(
+    session: AsyncSession, case_id: UUID
+) -> list[UUID]:
+    """B-P0-4 fix: case cancel cascade — PENDING/APPROVED → CANCELLED.
+
+    Returns: etkilenen appointment_id listesi.
+    """
+    stmt = (
+        update(Appointment)
+        .where(
+            and_(
+                Appointment.case_id == case_id,
+                Appointment.status.in_(
+                    (AppointmentStatus.PENDING, AppointmentStatus.APPROVED)
+                ),
+            )
+        )
+        .values(
+            status=AppointmentStatus.CANCELLED,
+            responded_at=datetime.now(UTC),
+        )
+        .returning(Appointment.id)
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    return list(rows)
+
+
 async def expire_pending_appointments(
     session: AsyncSession, *, before: datetime | None = None
 ) -> int:

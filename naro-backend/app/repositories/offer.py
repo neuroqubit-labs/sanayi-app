@@ -132,6 +132,34 @@ async def customer_reject_offer(session: AsyncSession, offer_id: UUID) -> None:
     )
 
 
+async def reject_all_pending_for_case(
+    session: AsyncSession, case_id: UUID
+) -> list[UUID]:
+    """B-P0-4 fix: case cancel cascade — PENDING/SHORTLISTED → REJECTED.
+
+    Returns: etkilenen offer_id listesi (cascade event emit için caller
+    kullanır).
+    """
+    stmt = (
+        update(CaseOffer)
+        .where(
+            and_(
+                CaseOffer.case_id == case_id,
+                CaseOffer.status.in_(
+                    (CaseOfferStatus.PENDING, CaseOfferStatus.SHORTLISTED)
+                ),
+            )
+        )
+        .values(
+            status=CaseOfferStatus.REJECTED,
+            rejected_at=datetime.now(UTC),
+        )
+        .returning(CaseOffer.id)
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    return list(rows)
+
+
 async def mark_accepted_atomic(
     session: AsyncSession, offer_id: UUID
 ) -> CaseOffer | None:

@@ -75,6 +75,12 @@ class CaseEventType(StrEnum):
     PAYOUT_COMPLETED = "payout_completed"
     BILLING_STATE_CHANGED = "billing_state_changed"
     INVOICE_ISSUED = "invoice_issued"
+    # Plan be-pilot-finale-lifecycle-fixes (2026-04-23)
+    OFFER_AUTO_REJECTED = "offer_auto_rejected"
+    APPOINTMENT_AUTO_CANCELLED = "appointment_auto_cancelled"
+    APPROVAL_AUTO_REJECTED = "approval_auto_rejected"
+    OFFER_EXPIRED = "offer_expired"
+    AUTO_ARCHIVED = "auto_archived"
 
 
 class CaseTone(StrEnum):

@@ -58,6 +58,29 @@ class CompletionGateError(ValueError):
         self.missing = missing
 
 
+async def reject_all_pending_for_case(
+    session: AsyncSession, case_id: UUID
+) -> list[UUID]:
+    """B-P0-4 fix: case cancel cascade — PENDING approvals → REJECTED.
+
+    Returns: etkilenen approval_id listesi (cascade event emit için).
+    """
+    stmt = (
+        update(CaseApproval)
+        .where(
+            CaseApproval.case_id == case_id,
+            CaseApproval.status == CaseApprovalStatus.PENDING,
+        )
+        .values(
+            status=CaseApprovalStatus.REJECTED,
+            responded_at=datetime.now(UTC),
+        )
+        .returning(CaseApproval.id)
+    )
+    rows = (await session.execute(stmt)).scalars().all()
+    return list(rows)
+
+
 async def request_approval(
     session: AsyncSession,
     *,
