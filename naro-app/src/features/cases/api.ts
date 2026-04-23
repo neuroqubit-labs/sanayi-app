@@ -39,6 +39,13 @@ import {
   type ThreadMessageResponse,
   type ThreadSendErrorDetail,
 } from "./schemas/thread";
+import {
+  CaseDocumentListResponseSchema,
+  CaseEventListResponseSchema,
+  type CaseDocumentItem,
+  type CaseEventItem,
+  type CaseEventListResponse,
+} from "./schemas/timeline";
 import { useCasesStore } from "./store";
 
 const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
@@ -512,6 +519,60 @@ export function useMarkCaseThreadSeenLive(caseId: string) {
       });
     },
   });
+}
+
+// ─── İş 5 timeline live hooks (2026-04-23) — documents + events ────────────
+
+/**
+ * Case belgeleri — BE source-of-truth `media_assets.linked_case_id`.
+ * Pilot V1 cursor yok (küçük set); V1.1 cursor eklenir.
+ */
+export function useCaseDocumentsLive(caseId: string) {
+  return useQuery<CaseDocumentItem[]>({
+    queryKey: ["cases", "documents", "live", caseId],
+    enabled: caseId.length > 0,
+    queryFn: async () => {
+      const raw = await apiClient(`/cases/${caseId}/documents`);
+      return CaseDocumentListResponseSchema.parse(raw).items;
+    },
+    staleTime: 15 * 1000,
+  });
+}
+
+/**
+ * Case events timeline — BE append-only `case_events`. ASC cursor
+ * paginated (50/page). Engine canonical milestones + evidence_feed
+ * derivation'u için primary stream.
+ */
+const EVENTS_PAGE_LIMIT = 50;
+
+export function useCaseEventsLive(caseId: string) {
+  return useInfiniteQuery({
+    queryKey: ["cases", "events", "live", caseId],
+    enabled: caseId.length > 0,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({ limit: String(EVENTS_PAGE_LIMIT) });
+      if (pageParam) params.set("cursor", pageParam);
+      const raw = await apiClient(
+        `/cases/${caseId}/events?${params.toString()}`,
+      );
+      return CaseEventListResponseSchema.parse(raw);
+    },
+    getNextPageParam: (lastPage: CaseEventListResponse) =>
+      lastPage.next_cursor ?? undefined,
+    staleTime: 10 * 1000,
+  });
+}
+
+/**
+ * Flatten helper — useInfiniteQuery output → tek array (ASC kronolojik).
+ */
+export function flattenCaseEvents(
+  data: ReturnType<typeof useCaseEventsLive>["data"],
+): CaseEventItem[] {
+  const pages = data?.pages ?? [];
+  return pages.flatMap((p) => p.items);
 }
 
 /**
