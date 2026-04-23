@@ -100,12 +100,20 @@ class CaseApprovalStatus(StrEnum):
 
 
 class CaseWorkflowBlueprint(StrEnum):
-    """App-level; service_cases.workflow_blueprint string olarak tutulur."""
+    """App-level; service_cases.workflow_blueprint string olarak tutulur.
+
+    P0-4 fix (audit 2026-04-23 workflow drift): breakdown_standard +
+    towing_immediate/scheduled enum olarak eklendi; önceden breakdown
+    ve tow fallback ile `maintenance_standard`'a düşüyordu (yanlış copy).
+    """
 
     DAMAGE_INSURED = "damage_insured"
     DAMAGE_UNINSURED = "damage_uninsured"
     MAINTENANCE_STANDARD = "maintenance_standard"
     MAINTENANCE_MAJOR = "maintenance_major"
+    BREAKDOWN_STANDARD = "breakdown_standard"
+    TOWING_IMMEDIATE = "towing_immediate"
+    TOWING_SCHEDULED = "towing_scheduled"
 
 
 # ─── Tables ─────────────────────────────────────────────────────────────────

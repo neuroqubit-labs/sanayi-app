@@ -24,9 +24,17 @@ from app.models.case import (
     ServiceCase,
     ServiceCaseStatus,
     ServiceRequestKind,
+    TowDispatchStage,
+    TowMode,
 )
 from app.models.case_audit import CaseEventType, CaseTone
 from app.models.case_process import CaseWorkflowBlueprint
+from app.models.case_subtypes import (
+    AccidentCase,
+    BreakdownCase,
+    MaintenanceCase,
+    TowCase,
+)
 from app.models.media import MediaAsset, MediaStatus
 from app.models.vehicle import UserVehicleLink, Vehicle
 from app.observability.metrics import (
@@ -149,6 +157,11 @@ REQUIRED_ATTACHMENT_MATRIX: dict[tuple[str, str | None], frozenset[str]] = {
 
 
 def resolve_blueprint(draft: ServiceRequestDraftCreate) -> CaseWorkflowBlueprint:
+    """Kind-specific workflow blueprint resolver.
+
+    P0-4 fix (audit 2026-04-23): breakdown + towing kendi blueprint
+    enum'larına sahip — fallback `MAINTENANCE_STANDARD` kaldırıldı.
+    """
     if draft.kind == ServiceRequestKind.ACCIDENT:
         return (
             CaseWorkflowBlueprint.DAMAGE_INSURED
@@ -167,8 +180,17 @@ def resolve_blueprint(draft: ServiceRequestDraftCreate) -> CaseWorkflowBlueprint
         if draft.maintenance_category in major:
             return CaseWorkflowBlueprint.MAINTENANCE_MAJOR
         return CaseWorkflowBlueprint.MAINTENANCE_STANDARD
-    # breakdown + towing için ayrı blueprint yok; standart akış (Faz 10 tow
-    # kendi tow_stage makinesi kullanır). Fallback:
+    if draft.kind == ServiceRequestKind.BREAKDOWN:
+        return CaseWorkflowBlueprint.BREAKDOWN_STANDARD
+    if draft.kind == ServiceRequestKind.TOWING:
+        # Tow kendi tow_stage makinesi kullanır; blueprint scheduled_at
+        # bayrağına göre ayrılır (tow.py route ek olarak tow_mode set eder)
+        return (
+            CaseWorkflowBlueprint.TOWING_SCHEDULED
+            if draft.pickup_preference is not None  # scheduled = planlı
+            else CaseWorkflowBlueprint.TOWING_IMMEDIATE
+        )
+    # Unreachable — tüm kind değerleri yukarıda kapsandı
     return CaseWorkflowBlueprint.MAINTENANCE_STANDARD
 
 
@@ -271,6 +293,10 @@ async def create_case(
         session.add(case)
         await session.flush()
 
+        # Faz 1c — subtype row insert (canonical case architecture)
+        # Vehicle snapshot populate (immutable) + kind-specific payload
+        await _insert_subtype_row(session, case, draft)
+
         if asset_ids:
             await session.execute(
                 update(MediaAsset)
@@ -303,6 +329,149 @@ async def create_case(
             kind=draft.kind.value, reason=exc.error_type
         ).inc()
         raise
+
+
+# ─── Subtype dispatch (Faz 1c canonical case architecture) ───────────────
+
+
+async def _build_vehicle_snapshot(
+    session: AsyncSession, vehicle_id: UUID
+) -> dict[str, object]:
+    """Immutable vehicle snapshot — case create anında populate.
+
+    Pilot V1: 7 alan (plate, make, model, year, fuel_type, vin, current_km).
+    V1.1 matching v2 alanları Vehicle master'a eklenince genişletilecek.
+    """
+    vehicle = await session.get(Vehicle, vehicle_id)
+    if vehicle is None:
+        return {
+            "snapshot_plate": "UNKNOWN",
+            "snapshot_make": None,
+            "snapshot_model": None,
+            "snapshot_year": None,
+            "snapshot_fuel_type": None,
+            "snapshot_vin": None,
+            "snapshot_current_km": None,
+        }
+    return {
+        "snapshot_plate": vehicle.plate,
+        "snapshot_make": vehicle.make,
+        "snapshot_model": vehicle.model,
+        "snapshot_year": vehicle.year,
+        "snapshot_fuel_type": (
+            vehicle.fuel_type.value if vehicle.fuel_type else None
+        ),
+        "snapshot_vin": vehicle.vin,
+        "snapshot_current_km": vehicle.current_km,
+    }
+
+
+async def _insert_subtype_row(
+    session: AsyncSession,
+    case: ServiceCase,
+    draft: ServiceRequestDraftCreate,
+) -> None:
+    """Kind'a göre subtype tablosuna row insert. Vehicle snapshot ortak.
+
+    Invariant: bir ServiceCase için bir subtype row (FK UNIQUE zaten PK).
+    """
+    snapshot = await _build_vehicle_snapshot(session, case.vehicle_id)
+    if draft.kind == ServiceRequestKind.TOWING:
+        tow = TowCase(
+            case_id=case.id,
+            tow_mode=TowMode.IMMEDIATE,  # Default; tow.py route override
+            tow_stage=TowDispatchStage.SEARCHING,  # Default initial
+            pickup_lat=(
+                draft.location_lat_lng.lat if draft.location_lat_lng else None
+            ),
+            pickup_lng=(
+                draft.location_lat_lng.lng if draft.location_lat_lng else None
+            ),
+            pickup_address=draft.location_label,
+            dropoff_lat=(
+                draft.dropoff_lat_lng.lat if draft.dropoff_lat_lng else None
+            ),
+            dropoff_lng=(
+                draft.dropoff_lat_lng.lng if draft.dropoff_lat_lng else None
+            ),
+            dropoff_address=draft.dropoff_label,
+            **snapshot,
+        )
+        session.add(tow)
+    elif draft.kind == ServiceRequestKind.ACCIDENT:
+        accident = AccidentCase(
+            case_id=case.id,
+            damage_area=draft.damage_area,
+            damage_severity=(
+                draft.damage_severity.value if draft.damage_severity else None
+            ),
+            counterparty_count=int(draft.counterparty_vehicle_count or 0),
+            counterparty_note=draft.counterparty_note,
+            kasko_selected=draft.kasko_selected,
+            sigorta_selected=draft.sigorta_selected,
+            kasko_brand=draft.kasko_brand,
+            sigorta_brand=draft.sigorta_brand,
+            ambulance_contacted=draft.ambulance_contacted,
+            report_method=(
+                draft.report_method.value if draft.report_method else None
+            ),
+            emergency_acknowledged=draft.emergency_acknowledged,
+            **snapshot,
+        )
+        session.add(accident)
+    elif draft.kind == ServiceRequestKind.BREAKDOWN:
+        breakdown = BreakdownCase(
+            case_id=case.id,
+            breakdown_category=(
+                draft.breakdown_category.value
+                if draft.breakdown_category
+                else "other"
+            ),
+            symptoms=(
+                ", ".join(draft.symptoms) if draft.symptoms else None
+            ),
+            vehicle_drivable=draft.vehicle_drivable,
+            on_site_repair_requested=draft.on_site_repair,
+            valet_requested=draft.valet_requested,
+            pickup_preference=(
+                draft.pickup_preference.value
+                if draft.pickup_preference
+                else None
+            ),
+            price_preference=(
+                draft.price_preference.value
+                if draft.price_preference
+                else None
+            ),
+            **snapshot,
+        )
+        session.add(breakdown)
+    elif draft.kind == ServiceRequestKind.MAINTENANCE:
+        maintenance = MaintenanceCase(
+            case_id=case.id,
+            maintenance_category=(
+                draft.maintenance_category.value
+                if draft.maintenance_category
+                else "general"
+            ),
+            maintenance_detail=draft.maintenance_detail,
+            maintenance_tier=draft.maintenance_tier,
+            mileage_km=draft.mileage_km,
+            valet_requested=draft.valet_requested,
+            pickup_preference=(
+                draft.pickup_preference.value
+                if draft.pickup_preference
+                else None
+            ),
+            price_preference=(
+                draft.price_preference.value
+                if draft.price_preference
+                else None
+            ),
+            **snapshot,
+        )
+        session.add(maintenance)
+    await session.flush()
 
 
 # ─── Internal helpers ──────────────────────────────────────────────────────
