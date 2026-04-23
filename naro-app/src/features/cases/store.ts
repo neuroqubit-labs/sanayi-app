@@ -11,7 +11,6 @@ import {
   appendCaseAttachment,
   attachTechnicianToTrackingCase,
   cancelAppointmentForCase,
-  cancelCaseByCustomer,
   confirmCaseAppointment,
   createTrackingDraftForKind,
   getTrackingServiceSnapshot,
@@ -61,7 +60,6 @@ type CasesState = {
     payload: AppointmentRequestPayload,
   ) => ServiceCase | null;
   cancelAppointment: (caseId: string) => ServiceCase | null;
-  cancelCase: (caseId: string, reason?: string) => ServiceCase | null;
   addAttachment: (
     caseId: string,
     attachment: CaseAttachment,
@@ -422,19 +420,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
 
     set((state) => {
       const result = updateCaseById(state.cases, caseId, cancelAppointmentForCase);
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  cancelCase: (caseId, reason) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        cancelCaseByCustomer(caseItem, reason),
-      );
       updatedCase = result.updatedCase;
       return { cases: result.cases };
     });

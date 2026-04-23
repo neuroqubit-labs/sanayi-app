@@ -47,7 +47,6 @@ import { openMediaAsset } from "@/shared/media/openAsset";
 import {
   useAddCaseAttachment,
   useAppointmentCountdown,
-  useCancelCase,
   useCaseDetail,
   useUpdateCaseNotes,
 } from "../api";
@@ -125,7 +124,6 @@ export function CaseManagementScreen() {
   const countdown = useAppointmentCountdown(caseId);
   const openPreview = useUstaPreviewStore((state) => state.open);
 
-  const cancelCase = useCancelCase();
   const addAttachment = useAddCaseAttachment();
   const updateNotes = useUpdateCaseNotes();
 
@@ -631,7 +629,6 @@ export function CaseManagementScreen() {
             <Button
               label="Vakayı iptal et"
               variant="outline"
-              loading={cancelCase.isPending}
               onPress={handleCancel}
             />
           </Surface>

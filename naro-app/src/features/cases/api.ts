@@ -298,15 +298,6 @@ export function useSubmitCase(kind: ServiceRequestKind) {
   });
 }
 
-export function useCancelCaseLive(caseId: string) {
-  return useMutation<void, Error, void>({
-    mutationFn: async () => {
-      await apiClient(`/cases/${caseId}/cancel`, { method: "POST" });
-      await invalidateCaseConsumers();
-    },
-  });
-}
-
 export function useMyCasesLive() {
   return useQuery({
     queryKey: ["cases", "me", "live"],
@@ -353,18 +344,6 @@ export function useCancelAppointment(caseId: string) {
   return useMutation({
     mutationFn: async () => {
       const updatedCase = useCasesStore.getState().cancelAppointment(caseId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
-export function useCancelCase() {
-  return useMutation({
-    mutationFn: async (input: { caseId: string; reason?: string }) => {
-      const updatedCase = useCasesStore
-        .getState()
-        .cancelCase(input.caseId, input.reason);
       await invalidateCaseConsumers();
       return updatedCase;
     },
