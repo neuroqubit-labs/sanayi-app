@@ -6379,8 +6379,16 @@
           "stage": {
             "$ref": "#/components/schemas/TowDispatchStageSchema"
           },
+          "stage_label": {
+            "title": "Stage Label",
+            "type": "string"
+          },
           "status": {
             "title": "Status",
+            "type": "string"
+          },
+          "tow_phase": {
+            "title": "Tow Phase",
             "type": "string"
           },
           "updated_at": {
@@ -6395,6 +6403,8 @@
           "updated_at",
           "mode",
           "stage",
+          "stage_label",
+          "tow_phase",
           "status",
           "pickup_lat_lng",
           "pickup_label",
@@ -7155,8 +7165,7 @@
           "preauth_stale",
           "final_charged",
           "refunded",
-          "cancelled",
-          "kasko_rejected"
+          "cancelled"
         ],
         "title": "TowSettlementStatusSchema",
         "type": "string"

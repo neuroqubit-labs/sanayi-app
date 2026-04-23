@@ -64,6 +64,8 @@ from app.schemas.tow import (
     TowRatingInput,
     TowSettlementStatusSchema,
     TowTrackingSnapshot,
+    tow_phase,
+    tow_stage_label,
 )
 from app.services import tow_dispatch as dispatch_svc
 from app.services import tow_evidence as evidence_svc
@@ -271,12 +273,15 @@ async def get_case(
     settlement = await tow_repo.get_settlement_by_case(db, case.id)
     from app.schemas.tow import LatLng
 
+    stage_schema = TowDispatchStageSchema(tow_case.tow_stage.value)
     return TowCaseSnapshot(
         id=case.id,
         created_at=case.created_at,
         updated_at=case.updated_at,
         mode=TowModeSchema(tow_case.tow_mode.value),
-        stage=TowDispatchStageSchema(tow_case.tow_stage.value),
+        stage=stage_schema,
+        stage_label=tow_stage_label(stage_schema),
+        tow_phase=tow_phase(stage_schema),
         status=case.status.value,
         parent_case_id=tow_case.parent_case_id,
         pickup_lat_lng=(

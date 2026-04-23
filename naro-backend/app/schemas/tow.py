@@ -67,7 +67,83 @@ class TowSettlementStatusSchema(StrEnum):
     FINAL_CHARGED = "final_charged"
     REFUNDED = "refunded"
     CANCELLED = "cancelled"
-    KASKO_REJECTED = "kasko_rejected"
+
+
+# ─── B-P1-4: tow stage label + phase projection ─────────────────────────
+
+
+# FE UX: tow shell coarse status ("matching" vs "service_in_progress"),
+# stage detay burada. FE tow_phase'e göre ana chip, stage_label alt-satır.
+_STAGE_META: dict[TowDispatchStageSchema, tuple[str, str]] = {
+    TowDispatchStageSchema.SEARCHING: (
+        "Çekici aranıyor",
+        "dispatch",
+    ),
+    TowDispatchStageSchema.TIMEOUT_CONVERTED_TO_POOL: (
+        "Havuza gönderildi",
+        "dispatch",
+    ),
+    TowDispatchStageSchema.SCHEDULED_WAITING: (
+        "Planlı çekici bekliyor",
+        "bidding",
+    ),
+    TowDispatchStageSchema.BIDDING_OPEN: (
+        "Teklifler alınıyor",
+        "bidding",
+    ),
+    TowDispatchStageSchema.OFFER_ACCEPTED: (
+        "Teklif kabul edildi",
+        "bidding",
+    ),
+    TowDispatchStageSchema.ACCEPTED: (
+        "Çekici atandı",
+        "en_route",
+    ),
+    TowDispatchStageSchema.EN_ROUTE: (
+        "Çekici yolda",
+        "en_route",
+    ),
+    TowDispatchStageSchema.NEARBY: (
+        "Çekici yakında",
+        "en_route",
+    ),
+    TowDispatchStageSchema.ARRIVED: (
+        "Çekici vardı",
+        "on_scene",
+    ),
+    TowDispatchStageSchema.LOADING: (
+        "Araç yükleniyor",
+        "on_scene",
+    ),
+    TowDispatchStageSchema.IN_TRANSIT: (
+        "Araç taşınıyor",
+        "delivery",
+    ),
+    TowDispatchStageSchema.DELIVERED: (
+        "Araç teslim edildi",
+        "delivery",
+    ),
+    TowDispatchStageSchema.CANCELLED: (
+        "Çekici iptal edildi",
+        "delivery",
+    ),
+    TowDispatchStageSchema.PREAUTH_FAILED: (
+        "Ödeme başarısız",
+        "dispatch",
+    ),
+    TowDispatchStageSchema.PREAUTH_STALE: (
+        "Ödeme tekrar onayı gerek",
+        "dispatch",
+    ),
+}
+
+
+def tow_stage_label(stage: TowDispatchStageSchema) -> str:
+    return _STAGE_META.get(stage, ("Bilinmeyen aşama", "dispatch"))[0]
+
+
+def tow_phase(stage: TowDispatchStageSchema) -> str:
+    return _STAGE_META.get(stage, ("", "dispatch"))[1]
 
 
 class TowEvidenceKindSchema(StrEnum):
@@ -308,6 +384,12 @@ class TowCaseSnapshot(BaseModel):
     updated_at: datetime
     mode: TowModeSchema
     stage: TowDispatchStageSchema
+    # B-P1-4 fix: shell coarse status scheduled tow'da "matching" görünür
+    # (BIDDING_OPEN stage, shell sync coarse MATCHING). FE sub-label +
+    # phase ile gerçek tow evresini render eder — shell status'una
+    # takılmadan.
+    stage_label: str
+    tow_phase: str
     status: str
     # P1-G fix (QA tur 1): bidirectional link — accident/breakdown parent
     # case'i tow-tarafından navigate için döner (Faz 2 tow_case.parent_case_id
