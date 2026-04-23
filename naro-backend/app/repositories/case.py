@@ -22,8 +22,16 @@ from app.models.case import (
     ServiceRequestKind,
     ServiceRequestUrgency,
 )
+from app.models.case_subtypes import (
+    AccidentCase,
+    BreakdownCase,
+    MaintenanceCase,
+    TowCase,
+)
 from app.models.technician import ProviderType
 from app.services.pool_matching import kinds_for_provider
+
+CaseSubtype = TowCase | AccidentCase | BreakdownCase | MaintenanceCase
 
 POOL_VISIBLE_STATUSES: tuple[ServiceCaseStatus, ...] = (
     ServiceCaseStatus.MATCHING,
@@ -33,6 +41,38 @@ POOL_VISIBLE_STATUSES: tuple[ServiceCaseStatus, ...] = (
 
 async def get_case(session: AsyncSession, case_id: UUID) -> ServiceCase | None:
     return await session.get(ServiceCase, case_id)
+
+
+_SUBTYPE_MODEL: dict[ServiceRequestKind, type[CaseSubtype]] = {
+    ServiceRequestKind.TOWING: TowCase,
+    ServiceRequestKind.ACCIDENT: AccidentCase,
+    ServiceRequestKind.BREAKDOWN: BreakdownCase,
+    ServiceRequestKind.MAINTENANCE: MaintenanceCase,
+}
+
+
+async def get_subtype_row(
+    session: AsyncSession, case: ServiceCase
+) -> CaseSubtype | None:
+    """Faz 1 canonical case architecture — kind'a göre subtype row fetch.
+
+    Yeni vakalar insert edilirken subtype row yazılır; legacy vakalar için
+    `scripts/backfill_case_subtypes.py` ile doldurulur.
+    """
+    model = _SUBTYPE_MODEL.get(case.kind)
+    if model is None:
+        return None
+    return await session.get(model, case.id)
+
+
+async def get_case_with_subtype(
+    session: AsyncSession, case_id: UUID
+) -> tuple[ServiceCase | None, CaseSubtype | None]:
+    case = await session.get(ServiceCase, case_id)
+    if case is None:
+        return None, None
+    subtype = await get_subtype_row(session, case)
+    return case, subtype
 
 
 async def create_case(

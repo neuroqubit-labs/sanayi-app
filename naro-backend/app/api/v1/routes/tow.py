@@ -12,6 +12,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import (
     CurrentUserDep,
@@ -35,6 +36,7 @@ from app.models.case import (
     TowIncidentReason,
     TowMode,
 )
+from app.models.case_subtypes import TowCase
 from app.models.tow import (
     TowCancellationActor,
     TowDispatchResponse,
@@ -69,6 +71,7 @@ from app.services import tow_evidence as evidence_svc
 from app.services import tow_lifecycle as lifecycle_svc
 from app.services import tow_location as location_svc
 from app.services import tow_payment as payment_svc
+from app.services.case_create import build_vehicle_snapshot
 
 router = APIRouter(prefix="/tow", tags=["tow"])
 
@@ -185,6 +188,11 @@ async def create_case(
     )
     db.add(case)
     await db.flush()
+
+    # Faz 1 canonical case architecture: TowCase subtype row + snapshot
+    # (mevcut service_cases.tow_* yazma paralel tutulur — Commit 5 DROP'ta
+    # kaldırılacak)
+    await _insert_tow_subtype_row(db, case, payload)
 
     result: dict[str, object] = {"case_id": str(case.id), "stage": initial_stage.value}
 
@@ -626,3 +634,47 @@ def _ensure_participant(case: ServiceCase, user: User) -> None:
     is_admin = user.role.value == "admin"
     if not is_participant and not is_admin:
         raise HTTPException(status_code=403, detail="not a case participant")
+
+
+async def _insert_tow_subtype_row(
+    db: AsyncSession,
+    case: ServiceCase,
+    payload: TowCreateCaseRequest,
+) -> None:
+    """Faz 1a canonical case architecture — TowCase subtype + snapshot.
+
+    Shell (service_cases.tow_*) ile paralel yazılır; Commit 5 migration 0032
+    service_cases.tow_* DROP'tan sonra subtype tek kaynak olur.
+    """
+    snapshot = await build_vehicle_snapshot(db, case.vehicle_id)
+    tow_mode = TowMode(payload.mode.value)
+    initial_stage = (
+        TowDispatchStage.SEARCHING
+        if tow_mode == TowMode.IMMEDIATE
+        else TowDispatchStage.SCHEDULED_WAITING
+    )
+    equipment = [
+        TowEquipment(e.value) for e in payload.required_equipment
+    ] or None
+    tow_row = TowCase(
+        case_id=case.id,
+        tow_mode=tow_mode,
+        tow_stage=initial_stage,
+        tow_required_equipment=equipment,
+        incident_reason=TowIncidentReason(payload.incident_reason.value),
+        scheduled_at=payload.scheduled_at,
+        pickup_lat=payload.pickup_lat_lng.lat,
+        pickup_lng=payload.pickup_lat_lng.lng,
+        pickup_address=payload.pickup_label,
+        dropoff_lat=(
+            payload.dropoff_lat_lng.lat if payload.dropoff_lat_lng else None
+        ),
+        dropoff_lng=(
+            payload.dropoff_lat_lng.lng if payload.dropoff_lat_lng else None
+        ),
+        dropoff_address=payload.dropoff_label,
+        tow_fare_quote=payload.fare_quote.model_dump(mode="json"),
+        **snapshot,
+    )
+    db.add(tow_row)
+    await db.flush()

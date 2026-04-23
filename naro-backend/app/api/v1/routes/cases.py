@@ -23,6 +23,12 @@ from app.models.case import (
     ServiceRequestKind,
 )
 from app.models.case_audit import CaseEventType, CaseTone
+from app.models.case_subtypes import (
+    AccidentCase,
+    BreakdownCase,
+    MaintenanceCase,
+    TowCase,
+)
 from app.models.user import UserRole
 from app.repositories import case as case_repo
 from app.schemas.service_request import ServiceRequestDraftCreate
@@ -58,6 +64,30 @@ class CaseSummaryResponse(BaseModel):
     location_label: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class VehicleSnapshotResponse(BaseModel):
+    """Immutable vehicle snapshot — case create anında alınır."""
+
+    plate: str
+    make: str | None = None
+    model: str | None = None
+    year: int | None = None
+    fuel_type: str | None = None
+    vin: str | None = None
+    current_km: int | None = None
+
+
+class CaseDetailResponse(CaseSummaryResponse):
+    """Faz 1 canonical case architecture — shell + subtype + snapshot.
+
+    Subtype dict kind'a göre shape alır (tow/accident/breakdown/maintenance).
+    FE parity: kind bazlı discriminated union. Pilot V1 pratik şema; V2'de
+    generic code generation (openapi → Zod) ile tip disipline edilecek.
+    """
+
+    vehicle_snapshot: VehicleSnapshotResponse | None = None
+    subtype: dict[str, object] | None = None
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -115,19 +145,31 @@ async def list_my_cases(
 
 @router.get(
     "/{case_id}",
-    response_model=CaseSummaryResponse,
+    response_model=CaseDetailResponse,
     summary="Vaka detay (participant-only)",
 )
 async def get_case_endpoint(
     case_id: UUID,
     user: CurrentUserDep,
     db: DbDep,
-) -> CaseSummaryResponse:
-    case = await case_repo.get_case(db, case_id)
+) -> CaseDetailResponse:
+    case, subtype = await case_repo.get_case_with_subtype(db, case_id)
     if case is None or case.deleted_at is not None:
         raise HTTPException(status_code=404, detail={"type": "case_not_found"})
     _assert_participant(case, user_id=user.id, role=user.role)
-    return CaseSummaryResponse.model_validate(case)
+    return CaseDetailResponse(
+        id=case.id,
+        kind=case.kind,
+        status=case.status,
+        urgency=case.urgency.value,
+        title=case.title,
+        summary=case.summary,
+        location_label=case.location_label,
+        created_at=case.created_at,
+        updated_at=case.updated_at,
+        vehicle_snapshot=_vehicle_snapshot_view(subtype),
+        subtype=_subtype_view(subtype),
+    )
 
 
 @router.post(
@@ -185,3 +227,87 @@ def _assert_participant(case: ServiceCase, *, user_id: UUID, role: UserRole) -> 
         raise HTTPException(
             status_code=403, detail={"type": "not_case_participant"}
         )
+
+
+def _vehicle_snapshot_view(
+    subtype: case_repo.CaseSubtype | None,
+) -> VehicleSnapshotResponse | None:
+    if subtype is None:
+        return None
+    return VehicleSnapshotResponse(
+        plate=subtype.snapshot_plate,
+        make=subtype.snapshot_make,
+        model=subtype.snapshot_model,
+        year=subtype.snapshot_year,
+        fuel_type=subtype.snapshot_fuel_type,
+        vin=subtype.snapshot_vin,
+        current_km=subtype.snapshot_current_km,
+    )
+
+
+def _subtype_view(
+    subtype: case_repo.CaseSubtype | None,
+) -> dict[str, object] | None:
+    if subtype is None:
+        return None
+    if isinstance(subtype, TowCase):
+        return {
+            "tow_mode": subtype.tow_mode.value,
+            "tow_stage": subtype.tow_stage.value,
+            "required_equipment": [
+                e.value for e in (subtype.tow_required_equipment or [])
+            ],
+            "incident_reason": (
+                subtype.incident_reason.value
+                if subtype.incident_reason
+                else None
+            ),
+            "scheduled_at": (
+                subtype.scheduled_at.isoformat()
+                if subtype.scheduled_at
+                else None
+            ),
+            "pickup_lat": subtype.pickup_lat,
+            "pickup_lng": subtype.pickup_lng,
+            "pickup_address": subtype.pickup_address,
+            "dropoff_lat": subtype.dropoff_lat,
+            "dropoff_lng": subtype.dropoff_lng,
+            "dropoff_address": subtype.dropoff_address,
+            "fare_quote": subtype.tow_fare_quote,
+        }
+    if isinstance(subtype, AccidentCase):
+        return {
+            "damage_area": subtype.damage_area,
+            "damage_severity": subtype.damage_severity,
+            "counterparty_count": subtype.counterparty_count,
+            "counterparty_note": subtype.counterparty_note,
+            "kasko_selected": subtype.kasko_selected,
+            "sigorta_selected": subtype.sigorta_selected,
+            "kasko_brand": subtype.kasko_brand,
+            "sigorta_brand": subtype.sigorta_brand,
+            "ambulance_contacted": subtype.ambulance_contacted,
+            "report_method": subtype.report_method,
+            "emergency_acknowledged": subtype.emergency_acknowledged,
+        }
+    if isinstance(subtype, BreakdownCase):
+        return {
+            "breakdown_category": subtype.breakdown_category,
+            "symptoms": subtype.symptoms,
+            "vehicle_drivable": subtype.vehicle_drivable,
+            "on_site_repair_requested": subtype.on_site_repair_requested,
+            "valet_requested": subtype.valet_requested,
+            "pickup_preference": subtype.pickup_preference,
+            "price_preference": subtype.price_preference,
+        }
+    if isinstance(subtype, MaintenanceCase):
+        return {
+            "maintenance_category": subtype.maintenance_category,
+            "maintenance_detail": subtype.maintenance_detail,
+            "maintenance_tier": subtype.maintenance_tier,
+            "service_style_preference": subtype.service_style_preference,
+            "mileage_km": subtype.mileage_km,
+            "valet_requested": subtype.valet_requested,
+            "pickup_preference": subtype.pickup_preference,
+            "price_preference": subtype.price_preference,
+        }
+    return None
