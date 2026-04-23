@@ -309,6 +309,10 @@ class TowCaseSnapshot(BaseModel):
     mode: TowModeSchema
     stage: TowDispatchStageSchema
     status: str
+    # P1-G fix (QA tur 1): bidirectional link — accident/breakdown parent
+    # case'i tow-tarafından navigate için döner (Faz 2 tow_case.parent_case_id
+    # DB'de zaten var, serializer atlıyordu).
+    parent_case_id: UUID | None = None
     pickup_lat_lng: LatLng | None
     pickup_label: str | None
     dropoff_lat_lng: LatLng | None

@@ -278,6 +278,7 @@ async def get_case(
         mode=TowModeSchema(tow_case.tow_mode.value),
         stage=TowDispatchStageSchema(tow_case.tow_stage.value),
         status=case.status.value,
+        parent_case_id=tow_case.parent_case_id,
         pickup_lat_lng=(
             LatLng(lat=tow_case.pickup_lat, lng=tow_case.pickup_lng)
             if tow_case.pickup_lat is not None and tow_case.pickup_lng is not None
