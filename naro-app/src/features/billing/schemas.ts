@@ -117,13 +117,19 @@ export type RefundReason = z.infer<typeof RefundReasonSchema>;
 export const RefundStateSchema = z.enum(["pending", "success", "failed"]);
 export type RefundState = z.infer<typeof RefundStateSchema>;
 
+/**
+ * BE canonical response (api-validation-hotlist 2026-04-23 P0-3): BE
+ * RefundOut `case_id` döndürmüyor (refund BillingSummary.refunds[] nested
+ * olarak case bağlamında; case_id UI'da kullanılmıyor). datetime alanları
+ * da optional (BE her zaman doldurmuyor).
+ */
 export const RefundOutSchema = z.object({
   id: z.string().uuid(),
-  case_id: z.string().uuid(),
+  case_id: z.string().uuid().nullable().optional(),
   amount: z.string(),
   reason: RefundReasonSchema,
   state: RefundStateSchema,
-  created_at: z.string(),
+  created_at: z.string().nullable().optional(),
   completed_at: z.string().nullable(),
 });
 export type RefundOut = z.infer<typeof RefundOutSchema>;

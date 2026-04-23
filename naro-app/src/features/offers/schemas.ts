@@ -34,6 +34,13 @@ export const AppointmentSlotSchema = z.object({
 });
 export type AppointmentSlot = z.infer<typeof AppointmentSlotSchema>;
 
+/**
+ * BE canonical response (api-validation-hotlist 2026-04-23 P0-2): backend
+ * datetime alanlarını henüz döndürmüyor; `.parse` crash'ı engellemek için
+ * tüm datetime'lar optional. Backend response genişlerse optional'lar
+ * doğal olarak dolar. submitted_at/created_at/updated_at UI'da "önce"
+ * etiketleri için kullanılıyor; null olursa skip.
+ */
 export const OfferResponseSchema = z.object({
   id: z.string().uuid(),
   case_id: z.string().uuid(),
@@ -50,11 +57,11 @@ export const OfferResponseSchema = z.object({
   slot_proposal: z.record(z.unknown()).nullable(),
   slot_is_firm: z.boolean().default(false),
   status: CaseOfferStatusSchema,
-  submitted_at: z.string(),
-  accepted_at: z.string().nullable(),
-  rejected_at: z.string().nullable(),
-  expires_at: z.string().nullable(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  submitted_at: z.string().nullable().optional(),
+  accepted_at: z.string().nullable().optional(),
+  rejected_at: z.string().nullable().optional(),
+  expires_at: z.string().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
 });
 export type OfferResponse = z.infer<typeof OfferResponseSchema>;

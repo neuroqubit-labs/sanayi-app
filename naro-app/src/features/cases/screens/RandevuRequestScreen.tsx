@@ -123,18 +123,15 @@ export function RandevuRequestScreen() {
       kind: slotKind,
       dateLabel: slotKind === "custom" ? customLabel ?? null : null,
     };
-    // BE default source "offer_accept" ama FE offer_id'siz de "direct_request"
-    // gönderebilir; burada offer varsa canonical offer_accept, yoksa direct.
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    // BE canonical AppointmentRequest (api-validation-hotlist P0-1):
+    // yalnızca case_id/technician_id/slot/note. offer_id/expires_at/source
+    // BE tarafında türetilir; FE göndermez.
     try {
       await requestMutation.mutateAsync({
         case_id: caseId,
         technician_id: technicianId,
-        offer_id: offer?.id ?? null,
         slot,
         note: "",
-        expires_at: expiresAt,
-        source: offer ? "offer_accept" : "direct_request",
       });
       router.replace(`/vaka/${caseId}/surec` as Href);
     } catch {

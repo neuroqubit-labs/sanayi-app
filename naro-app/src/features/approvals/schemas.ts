@@ -49,8 +49,14 @@ export type ApprovalResponse = z.infer<typeof ApprovalResponseSchema>;
 
 // ─── Technician creates approval (service app) ─────────────────────────────
 
+/**
+ * BE canonical ApprovalRequestPayload (api-validation-hotlist 2026-04-23
+ * P0-4): `title` ZORUNLU — service app usta onay talebi açarken kullanıcı
+ * input'u ("Parça talebi başlığı" vb.).
+ */
 export const ApprovalRequestPayloadSchema = z.object({
   kind: CaseApprovalKindSchema,
+  title: z.string().min(1).max(255),
   amount: z.string().nullable().optional(),
   currency: z.string().default("TRY"),
   description: z.string().max(2000).nullable().optional(),

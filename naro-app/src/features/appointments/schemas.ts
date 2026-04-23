@@ -48,14 +48,17 @@ export type AppointmentSlot = z.infer<typeof AppointmentSlotSchema>;
 
 // ─── Request bodies ────────────────────────────────────────────────────────
 
+/**
+ * Canonical backend AppointmentRequest (api-validation-hotlist 2026-04-23
+ * P0-1): yalnızca 4 alan. `offer_id`, `expires_at`, `source` FE tarafından
+ * GÖNDERİLMEZ — BE `extra="forbid"` 422 üretir. BE bunları internal olarak
+ * türetiyor (offer_id'siz direct_request, TTL default).
+ */
 export const AppointmentRequestPayloadSchema = z.object({
   case_id: z.string().uuid(),
   technician_id: z.string().uuid(),
-  offer_id: z.string().uuid().nullable().optional(),
   slot: AppointmentSlotSchema,
   note: z.string().default(""),
-  expires_at: z.string(),
-  source: AppointmentSourceSchema.default("direct_request"),
 });
 export type AppointmentRequestPayload = z.infer<
   typeof AppointmentRequestPayloadSchema
