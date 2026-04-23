@@ -131,7 +131,7 @@ async def select_next_candidate(
         if not required_equipment
         else """
         AND NOT EXISTS (
-            SELECT 1 FROM unnest(ARRAY[:required_equipment]::tow_equipment[]) AS req
+            SELECT 1 FROM unnest(CAST(:required_equipment AS tow_equipment[])) AS req
             WHERE req NOT IN (
                 SELECT tte.equipment
                 FROM technician_tow_equipment tte
