@@ -72,6 +72,10 @@ services:
       REDIS_HOST: redis
       AWS_S3_ENDPOINT_URL: http://localstack:4566
     command: arq app.workers.settings.WorkerSettings
+    # QA Tur 2 P0-2 fix: worker redis shutdown race'inde SIGTERM sonrası
+    # exit 1; restart: unless-stopped ile crash-loop'tan çıkış garantili.
+    # Production'da rolling restart + sağlıklı shutdown handler (V1.1).
+    restart: unless-stopped
     volumes:
       - ./app:/app/app
     depends_on:
