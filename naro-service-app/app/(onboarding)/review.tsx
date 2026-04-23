@@ -1,9 +1,13 @@
 import { BackButton, Button, Icon, Screen, Text, TrustBadge } from "@naro/ui";
 import { useRouter } from "expo-router";
 import { BadgeCheck, CheckCircle2 } from "lucide-react-native";
-import { View } from "react-native";
+import { useState } from "react";
+import { Alert, View } from "react-native";
 
 import { useOnboardingStore } from "@/features/onboarding";
+import { useUpdateCapacityMutation } from "@/features/onboarding/api/capacity";
+import { useUpdateScheduleMutation } from "@/features/onboarding/api/schedule";
+import { useUpdateServiceAreaMutation } from "@/features/onboarding/api/service-area";
 import {
   PROVIDER_TYPE_META,
   useTechnicianProfileStore,
@@ -21,13 +25,19 @@ export default function ReviewStep() {
     (s) => s.setActiveProviderType,
   );
   const reset = useOnboardingStore((s) => s.reset);
+  const updateServiceArea = useUpdateServiceAreaMutation();
+  const updateSchedule = useUpdateScheduleMutation();
+  const updateCapacity = useUpdateCapacityMutation();
+  const [submitting, setSubmitting] = useState(false);
 
   const meta = onboarding.provider_type
     ? PROVIDER_TYPE_META[onboarding.provider_type]
     : null;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!onboarding.provider_type) return;
+
+    // Local store mirror (UI state) — review özet kartları bunu gösterir.
     updateField("provider_type", onboarding.provider_type);
     setActiveProviderType(onboarding.provider_type);
     if (onboarding.provider_mode) {
@@ -44,17 +54,52 @@ export default function ReviewStep() {
     if (onboarding.business.tagline) {
       updateField("tagline", onboarding.business.tagline);
     }
-    (Object.keys(onboarding.capabilities) as (keyof typeof onboarding.capabilities)[]).forEach(
-      (key) => {
-        const value = onboarding.capabilities[key];
-        if (value !== undefined) {
-          setCapability(key, value);
-        }
-      },
-    );
+    (
+      Object.keys(onboarding.capabilities) as (keyof typeof onboarding.capabilities)[]
+    ).forEach((key) => {
+      const value = onboarding.capabilities[key];
+      if (value !== undefined) {
+        setCapability(key, value);
+      }
+    });
     onboarding.certificates.forEach((cert) => addCertificate(cert));
-    reset();
-    router.replace("/(onboarding)/pending");
+
+    // BE persist (api-validation-hotlist P1-3 service-area/schedule/capacity
+    // canlı). Matching v1 bu alanları henüz selection'a dahil etmiyor;
+    // persist ki V1.1'de matching v2 aktifleşince hazır olsun.
+    //
+    // Error policy: service-area yazması başarısız olursa flow'u durdur
+    // (city_code + workshop konumu zorunlu). schedule/capacity opsiyonel —
+    // fail durumunda log + pending'e geç, kullanıcı sonra profil üzerinden
+    // güncelleyebilir.
+    setSubmitting(true);
+    try {
+      if (onboarding.service_area.workshop_lat_lng && onboarding.service_area.city_code) {
+        await updateServiceArea.mutateAsync(onboarding.service_area);
+      }
+      try {
+        if (onboarding.working_schedule.slots.length > 0) {
+          await updateSchedule.mutateAsync(onboarding.working_schedule);
+        }
+      } catch (err) {
+        console.warn("schedule persist failed", err);
+      }
+      try {
+        await updateCapacity.mutateAsync(onboarding.capacity);
+      } catch (err) {
+        console.warn("capacity persist failed", err);
+      }
+      reset();
+      router.replace("/(onboarding)/pending");
+    } catch (err) {
+      console.warn("service-area persist failed", err);
+      Alert.alert(
+        "Kaydedilemedi",
+        "Atölye bilgileri kaydedilemedi. Bağlantını kontrol edip tekrar dene.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -162,9 +207,10 @@ export default function ReviewStep() {
       </View>
 
       <Button
-        label="Başvuruyu gönder"
+        label={submitting ? "Gönderiliyor…" : "Başvuruyu gönder"}
         size="lg"
-        disabled={!onboarding.provider_type}
+        disabled={!onboarding.provider_type || submitting}
+        loading={submitting}
         variant={onboarding.provider_type ? "primary" : "outline"}
         onPress={handleSubmit}
         fullWidth
