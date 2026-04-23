@@ -45,6 +45,19 @@ class ApprovalNotPendingError(ValueError):
     pass
 
 
+class CompletionGateError(ValueError):
+    """Completion approve denendi ama invoice/billing gate'leri eksik.
+
+    B-P0-1 fix: invoice approve tek başına COMPLETED yapmaz; completion
+    approve da gerekli + billing_state=SETTLED. V1 minimal (Option B) —
+    V1.1 orchestrator B-P1-2'de.
+    """
+
+    def __init__(self, reason: str, *, missing: dict[str, object]) -> None:
+        super().__init__(reason)
+        self.missing = missing
+
+
 async def request_approval(
     session: AsyncSession,
     *,
@@ -171,7 +184,9 @@ async def approve(
             actor_user_id=actor_user_id,
         )
     elif approval.kind == CaseApprovalKind.INVOICE:
-        # Fatura onaylandı — total_amount güncellenir + completed
+        # B-P0-1 fix: invoice approve != COMPLETED. Sadece total_amount yaz,
+        # event emit, case INVOICE_APPROVAL statüsünde kalır. Completion
+        # gate'i ayrı approval kind'ında enforce edilir (+ billing SETTLED).
         if approval.amount is not None:
             await session.execute(
                 update(ServiceCase)
@@ -184,11 +199,22 @@ async def approve(
             actor_user_id=actor_user_id,
             context={"approval_id": str(approval_id), "amount": str(approval.amount) if approval.amount else None},
         )
-        await transition_case_status(
-            session, approval.case_id, ServiceCaseStatus.COMPLETED,
-            actor_user_id=actor_user_id,
-        )
+        # Shell halen INVOICE_APPROVAL; tamamlama completion approve + billing SETTLED ile olur.
     elif approval.kind == CaseApprovalKind.COMPLETION:
+        # B-P0-1 fix: completion gate — billing_state SETTLED olmadan reject.
+        # Pilot Option B minimal path (V1.1 orchestrator B-P1-2).
+        case_row = await session.get(ServiceCase, approval.case_id)
+        if case_row is None:
+            raise ApprovalNotFoundError(str(approval_id))
+        billing_state = case_row.billing_state
+        if billing_state != "settled":
+            raise CompletionGateError(
+                "completion approve requires billing_state=settled",
+                missing={
+                    "billing_state": billing_state,
+                    "required": "settled",
+                },
+            )
         await transition_case_status(
             session, approval.case_id, ServiceCaseStatus.COMPLETED,
             actor_user_id=actor_user_id,

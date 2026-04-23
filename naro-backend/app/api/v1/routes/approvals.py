@@ -258,6 +258,14 @@ async def decide_approval_endpoint(
         raise HTTPException(
             status_code=404, detail={"type": "approval_not_found"}
         ) from exc
+    except approval_flow.CompletionGateError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "type": "completion_gate_unmet",
+                "missing": exc.missing,
+            },
+        ) from exc
 
     await db.commit()
     return await _build_response(db, decided)
