@@ -16,6 +16,12 @@ from app.db.session import get_db
 
 
 async def heartbeat_enforcer(ctx: dict[str, object]) -> None:
+    """QA tur 3 P0-1 fix: mock tech bypass — pilot dev ortamında mock
+    cekici'ler last_location_at refresh edilmezse offline'a düşerdi →
+    dispatch 0 aday → UC-1 bloke. Mock exclude (is_mock=false filtresi);
+    production (is_mock=false) davranışı değişmedi.
+    """
+    _ = ctx
     settings = get_settings()
     cutoff = datetime.now(UTC) - timedelta(seconds=settings.tow_heartbeat_seconds)
     async for session in get_db():
@@ -26,6 +32,7 @@ async def heartbeat_enforcer(ctx: dict[str, object]) -> None:
                 SET availability = 'offline'::technician_availability
                 WHERE availability = 'available'::technician_availability
                   AND provider_type = 'cekici'::provider_type
+                  AND is_mock = false
                   AND (last_location_at IS NULL OR last_location_at < :cutoff)
                 """
             ),

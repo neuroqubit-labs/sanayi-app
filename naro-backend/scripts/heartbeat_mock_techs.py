@@ -30,11 +30,16 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 async def main() -> None:
     async with AsyncSessionLocal() as db:
         now = datetime.now(UTC)
+        # QA tur 3 P0-1 fix: availability='available' de set et — mock
+        # tech'ler heartbeat_enforcer is_mock=false filtresinden ayrıca
+        # korunur, ama dev ops tek-komut recovery kolaylığı için
+        # script burada da durumu sıfırlar (belt-and-suspenders).
         result = await db.execute(
             _text(
                 """
                 UPDATE technician_profiles
-                SET last_location_at = :now
+                SET last_location_at = :now,
+                    availability = 'available'::technician_availability
                 WHERE is_mock = true
                   AND last_known_location IS NOT NULL
                 """
