@@ -219,6 +219,20 @@ export const CaseSummaryResponseSchema = z.object({
 export type CaseSummaryResponse = z.infer<typeof CaseSummaryResponseSchema>;
 
 /**
+ * F-P0-2 (2026-04-23 lifecycle integrity audit): case row'un
+ * `wait_state_*` kolonları. BE B-P2-1 fix'i shipped olunca response'ta
+ * doğrudan gelir; o zamana kadar optional (FE null-fallback ile
+ * `deriveNextAction` üzerinden status-based label döner).
+ */
+export const CaseWaitActorSchema = z.enum([
+  "customer",
+  "technician",
+  "system",
+  "none",
+]);
+export type CaseWaitActor = z.infer<typeof CaseWaitActorSchema>;
+
+/**
  * CaseDetailResponse — BE Faz 1 (shell + subtype + snapshot) + Faz 2
  * (parent/linked tow case). BE subtype dict kind'a göre discriminated;
  * FE V1'de `Record<string, unknown>` geçiyor, V2'de openapi codegen ile
@@ -231,6 +245,10 @@ export type CaseSummaryResponse = z.infer<typeof CaseSummaryResponseSchema>;
  * İş A (2026-04-23):
  * - `customer_notes` — owner-private. Technician/admin view'ında null.
  *   FE conditional render: technician tarafında notes kartı gösterme.
+ *
+ * F-P0-2 (2026-04-23):
+ * - `wait_state_actor/label/description` — sıra kimde? Next-action
+ *   projection'ın kaynağı. BE B-P2-1 pending → şimdilik optional.
  */
 export const CaseDetailResponseSchema = CaseSummaryResponseSchema.extend({
   vehicle_snapshot: VehicleSnapshotResponseSchema.nullable().optional(),
@@ -238,5 +256,8 @@ export const CaseDetailResponseSchema = CaseSummaryResponseSchema.extend({
   parent_case_id: z.string().uuid().nullable().optional(),
   linked_tow_case_ids: z.array(z.string().uuid()).default([]),
   customer_notes: z.string().nullable().optional(),
+  wait_state_actor: CaseWaitActorSchema.nullable().optional(),
+  wait_state_label: z.string().nullable().optional(),
+  wait_state_description: z.string().nullable().optional(),
 });
 export type CaseDetailResponse = z.infer<typeof CaseDetailResponseSchema>;

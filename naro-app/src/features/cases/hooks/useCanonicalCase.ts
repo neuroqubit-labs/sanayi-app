@@ -29,6 +29,7 @@ import {
   useCaseThreadLive,
 } from "../api";
 import { getEventCopy } from "../event-copy";
+import { deriveNextAction } from "../next-action";
 import type { CaseDetailResponse } from "../schemas/case-create";
 import type { ThreadMessageResponse } from "../schemas/thread";
 import type {
@@ -474,6 +475,12 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
     const assignedTechnicianId = deriveAssignedTechnicianId(offers, subtype);
     const preferredTechnicianId = derivePreferredTechnicianId(offers);
 
+    // F-P0-2 (2026-04-23): role-aware next_action projection. Customer
+    // app için viewer sabit; service app kendi adapter'ı ile technician
+    // viewer kullanır. BE wait_state_actor/label/description null iken
+    // status+role fallback kullanılır.
+    const nextAction = deriveNextAction(detail, "customer");
+
     // Initial ServiceCase (syncTrackingCase bunu rich shape'e doldurur).
     const primary: ServiceCase = {
       id: detail.id,
@@ -484,7 +491,7 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
       kind: detail.kind as ServiceRequestKind,
       status: detail.status as ServiceCaseStatus,
       title: detail.title,
-      subtitle: "",
+      subtitle: nextAction.next_action_description,
       summary: detail.summary ?? "",
       created_at: detail.created_at,
       created_at_label: formatRelativeTurkish(detail.created_at),
@@ -493,10 +500,10 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
       request,
       assigned_technician_id: assignedTechnicianId,
       preferred_technician_id: preferredTechnicianId,
-      next_action_title: "",
-      next_action_description: "",
-      next_action_primary_label: "",
-      next_action_secondary_label: null,
+      next_action_title: nextAction.next_action_title,
+      next_action_description: nextAction.next_action_description,
+      next_action_primary_label: nextAction.next_action_primary_label,
+      next_action_secondary_label: nextAction.next_action_secondary_label,
       total_label:
         offers[0]?.price_label ??
         approvals.find((a) => a.status === "pending")?.amount_label ??
@@ -526,7 +533,22 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
       insurance_claim: null,
     };
 
-    return syncTrackingCase(primary);
+    // F-P0-2 override: engine.ts `syncTrackingCase` içinden
+    // `buildNextActionFields` mock-status tablosuyla override ediyor;
+    // canonical wait_state_actor + role-aware derivation'ımızı
+    // korumak için sync sonrası tekrar yaz. `subtitle` de aynı
+    // projeksiyondan geldiği için üst seviyede set edildi; engine
+    // `nextAction.next_action_description` üzerinden subtitle
+    // kuruyordu, onu da canonical değerle override ediyoruz.
+    const synced = syncTrackingCase(primary);
+    return {
+      ...synced,
+      next_action_title: nextAction.next_action_title,
+      next_action_description: nextAction.next_action_description,
+      next_action_primary_label: nextAction.next_action_primary_label,
+      next_action_secondary_label: nextAction.next_action_secondary_label,
+      subtitle: nextAction.next_action_description || synced.subtitle,
+    };
   }, [
     detailQuery.data,
     offersQuery.data,
