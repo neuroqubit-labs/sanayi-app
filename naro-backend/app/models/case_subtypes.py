@@ -64,6 +64,9 @@ class TowCase(_VehicleSnapshotMixin, Base):
     Shell'den taşındı: tow_mode, tow_stage, tow_required_equipment,
     incident_reason, scheduled_at, pickup/dropoff lat/lng/address,
     tow_fare_quote, pickup/dropoff_location (computed geography).
+
+    Faz 2 (2026-04-23): parent_case_id — accident/breakdown case'in
+    müşteri sonradan çekici çağırdığında bağlanır (1 parent → 0..n tow).
     """
 
     __tablename__ = "tow_case"
@@ -71,6 +74,10 @@ class TowCase(_VehicleSnapshotMixin, Base):
     case_id: Mapped[UUID] = mapped_column(
         ForeignKey("service_cases.id", ondelete="CASCADE"),
         primary_key=True,
+    )
+    parent_case_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("service_cases.id", ondelete="SET NULL"),
+        nullable=True,
     )
     tow_mode: Mapped[TowMode] = mapped_column(
         pg_enum(TowMode, name="tow_mode", create_type=False),

@@ -218,6 +218,9 @@ class TowCreateCaseRequest(BaseModel):
     fare_quote: TowFareQuote
     kasko: TowKaskoDeclaration = Field(default_factory=TowKaskoDeclaration)
     attachments: list[UUID] = Field(default_factory=list)
+    # Faz 2: accident/breakdown parent → tow çocuk bağlantısı (opsiyonel).
+    # Müşteri mevcut kaza/arıza case'inden çekici çağırırsa doldurulur.
+    parent_case_id: UUID | None = None
 
 
 class TowDispatchResponseInput(BaseModel):

@@ -75,6 +75,21 @@ async def get_case_with_subtype(
     return case, subtype
 
 
+async def list_linked_tow_case_ids(
+    session: AsyncSession, parent_case_id: UUID
+) -> list[UUID]:
+    """Faz 2 — accident/breakdown parent → tow çocuk case id'leri.
+
+    Ters yön lookup; `ix_tow_case_parent_case_id` partial index kullanır.
+    """
+    stmt = (
+        select(TowCase.case_id)
+        .where(TowCase.parent_case_id == parent_case_id)
+        .order_by(TowCase.created_at.asc())
+    )
+    return [row for row in (await session.execute(stmt)).scalars().all()]
+
+
 async def create_case(
     session: AsyncSession,
     *,

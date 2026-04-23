@@ -84,10 +84,17 @@ class CaseDetailResponse(CaseSummaryResponse):
     Subtype dict kind'a göre shape alır (tow/accident/breakdown/maintenance).
     FE parity: kind bazlı discriminated union. Pilot V1 pratik şema; V2'de
     generic code generation (openapi → Zod) ile tip disipline edilecek.
+
+    Faz 2 (2026-04-23): linkage field'ları.
+    - `parent_case_id` — tow kind'da dolu ise accident/breakdown parent
+    - `linked_tow_case_ids` — accident/breakdown kind'da parent ise child
+      tow vakaları (0..n)
     """
 
     vehicle_snapshot: VehicleSnapshotResponse | None = None
     subtype: dict[str, object] | None = None
+    parent_case_id: UUID | None = None
+    linked_tow_case_ids: list[UUID] = []
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -157,6 +164,19 @@ async def get_case_endpoint(
     if case is None or case.deleted_at is not None:
         raise HTTPException(status_code=404, detail={"type": "case_not_found"})
     _assert_participant(case, user_id=user.id, role=user.role)
+    # Faz 2 linkage: tow çocuksa parent_case_id, accident/breakdown parent'sa
+    # child tow listesi.
+    parent_case_id: UUID | None = None
+    linked_tow_case_ids: list[UUID] = []
+    if isinstance(subtype, TowCase):
+        parent_case_id = subtype.parent_case_id
+    elif case.kind in (
+        ServiceRequestKind.ACCIDENT,
+        ServiceRequestKind.BREAKDOWN,
+    ):
+        linked_tow_case_ids = await case_repo.list_linked_tow_case_ids(
+            db, case.id
+        )
     return CaseDetailResponse(
         id=case.id,
         kind=case.kind,
@@ -169,6 +189,8 @@ async def get_case_endpoint(
         updated_at=case.updated_at,
         vehicle_snapshot=_vehicle_snapshot_view(subtype),
         subtype=_subtype_view(subtype),
+        parent_case_id=parent_case_id,
+        linked_tow_case_ids=linked_tow_case_ids,
     )
 
 

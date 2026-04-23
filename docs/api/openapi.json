@@ -1249,7 +1249,7 @@
         "type": "object"
       },
       "CaseDetailResponse": {
-        "description": "Faz 1 canonical case architecture — shell + subtype + snapshot.\n\nSubtype dict kind'a göre shape alır (tow/accident/breakdown/maintenance).\nFE parity: kind bazlı discriminated union. Pilot V1 pratik şema; V2'de\ngeneric code generation (openapi → Zod) ile tip disipline edilecek.",
+        "description": "Faz 1 canonical case architecture — shell + subtype + snapshot.\n\nSubtype dict kind'a göre shape alır (tow/accident/breakdown/maintenance).\nFE parity: kind bazlı discriminated union. Pilot V1 pratik şema; V2'de\ngeneric code generation (openapi → Zod) ile tip disipline edilecek.\n\nFaz 2 (2026-04-23): linkage field'ları.\n- `parent_case_id` — tow kind'da dolu ise accident/breakdown parent\n- `linked_tow_case_ids` — accident/breakdown kind'da parent ise child\n  tow vakaları (0..n)",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -1264,6 +1264,15 @@
           "kind": {
             "$ref": "#/components/schemas/ServiceRequestKind"
           },
+          "linked_tow_case_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Linked Tow Case Ids",
+            "type": "array"
+          },
           "location_label": {
             "anyOf": [
               {
@@ -1274,6 +1283,18 @@
               }
             ],
             "title": "Location Label"
+          },
+          "parent_case_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Case Id"
           },
           "status": {
             "$ref": "#/components/schemas/ServiceCaseStatus"
@@ -5962,6 +5983,18 @@
           },
           "mode": {
             "$ref": "#/components/schemas/TowModeSchema"
+          },
+          "parent_case_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Case Id"
           },
           "pickup_label": {
             "title": "Pickup Label",

@@ -147,6 +147,25 @@ async def create_case(
     if vehicle is None:
         raise HTTPException(status_code=404, detail="vehicle not found")
 
+    # Faz 2: parent case validation — accident/breakdown kind olmalı + aynı
+    # müşteriye ait + soft delete değil.
+    if payload.parent_case_id is not None:
+        parent = await db.get(ServiceCase, payload.parent_case_id)
+        if (
+            parent is None
+            or parent.deleted_at is not None
+            or parent.customer_user_id != user.id
+            or parent.kind
+            not in (ServiceRequestKind.ACCIDENT, ServiceRequestKind.BREAKDOWN)
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "type": "invalid_parent_case",
+                    "message": "parent_case must be owned accident/breakdown case",
+                },
+            )
+
     tow_mode = TowMode(payload.mode.value)
     initial_stage = (
         TowDispatchStage.SEARCHING
@@ -672,6 +691,7 @@ async def _insert_tow_subtype_row(
 
     tow_row = TowCase(
         case_id=case.id,
+        parent_case_id=payload.parent_case_id,
         tow_mode=tow_mode,
         tow_stage=initial_stage,
         tow_required_equipment=equipment,
