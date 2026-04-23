@@ -71,7 +71,12 @@ export function AppTabBar({
 
   return (
     <View
+      pointerEvents="box-none"
       style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
         backgroundColor: backgroundColor ?? "transparent",
         paddingBottom: Math.max(bottomInset, 10),
         paddingTop: 8,

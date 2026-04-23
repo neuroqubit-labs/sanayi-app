@@ -13,6 +13,12 @@ export default function TabsLayout() {
         headerShown: false,
         sceneStyle: { backgroundColor: "#060915" },
         tabBarHideOnKeyboard: true,
+        tabBarStyle: {
+          position: "absolute",
+          backgroundColor: "transparent",
+          borderTopWidth: 0,
+          elevation: 0,
+        },
       }}
       tabBar={(props) => <CustomerTabBar {...props} />}
     >
