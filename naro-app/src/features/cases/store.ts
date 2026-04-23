@@ -15,7 +15,6 @@ import {
   markCaseSeen,
   refreshMatchingCase,
   seedTrackingCases,
-  sendCaseMessage,
   syncTrackingCase,
   trackingServiceDirectory,
   updateCaseNotes,
@@ -40,11 +39,6 @@ type CasesState = {
   ) => ServiceCase;
   refreshMatching: (caseId: string) => ServiceCase | null;
   confirmAppointment: (caseId: string) => ServiceCase | null;
-  sendMessage: (
-    caseId: string,
-    body: string,
-    attachments?: CaseAttachment[],
-  ) => ServiceCase | null;
   markSeen: (caseId: string) => ServiceCase | null;
   attachTechnician: (caseId: string, technicianId: string) => ServiceCase | null;
   prefillDraftTechnician: (
@@ -333,19 +327,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
 
     set((state) => {
       const result = updateCaseById(state.cases, caseId, confirmCaseAppointment);
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  sendMessage: (caseId, body, attachments = []) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        sendCaseMessage(caseItem, "customer", body, attachments),
-      );
       updatedCase = result.updatedCase;
       return { cases: result.cases };
     });

@@ -5,7 +5,12 @@ import type {
   ServiceRequestKind,
 } from "@naro/domain";
 import { buildCustomerTrackingView } from "@naro/mobile-core";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { ApiError } from "@naro/mobile-core";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+} from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { useTechnicianPublicView } from "@/features/ustalar/api";
@@ -19,11 +24,21 @@ import { useTechnicianCooldownStore } from "./cooldown-store";
 import { createDraftForKind } from "./data/fixtures";
 import {
   CaseCreateResponseSchema,
+  CaseDetailResponseSchema,
   CaseSummaryResponseSchema,
   ServiceRequestDraftCreateSchema,
   type CaseCreateResponse,
+  type CaseDetailResponse,
   type ServiceRequestDraftCreate,
 } from "./schemas/case-create";
+import {
+  ThreadMessageCreatePayloadSchema,
+  ThreadMessageListResponseSchema,
+  ThreadMessageResponseSchema,
+  type ThreadMessageListResponse,
+  type ThreadMessageResponse,
+  type ThreadSendErrorDetail,
+} from "./schemas/thread";
 import { useCasesStore } from "./store";
 
 const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
@@ -135,19 +150,6 @@ export function useCaseTask(caseId: string, taskId: string) {
       return mockDelay(
         caseItem?.tasks.find((task) => task.id === taskId) ?? null,
       );
-    },
-  });
-}
-
-export function useCaseThread(caseId: string) {
-  return useQuery({
-    queryKey: ["cases", "thread", caseId],
-    queryFn: async () => {
-      const caseItem = useCasesStore
-        .getState()
-        .cases.find((entry) => entry.id === caseId);
-
-      return mockDelay(caseItem?.thread ?? null);
     },
   });
 }
@@ -397,6 +399,144 @@ export function useCaseSummaryLive(caseId: string) {
   });
 }
 
+/**
+ * BE Faz 2 (2026-04-23): canonical case detail.
+ * Döner `parent_case_id` (tow → accident/breakdown) ve
+ * `linked_tow_case_ids[]` (accident/breakdown → tow reverse lookup).
+ * Linked tow CTA + vehicle snapshot + subtype dict tüketicisi.
+ */
+export function useCaseDetailLive(caseId: string) {
+  return useQuery<CaseDetailResponse>({
+    queryKey: ["cases", "detail", "live", caseId],
+    enabled: caseId.length > 0,
+    queryFn: async () => {
+      const raw = await apiClient(`/cases/${caseId}`);
+      return CaseDetailResponseSchema.parse(raw);
+    },
+  });
+}
+
+// ─── İş A thread + notes live wrappers (2026-04-23) ─────────────────────────
+
+/**
+ * FastAPI HTTPException → `ApiError.body = { detail: {...} }`. BE thread
+ * contract iki özel detail tipi döner: disintermediation (422) ve
+ * case_closed (403). Helper tek tipe normalize eder; caller UX'te switch.
+ */
+export function extractThreadSendError(
+  err: unknown,
+): ThreadSendErrorDetail | null {
+  if (!(err instanceof ApiError)) return null;
+  const body = err.body as { detail?: unknown } | undefined;
+  const detail = body?.detail;
+  if (!detail || typeof detail !== "object") return null;
+  const type = (detail as { type?: unknown }).type;
+  const message = (detail as { message?: unknown }).message;
+  if (typeof type !== "string" || typeof message !== "string") return null;
+  if (
+    type === "disintermediation_phone_number" ||
+    type === "disintermediation_email" ||
+    type === "case_closed"
+  ) {
+    return { type, message };
+  }
+  return null;
+}
+
+const THREAD_PAGE_LIMIT = 50;
+
+/**
+ * Thread mesajları — cursor paginated (base64 cursor, 50 limit).
+ * BE `next_cursor=null` → son sayfa. Flat array erişimi için
+ * `data.pages.flatMap(p => p.items)` ile kullan.
+ */
+export function useCaseThreadLive(caseId: string) {
+  return useInfiniteQuery({
+    queryKey: ["cases", "thread", "live", caseId],
+    enabled: caseId.length > 0,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({
+        limit: String(THREAD_PAGE_LIMIT),
+      });
+      if (pageParam) params.set("cursor", pageParam);
+      const raw = await apiClient(
+        `/cases/${caseId}/thread/messages?${params.toString()}`,
+      );
+      return ThreadMessageListResponseSchema.parse(raw);
+    },
+    getNextPageParam: (lastPage: ThreadMessageListResponse) =>
+      lastPage.next_cursor ?? undefined,
+    staleTime: 5 * 1000,
+  });
+}
+
+/**
+ * Thread'e yeni mesaj. BE validate (telefon/email regex) → 422
+ * disintermediation; terminal case → 403 case_closed. Caller hatayı
+ * `extractThreadSendError` ile tipleyip UX'te yönlendirir.
+ */
+export function useSendCaseMessageLive(caseId: string) {
+  return useMutation<ThreadMessageResponse, Error, { content: string }>({
+    mutationFn: async (input) => {
+      const body = ThreadMessageCreatePayloadSchema.parse({
+        content: input.content,
+      });
+      const raw = await apiClient(`/cases/${caseId}/thread/messages`, {
+        method: "POST",
+        body: JSON.parse(JSON.stringify(body)),
+      });
+      return ThreadMessageResponseSchema.parse(raw);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["cases", "thread", "live", caseId],
+      });
+      // Detail timestamp refresh — message send last-seen side-effect.
+      void queryClient.invalidateQueries({
+        queryKey: ["cases", "detail", "live", caseId],
+      });
+    },
+  });
+}
+
+/**
+ * Thread'i okundu işaretle — BE 204. CaseThreadScreen focus event'te
+ * debounce 500ms + çağır; hızlı tetiklemede race yok (idempotent).
+ */
+export function useMarkCaseThreadSeenLive(caseId: string) {
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      await apiClient(`/cases/${caseId}/thread/seen`, {
+        method: "POST",
+      });
+    },
+  });
+}
+
+/**
+ * Müşteri notları güncelle (owner-only). BE response güncel
+ * CaseDetailResponse döner → cache set + detail query invalidate.
+ * Null content → notes silme.
+ */
+export function useUpdateCaseNotesLive(caseId: string) {
+  return useMutation<CaseDetailResponse, Error, { content: string | null }>({
+    mutationFn: async (input) => {
+      const raw = await apiClient(`/cases/${caseId}/notes`, {
+        method: "PATCH",
+        body: { content: input.content },
+      });
+      return CaseDetailResponseSchema.parse(raw);
+    },
+    onSuccess: (detail) => {
+      queryClient.setQueryData(
+        ["cases", "detail", "live", caseId],
+        detail,
+      );
+    },
+  });
+}
+
 export function useRefreshCaseMatching(caseId: string) {
   return useMutation({
     mutationFn: async () => {
@@ -490,24 +630,6 @@ export function useAppointmentCountdown(caseId: string) {
   }
   const seconds = Math.floor((remainingMs % (60 * 1000)) / 1000);
   return { label: `${minutes} dk ${seconds} sn kaldı`, expired: false };
-}
-
-export function useSendCaseMessage(caseId: string) {
-  return useMutation({
-    mutationFn: async ({
-      body,
-      attachments = [],
-    }: {
-      body: string;
-      attachments?: CaseAttachment[];
-    }) => {
-      const updatedCase = useCasesStore
-        .getState()
-        .sendMessage(caseId, body, attachments);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
 }
 
 export function useMarkCaseSeen(caseId: string) {
