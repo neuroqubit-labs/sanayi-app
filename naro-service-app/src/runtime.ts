@@ -139,6 +139,12 @@ async function executeRefresh(): Promise<string | null> {
 export const apiClient = createApiClient({
   authTokenProvider: () => useAuthStore.getState().accessToken,
   refreshAuthToken,
+  // BUG 3 fix parity (2026-04-23): korumalı request'i hydrate sonrası
+  // accessToken yoksa ateşleme.
+  requireAuth: () => {
+    const state = useAuthStore.getState();
+    return state.hydrated && !state.accessToken;
+  },
   baseUrl: env.apiUrl,
   getIsOnline,
   telemetry,

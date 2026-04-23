@@ -17,6 +17,15 @@ export type ApiClientConfig = {
   baseUrl: string;
   authTokenProvider?: () => MaybePromise<string | null>;
   refreshAuthToken?: () => MaybePromise<string | null>;
+  /**
+   * Smoke report BUG 3 (2026-04-23): protected query hook'ları login
+   * ekran mount'unda bile ateşleniyordu → BE log spam (401'ler). Bu
+   * provider `true` döndürürse ve caller `auth:false` geçmediyse
+   * request fırlatılmadan `ApiError("unauthenticated_suppressed")`
+   * throw edilir. Default undefined → legacy davranış (hiçbir
+   * filtreleme yok).
+   */
+  requireAuth?: () => boolean;
   telemetry?: TelemetryAdapter;
   timeoutMs?: number;
   getIsOnline?: () => boolean | undefined;
@@ -104,6 +113,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     baseUrl,
     getIsOnline,
     refreshAuthToken,
+    requireAuth,
     telemetry,
     timeoutMs = 10_000,
   } = config;
@@ -124,6 +134,28 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
         options.auth === false
           ? null
           : options.auth ?? (await authTokenProvider?.()) ?? null;
+
+      // BUG 3 fix (2026-04-23): auth gerekli ve yok → request'i
+      // hiç ateşleme. Caller explicit `auth:false` geçmişse public
+      // akış sayılır ve bypass edilir. Throw edilen ApiError TanStack
+      // Query tarafında error state'e düşer; login ekran mount'unda
+      // BE log'una /vehicles/me + /cases/me 401 düşmez.
+      if (
+        options.auth !== false &&
+        !authHeader &&
+        requireAuth?.() === true
+      ) {
+        clearTimeout(timer);
+        throw new ApiError(
+          "Request suppressed: auth required but no token available",
+          "http",
+          requestId,
+          401,
+          { detail: { type: "unauthenticated_suppressed" } },
+          url,
+          method,
+        );
+      }
       const normalizedBody = normalizeBody(options.body);
       const headers: Record<string, string> = {
         ...normalizedBody.headers,

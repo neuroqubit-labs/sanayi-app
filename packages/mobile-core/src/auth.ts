@@ -132,6 +132,8 @@ export function createOtpAuthApi(options: OtpAuthApiOptions) {
       return apiClient<OtpRequestResponse>("/auth/otp/request", {
         method: "POST",
         body: { role, ...payload },
+        // Public endpoint — `requireAuth` suppression bypass.
+        auth: false,
       });
     },
     verifyOtp: async (payload: OtpVerify) => {
@@ -142,6 +144,7 @@ export function createOtpAuthApi(options: OtpAuthApiOptions) {
       const body = await apiClient<TokenPair>("/auth/otp/verify", {
         method: "POST",
         body: payload,
+        auth: false,
       });
 
       return TokenPairSchema.parse(body);
