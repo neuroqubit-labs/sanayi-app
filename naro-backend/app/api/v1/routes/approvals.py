@@ -169,19 +169,29 @@ async def request_approval_endpoint(
             status_code=403, detail={"type": "not_assigned_technician"}
         )
 
-    approval = await approval_flow.request_approval(
-        db,
-        case_id=case_id,
-        kind=payload.kind,
-        title=payload.title,
-        description=payload.description,
-        requested_by_user_id=user.id,
-        requested_by_snapshot_name=user.full_name,
-        amount=payload.amount,
-        currency=payload.currency,
-        service_comment=payload.service_comment,
-        line_items=[it.model_dump() for it in payload.line_items],
-    )
+    try:
+        approval = await approval_flow.request_approval(
+            db,
+            case_id=case_id,
+            kind=payload.kind,
+            title=payload.title,
+            description=payload.description,
+            requested_by_user_id=user.id,
+            requested_by_snapshot_name=user.full_name,
+            amount=payload.amount,
+            currency=payload.currency,
+            service_comment=payload.service_comment,
+            line_items=[it.model_dump() for it in payload.line_items],
+        )
+    except approval_flow.ApprovalAlreadyActiveError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "type": "approval_already_active",
+                "kind": exc.kind.value,
+            },
+        ) from exc
     await db.commit()
     return await _build_response(db, approval)
 

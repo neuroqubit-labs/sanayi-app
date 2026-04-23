@@ -23,6 +23,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case import ServiceCase, ServiceCaseStatus
@@ -56,6 +57,18 @@ class CompletionGateError(ValueError):
     def __init__(self, reason: str, *, missing: dict[str, object]) -> None:
         super().__init__(reason)
         self.missing = missing
+
+
+class ApprovalAlreadyActiveError(ValueError):
+    """B-P2-2 fix: 1 pending approval per (case, kind) — partial unique
+    index uq_active_approval_per_case_kind ihlali."""
+
+    def __init__(self, case_id: UUID, kind: CaseApprovalKind) -> None:
+        super().__init__(
+            f"pending approval already exists for case={case_id} kind={kind.value}"
+        )
+        self.case_id = case_id
+        self.kind = kind
 
 
 async def reject_all_pending_for_case(
@@ -108,7 +121,14 @@ async def request_approval(
         service_comment=service_comment,
     )
     session.add(approval)
-    await session.flush()
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        # B-P2-2: partial unique index uq_active_approval_per_case_kind
+        # ihlali — aynı case/kind'te pending approval mevcut.
+        if "uq_active_approval_per_case_kind" in str(exc.orig):
+            raise ApprovalAlreadyActiveError(case_id, kind) from exc
+        raise
 
     for idx, li in enumerate(line_items or []):
         label = li.get("label")

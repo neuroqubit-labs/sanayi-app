@@ -5,9 +5,13 @@ DB integration skip (cross-test asyncpg bloker); smoke + QA ile doğrulanır.
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 
+from app.models.case_process import CaseApprovalKind
 from app.services.approval_flow import (
+    ApprovalAlreadyActiveError,
     ApprovalNotFoundError,
     ApprovalNotPendingError,
     CompletionGateError,
@@ -39,3 +43,11 @@ def test_approval_not_pending_is_value_error() -> None:
 def test_approval_not_found_is_lookup_error() -> None:
     with pytest.raises(ApprovalNotFoundError):
         raise ApprovalNotFoundError("no such approval")
+
+
+def test_approval_already_active_carries_kind_and_case_id() -> None:
+    case_id = uuid4()
+    exc = ApprovalAlreadyActiveError(case_id, CaseApprovalKind.PARTS_REQUEST)
+    assert exc.case_id == case_id
+    assert exc.kind == CaseApprovalKind.PARTS_REQUEST
+    assert "parts_request" in str(exc)
