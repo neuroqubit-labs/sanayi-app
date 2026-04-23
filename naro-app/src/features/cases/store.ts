@@ -10,7 +10,6 @@ import type { AppointmentRequestPayload } from "@naro/mobile-core";
 import {
   appendCaseAttachment,
   attachTechnicianToTrackingCase,
-  cancelAppointmentForCase,
   confirmCaseAppointment,
   createTrackingDraftForKind,
   getTrackingServiceSnapshot,
@@ -59,7 +58,6 @@ type CasesState = {
     caseId: string,
     payload: AppointmentRequestPayload,
   ) => ServiceCase | null;
-  cancelAppointment: (caseId: string) => ServiceCase | null;
   addAttachment: (
     caseId: string,
     attachment: CaseAttachment,
@@ -409,17 +407,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
       const result = updateCaseById(state.cases, caseId, (caseItem) =>
         requestAppointmentForCase(caseItem, payload),
       );
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  cancelAppointment: (caseId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, cancelAppointmentForCase);
       updatedCase = result.updatedCase;
       return { cases: result.cases };
     });

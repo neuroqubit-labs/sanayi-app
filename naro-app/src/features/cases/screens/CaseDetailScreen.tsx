@@ -33,9 +33,10 @@ import { useEffect } from "react";
 import { Alert, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useCancelAppointment } from "@/features/appointments";
+
 import {
   useAppointmentCountdown,
-  useCancelAppointment,
   useCaseDetail,
   useCustomerTrackingView,
   useMarkCaseSeen,
@@ -298,7 +299,10 @@ export function CaseDetailScreen() {
   const { data: trackingView } = useCustomerTrackingView(id ?? "");
   const markSeen = useMarkCaseSeen(id ?? "");
   const countdown = useAppointmentCountdown(id ?? "");
-  const cancelAppointment = useCancelAppointment(id ?? "");
+  const cancelAppointment = useCancelAppointment(
+    caseItem?.appointment?.id ?? "",
+    id ?? "",
+  );
 
   useEffect(() => {
     if (id) {

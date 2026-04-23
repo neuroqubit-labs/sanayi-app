@@ -12,7 +12,9 @@ import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useCancelAppointment, useCaseDetail } from "../api";
+import { useCancelAppointment } from "@/features/appointments";
+
+import { useCaseDetail } from "../api";
 
 type StickyVariant =
   | { kind: "offers" }
@@ -89,7 +91,10 @@ export function CustomerCaseProfileScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: caseItem } = useCaseDetail(id ?? "");
-  const cancelAppointment = useCancelAppointment(id ?? "");
+  const cancelAppointment = useCancelAppointment(
+    caseItem?.appointment?.id ?? "",
+    id ?? "",
+  );
 
   if (!caseItem) {
     return (

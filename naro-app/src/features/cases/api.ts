@@ -340,16 +340,6 @@ export function useConfirmAppointment(caseId: string) {
   });
 }
 
-export function useCancelAppointment(caseId: string) {
-  return useMutation({
-    mutationFn: async () => {
-      const updatedCase = useCasesStore.getState().cancelAppointment(caseId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
 export function useAddCaseAttachment() {
   return useMutation({
     mutationFn: async (input: {
