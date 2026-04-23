@@ -56,6 +56,9 @@ const STAGE_LABELS: Record<TowDispatchStage, string> = {
   scheduled_waiting: "Randevu bekleniyor",
   bidding_open: "Teklif topluyor",
   offer_accepted: "Teklif kabul",
+  // Canonical BE extra stages (shared domain genişletildi 2026-04-23):
+  preauth_failed: "Ödeme reddedildi",
+  preauth_stale: "Ön yetki süresi doldu",
 };
 
 const EVIDENCE_REQUIREMENTS: {

@@ -30,6 +30,10 @@ type TowActiveJob = {
 
 type IncomingDispatch = {
   id: string;
+  /** BE case ID — accept/decline canonical endpoint path'inde kullanılır. */
+  case_id: string;
+  /** BE dispatch attempt ID — accept/decline body'de gönderilir. */
+  attempt_id: string;
   customer_name: string;
   pickup_label: string;
   pickup_lat_lng: LatLng;
@@ -67,8 +71,14 @@ type TowServiceStoreState = {
 
 const DEFAULT_START: LatLng = { lat: 41.0521, lng: 28.9867 };
 
+// P0-5 launch fix: canonical dispatch payload case_id + attempt_id
+// gerektirir (accept/decline canonical endpoint). SAMPLE placeholder
+// UUID'leri local preview için; prod'da realtime push hem case_id hem
+// attempt_id'yi doldurur.
 const SAMPLE_DISPATCH: IncomingDispatch = {
   id: "dsp-sample-1",
+  case_id: "00000000-0000-0000-0000-000000000001",
+  attempt_id: "00000000-0000-0000-0000-000000000002",
   customer_name: "Erdal Bey",
   pickup_label: "TEM Otoyolu, Beşiktaş yönü, Bostancı gişe sonrası",
   pickup_lat_lng: { lat: 40.9557, lng: 29.0937 },

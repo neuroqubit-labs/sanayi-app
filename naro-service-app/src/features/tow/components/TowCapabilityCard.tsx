@@ -7,7 +7,7 @@ import {
   Power,
   Truck,
 } from "lucide-react-native";
-import { Pressable, Switch, View } from "react-native";
+import { Switch, View } from "react-native";
 
 import { useTechnicianProfileStore } from "@/features/technicians";
 
@@ -31,9 +31,6 @@ export function TowCapabilityCard() {
   const deactivate = useTowServiceStore((s) => s.deactivate);
   const activeJob = useTowServiceStore((s) => s.active_job);
   const incoming = useTowServiceStore((s) => s.incoming_dispatch);
-  const simulateIncoming = useTowServiceStore(
-    (s) => s.simulateIncomingDispatch,
-  );
 
   if (!capability.can_show_ui) {
     return null;
@@ -155,18 +152,10 @@ export function TowCapabilityCard() {
           ? "Yakındaki acil çekici çağrıları sana düşer. Yeni dispatch geldiğinde 15 sn içinde kabul ekranı açılır."
           : "Sertifikan onaylı. Açık olduğunda acil çekici çağrılarını alırsın; kapattığında yeni dispatch gelmez, mevcut işler devam eder."}
       </Text>
-      {isActive ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={simulateIncoming}
-          className="flex-row items-center justify-center gap-2 rounded-[14px] border border-dashed border-app-outline px-3 py-2.5 active:bg-app-surface-2"
-        >
-          <Icon icon={AlertCircle} size={12} color="#f5b33f" />
-          <Text variant="caption" tone="warning" className="text-[11px]">
-            Demo: test dispatch'i gönder
-          </Text>
-        </Pressable>
-      ) : null}
+      {/* P0-5 launch fix (2026-04-23): "Demo: test dispatch gönder"
+          butonu kaldırıldı. İncoming dispatch canonical flow ile gelir
+          (push notif / realtime). simulateIncomingDispatch artık sadece
+          test fixture — prod UI'da yok. */}
     </View>
   );
 }

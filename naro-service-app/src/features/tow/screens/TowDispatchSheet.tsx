@@ -12,16 +12,23 @@ import { MapPin, MapPinned, Truck } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { useRespondDispatch } from "../api";
 import { useTowServiceStore } from "../store";
 
 const COUNTDOWN_SECONDS = 15;
 
+/**
+ * P0-5 launch migration (2026-04-23): accept/decline artık canonical
+ * backend endpoint'i çağırıyor. Local store `acceptDispatch/declineDispatch`
+ * SAMPLE_DISPATCH demo için kaldı (preview mode); launch path canlı.
+ */
 export function TowDispatchSheet() {
   const router = useRouter();
   const incoming = useTowServiceStore((s) => s.incoming_dispatch);
   const techLocation = useTowServiceStore((s) => s.starting_location);
-  const accept = useTowServiceStore((s) => s.acceptDispatch);
-  const decline = useTowServiceStore((s) => s.declineDispatch);
+  const acceptLocal = useTowServiceStore((s) => s.acceptDispatch);
+  const declineLocal = useTowServiceStore((s) => s.declineDispatch);
+  const respond = useRespondDispatch(incoming?.case_id ?? "");
 
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
 
@@ -31,7 +38,7 @@ export function TowDispatchSheet() {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           clearInterval(iv);
-          decline();
+          declineLocal();
           router.back();
           return 0;
         }
@@ -39,7 +46,7 @@ export function TowDispatchSheet() {
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, [incoming, decline, router]);
+  }, [incoming, declineLocal, router]);
 
   if (!incoming) {
     return (
@@ -59,15 +66,35 @@ export function TowDispatchSheet() {
     );
   }
 
-  const handleAccept = () => {
-    const job = accept();
-    if (job) {
-      router.replace(`/cekici/${job.id}`);
+  const handleAccept = async () => {
+    if (!incoming) return;
+    try {
+      await respond.mutateAsync({
+        attempt_id: incoming.attempt_id,
+        response: "accepted",
+      });
+      // Local store aktif job UI state için (iter 2'de active job ekranı
+      // canonical useTowCaseSnapshot'a geçince bu çağrı sökülür).
+      acceptLocal();
+      router.replace(`/cekici/${incoming.case_id}`);
+    } catch {
+      // 409/404 dispatch attempt expire ya da race; kullanıcı mesaj
+      // görsün — şimdilik sheet açık kalıyor, timeout bu handle eder.
     }
   };
 
-  const handleDecline = () => {
-    decline();
+  const handleDecline = async () => {
+    if (incoming) {
+      try {
+        await respond.mutateAsync({
+          attempt_id: incoming.attempt_id,
+          response: "declined",
+        });
+      } catch {
+        // Backend decline kayıt edemese bile local store cleanup devam eder.
+      }
+    }
+    declineLocal();
     router.back();
   };
 
