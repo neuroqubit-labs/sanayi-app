@@ -23,6 +23,7 @@ import {
   Pencil,
   Plus,
   Sparkles,
+  Truck,
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
@@ -47,11 +48,12 @@ import { openMediaAsset } from "@/shared/media/openAsset";
 import {
   useAddCaseAttachment,
   useAppointmentCountdown,
-  useCaseDetail,
   useUpdateCaseNotes,
+  useUpdateCaseNotesLive,
 } from "../api";
 import { AddAttachmentSheet } from "../components/AddAttachmentSheet";
 import { EditCaseNotesSheet } from "../components/EditCaseNotesSheet";
+import { useCanonicalCase } from "../hooks/useCanonicalCase";
 import { getCaseKindLabel, getCaseStatusLabel, getCaseStatusTone } from "../presentation";
 
 const INACTIVE_STATUSES = new Set<string>(["completed", "archived", "cancelled"]);
@@ -119,13 +121,16 @@ export function CaseManagementScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const caseId = id ?? "";
-  const { data: caseItem } = useCaseDetail(caseId);
+  const canonicalQuery = useCanonicalCase(caseId);
+  const caseItem = canonicalQuery.data;
+  const linkage = canonicalQuery.linkage;
   const { data: vehicle } = useVehicle(caseItem?.vehicle_id ?? "");
   const countdown = useAppointmentCountdown(caseId);
   const openPreview = useUstaPreviewStore((state) => state.open);
 
   const addAttachment = useAddCaseAttachment();
   const updateNotes = useUpdateCaseNotes();
+  const updateNotesLive = useUpdateCaseNotesLive(caseId);
 
   const [editOpen, setEditOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
@@ -143,6 +148,11 @@ export function CaseManagementScreen() {
   );
   const offersQuery = useCaseOffers(caseId);
   const offers = offersQuery.data ?? [];
+
+  // BE Faz 2 linkage — canonical adapter üzerinden okunur.
+  const linkedTowCaseIds = linkage?.linked_tow_case_ids ?? [];
+  const canLinkTow =
+    caseItem?.kind === "accident" || caseItem?.kind === "breakdown";
 
   const assignedTechnicianId =
     caseItem?.assigned_technician_id ?? caseItem?.preferred_technician_id ?? "";
@@ -187,6 +197,11 @@ export function CaseManagementScreen() {
   };
 
   const handleEditSubmit = (patch: { summary: string; notes: string }) => {
+    // İş A (2026-04-23): customer_notes canlı BE PATCH /cases/{id}/notes.
+    // Summary güncellemesi için henüz ayrı endpoint yok — mock store'a yazıp
+    // özet alanını local tutuyoruz. Summary endpoint shipped olunca tek çağrı
+    // olur.
+    void updateNotesLive.mutateAsync({ content: patch.notes || null });
     void updateNotes.mutateAsync({
       caseId,
       summary: patch.summary,
@@ -280,6 +295,58 @@ export function CaseManagementScreen() {
                   {caseItem.next_action_description}
                 </Text>
               ) : null}
+            </View>
+            <Icon icon={ChevronRight} size={16} color="#83a7ff" />
+          </Pressable>
+        ) : null}
+
+        {/* Linked tow case(ler) — accident/breakdown parent ise */}
+        {canLinkTow && linkedTowCaseIds.length > 0 ? (
+          <View className="gap-2">
+            {linkedTowCaseIds.map((towId) => (
+              <Pressable
+                key={towId}
+                accessibilityRole="button"
+                accessibilityLabel="Bu vakanın çekicisini aç"
+                onPress={() => router.push(`/cekici/${towId}` as Href)}
+                className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/40 bg-brand-500/10 px-4 py-3.5 active:opacity-90"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/20">
+                  <Icon icon={Truck} size={18} color="#0ea5e9" />
+                </View>
+                <View className="flex-1 gap-0.5">
+                  <Text variant="eyebrow" tone="subtle">
+                    Bu vakanın çekicisi
+                  </Text>
+                  <Text variant="label" tone="inverse" className="text-[14px]">
+                    {`Çekici #${towId.slice(0, 8)}`}
+                  </Text>
+                </View>
+                <Icon icon={ChevronRight} size={16} color="#83a7ff" />
+              </Pressable>
+            ))}
+          </View>
+        ) : canLinkTow && isActive ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Bu vakaya çekici çağır"
+            onPress={() =>
+              router.push(
+                `/(modal)/talep/towing?parentCaseId=${caseId}` as Href,
+              )
+            }
+            className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
+          >
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-app-surface-2">
+              <Icon icon={Truck} size={18} color="#83a7ff" />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text variant="eyebrow" tone="subtle">
+                Çekici gerekli mi?
+              </Text>
+              <Text variant="label" tone="inverse" className="text-[14px]">
+                Bu vakaya bağlı çekici çağır
+              </Text>
             </View>
             <Icon icon={ChevronRight} size={16} color="#83a7ff" />
           </Pressable>
@@ -638,7 +705,11 @@ export function CaseManagementScreen() {
       <EditCaseNotesSheet
         visible={editOpen}
         initialSummary={caseItem.summary}
-        initialNotes={caseItem.request.notes ?? ""}
+        initialNotes={
+          // İş A (2026-04-23): customer_notes canonical kaynak. Fallback:
+          // mock store'daki request.notes (owner view dışında null).
+          linkage?.customer_notes ?? caseItem.request.notes ?? ""
+        }
         onClose={() => setEditOpen(false)}
         onSubmit={handleEditSubmit}
       />

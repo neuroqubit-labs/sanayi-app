@@ -13,12 +13,12 @@ import { View } from "react-native";
 import { openMediaAsset } from "@/shared/media/openAsset";
 import { documentStatusTone } from "@/shared/presentation/tone";
 
-import { useCaseDetail } from "../api";
+import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
 export function CaseDocumentsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: caseItem } = useCaseDetail(id ?? "");
+  const { data: caseItem } = useCanonicalCase(id ?? "");
 
   if (!caseItem) {
     return (

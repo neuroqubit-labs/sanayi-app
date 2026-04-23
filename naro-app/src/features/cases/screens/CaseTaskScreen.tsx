@@ -11,11 +11,10 @@ import { Href, useLocalSearchParams, useRouter } from "expo-router";
 import { View } from "react-native";
 
 import {
-  useCaseDetail,
-  useCaseTask,
   useConfirmAppointment,
   useRefreshCaseMatching,
 } from "../api";
+import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
 const TRUST_RELEVANT_KINDS = new Set([
   "approve_parts",
@@ -27,8 +26,11 @@ const TRUST_RELEVANT_KINDS = new Set([
 export function CaseTaskScreen() {
   const router = useRouter();
   const { id, taskId } = useLocalSearchParams<{ id: string; taskId: string }>();
-  const { data: caseItem } = useCaseDetail(id ?? "");
-  const { data: task } = useCaseTask(id ?? "", taskId ?? "");
+  // İş B iter 2 Chunk 3: task canonical case.tasks[] içinden okunur
+  // (syncTrackingCase status + kind'den türetir). Eski mock useCaseTask
+  // deprecated.
+  const { data: caseItem } = useCanonicalCase(id ?? "");
+  const task = caseItem?.tasks.find((t) => t.id === taskId) ?? null;
   const refreshMatching = useRefreshCaseMatching(id ?? "");
   const confirmAppointment = useConfirmAppointment(id ?? "");
 

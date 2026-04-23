@@ -1,8 +1,9 @@
 import type { ServiceCase } from "@naro/domain";
-import type {
-  CustomerTrackingView,
-  TrackingStage,
-  TrackingUtilityPreview,
+import {
+  buildCustomerTrackingView,
+  type CustomerTrackingView,
+  type TrackingStage,
+  type TrackingUtilityPreview,
 } from "@naro/mobile-core";
 import {
   Button,
@@ -27,6 +28,7 @@ import {
   MessageCircle,
   MessageSquare,
   ShieldCheck,
+  Truck,
   Wrench,
 } from "lucide-react-native";
 import { useEffect } from "react";
@@ -37,10 +39,9 @@ import { useCancelAppointment } from "@/features/appointments";
 
 import {
   useAppointmentCountdown,
-  useCaseDetail,
-  useCustomerTrackingView,
   useMarkCaseSeen,
 } from "../api";
+import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
 type StageTone = "accent" | "neutral" | "success" | "warning" | "critical" | "info";
 
@@ -295,8 +296,18 @@ function UtilityCard({
 export function CaseDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: caseItem } = useCaseDetail(id ?? "");
-  const { data: trackingView } = useCustomerTrackingView(id ?? "");
+  // İş B iter 2 Chunk 3 (2026-04-23): canonical adapter drop-in —
+  // useCaseDetail + useCustomerTrackingView + useCaseDetailLive üçlüsü
+  // tek hook'a indi. Engine aynı; veri BE'den (detail + offers +
+  // approvals + documents + events + thread) geliyor. Linked tow CTA
+  // caseItem üstündeki parent_case_id + linked_tow_case_ids'ten
+  // adapter fallback ile okunur; kısayol için local alias tanımlandı.
+  const canonicalQuery = useCanonicalCase(id ?? "");
+  const caseItem = canonicalQuery.data;
+  const trackingView: CustomerTrackingView | null = caseItem
+    ? buildCustomerTrackingView(caseItem)
+    : null;
+  const linkage = canonicalQuery.linkage;
   const markSeen = useMarkCaseSeen(id ?? "");
   const countdown = useAppointmentCountdown(id ?? "");
   const cancelAppointment = useCancelAppointment(
@@ -325,6 +336,13 @@ export function CaseDetailScreen() {
   const isPendingAppointment = caseItem.status === "appointment_pending";
   const appointmentDeclined = caseItem.appointment?.status === "declined";
   const appointmentExpired = caseItem.appointment?.status === "expired";
+  // Faz 2 linkage (2026-04-23) — accident/breakdown parent ise child tow;
+  // tow ise parent accident/breakdown. Cross-navigation için tracking
+  // view üstüne CTA konur (detayca CaseManagementScreen ile paralel).
+  const linkedTowCaseIds = linkage?.linked_tow_case_ids ?? [];
+  const parentCaseId = linkage?.parent_case_id ?? null;
+  const canLinkTow =
+    caseItem.kind === "accident" || caseItem.kind === "breakdown";
   return (
     <SafeAreaView className="flex-1 bg-app-bg">
       <Screen scroll backgroundClassName="bg-app-bg" className="gap-5 pb-32">
@@ -336,6 +354,53 @@ export function CaseDetailScreen() {
             router.push(`/(modal)/vaka-profili/${caseItem.id}` as Href)
           }
         />
+
+        {canLinkTow && linkedTowCaseIds.length > 0
+          ? linkedTowCaseIds.map((towId) => (
+              <Pressable
+                key={towId}
+                accessibilityRole="button"
+                accessibilityLabel="Bu vakanın çekicisini aç"
+                onPress={() => router.push(`/cekici/${towId}` as Href)}
+                className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/40 bg-brand-500/10 px-4 py-3.5 active:opacity-90"
+              >
+                <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/20">
+                  <Icon icon={Truck} size={18} color="#0ea5e9" />
+                </View>
+                <View className="flex-1 gap-0.5">
+                  <Text variant="eyebrow" tone="subtle">
+                    Bu vakanın çekicisi
+                  </Text>
+                  <Text variant="label" tone="inverse" className="text-[14px]">
+                    {`Çekici #${towId.slice(0, 8)}`}
+                  </Text>
+                </View>
+                <Icon icon={ChevronRight} size={16} color="#83a7ff" />
+              </Pressable>
+            ))
+          : null}
+
+        {caseItem.kind === "towing" && parentCaseId ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Bu çekicinin bağlı olduğu vakayı aç"
+            onPress={() => router.push(`/vaka/${parentCaseId}` as Href)}
+            className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/40 bg-brand-500/10 px-4 py-3.5 active:opacity-90"
+          >
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/20">
+              <Icon icon={FileText} size={18} color="#0ea5e9" />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text variant="eyebrow" tone="subtle">
+                Bu çekici şu vakadan geldi
+              </Text>
+              <Text variant="label" tone="inverse" className="text-[14px]">
+                {`Vaka #${parentCaseId.slice(0, 8)}`}
+              </Text>
+            </View>
+            <Icon icon={ChevronRight} size={16} color="#83a7ff" />
+          </Pressable>
+        ) : null}
 
         {isPendingAppointment ? (
           <Surface

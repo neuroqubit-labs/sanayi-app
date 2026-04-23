@@ -14,7 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { useCancelAppointment } from "@/features/appointments";
 
-import { useCaseDetail } from "../api";
+import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
 type StickyVariant =
   | { kind: "offers" }
@@ -90,7 +90,7 @@ export function CustomerCaseProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: caseItem } = useCaseDetail(id ?? "");
+  const { data: caseItem } = useCanonicalCase(id ?? "");
   const cancelAppointment = useCancelAppointment(
     caseItem?.appointment?.id ?? "",
     id ?? "",

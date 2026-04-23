@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useDecideApproval } from "@/features/approvals";
 
-import { useCaseDetail } from "../api";
+import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
 export function CaseApprovalScreen() {
   const router = useRouter();
@@ -14,7 +14,7 @@ export function CaseApprovalScreen() {
     id: string;
     approvalId: string;
   }>();
-  const { data: caseItem } = useCaseDetail(id ?? "");
+  const { data: caseItem } = useCanonicalCase(id ?? "");
   const decideApproval = useDecideApproval(id ?? "", approvalId ?? "");
 
   if (!caseItem) {

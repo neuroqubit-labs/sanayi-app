@@ -65,8 +65,17 @@ import type {
  * - assigned_service snapshot: engine `getTrackingServiceSnapshot`
  *   fallback'i zaten assigned_technician_id'den mock turlaması yapıyor
  */
+export type CanonicalCaseLinkage = {
+  parent_case_id: string | null;
+  linked_tow_case_ids: string[];
+  customer_notes: string | null;
+  vehicle_snapshot: CaseDetailResponse["vehicle_snapshot"];
+  subtype: Record<string, unknown>;
+};
+
 export type CanonicalCaseResult = {
   data: ServiceCase | null;
+  linkage: CanonicalCaseLinkage | null;
   isPending: boolean;
   isError: boolean;
   errors: unknown[];
@@ -451,5 +460,17 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
     void threadQuery.refetch();
   };
 
-  return { data, isPending, isError, errors, refetch };
+  const linkage = useMemo<CanonicalCaseLinkage | null>(() => {
+    const detail = detailQuery.data;
+    if (!detail) return null;
+    return {
+      parent_case_id: detail.parent_case_id ?? null,
+      linked_tow_case_ids: detail.linked_tow_case_ids ?? [],
+      customer_notes: detail.customer_notes ?? null,
+      vehicle_snapshot: detail.vehicle_snapshot,
+      subtype: (detail.subtype ?? {}) as Record<string, unknown>,
+    };
+  }, [detailQuery.data]);
+
+  return { data, linkage, isPending, isError, errors, refetch };
 }
