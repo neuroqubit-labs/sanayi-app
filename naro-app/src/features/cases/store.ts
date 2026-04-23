@@ -23,12 +23,9 @@ import {
   getTrackingServiceSnapshot,
   markCaseSeen,
   refreshMatchingCase,
-  rejectOfferForCase,
   requestAppointmentForCase,
   seedTrackingCases,
-  selectOfferForCase,
   sendCaseMessage,
-  shortlistOfferForCase,
   syncTrackingCase,
   trackingServiceDirectory,
   updateCaseNotes,
@@ -52,9 +49,6 @@ type CasesState = {
     override?: { id?: string; status?: ServiceCaseStatus },
   ) => ServiceCase;
   refreshMatching: (caseId: string) => ServiceCase | null;
-  selectOffer: (caseId: string, offerId: string) => ServiceCase | null;
-  shortlistOffer: (caseId: string, offerId: string) => ServiceCase | null;
-  rejectOffer: (caseId: string, offerId: string) => ServiceCase | null;
   confirmAppointment: (caseId: string) => ServiceCase | null;
   approvePartsRequest: (
     caseId: string,
@@ -356,45 +350,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
 
     set((state) => {
       const result = updateCaseById(state.cases, caseId, refreshMatchingCase);
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  selectOffer: (caseId, offerId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        selectOfferForCase(caseItem, offerId),
-      );
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  shortlistOffer: (caseId, offerId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        shortlistOfferForCase(caseItem, offerId),
-      );
-      updatedCase = result.updatedCase;
-      return { cases: result.cases };
-    });
-
-    return updatedCase;
-  },
-  rejectOffer: (caseId, offerId) => {
-    let updatedCase: ServiceCase | null = null;
-
-    set((state) => {
-      const result = updateCaseById(state.cases, caseId, (caseItem) =>
-        rejectOfferForCase(caseItem, offerId),
-      );
       updatedCase = result.updatedCase;
       return { cases: result.cases };
     });

@@ -139,19 +139,6 @@ export function useCaseTask(caseId: string, taskId: string) {
   });
 }
 
-export function useCaseOffers(caseId: string) {
-  return useQuery({
-    queryKey: ["cases", "offers", caseId],
-    queryFn: async () => {
-      const caseItem = useCasesStore
-        .getState()
-        .cases.find((entry) => entry.id === caseId);
-
-      return mockDelay(caseItem?.offers ?? []);
-    },
-  });
-}
-
 export function useCaseThread(caseId: string) {
   return useQuery({
     queryKey: ["cases", "thread", caseId],
@@ -346,38 +333,6 @@ export function useRefreshCaseMatching(caseId: string) {
   return useMutation({
     mutationFn: async () => {
       const updatedCase = useCasesStore.getState().refreshMatching(caseId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
-export function useSelectCaseOffer(caseId: string) {
-  return useMutation({
-    mutationFn: async (offerId: string) => {
-      const updatedCase = useCasesStore.getState().selectOffer(caseId, offerId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
-export function useShortlistCaseOffer(caseId: string) {
-  return useMutation({
-    mutationFn: async (offerId: string) => {
-      const updatedCase = useCasesStore
-        .getState()
-        .shortlistOffer(caseId, offerId);
-      await invalidateCaseConsumers();
-      return updatedCase;
-    },
-  });
-}
-
-export function useRejectCaseOffer(caseId: string) {
-  return useMutation({
-    mutationFn: async (offerId: string) => {
-      const updatedCase = useCasesStore.getState().rejectOffer(caseId, offerId);
       await invalidateCaseConsumers();
       return updatedCase;
     },
