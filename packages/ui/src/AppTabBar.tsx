@@ -60,7 +60,7 @@ const DEFAULT_THEME: AppTabBarTheme = {
 export function AppTabBar({
   items,
   centerAction,
-  backgroundColor = "#060915",
+  backgroundColor,
   bottomInset = 0,
   theme,
 }: AppTabBarProps) {
@@ -72,34 +72,42 @@ export function AppTabBar({
   return (
     <View
       style={{
-        backgroundColor,
-        paddingBottom: Math.max(bottomInset, 8),
-        borderTopWidth: 1,
-        borderTopColor: palette.shellBorder,
+        backgroundColor: backgroundColor ?? "transparent",
+        paddingBottom: Math.max(bottomInset, 10),
+        paddingTop: 8,
+        paddingHorizontal: 14,
       }}
     >
       <View
-        pointerEvents="none"
         style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: 0,
-          height: 1,
-          backgroundColor: palette.shellHairline,
-        }}
-      />
-
-      <View
-        style={{
-          minHeight: 72,
           flexDirection: "row",
           alignItems: "center",
-          paddingHorizontal: 4,
-          paddingTop: 8,
-          paddingBottom: 4,
+          backgroundColor: palette.shellBackground,
+          borderRadius: 36,
+          borderWidth: 1,
+          borderColor: palette.shellBorder,
+          paddingHorizontal: 6,
+          minHeight: 64,
+          shadowColor: palette.shellShadow,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.35,
+          shadowRadius: 18,
+          elevation: 14,
         }}
       >
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 18,
+            right: 18,
+            top: 0,
+            height: 1,
+            borderRadius: 999,
+            backgroundColor: palette.shellHairline,
+          }}
+        />
+
         {leftItems.map((item) => (
           <TabBarItem key={item.key} item={item} theme={palette} />
         ))}
@@ -118,9 +126,9 @@ export function AppTabBar({
               onPress={centerAction.onPress}
               android_ripple={{ color: palette.centerButtonHighlight, borderless: false, radius: 32 }}
               style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
+                width: 52,
+                height: 52,
+                borderRadius: 26,
                 borderWidth: 1,
                 borderColor: palette.centerButtonBorder,
                 backgroundColor: palette.centerButtonBackground,
@@ -166,23 +174,19 @@ function TabBarItem({ item, theme }: TabBarItemProps) {
         paddingVertical: 6,
       }}
     >
-      <View style={{ alignItems: "center" }}>
+      <View style={{ alignItems: "center", gap: 6 }}>
         <View
           style={{
-            width: 40,
             height: 28,
-            borderRadius: 14,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: item.selected ? theme.activeChip : "transparent",
           }}
         >
           {item.icon}
         </View>
         <RNText
           style={{
-            marginTop: 4,
-            color: item.selected ? theme.activeText : theme.inactiveText,
+            color: item.selected ? theme.activeAccent : theme.inactiveText,
             fontSize: 11,
             fontWeight: item.selected ? "700" : "600",
             letterSpacing: 0.15,
@@ -190,15 +194,6 @@ function TabBarItem({ item, theme }: TabBarItemProps) {
         >
           {item.label}
         </RNText>
-        <View
-          style={{
-            marginTop: 4,
-            width: 16,
-            height: 3,
-            borderRadius: 999,
-            backgroundColor: item.selected ? theme.activeAccent : "transparent",
-          }}
-        />
       </View>
     </Pressable>
   );

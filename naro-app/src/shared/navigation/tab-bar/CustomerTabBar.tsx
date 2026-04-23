@@ -23,9 +23,9 @@ const ACTIVE_TEXT = "#f7fbff";
 const INACTIVE_TEXT = "#7c89a4";
 
 const CUSTOMER_TAB_THEME = {
-  shellBackground: "#0d1424",
-  shellBorder: "rgba(255,255,255,0.08)",
-  shellHairline: "rgba(255,255,255,0.12)",
+  shellBackground: "rgba(13,20,36,0.82)",
+  shellBorder: "rgba(255,255,255,0.10)",
+  shellHairline: "rgba(255,255,255,0.14)",
   shellShadow: "#030917",
   activeAccent: ACTIVE_ACCENT,
   activeText: ACTIVE_TEXT,
@@ -111,7 +111,6 @@ export function CustomerTabBar({
   return (
     <AppTabBar
       items={items}
-      backgroundColor="#060915"
       bottomInset={Math.max(insets.bottom, 10)}
       theme={CUSTOMER_TAB_THEME}
       centerAction={{
