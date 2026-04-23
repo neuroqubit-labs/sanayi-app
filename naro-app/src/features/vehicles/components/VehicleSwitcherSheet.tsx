@@ -33,11 +33,15 @@ export function VehicleSwitcherSheet() {
         accessibilityRole="button"
         accessibilityLabel="Araç seçiciyi kapat"
         onPress={close}
-        className="flex-1 justify-end bg-black/60"
+        style={{
+          flex: 1,
+          justifyContent: "flex-end",
+          backgroundColor: "rgba(0,0,0,0.6)",
+        }}
       >
         <Pressable
           onPress={(event) => event.stopPropagation()}
-          style={{ paddingBottom: insets.bottom + 8 }}
+          style={{ width: "100%", paddingBottom: insets.bottom + 8 }}
         >
           <ActionSheetSurface title="Araç seç">
 

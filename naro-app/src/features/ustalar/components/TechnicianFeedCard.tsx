@@ -5,9 +5,8 @@ import {
   Text,
   TrustBadge,
 } from "@naro/ui";
-import { type Href, useRouter } from "expo-router";
 import { CheckCircle2, MapPin, Star, Wrench } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { useUstaPreviewStore } from "../preview-store";
 import type { TechnicianFeedItem } from "../schemas";
@@ -35,7 +34,6 @@ export type TechnicianFeedCardProps = {
 };
 
 export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
-  const router = useRouter();
   const activeType = item.active_provider_type ?? item.provider_type;
   const primaryLabel =
     PROVIDER_TYPE_LABEL[activeType] ?? PROVIDER_TYPE_LABEL.usta ?? "Servis";
@@ -59,7 +57,6 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
   const quickBarLabel = quickBarParts.join(" · ");
 
   const openPreview = useUstaPreviewStore((state) => state.open);
-  const openFullProfile = () => router.push(`/usta/${item.id}` as Href);
   const showPreview = () => openPreview(item.id);
 
   return (
@@ -80,17 +77,9 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
           ) : null}
         </View>
         <View className="absolute inset-x-0 bottom-0 translate-y-6 items-center">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${item.display_name} tam profiline git`}
-            onPress={openFullProfile}
-            hitSlop={8}
-            className="active:opacity-80"
-          >
-            <View className="rounded-full border-2 border-brand-500/60 p-[3px]">
-              <Avatar name={item.display_name} size="xl" />
-            </View>
-          </Pressable>
+          <View className="rounded-full border-2 border-brand-500/60 p-[3px]">
+            <Avatar name={item.display_name} size="xl" />
+          </View>
         </View>
       </View>
 

@@ -38,7 +38,6 @@ export type AppTabBarProps = {
   centerAction?: AppTabBarCenterAction;
   backgroundColor?: string;
   bottomInset?: number;
-  maxWidth?: number;
   theme?: Partial<AppTabBarTheme>;
 };
 
@@ -63,7 +62,6 @@ export function AppTabBar({
   centerAction,
   backgroundColor = "#060915",
   bottomInset = 0,
-  maxWidth = 560,
   theme,
 }: AppTabBarProps) {
   const palette = { ...DEFAULT_THEME, ...theme };
@@ -75,129 +73,74 @@ export function AppTabBar({
     <View
       style={{
         backgroundColor,
-        paddingTop: 8,
-        paddingBottom: Math.max(bottomInset, 10),
-        paddingHorizontal: 12,
+        paddingBottom: Math.max(bottomInset, 8),
+        borderTopWidth: 1,
+        borderTopColor: palette.shellBorder,
       }}
     >
-      <View style={{ width: "100%", maxWidth, alignSelf: "center" }}>
-        <View
-          style={[
-            SHELL_SHADOW,
-            {
-              backgroundColor: palette.shellBackground,
-              borderColor: palette.shellBorder,
-              borderRadius: 30,
-              shadowColor: palette.shellShadow,
-            },
-          ]}
-        >
-          <View
-            pointerEvents="none"
-            style={{
-              position: "absolute",
-              left: 18,
-              right: 18,
-              top: 0,
-              height: 1,
-              backgroundColor: palette.shellHairline,
-            }}
-          />
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 0,
+          height: 1,
+          backgroundColor: palette.shellHairline,
+        }}
+      />
 
+      <View
+        style={{
+          minHeight: 72,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 4,
+          paddingTop: 8,
+          paddingBottom: 4,
+        }}
+      >
+        {leftItems.map((item) => (
+          <TabBarItem key={item.key} item={item} theme={palette} />
+        ))}
+
+        {centerAction ? (
           <View
             style={{
-              minHeight: 84,
-              flexDirection: "row",
+              flex: 1,
               alignItems: "center",
-              paddingHorizontal: 6,
-              paddingVertical: 10,
+              justifyContent: "center",
             }}
           >
-            {leftItems.map((item) => (
-              <TabBarItem key={item.key} item={item} theme={palette} />
-            ))}
-
-            {centerAction ? (
-              <View
-                style={{
-                  width: 74,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={centerAction.accessibilityLabel}
-                  onPress={centerAction.onPress}
-                  style={({ pressed }) => [
-                    CENTER_BUTTON_SHADOW,
-                    {
-                      width: 58,
-                      height: 58,
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: palette.centerButtonBorder,
-                      backgroundColor: palette.centerButtonBackground,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transform: [{ translateY: pressed ? 1 : 0 }],
-                      shadowColor: palette.centerButtonShadow,
-                    },
-                  ]}
-                >
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      position: "absolute",
-                      inset: 1,
-                      borderRadius: 19,
-                    }}
-                  >
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: 6,
-                        right: 6,
-                        top: 4,
-                        height: 16,
-                        borderRadius: 999,
-                        backgroundColor: palette.centerButtonHighlight,
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        height: 20,
-                        borderBottomLeftRadius: 19,
-                        borderBottomRightRadius: 19,
-                        backgroundColor: palette.centerButtonDepth,
-                      }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        borderRadius: 19,
-                        borderWidth: 1,
-                        borderColor: "rgba(255,255,255,0.08)",
-                      }}
-                    />
-                  </View>
-                  <View style={{ position: "relative", zIndex: 1 }}>
-                    {centerAction.icon}
-                  </View>
-                </Pressable>
-              </View>
-            ) : null}
-
-            {rightItems.map((item) => (
-              <TabBarItem key={item.key} item={item} theme={palette} />
-            ))}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={centerAction.accessibilityLabel}
+              onPress={centerAction.onPress}
+              android_ripple={{ color: palette.centerButtonHighlight, borderless: false, radius: 32 }}
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                borderWidth: 1,
+                borderColor: palette.centerButtonBorder,
+                backgroundColor: palette.centerButtonBackground,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: palette.centerButtonShadow,
+                shadowOffset: CENTER_BUTTON_SHADOW.shadowOffset,
+                shadowOpacity: CENTER_BUTTON_SHADOW.shadowOpacity,
+                shadowRadius: CENTER_BUTTON_SHADOW.shadowRadius,
+                elevation: CENTER_BUTTON_SHADOW.elevation,
+              }}
+            >
+              {centerAction.icon}
+            </Pressable>
           </View>
-        </View>
+        ) : null}
+
+        {rightItems.map((item) => (
+          <TabBarItem key={item.key} item={item} theme={palette} />
+        ))}
       </View>
     </View>
   );
@@ -216,20 +159,18 @@ function TabBarItem({ item, theme }: TabBarItemProps) {
       accessibilityState={{ selected: item.selected }}
       onPress={item.onPress}
       onLongPress={item.onLongPress}
-      style={({ pressed }) => ({
+      style={{
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        opacity: pressed ? 0.86 : 1,
-        transform: [{ translateY: pressed ? 1 : 0 }],
-      })}
+        paddingVertical: 6,
+      }}
     >
-      <View style={{ alignItems: "center", minWidth: 48 }}>
+      <View style={{ alignItems: "center" }}>
         <View
           style={{
-            minWidth: 40,
-            height: 32,
-            paddingHorizontal: 10,
+            width: 40,
+            height: 28,
             borderRadius: 14,
             alignItems: "center",
             justifyContent: "center",
@@ -251,8 +192,8 @@ function TabBarItem({ item, theme }: TabBarItemProps) {
         </RNText>
         <View
           style={{
-            marginTop: 6,
-            width: 14,
+            marginTop: 4,
+            width: 16,
             height: 3,
             borderRadius: 999,
             backgroundColor: item.selected ? theme.activeAccent : "transparent",
@@ -263,17 +204,9 @@ function TabBarItem({ item, theme }: TabBarItemProps) {
   );
 }
 
-const SHELL_SHADOW: ViewStyle = {
-  borderWidth: 1,
-  shadowOffset: { width: 0, height: 12 },
-  shadowOpacity: 0.32,
-  shadowRadius: 20,
-  elevation: 14,
-};
-
 const CENTER_BUTTON_SHADOW: ViewStyle = {
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.28,
-  shadowRadius: 18,
-  elevation: 12,
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.35,
+  shadowRadius: 14,
+  elevation: 10,
 };

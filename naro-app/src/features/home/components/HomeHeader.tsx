@@ -24,7 +24,7 @@ export function HomeHeader() {
 
   return (
     <View className="gap-5 pb-2">
-      <View className="flex-row items-stretch gap-3">
+      <View className="flex-row items-center gap-3">
         <SearchPill
           onPress={() => router.push("/(modal)/ara" as Href)}
         />
@@ -88,17 +88,23 @@ function SearchPill({ onPress }: SearchPillProps) {
       onPress={onPress}
       variant="flat"
       radius="lg"
-      className="flex-1 flex-row items-center gap-3 border-app-outline-strong px-4 py-4"
+      className="h-14 flex-1 flex-row items-center gap-3 border-app-outline-strong px-3"
     >
-      <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-        <Icon icon={Search} size={20} color="#0ea5e9" />
+      <View className="h-9 w-9 items-center justify-center rounded-full bg-brand-500/15">
+        <Icon icon={Search} size={18} color="#0ea5e9" />
       </View>
       <View className="flex-1 gap-0.5">
-        <Text variant="label" tone="inverse">
-          Ne arıyorsun? Hemen bul.
+        <Text variant="label" tone="inverse" numberOfLines={1}>
+          Ne arıyorsun?
         </Text>
-        <Text variant="caption" tone="muted" className="text-app-text-muted">
-          Usta, servis, kampanya — 50+ hizmet keşfet
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          Usta, servis, kampanya
         </Text>
       </View>
     </PressableCard>
@@ -118,7 +124,7 @@ function NotificationButton({ hasUnread, onPress }: NotificationButtonProps) {
       onPress={onPress}
       variant="flat"
       radius="lg"
-      className="w-[60px] items-center justify-center border-app-outline-strong"
+      className="h-14 w-14 items-center justify-center border-app-outline-strong"
     >
       <View>
         <Icon icon={Bell} size={22} color="#f5f7ff" />
