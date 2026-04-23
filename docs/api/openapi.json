@@ -1315,6 +1315,18 @@
       "CaseDetailResponse": {
         "description": "Faz 1 canonical case architecture — shell + subtype + snapshot.\n\nSubtype dict kind'a göre shape alır (tow/accident/breakdown/maintenance).\nFE parity: kind bazlı discriminated union. Pilot V1 pratik şema; V2'de\ngeneric code generation (openapi → Zod) ile tip disipline edilecek.\n\nFaz 2 (2026-04-23): linkage field'ları.\n- `parent_case_id` — tow kind'da dolu ise accident/breakdown parent\n- `linked_tow_case_ids` — accident/breakdown kind'da parent ise child\n  tow vakaları (0..n)",
         "properties": {
+          "assigned_technician_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned Technician Id"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1330,6 +1342,18 @@
               }
             ],
             "title": "Customer Notes"
+          },
+          "estimate_amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate Amount"
           },
           "id": {
             "format": "uuid",
@@ -1358,6 +1382,16 @@
               }
             ],
             "title": "Location Label"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaseNextAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "parent_case_id": {
             "anyOf": [
@@ -1419,6 +1453,38 @@
                 "type": "null"
               }
             ]
+          },
+          "wait_state_actor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaseWaitActor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wait_state_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait State Description"
+          },
+          "wait_state_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wait State Label"
           }
         },
         "required": [
@@ -1719,6 +1785,46 @@
         "title": "CaseKaskoState",
         "type": "string"
       },
+      "CaseNextAction": {
+        "description": "QA tur 2 P1-1 fix: role-aware next action projection.\n\nB-P2-1 wait_state alanlarından derive (actor/label/description) +\nokuyan role'e göre `waiting_on_me` bayrağı. FE L3-P0-2 next_action\nkartında render eder (wait_state direkt tüketmek yerine).",
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/CaseWaitActor"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "waiting_on_me": {
+            "default": false,
+            "title": "Waiting On Me",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "actor"
+        ],
+        "title": "CaseNextAction",
+        "type": "object"
+      },
       "CaseNotesPayload": {
         "additionalProperties": false,
         "description": "PATCH /cases/{id}/notes body — owner-private.",
@@ -1867,6 +1973,16 @@
           "info"
         ],
         "title": "CaseTone",
+        "type": "string"
+      },
+      "CaseWaitActor": {
+        "enum": [
+          "customer",
+          "technician",
+          "system",
+          "none"
+        ],
+        "title": "CaseWaitActor",
         "type": "string"
       },
       "CertResubmitPayload": {

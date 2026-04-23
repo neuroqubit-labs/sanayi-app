@@ -1223,6 +1223,7 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `CaseEventListResponse`
 - `CaseEventType`
 - `CaseKaskoState`
+- `CaseNextAction`
 - `CaseNotesPayload`
 - `CaseOfferStatus`
 - `CaseOverrideRequest`
@@ -1230,6 +1231,7 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `CaseRefundState`
 - `CaseSummaryResponse`
 - `CaseTone`
+- `CaseWaitActor`
 - `CertResubmitPayload`
 - `CertSubmitPayload`
 - `CertificatePendingItem`

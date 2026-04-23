@@ -11,6 +11,7 @@ Draft endpoint'leri (POST/GET/DELETE /cases/drafts/*) ayrı brief kapsamında.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
@@ -20,6 +21,7 @@ from pydantic import BaseModel, ConfigDict
 from app.api.v1.deps import CurrentUserDep, CustomerDep, DbDep, SettingsDep
 from app.integrations.storage import build_storage_gateway
 from app.models.case import (
+    CaseWaitActor,
     ServiceCase,
     ServiceCaseStatus,
     ServiceRequestKind,
@@ -89,6 +91,20 @@ class VehicleSnapshotResponse(BaseModel):
     current_km: int | None = None
 
 
+class CaseNextAction(BaseModel):
+    """QA tur 2 P1-1 fix: role-aware next action projection.
+
+    B-P2-1 wait_state alanlarından derive (actor/label/description) +
+    okuyan role'e göre `waiting_on_me` bayrağı. FE L3-P0-2 next_action
+    kartında render eder (wait_state direkt tüketmek yerine).
+    """
+
+    actor: CaseWaitActor
+    label: str | None = None
+    description: str | None = None
+    waiting_on_me: bool = False
+
+
 class CaseDetailResponse(CaseSummaryResponse):
     """Faz 1 canonical case architecture — shell + subtype + snapshot.
 
@@ -109,6 +125,14 @@ class CaseDetailResponse(CaseSummaryResponse):
     # İş 3 (2026-04-23) — customer_notes owner-private. Technician/admin
     # response'unda null döner (owner bile olsa admin view'ında null).
     customer_notes: str | None = None
+    # QA tur 2 P1-1 — 4 projection alanı (B-P2-1/B-P1-E mevcut veri, read
+    # path eksikti).
+    next_action: CaseNextAction | None = None
+    wait_state_actor: CaseWaitActor | None = None
+    wait_state_label: str | None = None
+    wait_state_description: str | None = None
+    estimate_amount: Decimal | None = None
+    assigned_technician_id: UUID | None = None
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -193,6 +217,7 @@ async def get_case_endpoint(
         )
     # customer_notes sadece owner'a döner
     notes = case.customer_notes if case.customer_user_id == user.id else None
+    next_action = _build_next_action(case, user.role)
     return CaseDetailResponse(
         id=case.id,
         kind=case.kind,
@@ -204,10 +229,16 @@ async def get_case_endpoint(
         created_at=case.created_at,
         updated_at=case.updated_at,
         vehicle_snapshot=_vehicle_snapshot_view(subtype),
-        subtype=_subtype_view(subtype),
+        subtype=_subtype_view(subtype, case),
         parent_case_id=parent_case_id,
         linked_tow_case_ids=linked_tow_case_ids,
         customer_notes=notes,
+        next_action=next_action,
+        wait_state_actor=case.wait_state_actor,
+        wait_state_label=case.wait_state_label,
+        wait_state_description=case.wait_state_description,
+        estimate_amount=case.estimate_amount,
+        assigned_technician_id=case.assigned_technician_id,
     )
 
 
@@ -244,6 +275,7 @@ async def update_case_notes(
         linked_tow_case_ids = await case_repo.list_linked_tow_case_ids(
             db, case.id
         )
+    next_action = _build_next_action(case, user.role)
     return CaseDetailResponse(
         id=case.id,
         kind=case.kind,
@@ -255,10 +287,16 @@ async def update_case_notes(
         created_at=case.created_at,
         updated_at=case.updated_at,
         vehicle_snapshot=_vehicle_snapshot_view(subtype),
-        subtype=_subtype_view(subtype),
+        subtype=_subtype_view(subtype, case),
         parent_case_id=parent_case_id,
         linked_tow_case_ids=linked_tow_case_ids,
         customer_notes=case.customer_notes,
+        next_action=next_action,
+        wait_state_actor=case.wait_state_actor,
+        wait_state_label=case.wait_state_label,
+        wait_state_description=case.wait_state_description,
+        estimate_amount=case.estimate_amount,
+        assigned_technician_id=case.assigned_technician_id,
     )
 
 
@@ -413,6 +451,31 @@ async def cancel_case_endpoint(
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 
+def _build_next_action(
+    case: ServiceCase, role: UserRole
+) -> CaseNextAction | None:
+    """QA tur 2 P1-1: wait_state → role-aware next_action projection.
+
+    waiting_on_me = aktör = okuyanın rolü. Admin asla waiting_on_me
+    (admin audit perspektifinde izler).
+    """
+    actor = case.wait_state_actor
+    if actor is None:
+        return None
+    role_actor_map = {
+        UserRole.CUSTOMER: CaseWaitActor.CUSTOMER,
+        UserRole.TECHNICIAN: CaseWaitActor.TECHNICIAN,
+    }
+    expected_actor = role_actor_map.get(role)
+    waiting_on_me = expected_actor is not None and actor == expected_actor
+    return CaseNextAction(
+        actor=actor,
+        label=case.wait_state_label,
+        description=case.wait_state_description,
+        waiting_on_me=waiting_on_me,
+    )
+
+
 def _assert_participant(case: ServiceCase, *, user_id: UUID, role: UserRole) -> None:
     if role == UserRole.ADMIN:
         return
@@ -441,6 +504,7 @@ def _vehicle_snapshot_view(
 
 def _subtype_view(
     subtype: case_repo.CaseSubtype | None,
+    case: ServiceCase | None = None,
 ) -> dict[str, object] | None:
     if subtype is None:
         return None
@@ -468,6 +532,13 @@ def _subtype_view(
             "dropoff_lng": subtype.dropoff_lng,
             "dropoff_address": subtype.dropoff_address,
             "fare_quote": subtype.tow_fare_quote,
+            # QA tur 2 P1-1: assigned_technician_id subtype embed
+            # (top-level duplicate ama FE subtype-scoped tüketim için).
+            "assigned_technician_id": (
+                str(case.assigned_technician_id)
+                if case is not None and case.assigned_technician_id
+                else None
+            ),
         }
     if isinstance(subtype, AccidentCase):
         return {
