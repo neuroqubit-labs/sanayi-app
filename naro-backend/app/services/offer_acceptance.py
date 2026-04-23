@@ -75,6 +75,15 @@ async def accept_offer(
     for sib in siblings:
         await offer_repo.reject_offer(session, sib.id)
 
+    # P1-E fix (QA tur 1): offer.amount → service_cases.estimate_amount
+    # Billing summary + payment_initiate invariant bağımlılığı. Atomic
+    # accept ile aynı TX içinde yazılır.
+    await session.execute(
+        update(ServiceCase)
+        .where(ServiceCase.id == offer.case_id)
+        .values(estimate_amount=offer.amount)
+    )
+
     await append_event(
         session,
         case_id=offer.case_id,
