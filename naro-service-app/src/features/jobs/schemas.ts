@@ -17,7 +17,11 @@ export const ServiceRequestKindSchema = z.enum([
 ]);
 export type ServiceRequestKind = z.infer<typeof ServiceRequestKindSchema>;
 
-export const ServiceRequestUrgencySchema = z.enum(["urgent", "planned"]);
+export const ServiceRequestUrgencySchema = z.enum([
+  "planned",
+  "today",
+  "urgent",
+]);
 export type ServiceRequestUrgency = z.infer<
   typeof ServiceRequestUrgencySchema
 >;
@@ -77,12 +81,14 @@ export type PaginatedPool = z.infer<typeof PaginatedPoolSchema>;
 // ─── /offers (teknisyen submit) ────────────────────────────────────────────
 
 /**
- * BE OfferSubmit canonical — decimal string. slot_proposal mobil canlı
- * kullanımda null/undefined (V1.1 scheduled tow scope).
+ * BE OfferSubmit canlı route payload.
+ *
+ * Not: technician_id FE'den gönderilmez; backend auth token'dan teknisyeni
+ * çözer. Eski canonical schema ile route payload bir süre drift ettiğinden
+ * service app 422 extra_forbidden alıyordu.
  */
 export const OfferSubmitPayloadSchema = z.object({
   case_id: z.string().uuid(),
-  technician_id: z.string().uuid(),
   headline: z.string().min(1).max(255),
   description: z.string().nullable().optional(),
   amount: z.string(),

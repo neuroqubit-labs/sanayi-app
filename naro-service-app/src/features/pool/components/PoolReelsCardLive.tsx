@@ -44,6 +44,7 @@ const URGENCY_META: Record<
   { label: string; tone: "neutral" | "warning" | "critical" }
 > = {
   planned: { label: "Planlı", tone: "neutral" },
+  today: { label: "Bugün", tone: "warning" },
   urgent: { label: "Acil", tone: "critical" },
 };
 

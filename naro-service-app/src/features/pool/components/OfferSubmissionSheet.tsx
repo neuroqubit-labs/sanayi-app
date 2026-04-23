@@ -15,29 +15,50 @@ import {
   usePoolCaseDetailLive,
   useSubmitOfferLive,
 } from "@/features/jobs/api.live";
-import { useMyTechnicianProfile } from "@/features/technicians/api.live";
+import { useTechnicianProfileStore } from "@/features/technicians";
 
 import { useOfferSheetStore } from "../offer-sheet-store";
 
-const ETA_PRESETS = [
+const DEFAULT_ETA_PRESETS = [
   { label: "Aynı gün", minutes: 480 },
   { label: "1 iş günü", minutes: 60 * 24 },
   { label: "2-3 gün", minutes: 60 * 48 },
   { label: "1 hafta", minutes: 60 * 24 * 7 },
 ];
 
-const DELIVERY_MODES = [
+const TOW_ETA_PRESETS = [
+  { label: "10 dk", minutes: 10 },
+  { label: "20 dk", minutes: 20 },
+  { label: "30 dk", minutes: 30 },
+  { label: "45 dk", minutes: 45 },
+];
+
+const DEFAULT_DELIVERY_MODES = [
   "Atölye kabul",
   "Pickup + atölye",
   "Mobil + atölye",
   "Yerinde onarım",
 ];
 
-const WARRANTIES = [
+const TOW_DELIVERY_MODES = [
+  "Flatbed çekici",
+  "Hook çekici",
+  "Wheel-lift çekici",
+  "Yol yardım / kısa müdahale",
+];
+
+const DEFAULT_WARRANTIES = [
   "30 gün işçilik",
   "3 ay işçilik",
   "6 ay / 10.000 km",
   "1 yıl yazılı garanti",
+];
+
+const TOW_WARRANTIES = [
+  "Canlı konum paylaşımı",
+  "Fotoğraflı teslim",
+  "Sigortalı taşıma",
+  "Dikkatli yükleme / sabitleme",
 ];
 
 /**
@@ -53,7 +74,9 @@ export function OfferSubmissionSheet() {
   const close = useOfferSheetStore((state) => state.close);
   const insets = useSafeAreaInsets();
   const { data: caseItem } = usePoolCaseDetailLive(caseId ?? "");
-  const { data: myProfile } = useMyTechnicianProfile();
+  const activeProviderType = useTechnicianProfileStore(
+    (state) => state.active_provider_type ?? state.provider_type,
+  );
   const submit = useSubmitOfferLive();
 
   const [amount, setAmount] = useState("");
@@ -72,31 +95,44 @@ export function OfferSubmissionSheet() {
     }
   }, [caseId]);
 
+  const isTowOffer = caseItem?.kind === "towing" && activeProviderType === "cekici";
+  const etaPresets = isTowOffer ? TOW_ETA_PRESETS : DEFAULT_ETA_PRESETS;
+  const deliveryModes = isTowOffer ? TOW_DELIVERY_MODES : DEFAULT_DELIVERY_MODES;
+  const warranties = isTowOffer ? TOW_WARRANTIES : DEFAULT_WARRANTIES;
+  const etaSectionTitle = isTowOffer ? "Varış süresi" : "Teslim süresi";
+  const deliverySectionTitle = isTowOffer ? "Hizmet tipi" : "Teslim modu";
+  const warrantySectionTitle = isTowOffer ? "Taşıma güvencesi" : "Garanti";
+  const notePlaceholder = isTowOffer
+    ? "Konum teyidi, ekipman, varış notu..."
+    : "Kapsam, parça, teslim detayı...";
+
   const isOpen = Boolean(caseId);
   const amountNumeric = Number(amount.replace(/\./g, ""));
   const canSubmit =
     !Number.isNaN(amountNumeric) &&
     amountNumeric > 0 &&
-    !submit.isPending &&
-    Boolean(myProfile?.id);
+    !submit.isPending;
 
   const handleSubmit = async () => {
-    if (!caseId || !canSubmit || !myProfile) return;
-    const eta = ETA_PRESETS[etaIndex]!;
+    if (!caseId || !canSubmit) return;
+    const eta = etaPresets[etaIndex]!;
     try {
       await submit.mutateAsync({
         case_id: caseId,
-        technician_id: myProfile.id,
-        headline: note.trim() || `${caseItem?.title ?? "Vaka"} için teklif`,
+        headline:
+          note.trim() ||
+          `${caseItem?.title ?? "Vaka"} için ${isTowOffer ? "çekici teklifi" : "teklif"}`,
         description:
           note.trim() ||
-          "Bu vakayı uzmanlığımla çözebilirim. Teslim saatleri ve garanti şartlarını yukarıda belirttim.",
+          (isTowOffer
+            ? "Varış süresi, çekici hizmet tipi ve taşıma güvencesi yukarıda belirtilmiştir."
+            : "Bu vakayı uzmanlığımla çözebilirim. Teslim saatleri ve garanti şartlarını yukarıda belirttim."),
         amount: String(amountNumeric),
         currency: "TRY",
         eta_minutes: eta.minutes,
-        delivery_mode: DELIVERY_MODES[deliveryIndex]!,
-        warranty_label: WARRANTIES[warrantyIndex]!,
-        available_at_label: "Hazır",
+        delivery_mode: deliveryModes[deliveryIndex]!,
+        warranty_label: warranties[warrantyIndex]!,
+        available_at_label: isTowOffer ? "Hemen çıkışa hazır" : "Hazır",
         badges: [],
         slot_is_firm: false,
       });
@@ -128,7 +164,11 @@ export function OfferSubmissionSheet() {
         >
           <ActionSheetSurface
             title="Teklif Gönder"
-            description={caseItem?.title ?? "Havuzdaki vaka için teklif"}
+            description={
+              isTowOffer
+                ? "Çekici vakanız için varış süresi ve hizmet tipini netleştirin."
+                : (caseItem?.title ?? "Havuzdaki vaka için teklif")
+            }
           >
             <View className="gap-4">
               <View className="gap-2">
@@ -153,11 +193,11 @@ export function OfferSubmissionSheet() {
                 <View className="flex-row items-center gap-2">
                   <Icon icon={Clock} size={12} color="#83a7ff" />
                   <Text variant="eyebrow" tone="subtle">
-                    Teslim süresi
+                    {etaSectionTitle}
                   </Text>
                 </View>
                 <View className="flex-row flex-wrap gap-2">
-                  {ETA_PRESETS.map((preset, index) => (
+                  {etaPresets.map((preset, index) => (
                     <Pressable
                       key={preset.label}
                       onPress={() => setEtaIndex(index)}
@@ -183,11 +223,11 @@ export function OfferSubmissionSheet() {
                 <View className="flex-row items-center gap-2">
                   <Icon icon={PackageCheck} size={12} color="#83a7ff" />
                   <Text variant="eyebrow" tone="subtle">
-                    Teslim modu
+                    {deliverySectionTitle}
                   </Text>
                 </View>
                 <View className="flex-row flex-wrap gap-2">
-                  {DELIVERY_MODES.map((mode, index) => (
+                  {deliveryModes.map((mode, index) => (
                     <Pressable
                       key={mode}
                       onPress={() => setDeliveryIndex(index)}
@@ -213,11 +253,11 @@ export function OfferSubmissionSheet() {
                 <View className="flex-row items-center gap-2">
                   <Icon icon={ShieldCheck} size={12} color="#83a7ff" />
                   <Text variant="eyebrow" tone="subtle">
-                    Garanti
+                    {warrantySectionTitle}
                   </Text>
                 </View>
                 <View className="flex-row flex-wrap gap-2">
-                  {WARRANTIES.map((label, index) => (
+                  {warranties.map((label, index) => (
                     <Pressable
                       key={label}
                       onPress={() => setWarrantyIndex(index)}
@@ -240,14 +280,14 @@ export function OfferSubmissionSheet() {
               </View>
 
               <View className="gap-2">
-                <Text variant="eyebrow" tone="subtle">
-                  Ek not (opsiyonel)
-                </Text>
+                  <Text variant="eyebrow" tone="subtle">
+                    Ek not (opsiyonel)
+                  </Text>
                 <View className="rounded-[16px] border border-app-outline bg-app-surface px-4 py-3">
                   <TextInput
                     value={note}
                     onChangeText={setNote}
-                    placeholder="Kapsam, parça, teslim detayı..."
+                    placeholder={notePlaceholder}
                     placeholderTextColor="#6f7b97"
                     multiline
                     textAlignVertical="top"
@@ -256,13 +296,6 @@ export function OfferSubmissionSheet() {
                 </View>
               </View>
 
-              {!myProfile ? (
-                <View className="rounded-[12px] border border-app-warning/40 bg-app-warning-soft px-3 py-2">
-                  <Text variant="caption" tone="warning" className="text-[11px]">
-                    Teknisyen profili yükleniyor — birkaç saniye.
-                  </Text>
-                </View>
-              ) : null}
               {submit.isError ? (
                 <View className="rounded-[12px] border border-app-critical/40 bg-app-critical-soft px-3 py-2">
                   <Text variant="caption" tone="critical" className="text-[11px]">
