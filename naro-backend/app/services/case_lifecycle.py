@@ -64,6 +64,11 @@ async def transition_case_status(
     case = (await session.execute(stmt)).scalar_one_or_none()
     if case is None:
         raise CaseNotFoundError(str(case_id))
+    # P0-C fix (QA tur 1): idempotency — aynı status'a tekrar transition
+    # no-op (race: offer accept atomic + FE POST /appointments paralel).
+    # Audit event spam'ı da önler.
+    if case.status == new_status:
+        return case
     if new_status not in ALLOWED_TRANSITIONS[case.status]:
         raise InvalidTransitionError(case.status, new_status)
 
