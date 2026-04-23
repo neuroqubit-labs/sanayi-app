@@ -16,6 +16,13 @@ export type BillingSummaryCardProps = {
   caseId: string;
   /** Müşteri kasko tracking view'i açar (opsiyonel; varsa CTA görünür). */
   onOpenKaskoTracking?: () => void;
+  /**
+   * QA Tur 2 P1-1 (2026-04-23): BillingSummary henüz oluşmamışsa
+   * (ödeme adımı başlamadan) BE 404 döner. Canonical `CaseDetailResponse.
+   * estimate_amount` alanı shipped ise onu minimal "Tahmini" satırı
+   * olarak render ederiz.
+   */
+  estimateFallback?: string | null;
 };
 
 /**
@@ -30,6 +37,7 @@ export type BillingSummaryCardProps = {
 export function BillingSummaryCard({
   caseId,
   onOpenKaskoTracking,
+  estimateFallback,
 }: BillingSummaryCardProps) {
   const summaryQuery = useBillingSummary(caseId);
 
@@ -48,8 +56,26 @@ export function BillingSummaryCard({
 
   if (summaryQuery.isError || !summaryQuery.data) {
     // Billing henüz başlamadıysa (ödeme adımı gelmeden) BE 404 döner.
-    // Sessiz kapat — vaka profilinde placeholder kart gösterme.
-    return null;
+    // Canonical detail `estimate_amount` varsa minimal "Tahmini" kartı.
+    const estimate = parseDecimal(estimateFallback ?? null);
+    if (estimate === null) return null;
+    return (
+      <Surface variant="flat" radius="lg" className="gap-2 px-4 py-4">
+        <Text variant="eyebrow" tone="subtle">
+          Fatura
+        </Text>
+        <View className="gap-2 rounded-[14px] border border-app-outline bg-app-surface-2 px-3 py-3">
+          <AmountRow label="Tahmini" amount={estimate} />
+        </View>
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-subtle text-[11px] leading-[16px]"
+        >
+          Ödeme adımı başlayınca kart detaylanır.
+        </Text>
+      </Surface>
+    );
   }
 
   const data = summaryQuery.data;

@@ -672,9 +672,14 @@ export function CaseManagementScreen() {
           );
         })}
 
-        {/* Billing summary — BE billing summary endpoint 404 iken
-            komponent sessizce null döner (ödeme akışı henüz başlamamış). */}
-        <BillingSummaryCard caseId={caseId} />
+        {/* Billing summary — BE billing summary 404 iken canonical
+            `linkage.estimate_amount` minimal kart render eder (BE FIX 4
+            estimate_amount shipped olunca canlı; yoksa null → kart
+            gizli). */}
+        <BillingSummaryCard
+          caseId={caseId}
+          estimateFallback={linkage?.estimate_amount ?? null}
+        />
 
         {/* Metadata */}
         <View className="items-center pt-2">

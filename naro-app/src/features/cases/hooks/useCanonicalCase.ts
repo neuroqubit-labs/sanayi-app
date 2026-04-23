@@ -73,6 +73,12 @@ export type CanonicalCaseLinkage = {
   customer_notes: string | null;
   vehicle_snapshot: CaseDetailResponse["vehicle_snapshot"];
   subtype: Record<string, unknown>;
+  /**
+   * QA Tur 2 P1-1 (2026-04-23): BE detail canonical — henüz BE FIX 4
+   * shipped değil; değerler null-fallback. Shipped olunca doğrudan
+   * consume edilir (BillingSummaryCard + next_action wiring).
+   */
+  estimate_amount: string | null;
 };
 
 export type CanonicalCaseResult = {
@@ -479,7 +485,25 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
     // app için viewer sabit; service app kendi adapter'ı ile technician
     // viewer kullanır. BE wait_state_actor/label/description null iken
     // status+role fallback kullanılır.
-    const nextAction = deriveNextAction(detail, "customer");
+    //
+    // QA Tur 2 P1-1 (2026-04-23): BE FIX 4 `detail.next_action` alanı
+    // shipped olunca doğrudan öncelikli kullan; her alan için alan-alan
+    // fallback (BE partial dönerse FE tamamlar).
+    const fallbackNextAction = deriveNextAction(detail, "customer");
+    const beNextAction = detail.next_action ?? null;
+    const nextAction = {
+      next_action_title:
+        beNextAction?.title ?? fallbackNextAction.next_action_title,
+      next_action_description:
+        beNextAction?.description ??
+        fallbackNextAction.next_action_description,
+      next_action_primary_label:
+        beNextAction?.primary_label ??
+        fallbackNextAction.next_action_primary_label,
+      next_action_secondary_label:
+        beNextAction?.secondary_label ??
+        fallbackNextAction.next_action_secondary_label,
+    };
 
     // Initial ServiceCase (syncTrackingCase bunu rich shape'e doldurur).
     const primary: ServiceCase = {
@@ -606,6 +630,7 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
       customer_notes: detail.customer_notes ?? null,
       vehicle_snapshot: detail.vehicle_snapshot,
       subtype: (detail.subtype ?? {}) as Record<string, unknown>,
+      estimate_amount: detail.estimate_amount ?? null,
     };
   }, [detailQuery.data]);
 

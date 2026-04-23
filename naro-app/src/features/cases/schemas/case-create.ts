@@ -233,6 +233,19 @@ export const CaseWaitActorSchema = z.enum([
 export type CaseWaitActor = z.infer<typeof CaseWaitActorSchema>;
 
 /**
+ * QA Tur 2 P1-1 (2026-04-23): BE FIX 4 canonical next_action. Role-aware
+ * derive BE tarafında; FE shipped olunca doğrudan consume eder. FE
+ * `deriveNextAction` fallback kalır (BE alanı null dönerse).
+ */
+export const CaseNextActionSchema = z.object({
+  title: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  primary_label: z.string().nullable().optional(),
+  secondary_label: z.string().nullable().optional(),
+});
+export type CaseNextAction = z.infer<typeof CaseNextActionSchema>;
+
+/**
  * CaseDetailResponse — BE Faz 1 (shell + subtype + snapshot) + Faz 2
  * (parent/linked tow case). BE subtype dict kind'a göre discriminated;
  * FE V1'de `Record<string, unknown>` geçiyor, V2'de openapi codegen ile
@@ -249,6 +262,12 @@ export type CaseWaitActor = z.infer<typeof CaseWaitActorSchema>;
  * F-P0-2 (2026-04-23):
  * - `wait_state_actor/label/description` — sıra kimde? Next-action
  *   projection'ın kaynağı. BE B-P2-1 pending → şimdilik optional.
+ *
+ * QA Tur 2 P1-1 (2026-04-23):
+ * - `next_action` — BE role-aware derive. Shipped olunca `deriveNextAction`
+ *   bu değeri öncelikli kullanır, yoksa F-P0-2 fallback.
+ * - `estimate_amount` — BE side kesinleşmiş tahmini tutar. BillingSummary
+ *   endpoint'i yokken (pre-authorize sonrası) bu alan source.
  */
 export const CaseDetailResponseSchema = CaseSummaryResponseSchema.extend({
   vehicle_snapshot: VehicleSnapshotResponseSchema.nullable().optional(),
@@ -259,5 +278,7 @@ export const CaseDetailResponseSchema = CaseSummaryResponseSchema.extend({
   wait_state_actor: CaseWaitActorSchema.nullable().optional(),
   wait_state_label: z.string().nullable().optional(),
   wait_state_description: z.string().nullable().optional(),
+  next_action: CaseNextActionSchema.nullable().optional(),
+  estimate_amount: z.string().nullable().optional(),
 });
 export type CaseDetailResponse = z.infer<typeof CaseDetailResponseSchema>;
