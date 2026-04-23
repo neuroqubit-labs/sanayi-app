@@ -21,8 +21,8 @@ from app.api.pagination import (
 from app.api.v1.routes.appointments import (
     AppointmentCounterPayload,
     AppointmentReasonPayload,
-    AppointmentRequest,
 )
+from app.schemas.appointment import AppointmentRequest
 from app.api.v1.routes.offers import (
     _KIND_OFFER_CAP,
     OfferSubmitPayload,
@@ -154,21 +154,27 @@ def test_kind_offer_cap_matrix() -> None:
 
 
 def test_appointment_request_happy() -> None:
+    from datetime import UTC, datetime, timedelta
+
     req = AppointmentRequest(
         case_id=uuid4(),
         technician_id=uuid4(),
-        slot={"kind": "interval", "start_at": "2026-04-25T10:00:00Z"},
+        slot={"kind": "custom", "dateLabel": "25 Nis", "timeWindow": "10:00"},
         note="Saat 10 uygun",
+        expires_at=datetime.now(UTC) + timedelta(hours=48),
     )
     assert req.note == "Saat 10 uygun"
 
 
 def test_appointment_request_extra_field_rejected() -> None:
+    from datetime import UTC, datetime, timedelta
+
     with pytest.raises(ValidationError):
         AppointmentRequest(
             case_id=uuid4(),
             technician_id=uuid4(),
-            slot={},
+            slot={"kind": "custom"},
+            expires_at=datetime.now(UTC) + timedelta(hours=48),
             junk_field=1,  # type: ignore[call-arg]
         )
 

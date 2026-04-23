@@ -1189,7 +1189,9 @@ OpenAPI JSON içindeki tüm response/request şemaları. Her
 - `AppointmentReasonPayload`
 - `AppointmentRequest`
 - `AppointmentResponse`
+- `AppointmentSlot`
 - `AppointmentSlotKind`
+- `AppointmentSource`
 - `AppointmentStatus`
 - `ApprovalDecidePayload`
 - `ApprovalLineItemInput`

@@ -105,16 +105,34 @@
             "title": "Case Id",
             "type": "string"
           },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
           "note": {
             "default": "",
-            "maxLength": 500,
             "title": "Note",
             "type": "string"
           },
+          "offer_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Id"
+          },
           "slot": {
-            "additionalProperties": true,
-            "title": "Slot",
-            "type": "object"
+            "$ref": "#/components/schemas/AppointmentSlot"
+          },
+          "source": {
+            "$ref": "#/components/schemas/AppointmentSource",
+            "default": "offer_accept"
           },
           "technician_id": {
             "format": "uuid",
@@ -125,7 +143,8 @@
         "required": [
           "case_id",
           "technician_id",
-          "slot"
+          "slot",
+          "expires_at"
         ],
         "title": "AppointmentRequest",
         "type": "object"
@@ -263,6 +282,41 @@
         "title": "AppointmentResponse",
         "type": "object"
       },
+      "AppointmentSlot": {
+        "additionalProperties": false,
+        "properties": {
+          "dateLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datelabel"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AppointmentSlotKind"
+          },
+          "timeWindow": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timewindow"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "AppointmentSlot",
+        "type": "object"
+      },
       "AppointmentSlotKind": {
         "enum": [
           "today",
@@ -271,6 +325,16 @@
           "flexible"
         ],
         "title": "AppointmentSlotKind",
+        "type": "string"
+      },
+      "AppointmentSource": {
+        "description": "App-level; DB'de CHECK constraint ile enforce.",
+        "enum": [
+          "offer_accept",
+          "direct_request",
+          "counter"
+        ],
+        "title": "AppointmentSource",
         "type": "string"
       },
       "AppointmentStatus": {

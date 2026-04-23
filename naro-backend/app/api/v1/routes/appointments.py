@@ -16,7 +16,7 @@ guard'ları uygular. Atomic transition (appointment + case status).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -31,37 +31,24 @@ from app.api.v1.deps import (
 from app.models.appointment import (
     Appointment,
     AppointmentSlotKind,
-    AppointmentSource,
     AppointmentStatus,
 )
 from app.models.case import ServiceCase, ServiceCaseStatus
 from app.models.case_audit import CaseEventType, CaseTone
 from app.models.user import UserRole
 from app.repositories import appointment as appointment_repo
+from app.schemas.appointment import AppointmentRequest
 from app.services import appointment_flow
 from app.services.case_events import append_event
 from app.services.case_lifecycle import transition_case_status
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
-_DIRECT_REQUEST_TTL = timedelta(hours=48)
-
 
 # ─── Pydantic schemas ───────────────────────────────────────────────────────
-
-
-class AppointmentSlotPayload(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    kind: AppointmentSlotKind
-
-
-class AppointmentRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    case_id: UUID
-    technician_id: UUID
-    slot: dict[str, object]  # `{kind, start_at?, ...}`
-    note: str = Field(default="", max_length=500)
+# P1-F fix (QA tur 1): AppointmentRequest canonical app/schemas/appointment.py
+# (7 field: case_id, technician_id, offer_id, slot, note, expires_at, source).
+# Route inline shadow kaldırıldı — FE canonical 7 field gönderebilir.
 
 
 class AppointmentReasonPayload(BaseModel):
@@ -135,23 +122,17 @@ async def create_direct_request(
                 "existing_appointment_id": str(existing.id),
             },
         )
-    # slot.kind parse
-    slot_kind_raw = payload.slot.get("kind")
-    if not isinstance(slot_kind_raw, str):
-        raise HTTPException(
-            status_code=422,
-            detail={"type": "slot_kind_required", "message": "slot.kind zorunlu"},
-        )
 
+    slot_dict = payload.slot.model_dump(mode="json", exclude_none=True)
     appointment = await appointment_repo.request_appointment(
         db,
         case_id=case.id,
         technician_id=payload.technician_id,
-        offer_id=None,
-        slot=payload.slot,
-        expires_at=datetime.now(UTC) + _DIRECT_REQUEST_TTL,
+        offer_id=payload.offer_id,
+        slot=slot_dict,
+        expires_at=payload.expires_at,
         note=payload.note,
-        source=AppointmentSource.DIRECT_REQUEST,
+        source=payload.source,
     )
     await append_event(
         db,
@@ -163,7 +144,7 @@ async def create_direct_request(
         context={
             "appointment_id": str(appointment.id),
             "technician_id": str(payload.technician_id),
-            "slot": payload.slot,
+            "slot": slot_dict,
         },
     )
     await transition_case_status(
