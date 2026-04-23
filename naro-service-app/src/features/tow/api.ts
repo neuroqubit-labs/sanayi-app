@@ -1,19 +1,23 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/runtime";
 
 import {
+  TowCaseSnapshotSchema,
   TowDispatchResponseInputSchema,
   TowDispatchResponseOutputSchema,
   TowOtpChallengeSchema,
   TowOtpIssueInputSchema,
   TowOtpVerifyInputSchema,
+  TowTrackingSnapshotSchema,
+  type TowCaseSnapshot,
   type TowDispatchResponseInput,
   type TowDispatchResponseOutput,
   type TowEvidenceKind,
   type TowOtpChallenge,
   type TowOtpIssueInput,
   type TowOtpVerifyInput,
+  type TowTrackingSnapshot,
 } from "./schemas";
 
 /**
@@ -98,5 +102,35 @@ export function useRegisterTowEvidence(caseId: string) {
         { method: "POST" },
       );
     },
+  });
+}
+
+// ─── Case snapshot + tracking (teknisyen polling, P0-5 iter 2) ─────────────
+
+export function useTowCaseSnapshotTech(caseId: string) {
+  return useQuery<TowCaseSnapshot>({
+    queryKey: ["tow", "case", "tech", caseId],
+    enabled: caseId.length > 0,
+    queryFn: async () => {
+      const raw = await apiClient(`/tow/cases/${caseId}`);
+      return TowCaseSnapshotSchema.parse(raw);
+    },
+    // Polling 5 sn — BE realtime push V1.1; teknisyen stage transitions
+    // için düşük latency gerekli (accepted→en_route→arrived).
+    refetchInterval: 5_000,
+    staleTime: 2_000,
+  });
+}
+
+export function useTowTrackingTech(caseId: string, enabled: boolean = true) {
+  return useQuery<TowTrackingSnapshot>({
+    queryKey: ["tow", "tracking", "tech", caseId],
+    enabled: enabled && caseId.length > 0,
+    queryFn: async () => {
+      const raw = await apiClient(`/tow/cases/${caseId}/tracking`);
+      return TowTrackingSnapshotSchema.parse(raw);
+    },
+    refetchInterval: enabled ? 5_000 : false,
+    staleTime: 2_000,
   });
 }
