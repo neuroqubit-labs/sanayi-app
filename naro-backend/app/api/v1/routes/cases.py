@@ -532,13 +532,7 @@ def _subtype_view(
             "dropoff_lng": subtype.dropoff_lng,
             "dropoff_address": subtype.dropoff_address,
             "fare_quote": subtype.tow_fare_quote,
-            # QA tur 2 P1-1: assigned_technician_id subtype embed
-            # (top-level duplicate ama FE subtype-scoped tüketim için).
-            "assigned_technician_id": (
-                str(case.assigned_technician_id)
-                if case is not None and case.assigned_technician_id
-                else None
-            ),
+            "assigned_technician_id": _assigned_tech_str(case),
         }
     if isinstance(subtype, AccidentCase):
         return {
@@ -553,6 +547,7 @@ def _subtype_view(
             "ambulance_contacted": subtype.ambulance_contacted,
             "report_method": subtype.report_method,
             "emergency_acknowledged": subtype.emergency_acknowledged,
+            "assigned_technician_id": _assigned_tech_str(case),
         }
     if isinstance(subtype, BreakdownCase):
         return {
@@ -563,6 +558,7 @@ def _subtype_view(
             "valet_requested": subtype.valet_requested,
             "pickup_preference": subtype.pickup_preference,
             "price_preference": subtype.price_preference,
+            "assigned_technician_id": _assigned_tech_str(case),
         }
     if isinstance(subtype, MaintenanceCase):
         return {
@@ -574,8 +570,16 @@ def _subtype_view(
             "valet_requested": subtype.valet_requested,
             "pickup_preference": subtype.pickup_preference,
             "price_preference": subtype.price_preference,
+            "assigned_technician_id": _assigned_tech_str(case),
         }
     return None
+
+
+def _assigned_tech_str(case: ServiceCase | None) -> str | None:
+    """QA tur 3 P1-1: case.assigned_technician_id UUID → str (subtype JSON)."""
+    if case is None or case.assigned_technician_id is None:
+        return None
+    return str(case.assigned_technician_id)
 
 
 # ─── Documents + Events (İş 5 — FE engine.ts blocker) ──────────────────

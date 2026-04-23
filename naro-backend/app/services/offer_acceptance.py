@@ -93,10 +93,17 @@ async def accept_offer(
     # P1-E fix (QA tur 1): offer.amount → service_cases.estimate_amount
     # Billing summary + payment_initiate invariant bağımlılığı. Atomic
     # accept ile aynı TX içinde yazılır.
+    # QA tur 3 P1-1: assigned_technician_id da aynı TX'te set — non-firm
+    # slot path'inde teknisyen randevu onaylayana kadar null kalıyordu,
+    # FE "hangi usta seçildi" UX'i eksikti. Firm path da aynı değeri
+    # idempotent tekrar set eder.
     await session.execute(
         update(ServiceCase)
         .where(ServiceCase.id == offer.case_id)
-        .values(estimate_amount=offer.amount)
+        .values(
+            estimate_amount=offer.amount,
+            assigned_technician_id=offer.technician_id,
+        )
     )
 
     await append_event(
