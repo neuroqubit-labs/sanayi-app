@@ -18,7 +18,7 @@ from app.services.case_events import append_event
 logger = logging.getLogger("worker.offer_expiry")
 
 
-async def offer_expiry_job(ctx: dict[str, object]) -> None:  # noqa: ARG001
+async def offer_expiry_job(ctx: dict[str, object]) -> None:
     async with AsyncSessionLocal() as session:
         expired = await offer_repo.expire_stale_offers_returning(session)
         for offer_id, case_id in expired:

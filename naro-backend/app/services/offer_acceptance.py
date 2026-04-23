@@ -160,6 +160,19 @@ async def _schedule_firm_appointment(
         .where(ServiceCase.id == offer.case_id)
         .values(assigned_technician_id=offer.technician_id)
     )
+    # B-P1-10: TECHNICIAN_SELECTED emit — assignment event.
+    await append_event(
+        session,
+        case_id=offer.case_id,
+        event_type=CaseEventType.TECHNICIAN_SELECTED,
+        title="Usta atandı",
+        tone=CaseTone.SUCCESS,
+        actor_user_id=actor_user_id,
+        context={
+            "technician_id": str(offer.technician_id),
+            "offer_id": str(offer.id),
+        },
+    )
     await transition_case_status(
         session,
         offer.case_id,

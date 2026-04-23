@@ -174,6 +174,16 @@ async def cancel_appointment(
         raise AppointmentNotPendingError(
             f"appointment {appointment_id} no longer cancellable"
         )
+    # B-P1-10: APPOINTMENT_CANCELLED emit — manual cancel (cascade AUTO_* ayrı).
+    await append_event(
+        session,
+        case_id=appt.case_id,
+        event_type=CaseEventType.APPOINTMENT_CANCELLED,
+        title="Randevu iptal edildi",
+        tone=CaseTone.WARNING,
+        actor_user_id=actor_user_id,
+        context={"appointment_id": str(appointment_id)},
+    )
     await transition_case_status(
         session,
         appt.case_id,

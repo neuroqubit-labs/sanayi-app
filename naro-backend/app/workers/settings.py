@@ -4,6 +4,7 @@ from arq import cron
 from arq.connections import RedisSettings
 
 from app.core.config import get_settings
+from app.workers.appointment_expiry import appointment_expiry_job
 from app.workers.media import process_media_asset
 from app.workers.media_antivirus import media_antivirus_scan
 from app.workers.media_orphan_purge import media_orphan_purge
@@ -53,6 +54,12 @@ class WorkerSettings:
         ),
         # B-P1-7: stale MATCHING case auto-archive (saatte bir)
         cron(stale_case_archive_job, minute={0}, unique=True),
+        # B-P1-10: appointment expiry sweep (5 dk)
+        cron(
+            appointment_expiry_job,
+            minute={2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57},
+            unique=True,
+        ),
     ]
     on_startup = startup
     on_shutdown = shutdown

@@ -201,3 +201,26 @@ async def expire_pending_appointments(
         )
     )
     return int(result.rowcount or 0)
+
+
+async def expire_pending_appointments_returning(
+    session: AsyncSession, *, before: datetime | None = None
+) -> list[tuple[UUID, UUID]]:
+    """B-P1-10 fix: cron per-row emit için (appointment_id, case_id)."""
+    threshold = before or datetime.now(UTC)
+    stmt = (
+        update(Appointment)
+        .where(
+            and_(
+                Appointment.status == AppointmentStatus.PENDING,
+                Appointment.expires_at <= threshold,
+            )
+        )
+        .values(
+            status=AppointmentStatus.EXPIRED,
+            responded_at=datetime.now(UTC),
+        )
+        .returning(Appointment.id, Appointment.case_id)
+    )
+    rows = (await session.execute(stmt)).all()
+    return [(r[0], r[1]) for r in rows]

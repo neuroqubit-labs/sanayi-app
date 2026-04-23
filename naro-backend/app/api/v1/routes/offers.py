@@ -41,11 +41,13 @@ from app.api.v1.deps import (
     DbDep,
 )
 from app.models.case import ServiceCase, ServiceCaseStatus, ServiceRequestKind
+from app.models.case_audit import CaseEventType, CaseTone
 from app.models.offer import CaseOffer, CaseOfferStatus
 from app.models.technician import ProviderType, TechnicianProfile
 from app.models.user import UserRole
 from app.repositories import offer as offer_repo
 from app.services import offer_acceptance
+from app.services.case_events import append_event
 from app.services.pool_matching import KIND_PROVIDER_MAP
 
 router = APIRouter(prefix="/offers", tags=["offers"])
@@ -229,6 +231,21 @@ async def submit_offer_endpoint(
     # Case henüz matching ise offers_ready'ye geçir (ilk teklifte)
     if case.status == ServiceCaseStatus.MATCHING:
         case.status = ServiceCaseStatus.OFFERS_READY
+
+    # B-P1-10: OFFER_RECEIVED emit — FE timeline "yeni teklif geldi".
+    await append_event(
+        db,
+        case_id=case.id,
+        event_type=CaseEventType.OFFER_RECEIVED,
+        title="Yeni teklif geldi",
+        tone=CaseTone.INFO,
+        actor_user_id=user.id,
+        context={
+            "offer_id": str(offer.id),
+            "technician_id": str(user.id),
+            "amount": str(payload.amount),
+        },
+    )
 
     await db.commit()
     return OfferResponse.model_validate(offer)
@@ -421,6 +438,16 @@ async def reject_offer_endpoint(
             },
         )
     await offer_repo.customer_reject_offer(db, offer_id)
+    # B-P1-10: OFFER_REJECTED emit — customer tarafından red.
+    await append_event(
+        db,
+        case_id=offer.case_id,
+        event_type=CaseEventType.OFFER_REJECTED,
+        title="Teklif reddedildi",
+        tone=CaseTone.WARNING,
+        actor_user_id=user.id,
+        context={"offer_id": str(offer_id), "by": "customer"},
+    )
     await db.commit()
     await db.refresh(offer)
     return OfferResponse.model_validate(offer)
@@ -456,6 +483,16 @@ async def withdraw_offer_endpoint(
             },
         )
     await offer_repo.withdraw_offer(db, offer_id, technician_id=user.id)
+    # B-P1-10: OFFER_WITHDRAWN emit — teknisyen geri çekti.
+    await append_event(
+        db,
+        case_id=offer.case_id,
+        event_type=CaseEventType.OFFER_WITHDRAWN,
+        title="Teklif geri çekildi",
+        tone=CaseTone.NEUTRAL,
+        actor_user_id=user.id,
+        context={"offer_id": str(offer_id), "by": "technician"},
+    )
     await db.commit()
     await db.refresh(offer)
     return OfferResponse.model_validate(offer)
