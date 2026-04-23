@@ -18,10 +18,10 @@ import {
   RefreshCcw,
   ShieldCheck,
 } from "lucide-react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
-import { useInitiatePayment } from "../api";
+import { useBillingSummary, useInitiatePayment } from "../api";
 import { useThreeDSFlow } from "../hooks";
 import type { PaymentInitiateResponse } from "../schemas";
 
@@ -84,6 +84,23 @@ export function PaymentInitiateScreen() {
 
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const initiate = useInitiatePayment(caseIdSafe);
+  // F-P0-3 (2026-04-23 lifecycle audit L1-P0-3): BE PREAUTH_FAILED
+  // durumunda kullanıcı vakaya döndüğünde idle UI "Ödemeyi başlat"
+  // gösteriyordu. Billing summary mount'ta kontrol edilip phase
+  // `failed`'e çekiliyor → "Farklı kartla tekrar dene" CTA. BE B-P0-3
+  // shipped olunca retry initiate BE ESTIMATE'e çeker ve yeni 3DS
+  // akışı başlar.
+  const summaryQuery = useBillingSummary(caseIdSafe);
+  useEffect(() => {
+    if (phase.kind !== "idle") return;
+    if (summaryQuery.data?.billing_state === "preauth_failed") {
+      setPhase({
+        kind: "failed",
+        code: "card_declined",
+        message: "Önceki ödeme denemen sonuçlanmadı. Farklı bir kartla tekrar dene.",
+      });
+    }
+  }, [phase.kind, summaryQuery.data?.billing_state]);
 
   const start = useCallback(async () => {
     setPhase({ kind: "initiating" });
@@ -337,7 +354,11 @@ function FailedBody({
       <View className="gap-2 self-stretch">
         {meta.retryable ? (
           <Button
-            label="Tekrar dene"
+            label={
+              code === "card_declined"
+                ? "Farklı kartla tekrar dene"
+                : "Tekrar dene"
+            }
             size="lg"
             fullWidth
             leftIcon={<Icon icon={RefreshCcw} size={16} color="#ffffff" />}
