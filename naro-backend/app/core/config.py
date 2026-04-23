@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     tow_otp_max_attempts: int = 3
     tow_heartbeat_seconds: int = 90
 
+    # QA tur 2 P1-4: offer expires_at default TTL (B-P1-6 cron filter için)
+    offer_ttl_minutes: int = 15
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def database_url(self) -> str:

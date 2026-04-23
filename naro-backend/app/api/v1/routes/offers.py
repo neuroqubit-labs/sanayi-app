@@ -209,6 +209,16 @@ async def submit_offer_endpoint(
     cap = _KIND_OFFER_CAP.get(case.kind, 10)
     _cap_reached = active_count >= cap
 
+    # QA tur 2 P1-4 fix: offer.expires_at default TTL (settings.offer_ttl_minutes).
+    # B-P1-6 cron filter (expires_at <= NOW) bu alanla eşleşir — NULL ise
+    # cron hiç bir zaman EXPIRED geçiremez.
+    from datetime import UTC, datetime, timedelta
+
+    from app.core.config import get_settings
+
+    ttl_minutes = get_settings().offer_ttl_minutes
+    expires_at = datetime.now(UTC) + timedelta(minutes=ttl_minutes)
+
     offer = await offer_repo.submit_offer(
         db,
         case_id=case.id,
@@ -222,6 +232,7 @@ async def submit_offer_endpoint(
         currency=payload.currency,
         available_at_label=payload.available_at_label,
         badges=payload.badges,
+        expires_at=expires_at,
     )
     if payload.slot_proposal:
         offer.slot_proposal = payload.slot_proposal

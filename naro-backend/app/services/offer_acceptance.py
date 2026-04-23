@@ -74,6 +74,21 @@ async def accept_offer(
     )
     for sib in siblings:
         await offer_repo.reject_offer(session, sib.id)
+        # QA tur 2 P1-3 fix: sibling auto-reject event emit (timeline için).
+        # Müşteri "başka usta seçildi" sinyalini görsün (tone=info — red değil
+        # sistemik branş ayıklama).
+        await append_event(
+            session,
+            case_id=offer.case_id,
+            event_type=CaseEventType.OFFER_REJECTED,
+            title="Teklif otomatik reddedildi (başka usta seçildi)",
+            tone=CaseTone.INFO,
+            actor_user_id=actor_user_id,
+            context={
+                "offer_id": str(sib.id),
+                "reason": "sibling_auto_reject",
+            },
+        )
 
     # P1-E fix (QA tur 1): offer.amount → service_cases.estimate_amount
     # Billing summary + payment_initiate invariant bağımlılığı. Atomic

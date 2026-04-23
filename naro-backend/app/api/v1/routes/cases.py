@@ -10,7 +10,7 @@ Draft endpoint'leri (POST/GET/DELETE /cases/drafts/*) ayrı brief kapsamında.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -292,64 +292,78 @@ async def cancel_case_endpoint(
                 "message": f"case already {case.status.value}",
             },
         )
-    case.status = ServiceCaseStatus.CANCELLED
-    case.closed_at = datetime.now(UTC)
-    await append_event(
+    # QA tur 2 P1-2 fix: cancel 500 robustness —
+    # 1) transition + cascade row updates atomic → commit
+    # 2) cascade event emit ayrı blok, try/except + log (non-fatal)
+    # 3) status 200 dönüş garanti.
+    import logging
+
+    from app.services.case_lifecycle import transition_case_status
+
+    _logger = logging.getLogger("cancel_case_endpoint")
+
+    # (1) Status transition via authority (wait_state projection B-P2-1
+    # alignment) + cascade row updates.
+    await transition_case_status(
         db,
-        case_id=case.id,
-        event_type=CaseEventType.CANCELLED,
-        title="Vaka iptal edildi",
-        tone=CaseTone.WARNING,
+        case.id,
+        ServiceCaseStatus.CANCELLED,
         actor_user_id=user.id,
     )
-
-    # B-P0-4 fix: cancel cascade — pending offers/appointments/approvals
-    # da kapatılır (pilot UX: FE timeline'da "cascade iptal" event'leri).
     cascaded_offers = await offer_repo.reject_all_pending_for_case(db, case.id)
-    for offer_id in cascaded_offers:
-        await append_event(
-            db,
-            case_id=case.id,
-            event_type=CaseEventType.OFFER_AUTO_REJECTED,
-            title="Teklif otomatik reddedildi (vaka iptal)",
-            tone=CaseTone.NEUTRAL,
-            actor_user_id=user.id,
-            context={"offer_id": str(offer_id), "reason": "case_cancelled"},
-        )
-
     cascaded_appts = await appointment_repo.cancel_all_for_case(db, case.id)
-    for appt_id in cascaded_appts:
-        await append_event(
-            db,
-            case_id=case.id,
-            event_type=CaseEventType.APPOINTMENT_AUTO_CANCELLED,
-            title="Randevu otomatik iptal edildi (vaka iptal)",
-            tone=CaseTone.NEUTRAL,
-            actor_user_id=user.id,
-            context={
-                "appointment_id": str(appt_id),
-                "reason": "case_cancelled",
-            },
-        )
-
     cascaded_approvals = await approval_flow.reject_all_pending_for_case(
         db, case.id
     )
-    for approval_id in cascaded_approvals:
-        await append_event(
-            db,
-            case_id=case.id,
-            event_type=CaseEventType.APPROVAL_AUTO_REJECTED,
-            title="Onay otomatik reddedildi (vaka iptal)",
-            tone=CaseTone.NEUTRAL,
-            actor_user_id=user.id,
-            context={
-                "approval_id": str(approval_id),
-                "reason": "case_cancelled",
-            },
-        )
-
     await db.commit()
+    await db.refresh(case)
+
+    # (2) Cascade event emit — non-fatal. Herhangi bir emit fail olursa
+    # log + devam; müşteri cancel başarılı (200) dönmeye devam eder.
+    try:
+        for offer_id in cascaded_offers:
+            await append_event(
+                db,
+                case_id=case.id,
+                event_type=CaseEventType.OFFER_AUTO_REJECTED,
+                title="Teklif otomatik reddedildi (vaka iptal)",
+                tone=CaseTone.NEUTRAL,
+                actor_user_id=user.id,
+                context={"offer_id": str(offer_id), "reason": "case_cancelled"},
+            )
+        for appt_id in cascaded_appts:
+            await append_event(
+                db,
+                case_id=case.id,
+                event_type=CaseEventType.APPOINTMENT_AUTO_CANCELLED,
+                title="Randevu otomatik iptal edildi (vaka iptal)",
+                tone=CaseTone.NEUTRAL,
+                actor_user_id=user.id,
+                context={
+                    "appointment_id": str(appt_id),
+                    "reason": "case_cancelled",
+                },
+            )
+        for approval_id in cascaded_approvals:
+            await append_event(
+                db,
+                case_id=case.id,
+                event_type=CaseEventType.APPROVAL_AUTO_REJECTED,
+                title="Onay otomatik reddedildi (vaka iptal)",
+                tone=CaseTone.NEUTRAL,
+                actor_user_id=user.id,
+                context={
+                    "approval_id": str(approval_id),
+                    "reason": "case_cancelled",
+                },
+            )
+        await db.commit()
+    except Exception:  # cancel itself already committed — emit is best-effort
+        _logger.exception(
+            "cascade event emit failed for case=%s (cancel already committed)",
+            case.id,
+        )
+        await db.rollback()
     return CaseSummaryResponse.model_validate(case)
 
 
