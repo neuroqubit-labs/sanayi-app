@@ -35,9 +35,9 @@ ALLOWED_TRANSITIONS: dict[ServiceCaseStatus, set[ServiceCaseStatus]] = {
     S.ARCHIVED: set(),
 }
 
-TERMINAL_STATES: frozenset[ServiceCaseStatus] = frozenset(
-    {S.COMPLETED, S.CANCELLED}
-)
+# B-P2-5: central app.domain.terminal_states.CASE_TERMINAL alias.
+# Re-export backward compat — eski importçular TERMINAL_STATES okur.
+from app.domain.terminal_states import CASE_TERMINAL as TERMINAL_STATES  # noqa: E402
 
 
 class InvalidTransitionError(ValueError):
