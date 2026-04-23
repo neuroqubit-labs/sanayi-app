@@ -27,6 +27,7 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.case import ServiceCase, ServiceRequestKind
 from app.models.case_audit import (
     CaseEventType,
     CaseNotificationIntentType,
@@ -49,6 +50,18 @@ class ClaimNotFoundError(LookupError):
 
 class ClaimAlreadyActiveError(ValueError):
     """Case'de aktif (submitted/accepted/paid) claim zaten var."""
+
+
+class InvalidCaseKindError(ValueError):
+    """B-P1-3 fix: insurance claim sadece kind='accident' case'lere
+    bağlanır. Bakım/arıza/çekici case'lerine claim submit denemesi 422."""
+
+    def __init__(self, case_id: UUID, actual_kind: str) -> None:
+        super().__init__(
+            f"case {case_id} kind={actual_kind}, expected=accident"
+        )
+        self.case_id = case_id
+        self.actual_kind = actual_kind
 
 
 class InvalidClaimTransitionError(ValueError):
@@ -91,7 +104,17 @@ async def submit_claim(
     created_by_user_id: UUID,
     created_by_snapshot_name: str | None = None,
 ) -> InsuranceClaim:
-    """Mobil draft → backend submit. Aktif claim varsa ihlal (partial unique)."""
+    """Mobil draft → backend submit. Aktif claim varsa ihlal (partial unique).
+
+    B-P1-3: kind=accident guard — non-accident case'lere claim yasak.
+    """
+    # B-P1-3 fix: kind=accident boundary
+    case = await session.get(ServiceCase, case_id)
+    if case is None:
+        raise ClaimNotFoundError(f"case {case_id} not found")
+    if case.kind != ServiceRequestKind.ACCIDENT:
+        raise InvalidCaseKindError(case_id, case.kind.value)
+
     # Pre-check friendly error (race'de yine partial unique savunur)
     active = await claim_repo.get_active_claim_for_case(session, case_id)
     if active is not None:

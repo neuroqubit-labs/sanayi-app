@@ -126,6 +126,19 @@ async def submit_claim_endpoint(
         raise HTTPException(
             status_code=409, detail={"type": "claim_already_active"}
         ) from exc
+    except claim_flow.InvalidCaseKindError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "invalid_case_kind",
+                "expected": "accident",
+                "actual": exc.actual_kind,
+            },
+        ) from exc
+    except claim_flow.ClaimNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail={"type": "case_not_found"}
+        ) from exc
     await db.commit()
     await db.refresh(claim)
     return InsuranceClaimResponse.model_validate(claim)
