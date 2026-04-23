@@ -164,6 +164,7 @@ async def select_next_candidate(
                 + 0.15 * 1.0 -- fairness placeholder (matview Faz 10f)
             ) AS score
         FROM technician_profiles tp
+        LEFT JOIN technician_capacity tc ON tc.profile_id = tp.id
         WHERE tp.provider_type = 'cekici'
           AND tp.availability = 'available'
           AND tp.deleted_at IS NULL
@@ -171,6 +172,10 @@ async def select_next_candidate(
           AND tp.last_location_at IS NOT NULL
           AND tp.last_location_at > :cutoff
           AND tp.current_offer_case_id IS NULL
+          -- B-P1-9 fix: capacity guard — current_queue_depth < max_concurrent_jobs
+          -- Kapasite kaydı yoksa teknisyen default kapasitede sayılır (geçmiş
+          -- mock/onboarding seed'ler için güvenli).
+          AND (tc.profile_id IS NULL OR tc.current_queue_depth < tc.max_concurrent_jobs)
           AND ST_DWithin(
               tp.last_known_location,
               ST_SetSRID(ST_MakePoint(:pickup_lng, :pickup_lat), 4326)::geography,
