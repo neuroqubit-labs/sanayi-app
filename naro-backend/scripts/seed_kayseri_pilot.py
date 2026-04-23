@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
@@ -39,6 +41,7 @@ from app.models.technician import (
     TechnicianAvailability,
     TechnicianCapability,
     TechnicianProfile,
+    TechnicianTowEquipmentLink,
     TechnicianVerifiedLevel,
 )
 from app.models.technician_signal import (
@@ -489,6 +492,66 @@ async def _upsert_service_area(
     await db.flush()
 
 
+_LOCATION_JITTER = 0.01  # ~1.1 km; Kayseri merkez içinde dağılım
+# Çekici mock ekipman matrisi — P0-A fix (QA tur 1). İlk çekici
+# flatbed+wheel_lift; ikinci hook+wheel_lift. Gerçekçi hot-pool.
+_CEKICI_EQUIPMENT: dict[int, list[str]] = {
+    7: ["flatbed", "wheel_lift"],
+    8: ["hook", "wheel_lift"],
+}
+
+
+async def _refresh_last_location(
+    db: AsyncSession, profile: TechnicianProfile, spec: MockSpec
+) -> None:
+    """P0-A fix (QA tur 1): mock tech last_known_location + heartbeat.
+
+    Dispatch SQL `last_known_location IS NOT NULL AND last_location_at >
+    cutoff (90sn)` filtresinden geçmek için her run'da refresh.
+    """
+    _, district_lat, district_lng = KAYSERI_DISTRICTS[spec.district_idx]
+    # Deterministic jitter — aynı mock aynı konuma, farklı mock farklı
+    rng = random.Random(spec.index)
+    lat = float(district_lat) + rng.uniform(-_LOCATION_JITTER, _LOCATION_JITTER)
+    lng = float(district_lng) + rng.uniform(-_LOCATION_JITTER, _LOCATION_JITTER)
+    await db.execute(
+        update(TechnicianProfile)
+        .where(TechnicianProfile.id == profile.id)
+        .values(
+            last_known_location_lat=lat,
+            last_known_location_lng=lng,
+            last_location_at=datetime.now(UTC),
+        )
+    )
+
+
+async def _upsert_tow_equipment(
+    db: AsyncSession, profile: TechnicianProfile, spec: MockSpec
+) -> None:
+    """P0-A fix (QA tur 1): çekici mock'lara tow_equipment satırı.
+
+    Dispatch SQL equipment filter'ı (required_equipment parametresi
+    varsa) technician_tow_equipment üzerinden EXISTS çeker. Çekici
+    mock'larda en az 1 equipment olmadan matching 0 döner.
+    """
+    if spec.provider_type != ProviderType.CEKICI:
+        return
+    equipment_list = _CEKICI_EQUIPMENT.get(spec.index, ["flatbed"])
+    for equip in equipment_list:
+        exists_stmt = select(TechnicianTowEquipmentLink).where(
+            TechnicianTowEquipmentLink.profile_id == profile.id,
+            TechnicianTowEquipmentLink.equipment == equip,
+        )
+        if (await db.execute(exists_stmt)).scalar_one_or_none() is not None:
+            continue
+        db.add(
+            TechnicianTowEquipmentLink(
+                profile_id=profile.id, equipment=equip
+            )
+        )
+    await db.flush()
+
+
 async def _seed_mock(
     db: AsyncSession, spec: MockSpec, district_ids: list[UUID]
 ) -> None:
@@ -508,6 +571,9 @@ async def _seed_mock(
         district_lng,
         spec.radius_km,
     )
+    # P0-A fix (QA tur 1): location heartbeat + çekici equipment
+    await _refresh_last_location(db, profile, spec)
+    await _upsert_tow_equipment(db, profile, spec)
 
 
 async def main() -> None:
