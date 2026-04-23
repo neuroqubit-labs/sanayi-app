@@ -95,7 +95,12 @@ async def approve_appointment(
 ) -> Appointment:
     appt = await _get_pending(session, appointment_id)
 
-    await appointment_repo.mark_approved(session, appointment_id)
+    # B-P1-1 fix: optimistic lock — repo bool döner; race kaybedildiyse raise.
+    moved = await appointment_repo.mark_approved(session, appointment_id)
+    if not moved:
+        raise AppointmentNotPendingError(
+            f"appointment {appointment_id} no longer pending"
+        )
     await session.execute(
         update(ServiceCase)
         .where(ServiceCase.id == appt.case_id)
@@ -129,7 +134,13 @@ async def decline_appointment(
 ) -> Appointment:
     appt = await _get_pending(session, appointment_id)
 
-    await appointment_repo.mark_declined(session, appointment_id, reason=reason)
+    moved = await appointment_repo.mark_declined(
+        session, appointment_id, reason=reason
+    )
+    if not moved:
+        raise AppointmentNotPendingError(
+            f"appointment {appointment_id} no longer pending"
+        )
     await append_event(
         session,
         case_id=appt.case_id,
@@ -158,7 +169,11 @@ async def cancel_appointment(
 ) -> Appointment:
     appt = await _get_pending(session, appointment_id)
 
-    await appointment_repo.mark_cancelled(session, appointment_id)
+    moved = await appointment_repo.mark_cancelled(session, appointment_id)
+    if not moved:
+        raise AppointmentNotPendingError(
+            f"appointment {appointment_id} no longer cancellable"
+        )
     await transition_case_status(
         session,
         appt.case_id,
@@ -180,15 +195,24 @@ async def counter_propose_slot(
     appt = await _get_pending(session, appointment_id)
     _parse_slot_kind(new_slot)  # validate only
 
-    await session.execute(
+    # B-P1-1 fix: optimistic lock PENDING → COUNTER_PENDING.
+    stmt = (
         update(Appointment)
-        .where(Appointment.id == appointment_id)
+        .where(
+            Appointment.id == appointment_id,
+            Appointment.status == AppointmentStatus.PENDING,
+        )
         .values(
             status=AppointmentStatus.COUNTER_PENDING,
             counter_proposal=new_slot,
             counter_proposal_by_user_id=actor_user_id,
         )
+        .returning(Appointment.id)
     )
+    if (await session.execute(stmt)).first() is None:
+        raise AppointmentNotPendingError(
+            f"appointment {appointment_id} no longer pending"
+        )
     await append_event(
         session,
         case_id=appt.case_id,
@@ -222,9 +246,13 @@ async def confirm_counter(
     slot_kind = _parse_slot_kind(counter)
 
     now = datetime.now(UTC)
-    await session.execute(
+    # B-P1-1 fix: optimistic lock COUNTER_PENDING → APPROVED.
+    stmt = (
         update(Appointment)
-        .where(Appointment.id == appointment_id)
+        .where(
+            Appointment.id == appointment_id,
+            Appointment.status == AppointmentStatus.COUNTER_PENDING,
+        )
         .values(
             slot=counter,
             slot_kind=slot_kind,
@@ -233,7 +261,12 @@ async def confirm_counter(
             counter_proposal=None,
             counter_proposal_by_user_id=None,
         )
+        .returning(Appointment.id)
     )
+    if (await session.execute(stmt)).first() is None:
+        raise AppointmentNotCounterPendingError(
+            f"appointment {appointment_id} no longer counter-pending"
+        )
     await session.execute(
         update(ServiceCase)
         .where(ServiceCase.id == appt.case_id)
@@ -263,15 +296,24 @@ async def decline_counter(
             f"appointment {appointment_id} is {appt.status.value}"
         )
 
-    await session.execute(
+    # B-P1-1 fix: optimistic lock COUNTER_PENDING → DECLINED.
+    stmt = (
         update(Appointment)
-        .where(Appointment.id == appointment_id)
+        .where(
+            Appointment.id == appointment_id,
+            Appointment.status == AppointmentStatus.COUNTER_PENDING,
+        )
         .values(
             status=AppointmentStatus.DECLINED,
             responded_at=datetime.now(UTC),
             decline_reason=reason,
         )
+        .returning(Appointment.id)
     )
+    if (await session.execute(stmt)).first() is None:
+        raise AppointmentNotCounterPendingError(
+            f"appointment {appointment_id} no longer counter-pending"
+        )
     await transition_case_status(
         session,
         appt.case_id,

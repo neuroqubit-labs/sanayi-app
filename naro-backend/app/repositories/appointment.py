@@ -58,15 +58,23 @@ async def request_appointment(
 
 async def mark_approved(
     session: AsyncSession, appointment_id: UUID
-) -> None:
-    await session.execute(
+) -> bool:
+    """B-P1-1 fix: optimistic lock — UPDATE WHERE status=PENDING RETURNING id.
+    False → race kaybedildi (başka transition geçti)."""
+    stmt = (
         update(Appointment)
-        .where(Appointment.id == appointment_id)
+        .where(
+            Appointment.id == appointment_id,
+            Appointment.status == AppointmentStatus.PENDING,
+        )
         .values(
             status=AppointmentStatus.APPROVED,
             responded_at=datetime.now(UTC),
         )
+        .returning(Appointment.id)
     )
+    row = (await session.execute(stmt)).first()
+    return row is not None
 
 
 async def mark_declined(
@@ -74,29 +82,49 @@ async def mark_declined(
     appointment_id: UUID,
     *,
     reason: str,
-) -> None:
-    await session.execute(
+) -> bool:
+    """B-P1-1 fix: optimistic lock PENDING → DECLINED."""
+    stmt = (
         update(Appointment)
-        .where(Appointment.id == appointment_id)
+        .where(
+            Appointment.id == appointment_id,
+            Appointment.status == AppointmentStatus.PENDING,
+        )
         .values(
             status=AppointmentStatus.DECLINED,
             responded_at=datetime.now(UTC),
             decline_reason=reason,
         )
+        .returning(Appointment.id)
     )
+    row = (await session.execute(stmt)).first()
+    return row is not None
 
 
 async def mark_cancelled(
     session: AsyncSession, appointment_id: UUID
-) -> None:
-    await session.execute(
+) -> bool:
+    """B-P1-1 fix: optimistic lock PENDING/APPROVED → CANCELLED.
+
+    Customer iptali iki statüden de kabul edilir (APPROVED'da randevu
+    günü öncesi customer iptal).
+    """
+    stmt = (
         update(Appointment)
-        .where(Appointment.id == appointment_id)
+        .where(
+            Appointment.id == appointment_id,
+            Appointment.status.in_(
+                (AppointmentStatus.PENDING, AppointmentStatus.APPROVED)
+            ),
+        )
         .values(
             status=AppointmentStatus.CANCELLED,
             responded_at=datetime.now(UTC),
         )
+        .returning(Appointment.id)
     )
+    row = (await session.execute(stmt)).first()
+    return row is not None
 
 
 async def get_active_for_case(
