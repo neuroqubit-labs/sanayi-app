@@ -33,6 +33,7 @@ import {
   getTrackingTechnicianName,
   getTrackingVehicleMeta,
 } from "./directory";
+import { syncTowTrackingCase } from "./tow-engine";
 
 type TrackingTone = "accent" | "neutral" | "success" | "warning" | "critical" | "info";
 
@@ -1288,6 +1289,13 @@ export function getTaskDeeplinkIntent(
 }
 
 export function syncTrackingCase(caseItem: ServiceCase): ServiceCase {
+  // F-P1-1 (2026-04-23): kind dispatch. Tow case stage-first engine'i
+  // kullanır; generic shell-first derivation mock-ServiceCase'in tow
+  // aşamalarını "service_in_progress"a sıkıştırıyordu. Canonical
+  // adapter subtype.tow_stage'i ServiceCase.tow_stage'e projekte eder.
+  if (caseItem.kind === "towing" && caseItem.tow_stage) {
+    return syncTowTrackingCase(caseItem);
+  }
   const workflowBlueprint = determineBlueprint(caseItem);
   const milestones = buildMilestones(caseItem);
   const tasks = buildTasks(caseItem, milestones);

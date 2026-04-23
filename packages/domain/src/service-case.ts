@@ -690,5 +690,17 @@ export const ServiceCaseSchema = z.object({
   appointment: AppointmentSchema.nullable().default(null),
   origin: CaseOriginSchema.default("customer"),
   insurance_claim: InsuranceClaimSchema.nullable().default(null),
+  /**
+   * F-P1-1 (2026-04-23 lifecycle audit L3-P1-1): kind-aware engine
+   * için `tow_stage` ServiceCase shape'inde optional. Canonical
+   * adapter `subtype.tow_stage`'i buraya projekte eder; engine
+   * `syncTowTrackingCase` stage-first milestone + next_action
+   * derivation'ı için okur. Tow kind dışında undefined kalır.
+   *
+   * String tipinde bırakıldı (TowDispatchStage import edip domain'ler
+   * arası circular olmasın); engine'de cast edilir. Optional — mevcut
+   * mock/fixture'ları kırmamak için (geriye uyumlu).
+   */
+  tow_stage: z.string().nullable().optional(),
 });
 export type ServiceCase = z.infer<typeof ServiceCaseSchema>;

@@ -531,6 +531,13 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
       appointment: null,
       origin: "customer",
       insurance_claim: null,
+      // F-P1-1 (2026-04-23): canonical subtype.tow_stage → engine
+      // stage-first dispatch için ServiceCase üzerinde expose. Tow
+      // kind dışında null.
+      tow_stage:
+        detail.kind === "towing"
+          ? ((subtype.tow_stage as string | undefined) ?? null)
+          : null,
     };
 
     // F-P0-2 override: engine.ts `syncTrackingCase` içinden
