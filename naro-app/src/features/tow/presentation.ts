@@ -1,4 +1,6 @@
-import type { TowDispatchStage, TowVehicleEquipment } from "@naro/domain";
+import type { TowVehicleEquipment } from "@naro/domain";
+
+import type { TowDispatchStage } from "./schemas";
 
 export type TowStagePresentation = {
   eyebrow: string;
@@ -119,6 +121,24 @@ export function getTowStagePresentation(
         title: "Hemen akışı havuza çevrildi",
         description:
           "Çevrende uygun operatör hemen bulunamadı. Seni bidding havuzuna aktarıyoruz.",
+        tone: "warning",
+        liveDot: false,
+      };
+    case "preauth_failed":
+      return {
+        eyebrow: "Ödeme reddedildi",
+        title: "Ön yetki alınamadı",
+        description:
+          "Kartın pre-auth için yetersiz ya da banka reddetti. Farklı kart ile tekrar başlatabilirsin.",
+        tone: "critical",
+        liveDot: false,
+      };
+    case "preauth_stale":
+      return {
+        eyebrow: "Ödeme süresi doldu",
+        title: "Ön yetki süresi aşıldı",
+        description:
+          "Pre-auth tutma süresi doldu. Talebi yeniden başlatman gerekiyor.",
         tone: "warning",
         liveDot: false,
       };
