@@ -28,6 +28,7 @@ import {
   useCaseEventsLive,
   useCaseThreadLive,
 } from "../api";
+import { getEventCopy } from "../event-copy";
 import type { CaseDetailResponse } from "../schemas/case-create";
 import type { ThreadMessageResponse } from "../schemas/thread";
 import type {
@@ -82,15 +83,81 @@ export type CanonicalCaseResult = {
   refetch: () => void;
 };
 
+/**
+ * BE event type (46) → FE event type (~40 pilot-relevant) eşlemesi.
+ * F-P0-1 fix (2026-04-23): önceki 8 değerli mapping 12+ kritik event'i
+ * (parts_approved, invoice_approved, cancelled, tow_stage_committed,
+ * billing_state_changed vb.) filtered out ediyordu → timeline
+ * "dürüstlük" bozulmuştu (Codex lifecycle integrity audit L3-P0-1).
+ *
+ * Aynı zamanda `offer_accepted → offer_received` duplicate bug'ı
+ * düzeltildi.
+ *
+ * BE'de emit edilip henüz FE enum'una eklenmemiş olanlar (audit log,
+ * nadiren kullanıcı-etkileyen) bilinçli null döner:
+ * - soft_deleted (audit)
+ * - wait_state_changed (internal derivation trigger)
+ * - tow_location_recorded (sık emit, timeline'ı boğar)
+ * - tow_dispatch_candidate_selected (internal)
+ * - commission_calculated / payout_* (teknisyen muhasebe; customer UI dışı)
+ */
 const BE_TO_FE_EVENT_TYPE: Partial<Record<BeCaseEventType, FeCaseEventType>> = {
+  // Case lifecycle
   submitted: "submitted",
-  offer_received: "offer_received",
-  technician_selected: "technician_selected",
   status_update: "status_update",
-  parts_requested: "parts_requested",
-  invoice_shared: "invoice_shared",
-  message: "message",
   completed: "completed",
+  cancelled: "cancelled",
+  archived: "archived",
+
+  // Offers
+  offer_received: "offer_received",
+  offer_accepted: "offer_accepted",
+  offer_rejected: "offer_rejected",
+  offer_withdrawn: "offer_withdrawn",
+
+  // Appointment
+  appointment_requested: "appointment_requested",
+  appointment_approved: "appointment_approved",
+  appointment_declined: "appointment_declined",
+  appointment_cancelled: "appointment_cancelled",
+  appointment_expired: "appointment_expired",
+  appointment_counter: "appointment_counter",
+
+  // Technician match
+  technician_selected: "technician_selected",
+  technician_unassigned: "technician_unassigned",
+
+  // Approvals + delivery
+  parts_requested: "parts_requested",
+  parts_approved: "parts_approved",
+  parts_rejected: "parts_rejected",
+  invoice_shared: "invoice_shared",
+  invoice_approved: "invoice_approved",
+  invoice_issued: "invoice_issued",
+
+  // Thread + docs + evidence
+  message: "message",
+  document_added: "document_added",
+  evidence_added: "evidence_added",
+
+  // Tow lifecycle
+  tow_stage_requested: "tow_stage_requested",
+  tow_stage_committed: "tow_stage_committed",
+  tow_evidence_added: "tow_evidence_added",
+  tow_fare_captured: "tow_fare_captured",
+
+  // Billing
+  payment_initiated: "payment_initiated",
+  payment_authorized: "payment_authorized",
+  payment_captured: "payment_captured",
+  payment_refunded: "payment_refunded",
+  billing_state_changed: "billing_state_changed",
+
+  // Insurance
+  insurance_claim_submitted: "insurance_claim_submitted",
+  insurance_claim_accepted: "insurance_claim_accepted",
+  insurance_claim_paid: "insurance_claim_paid",
+  insurance_claim_rejected: "insurance_claim_rejected",
 };
 
 const BE_TO_FE_ATTACHMENT_KIND: Record<
@@ -216,11 +283,21 @@ function documentToDomain(doc: CaseDocumentItem): CaseDocument {
 function eventToDomain(event: CaseEventItem): CaseEvent | null {
   const feType = BE_TO_FE_EVENT_TYPE[event.type];
   if (!feType) return null;
+  // BE primary: append_event() title + body Türkçe doldurulur. Boş
+  // gelirse event-copy kataloğundan fallback (eski/migration'dan
+  // gelmiş kayıtlar için koruma).
+  const fallback = getEventCopy(feType);
+  const title = event.title && event.title.trim().length > 0
+    ? event.title
+    : fallback.title;
+  const body = event.body && event.body.trim().length > 0
+    ? event.body
+    : fallback.body;
   return {
     id: event.id,
     type: feType,
-    title: event.title,
-    body: event.body ?? "",
+    title,
+    body,
     created_at: event.created_at,
     created_at_label: formatRelativeTurkish(event.created_at),
     tone: event.tone,

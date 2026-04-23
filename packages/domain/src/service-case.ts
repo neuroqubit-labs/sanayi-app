@@ -103,15 +103,70 @@ export const CaseOfferSchema = z.object({
 });
 export type CaseOffer = z.infer<typeof CaseOfferSchema>;
 
+/**
+ * FE event type kataloğu — BE `CaseEventType` (46 değer) içinden pilot
+ * kullanıcısını etkileyen alt kümedir (F-P0-1 genişletme, 2026-04-23).
+ * Timeline render + engine narrow check'ler bu enum üzerinden akar.
+ * Enum genişlemesi geriye uyumlu: yeni değerler varsayılan olarak
+ * status-kind timeline'ında görünür (event.title BE'den Türkçe geliyor).
+ */
 export const CaseEventTypeSchema = z.enum([
+  // Case lifecycle
   "submitted",
-  "offer_received",
-  "technician_selected",
   "status_update",
-  "parts_requested",
-  "invoice_shared",
-  "message",
   "completed",
+  "cancelled",
+  "archived",
+
+  // Offers
+  "offer_received",
+  "offer_accepted",
+  "offer_rejected",
+  "offer_withdrawn",
+
+  // Appointment
+  "appointment_requested",
+  "appointment_approved",
+  "appointment_declined",
+  "appointment_cancelled",
+  "appointment_expired",
+  "appointment_counter",
+
+  // Technician match
+  "technician_selected",
+  "technician_unassigned",
+
+  // Approvals + delivery
+  "parts_requested",
+  "parts_approved",
+  "parts_rejected",
+  "invoice_shared",
+  "invoice_approved",
+  "invoice_issued",
+
+  // Thread + docs + evidence
+  "message",
+  "document_added",
+  "evidence_added",
+
+  // Tow lifecycle
+  "tow_stage_requested",
+  "tow_stage_committed",
+  "tow_evidence_added",
+  "tow_fare_captured",
+
+  // Billing
+  "payment_initiated",
+  "payment_authorized",
+  "payment_captured",
+  "payment_refunded",
+  "billing_state_changed",
+
+  // Insurance
+  "insurance_claim_submitted",
+  "insurance_claim_accepted",
+  "insurance_claim_paid",
+  "insurance_claim_rejected",
 ]);
 export type CaseEventType = z.infer<typeof CaseEventTypeSchema>;
 
