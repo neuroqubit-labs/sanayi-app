@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case import (
     ServiceCase,
-    ServiceCaseStatus,
     ServiceRequestKind,
     TowDispatchStage,
     TowEquipment,
@@ -233,7 +232,10 @@ async def _transition_to_accepted(
         return
     tow_case.tow_stage = TowDispatchStage.ACCEPTED
     case.assigned_technician_id = technician_id
-    case.status = ServiceCaseStatus.SERVICE_IN_PROGRESS
+    # B-P1-5 fix: shell yazma yetkisi tow_lifecycle'da.
+    from app.services.tow_lifecycle import sync_case_status
+
+    sync_case_status(case, TowDispatchStage.ACCEPTED)
     await append_event(
         session,
         case_id=case.id,

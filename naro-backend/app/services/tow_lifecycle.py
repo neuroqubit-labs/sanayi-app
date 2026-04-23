@@ -283,6 +283,15 @@ async def _check_evidence_gate(
         raise EvidenceGateUnmetError(missing)
 
 
+def sync_case_status(case: ServiceCase, stage: TowDispatchStage) -> None:
+    """B-P1-5: public authority — tow stage → shell case.status map.
+
+    Önceden tow_dispatch._transition_to_accepted shell'e direkt yazıyordu;
+    şimdi dispatch da bu fonksiyondan geçer — shell yazma yetkisi
+    tow_lifecycle'ın tekelinde."""
+    _sync_case_status(case, stage)
+
+
 def _sync_case_status(case: ServiceCase, stage: TowDispatchStage) -> None:
     if stage in {
         TowDispatchStage.SEARCHING,
