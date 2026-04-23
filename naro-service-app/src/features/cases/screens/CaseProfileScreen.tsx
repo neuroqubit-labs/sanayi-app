@@ -24,18 +24,27 @@ type StickyVariant =
   | { kind: "records" }
   | { kind: "appointment" }
   | { kind: "process" }
+  | { kind: "awaiting_customer"; label: string; hint: string }
+  | { kind: "tow_active"; label: string; hint: string }
   | { kind: "none" };
 
 function deriveContext(caseItem: ServiceCase): CaseContextState {
+  // F-P1-2 (2026-04-23 lifecycle audit L3-P1-2): terminal status
+  // öncelikli; pending approval + aktif tow süreç bağlamında kalır.
   switch (caseItem.status) {
-    case "matching":
-    case "offers_ready":
-    case "appointment_pending":
-      return "pool";
     case "completed":
     case "archived":
     case "cancelled":
       return "archive";
+    case "matching":
+    case "offers_ready":
+    case "appointment_pending":
+      return "pool";
+    case "parts_approval":
+    case "invoice_approval":
+    case "scheduled":
+    case "service_in_progress":
+      return "process";
     default:
       return "process";
   }
@@ -53,6 +62,42 @@ function deriveSticky(
   const isAppointmentForMe =
     caseItem.appointment?.status === "pending" &&
     caseItem.appointment.technician_id === technicianId;
+
+  // F-P1-2: tow kind aktif akışında assigned usta için stage-first
+  // sticky. Generic process sticky'yi atlayıp TowActiveJobScreen'e
+  // doğrudan yönlendirir.
+  if (
+    isAssigned &&
+    caseItem.kind === "towing" &&
+    (status === "scheduled" || status === "service_in_progress")
+  ) {
+    return {
+      kind: "tow_active",
+      label: "Çekici akışı aktif",
+      hint: "Aşamayı güncelle; müşteri ekranı seninle senkron.",
+    };
+  }
+
+  // F-P1-2: pending approval (parts/invoice) — usta onay açtı, müşteri
+  // bekliyor. Assigned usta için pasif sticky (CTA yok, sadece bilgi).
+  if (
+    isAssigned &&
+    caseItem.pending_approvals.length > 0 &&
+    (status === "parts_approval" || status === "invoice_approval")
+  ) {
+    const approval = caseItem.pending_approvals[0]!;
+    const label =
+      approval.kind === "parts_request"
+        ? "Parça onayı bekliyor"
+        : approval.kind === "invoice"
+          ? "Fatura onayı bekliyor"
+          : "Tamamlama onayı bekliyor";
+    return {
+      kind: "awaiting_customer",
+      label,
+      hint: "Müşteri yanıt verene kadar süreç duraklı.",
+    };
+  }
 
   if (status === "appointment_pending" && isAppointmentForMe) {
     return { kind: "appointment" };
@@ -237,6 +282,37 @@ export function CaseProfileScreen() {
               onPress={() => router.push(`/is/${caseItem.id}` as Href)}
               fullWidth
             />
+          ) : null}
+          {sticky.kind === "tow_active" ? (
+            <View className="gap-1">
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[11px]"
+              >
+                {sticky.hint}
+              </Text>
+              <Button
+                label={sticky.label}
+                size="lg"
+                onPress={() => router.push(`/cekici/${caseItem.id}` as Href)}
+                fullWidth
+              />
+            </View>
+          ) : null}
+          {sticky.kind === "awaiting_customer" ? (
+            <View className="gap-1 rounded-[16px] border border-app-outline bg-app-surface px-4 py-3">
+              <Text variant="label" tone="warning" className="text-[13px]">
+                {sticky.label}
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[11px]"
+              >
+                {sticky.hint}
+              </Text>
+            </View>
           ) : null}
         </View>
       ) : null}
