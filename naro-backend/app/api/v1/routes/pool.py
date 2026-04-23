@@ -107,6 +107,7 @@ async def get_pool_feed(
         limit=limit + 1,
         before_created_at=before_created_at,
         before_id=before_id,
+        technician_user_id=user.id,
     )
     return build_paginated(
         [PoolCaseItem.model_validate(c) for c in rows],

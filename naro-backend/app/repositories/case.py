@@ -134,7 +134,21 @@ async def list_pool_cases(
     limit: int = 50,
     before_created_at: datetime | None = None,
     before_id: UUID | None = None,
+    technician_user_id: UUID | None = None,
 ) -> list[ServiceCase]:
+    """Pool feed — provider_type kinds + open status + unassigned.
+
+    B-P1-8 fix: technician_user_id verilirse teknisyenin zaten teklif
+    verdiği (PENDING/SHORTLISTED/ACCEPTED) case'ler hariç tutulur — UX:
+    "aynı case'i yeniden teklifle" gürültüsü kaybolur.
+
+    V1.1 (out-of-scope): full coverage filter — service_domain match +
+    city_code match. Pilot 10+10 Kayseri ölçeği için bu guard yeter;
+    schema extension (case.service_domain_id + case.pickup_city_code)
+    sonrası aktifleşir.
+    """
+    from app.models.offer import CaseOffer, CaseOfferStatus
+
     kinds = kinds_for_provider(provider_type)
     if not kinds:
         return []
@@ -144,6 +158,21 @@ async def list_pool_cases(
         ServiceCase.deleted_at.is_(None),
         ServiceCase.assigned_technician_id.is_(None),
     ]
+    if technician_user_id is not None:
+        my_offer = (
+            select(CaseOffer.case_id)
+            .where(
+                CaseOffer.technician_id == technician_user_id,
+                CaseOffer.status.in_(
+                    (
+                        CaseOfferStatus.PENDING,
+                        CaseOfferStatus.SHORTLISTED,
+                        CaseOfferStatus.ACCEPTED,
+                    )
+                ),
+            )
+        )
+        conds.append(ServiceCase.id.not_in(my_offer))
     if before_created_at is not None and before_id is not None:
         conds.append(
             (ServiceCase.created_at < before_created_at)
