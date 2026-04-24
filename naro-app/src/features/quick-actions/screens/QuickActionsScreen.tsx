@@ -11,7 +11,6 @@ import {
 import { type Href, useRouter } from "expo-router";
 import {
   AlertTriangle,
-  ArrowRight,
   Heart,
   Sparkles,
   Truck,
@@ -33,7 +32,6 @@ type ActionTone = "success" | "critical" | "warning" | "info";
 type ActionTile = {
   key: ActionKey;
   label: string;
-  hint: string;
   icon: LucideIcon;
   route: Href;
   tone: ActionTone;
@@ -43,7 +41,6 @@ const PRIMARY_ACTIONS: ActionTile[] = [
   {
     key: "bakim",
     label: "Bakım planla",
-    hint: "Periyodik bakım, paket veya hatırlatıcı",
     icon: Heart,
     route: "/(modal)/talep/maintenance" as Href,
     tone: "success",
@@ -51,7 +48,6 @@ const PRIMARY_ACTIONS: ActionTile[] = [
   {
     key: "hasar",
     label: "Hasar bildir",
-    hint: "Kaza, darbe, cam veya kasko dosyası",
     icon: AlertTriangle,
     route: "/(modal)/talep/accident" as Href,
     tone: "critical",
@@ -59,7 +55,6 @@ const PRIMARY_ACTIONS: ActionTile[] = [
   {
     key: "ariza",
     label: "Arıza bildir",
-    hint: "Ses, titreşim, sızıntı veya uyarı ışığı",
     icon: Wrench,
     route: "/(modal)/talep/breakdown" as Href,
     tone: "warning",
@@ -67,7 +62,6 @@ const PRIMARY_ACTIONS: ActionTile[] = [
   {
     key: "cekici",
     label: "Çekici çağır",
-    hint: "Anında veya randevulu kurtarma",
     icon: Truck,
     route: "/(modal)/talep/towing" as Href,
     tone: "info",
@@ -77,14 +71,14 @@ const PRIMARY_ACTIONS: ActionTile[] = [
 const DISCOVERY_ITEMS: {
   key: string;
   label: string;
-  hint: string;
+  badge: string;
   icon: LucideIcon;
   route: Href;
 }[] = [
   {
     key: "ustalar",
     label: "Ustaları keşfet",
-    hint: "Çarşıda yakınındaki servisler ve puanlar",
+    badge: "Çarşı",
     icon: Sparkles,
     route: "/(tabs)/carsi" as Href,
   },
@@ -92,7 +86,7 @@ const DISCOVERY_ITEMS: {
 
 export function QuickActionsScreen() {
   const router = useRouter();
-  const { colors } = useNaroTheme();
+  const { colors, scheme } = useNaroTheme();
   const { height } = useWindowDimensions();
   const sheetMaxHeight = Math.round(
     Math.min(height - 48, Math.max(420, height * 0.78)),
@@ -125,12 +119,14 @@ export function QuickActionsScreen() {
       >
         <GlassSurface
           variant="chrome"
+          tint={scheme === "dark" ? "dark" : "light"}
           className="border-t border-app-outline-strong"
           style={{
             borderTopLeftRadius: shellRadius.sheet,
             borderTopRightRadius: shellRadius.sheet,
             borderBottomLeftRadius: 0,
             borderBottomRightRadius: 0,
+            backgroundColor: colors.surface,
           }}
         >
           <SafeAreaView edges={["bottom"]}>
@@ -141,26 +137,26 @@ export function QuickActionsScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
-                paddingHorizontal: 20,
-                paddingTop: 20,
-                paddingBottom: 24,
-                gap: 20,
+                paddingHorizontal: 18,
+                paddingTop: 18,
+                paddingBottom: 22,
+                gap: 16,
               }}
             >
-              <View className="gap-1">
+              <View className="flex-row items-center justify-between gap-3">
                 <Text
                   variant="h2"
                   tone="inverse"
-                  className="text-[22px] leading-[26px]"
+                  className="text-[20px] leading-[24px]"
                 >
-                  Ne yapmak istiyorsun?
+                  Hızlı erişim
                 </Text>
                 <Text
                   variant="caption"
-                  tone="muted"
-                  className="text-app-text-muted text-[12px]"
+                  tone="subtle"
+                  className="rounded-full border border-app-outline bg-app-surface-2 px-3 py-1 text-[11px]"
                 >
-                  En sık aksiyonlar tek dokunuşta açılır.
+                  4 işlem
                 </Text>
               </View>
 
@@ -170,19 +166,7 @@ export function QuickActionsScreen() {
                 onSelect={goTo}
               />
 
-              <View className="gap-3">
-                <View className="flex-row items-center justify-between">
-                  <Text variant="eyebrow" tone="subtle">
-                    Keşfet
-                  </Text>
-                  <Text
-                    variant="caption"
-                    tone="muted"
-                    className="text-app-text-subtle text-[10px]"
-                  >
-                    İsteğe bağlı
-                  </Text>
-                </View>
+              <View className="gap-2">
                 <View className="gap-2">
                   {DISCOVERY_ITEMS.map((item) => (
                     <PressableCard
@@ -194,26 +178,26 @@ export function QuickActionsScreen() {
                       onPress={() => goTo(item.route)}
                       className="flex-row items-center gap-3 px-4 py-3.5"
                     >
-                      <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
+                      <View
+                        className="h-10 w-10 items-center justify-center rounded-full"
+                        style={{ backgroundColor: colors.infoSoft }}
+                      >
                         <Icon icon={item.icon} size={16} color={colors.info} />
                       </View>
-                      <View className="flex-1 gap-0.5">
-                        <Text
-                          variant="label"
-                          tone="inverse"
-                          className="text-[13px]"
-                        >
-                          {item.label}
-                        </Text>
-                        <Text
-                          variant="caption"
-                          tone="muted"
-                          className="text-app-text-muted text-[11px]"
-                        >
-                          {item.hint}
-                        </Text>
-                      </View>
-                      <Icon icon={ArrowRight} size={13} color={colors.info} />
+                      <Text
+                        variant="label"
+                        tone="inverse"
+                        className="flex-1 text-[14px]"
+                      >
+                        {item.label}
+                      </Text>
+                      <Text
+                        variant="caption"
+                        tone="subtle"
+                        className="rounded-full border border-app-outline bg-app-surface-2 px-2.5 py-1 text-[11px]"
+                      >
+                        {item.badge}
+                      </Text>
                     </PressableCard>
                   ))}
                 </View>
@@ -272,40 +256,28 @@ function ActionTileCard({
 
   return (
     <PressableCard
-      variant="elevated"
+      variant="flat"
       radius="lg"
       accessibilityRole="button"
       accessibilityLabel={action.label}
       onPress={onPress}
-      className="flex-1 overflow-hidden"
+      className="flex-1 bg-app-surface active:bg-app-surface-2"
     >
-      <View
-        className="gap-3 px-4 py-4"
-        style={{ backgroundColor: tone.surface }}
-      >
+      <View className="min-h-[106px] justify-between gap-3 px-4 py-4">
         <View
-          className="h-12 w-12 items-center justify-center rounded-2xl"
-          style={{ backgroundColor: colors.surface }}
+          className="h-11 w-11 items-center justify-center rounded-2xl"
+          style={{ backgroundColor: tone.surface }}
         >
-          <Icon icon={action.icon} size={22} color={tone.icon} />
+          <Icon icon={action.icon} size={20} color={tone.icon} />
         </View>
-        <View className="gap-1">
-          <Text
-            variant="h3"
-            tone="inverse"
-            className="text-[15px] leading-[19px]"
-          >
-            {action.label}
-          </Text>
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted text-[11px] leading-[15px]"
-            numberOfLines={2}
-          >
-            {action.hint}
-          </Text>
-        </View>
+        <Text
+          variant="label"
+          tone="inverse"
+          className="text-[15px] leading-[19px]"
+          numberOfLines={2}
+        >
+          {action.label}
+        </Text>
       </View>
     </PressableCard>
   );

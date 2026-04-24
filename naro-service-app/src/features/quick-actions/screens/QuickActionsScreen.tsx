@@ -7,9 +7,7 @@ import {
   shellMotion,
   shellRadius,
   StatusChip,
-  Surface,
   Text,
-  TrustBadge,
   useNaroTheme,
   type NaroThemePalette,
 } from "@naro/ui";
@@ -80,7 +78,7 @@ export function QuickActionsScreen() {
   const router = useRouter();
   const shellConfig = useShellConfig();
   const profile = useTechnicianProfileStore();
-  const { colors } = useNaroTheme();
+  const { colors, scheme } = useNaroTheme();
   const { height } = useWindowDimensions();
   const openHasarSheet = useClaimSourceSheetStore((s) => s.show);
   const setAvailability = useTechnicianProfileStore(
@@ -109,13 +107,6 @@ export function QuickActionsScreen() {
     business_lite: "Günlük işler",
     minimal: "Hızlı erişim",
     damage_shop: "Hasar operasyonu",
-  };
-  const layoutDescription: Record<typeof shellConfig.home_layout, string> = {
-    tow_focused: "Aktif iş, müsaitlik, havuz ve kazanç tek yerde.",
-    full: "Müsaitlik, kampanyalar, gelir ve havuz kısayolları.",
-    business_lite: "İşletme günlük operasyonu için kısayollar.",
-    minimal: "Günlük temel aksiyonlar.",
-    damage_shop: "Kaza/hasar operasyonu için odaklanmış kısayollar.",
   };
 
   const handlePress = (action: { id: string; route: string }) => {
@@ -174,12 +165,14 @@ export function QuickActionsScreen() {
       >
         <GlassSurface
           variant="chrome"
+          tint={scheme === "dark" ? "dark" : "light"}
           className="border-t border-app-outline-strong"
           style={{
             borderTopLeftRadius: shellRadius.sheet,
             borderTopRightRadius: shellRadius.sheet,
             borderBottomLeftRadius: 0,
             borderBottomRightRadius: 0,
+            backgroundColor: colors.surface,
           }}
         >
           <SafeAreaView edges={["bottom"]}>
@@ -190,61 +183,36 @@ export function QuickActionsScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
-                paddingHorizontal: 20,
-                paddingTop: 20,
-                paddingBottom: 24,
-                gap: 20,
+                paddingHorizontal: 18,
+                paddingTop: 18,
+                paddingBottom: 22,
+                gap: 16,
               }}
             >
-              <View className="gap-1">
-                <Text
-                  variant="h2"
-                  tone="inverse"
-                  className="text-[22px] leading-[26px]"
-                >
-                  {layoutTitle[shellConfig.home_layout]}
-                </Text>
-                <Text
-                  variant="caption"
-                  tone="muted"
-                  className="text-app-text-muted text-[12px]"
-                >
-                  {layoutDescription[shellConfig.home_layout]}
-                </Text>
-              </View>
-
-              {/* Atölye profil rozeti — servis app'e özgü bağlam */}
-              <Surface
-                variant="flat"
-                radius="lg"
-                className="flex-row items-center gap-3 px-4 py-3"
-              >
-                <Avatar name={profile.name} size="md" />
-                <View className="flex-1 gap-0.5">
-                  <View className="flex-row flex-wrap items-center gap-1.5">
+              <View className="flex-row items-center justify-between gap-3">
+                <View className="min-w-0 flex-1 flex-row items-center gap-3">
+                  <Avatar name={profile.name} size="sm" />
+                  <View className="min-w-0 flex-1">
                     <Text
-                      variant="label"
+                      variant="h2"
                       tone="inverse"
-                      className="text-[14px]"
+                      className="text-[20px] leading-[24px]"
+                      numberOfLines={1}
+                    >
+                      {layoutTitle[shellConfig.home_layout]}
+                    </Text>
+                    <Text
+                      variant="caption"
+                      tone="subtle"
+                      className="text-[11px]"
                       numberOfLines={1}
                     >
                       {profile.name}
                     </Text>
-                    <TrustBadge
-                      label={shellConfig.active_provider_type}
-                      tone="accent"
-                    />
                   </View>
-                  <Text
-                    tone="muted"
-                    className="text-app-text-muted text-[11px]"
-                    numberOfLines={1}
-                  >
-                    {profile.tagline}
-                  </Text>
                 </View>
                 <StatusChip label={availabilityLabel} tone={availabilityTone} />
-              </Surface>
+              </View>
 
               {primaryActions.length > 0 ? (
                 <PrimaryActionsGrid
@@ -330,42 +298,43 @@ function PrimaryActionTile({
 
   return (
     <PressableCard
-      variant="elevated"
+      variant="flat"
       radius="lg"
       accessibilityRole="button"
       accessibilityLabel={action.label}
       accessibilityState={{ disabled: action.disabled }}
       disabled={action.disabled}
       onPress={onPress}
-      className={["flex-1 overflow-hidden", action.disabled ? "opacity-50" : ""]
+      className={["flex-1 bg-app-surface", action.disabled ? "opacity-50" : ""]
         .filter(Boolean)
         .join(" ")}
     >
-      <View
-        className="gap-3 px-4 py-4"
-        style={{ backgroundColor: tone.surface, minHeight: 118 }}
-      >
-        <View
-          className="h-11 w-11 items-center justify-center rounded-2xl"
-          style={{ backgroundColor: colors.surface }}
-        >
-          <Icon icon={action.icon} size={20} color={tone.icon} />
+      <View className="min-h-[106px] justify-between gap-3 px-4 py-4">
+        <View className="flex-row items-start justify-between gap-2">
+          <View
+            className="h-11 w-11 items-center justify-center rounded-2xl"
+            style={{ backgroundColor: tone.surface }}
+          >
+            <Icon icon={action.icon} size={20} color={tone.icon} />
+          </View>
+          {action.disabled ? (
+            <Text
+              variant="caption"
+              tone="subtle"
+              className="rounded-full border border-app-outline bg-app-surface-2 px-2 py-0.5 text-[10px]"
+            >
+              Yetki
+            </Text>
+          ) : null}
         </View>
         <Text
-          variant="h3"
+          variant="label"
           tone="inverse"
           className="text-[15px] leading-[19px]"
+          numberOfLines={2}
         >
           {action.label}
         </Text>
-        {action.disabled ? (
-          <Text
-            tone="muted"
-            className="text-[11px] leading-[15px] text-app-text-muted"
-          >
-            Yetkin değil — sertifika veya rol gerekli
-          </Text>
-        ) : null}
       </View>
     </PressableCard>
   );
@@ -408,15 +377,6 @@ function SecondaryActionRow({
         <Text variant="label" tone="inverse" className="text-[13px]">
           {action.label}
         </Text>
-        {action.disabled ? (
-          <Text
-            tone="muted"
-            variant="caption"
-            className="text-app-text-muted text-[11px]"
-          >
-            Yetkin değil
-          </Text>
-        ) : null}
       </View>
       <Icon icon={ChevronRight} size={13} color={colors.info} />
     </PressableCard>
