@@ -469,14 +469,9 @@ function IdentityStep({
 
   return (
     <View className="gap-5">
-      <View className="gap-1">
-        <Text variant="h2" tone="inverse">
-          {VEHICLE_ADD_COPY.steps.identity.title}
-        </Text>
-        <Text tone="muted" className="text-app-text-muted text-[12px]">
-          {VEHICLE_ADD_COPY.steps.identity.helper}
-        </Text>
-      </View>
+      <Text variant="h2" tone="inverse">
+        {VEHICLE_ADD_COPY.steps.identity.title}
+      </Text>
 
       <View className="gap-2">
         <Text variant="eyebrow" tone="subtle">
@@ -681,7 +676,10 @@ function PhotoStep({
     }
   }
 
-  const busy = status === "picking" || status === "uploading";
+  // Sadece gerçek upload sırasında disable et. "picking" sistem UI modal'ı
+  // açık iken tetikleniyor; MIUI task-killer picker'ı sessizce öldürürse
+  // status "picking"'de takılı kalıyordu → button sonsuza kadar kilitleniyordu.
+  const busy = status === "uploading";
 
   return (
     <View className="gap-5">

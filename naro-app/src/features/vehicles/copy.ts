@@ -17,7 +17,6 @@ export const VEHICLE_ADD_COPY = {
     },
     identity: {
       title: "Aracını tanıt",
-      helper: "Plaka formatı: 34 ABC 42",
       plateLabel: "Plaka",
       makeLabel: "Marka",
       otherMake: "Diğer",

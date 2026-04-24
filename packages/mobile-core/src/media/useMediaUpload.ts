@@ -133,6 +133,10 @@ export type UseMediaUploadResult = {
   status: UploadStatus;
   progress: { phase: UploadPhase; attempt: number };
   error: UploadValidationError | null;
+  // Ref-mirrored error; closure içinden senkron okumak için. `error` React
+  // state olduğundan await sonrası eski değer döndürebiliyor — özellikle
+  // pickAndUpload başarısız olunca Alert'in fırlatılmamasına yol açıyordu.
+  peekError: () => UploadValidationError | null;
   upload: (input: UploadInput) => Promise<UploadSuccess | null>;
   pickAndUpload: (input: PickAndUploadInput) => Promise<UploadSuccess | null>;
   cancel: () => void;
@@ -151,6 +155,7 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
   const lastInputRef = useRef<UploadInput | null>(null);
   const canceledRef = useRef(false);
   const mountedRef = useRef(true);
+  const errorRef = useRef<UploadValidationError | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -166,14 +171,27 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
     [],
   );
 
+  // setError wrapper: state + ref'i senkron tutar. Caller'lar `safeSet(setError, ...)`
+  // yerine `setErrorBoth(...)` çağırır; bu sayede closure içinden `errorRef.current`
+  // güncel okunabiliyor.
+  const setErrorBoth = useCallback(
+    (value: UploadValidationError | null) => {
+      errorRef.current = value;
+      if (mountedRef.current) setError(value);
+    },
+    [],
+  );
+
+  const peekError = useCallback(() => errorRef.current, []);
+
   const reset = useCallback(() => {
     canceledRef.current = false;
     lastInputRef.current = null;
     safeSet(setStatus, "idle");
     safeSet(setPhase, "intent");
     safeSet(setAttempt, 0);
-    safeSet(setError, null);
-  }, [safeSet]);
+    setErrorBoth(null);
+  }, [safeSet, setErrorBoth]);
 
   const cancel = useCallback(() => {
     canceledRef.current = true;
@@ -218,6 +236,15 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
 
       const policy = getMediaPolicy(input.purpose);
 
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn("[upload] start", {
+          purpose: input.purpose,
+          ownerId: input.ownerId,
+          mime: input.source.mimeType,
+          size: input.source.sizeBytes,
+        });
+      }
+
       // Validation
       safeSet(setStatus, "validating");
       safeSet(setPhase, "validating");
@@ -228,7 +255,10 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
         input.durationSec,
       );
       if (validationError) {
-        safeSet(setError, validationError);
+        if (typeof console !== "undefined" && console.warn) {
+          console.warn("[upload] validation failed", validationError);
+        }
+        setErrorBoth(validationError);
         safeSet(setStatus, "error");
         return null;
       }
@@ -264,11 +294,11 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
         dimensions: workingDimensions,
       };
 
-      safeSet(setError, null);
+      setErrorBoth(null);
 
       for (let tryNo = 0; tryNo <= MAX_RETRY_ATTEMPTS; tryNo += 1) {
         if (canceledRef.current) {
-          safeSet(setError, { code: "canceled", message: "Yükleme iptal edildi." });
+          setErrorBoth({ code: "canceled", message: "Yükleme iptal edildi." });
           return null;
         }
         safeSet(setAttempt, tryNo);
@@ -282,8 +312,33 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
             source: workingSource,
           };
         } catch (err) {
+          if (typeof console !== "undefined" && console.warn) {
+            const cause = (err as { cause?: unknown }).cause;
+            const inner =
+              cause && typeof cause === "object" && "cause" in (cause as Record<string, unknown>)
+                ? (cause as { cause?: unknown }).cause
+                : undefined;
+            console.warn("[upload] attempt failed", {
+              tryNo,
+              kind: err instanceof MediaUploadError ? err.kind : "unknown",
+              message: err instanceof Error ? err.message : String(err),
+              causeKind:
+                cause && typeof cause === "object" && "kind" in (cause as Record<string, unknown>)
+                  ? (cause as { kind: string }).kind
+                  : undefined,
+              causeUrl:
+                cause && typeof cause === "object" && "url" in (cause as Record<string, unknown>)
+                  ? (cause as { url: string }).url
+                  : undefined,
+              causeStatus:
+                cause && typeof cause === "object" && "status" in (cause as Record<string, unknown>)
+                  ? (cause as { status: unknown }).status
+                  : undefined,
+              rootCause: inner instanceof Error ? `${inner.name}: ${inner.message}` : String(inner),
+            });
+          }
           if (canceledRef.current) {
-            safeSet(setError, { code: "canceled", message: "Yükleme iptal edildi." });
+            setErrorBoth({ code: "canceled", message: "Yükleme iptal edildi." });
             return null;
           }
 
@@ -299,7 +354,7 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
                     } as const
                   )[err.kind] ?? "unknown")
                 : "unknown";
-            safeSet(setError, {
+            setErrorBoth({
               code,
               message:
                 err instanceof Error ? err.message : "Yükleme başarısız oldu.",
@@ -321,7 +376,7 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
   const pickAndUpload = useCallback(
     async (input: PickAndUploadInput): Promise<UploadSuccess | null> => {
       safeSet(setStatus, "picking");
-      safeSet(setError, null);
+      setErrorBoth(null);
 
       let picks: PickedMediaFile[];
       try {
@@ -337,7 +392,7 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
           );
         }
       } catch (err) {
-        safeSet(setError, {
+        setErrorBoth({
           code: "prepare_failed",
           message: err instanceof Error ? err.message : "Dosya seçilemedi.",
         });
@@ -380,6 +435,7 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
       status,
       progress: { phase, attempt },
       error,
+      peekError,
       upload,
       pickAndUpload,
       cancel,
@@ -391,6 +447,7 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
       phase,
       attempt,
       error,
+      peekError,
       upload,
       pickAndUpload,
       cancel,

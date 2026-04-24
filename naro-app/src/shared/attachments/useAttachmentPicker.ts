@@ -80,12 +80,15 @@ export function useAttachmentPicker(target: AttachmentUploadTarget) {
         });
 
         if (!outcome) {
-          if (upload.error) {
+          // peekError() senkron ref okur; upload.error React state closure
+          // capture ettiğinden await sonrası hep null görünüyordu.
+          const failure = upload.peekError();
+          if (failure) {
             setStatus("error");
-            setError(upload.error.message);
+            setError(failure.message);
             Alert.alert(
               `${ATTACHMENT_KIND_LABEL[kind]} eklenemedi`,
-              upload.error.message,
+              failure.message,
             );
             return [];
           }

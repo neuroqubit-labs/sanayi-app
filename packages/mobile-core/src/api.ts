@@ -52,7 +52,10 @@ function createRequestId() {
 }
 
 function isSerializableJsonBody(body: unknown): body is JsonBody {
-  if (body === null) {
+  if (body === null || body === undefined) {
+    // `undefined` nested field olarak geldiğinde JSON.stringify onu skip eder;
+    // reject etmemeliyiz. Aksi halde `checksum_sha256: undefined` gibi opsiyonel
+    // alanlar payload'ın tamamını fail ettiriyor.
     return true;
   }
 

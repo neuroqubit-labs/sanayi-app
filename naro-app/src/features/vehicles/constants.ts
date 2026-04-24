@@ -92,8 +92,9 @@ export const VEHICLE_ENGINE_POWER_MAX_HP = 2000;
 
 // ---------------------------------------------------------------------------
 // Popular makes (Türkiye pazarı) — logolu slider için isim + domain.
-// Logo URL'si: https://logo.clearbit.com/{domain} (ücretsiz CDN; yüklenmezse
-// baş harf avatarı fallback).
+// Logo URL'si: DuckDuckGo icons.duckduckgo.com/ip3/{domain}.ico (stabil,
+// auth gerektirmeyen favicon CDN). Yüklenmezse baş harf avatarı fallback.
+// Clearbit Logo API 2024'te kapatıldı (HubSpot acquisition), ondan geçildi.
 // ---------------------------------------------------------------------------
 
 export type VehicleMakeOption = {
@@ -125,5 +126,5 @@ export const VEHICLE_POPULAR_MAKES: readonly VehicleMakeOption[] = [
 ] as const;
 
 export function getMakeLogoUrl(domain: string): string {
-  return `https://logo.clearbit.com/${domain}`;
+  return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 }

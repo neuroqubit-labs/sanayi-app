@@ -160,14 +160,32 @@ function inferFilename(source: MediaFileSource) {
 }
 
 async function readSourceBlob(source: MediaFileSource) {
+  if (typeof console !== "undefined" && console.warn) {
+    console.warn("[upload] readSourceBlob start", {
+      uriPrefix: source.uri.slice(0, 32),
+      protocol: source.uri.split(":")[0],
+    });
+  }
   try {
     const response = await fetch(source.uri);
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[upload] readSourceBlob fetched", { ok: response.ok, status: response.status });
+    }
     if (!response.ok) {
       throw new Error(`failed to read local file ${response.status}`);
     }
 
-    return await response.blob();
+    const blob = await response.blob();
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[upload] readSourceBlob blob", { size: blob.size, type: blob.type });
+    }
+    return blob;
   } catch (error) {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[upload] readSourceBlob error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     throw new MediaUploadError("Unable to prepare media file", "prepare", error);
   }
 }
@@ -187,6 +205,10 @@ export async function uploadAsset(params: {
 
   onProgress?.({ phase: "intent" });
 
+  if (typeof console !== "undefined" && console.warn) {
+    console.warn("[upload] createIntent start", { filename, mimeType, sizeBytes });
+  }
+
   let intent: z.infer<typeof UploadIntentResponseSchema>;
   try {
     intent = await mediaApi.createUploadIntent({
@@ -197,11 +219,33 @@ export async function uploadAsset(params: {
       size_bytes: sizeBytes,
       checksum_sha256: source.checksumSha256,
     });
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[upload] createIntent ok", { uploadId: intent.upload_id });
+    }
   } catch (error) {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[upload] createIntent error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     throw new MediaUploadError("Unable to create upload intent", "intent", error);
   }
 
   onProgress?.({ phase: "transfer" });
+
+  if (typeof console !== "undefined" && console.warn) {
+    console.warn("[upload] transfer start", {
+      urlHost: (() => {
+        try {
+          return new URL(intent.upload_url).host;
+        } catch {
+          return intent.upload_url.slice(0, 48);
+        }
+      })(),
+      headerKeys: Object.keys(intent.upload_headers ?? {}),
+      blobSize: fileBlob.size,
+    });
+  }
 
   let transferResponse: Response;
   try {
@@ -210,11 +254,35 @@ export async function uploadAsset(params: {
       headers: intent.upload_headers,
       body: fileBlob,
     });
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[upload] transfer response", {
+        ok: transferResponse.ok,
+        status: transferResponse.status,
+      });
+    }
   } catch (error) {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[upload] transfer network error", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     throw new MediaUploadError("Unable to upload media file", "transfer", error);
   }
 
   if (!transferResponse.ok) {
+    // Status + body'yi oku, S3/Minio ne diyor görelim.
+    let bodyPreview = "";
+    try {
+      bodyPreview = (await transferResponse.text()).slice(0, 400);
+    } catch {
+      /* ignore */
+    }
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn("[upload] transfer http error", {
+        status: transferResponse.status,
+        bodyPreview,
+      });
+    }
     throw new MediaUploadError(
       `Upload failed with status ${transferResponse.status}`,
       "transfer",
@@ -238,23 +306,30 @@ export async function uploadAsset(params: {
   }
 }
 
+type ExpoImagePickerAsset = {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  duration?: number | null;
+};
+
+type ExpoImagePickerResult = {
+  canceled?: boolean;
+  cancelled?: boolean;
+  assets?: Array<ExpoImagePickerAsset> | null;
+};
+
 type ExpoImagePickerModule = {
   MediaTypeOptions: {
     Images: unknown;
     Videos: unknown;
   };
   requestMediaLibraryPermissionsAsync?: () => Promise<{ granted: boolean }>;
-  launchImageLibraryAsync: (options: Record<string, unknown>) => Promise<{
-    canceled?: boolean;
-    cancelled?: boolean;
-    assets?: Array<{
-      uri: string;
-      fileName?: string | null;
-      mimeType?: string | null;
-      fileSize?: number | null;
-      duration?: number | null;
-    }> | null;
-  }>;
+  launchImageLibraryAsync: (options: Record<string, unknown>) => Promise<ExpoImagePickerResult>;
+  // Android: MainActivity sessizce öldürüldüğünde (MIUI task-killer) picker
+  // seçimini geri kazanmak için. expo-image-picker'da standart API.
+  getPendingResultAsync?: () => Promise<Array<ExpoImagePickerResult | { error?: unknown }>>;
 };
 
 type ExpoDocumentPickerModule = {
@@ -293,15 +368,7 @@ export function createExpoMediaPickerAdapter(deps: {
   };
 
   const mapAssets = (
-    assets:
-      | Array<{
-          uri: string;
-          fileName?: string | null;
-          mimeType?: string | null;
-          fileSize?: number | null;
-          duration?: number | null;
-        }>
-      | undefined,
+    assets: Array<ExpoImagePickerAsset> | undefined,
   ): PickedMediaFile[] =>
     (assets ?? []).map((asset) => ({
       uri: asset.uri,
@@ -312,18 +379,79 @@ export function createExpoMediaPickerAdapter(deps: {
         typeof asset.duration === "number" ? Math.round(asset.duration / 1000) : undefined,
     }));
 
+  // Android + MIUI özel: picker çalışırken MainActivity öldürülürse result
+  // kaybolur ama sistem OnActivityResult'ı pending tutar. Bir sonraki launch
+  // öncesi getPendingResultAsync ile kurtarıyoruz.
+  const drainPendingResult = async (
+    picker: ExpoImagePickerModule,
+  ): Promise<PickedMediaFile[] | null> => {
+    if (!picker.getPendingResultAsync) return null;
+    try {
+      const pending = await picker.getPendingResultAsync();
+      const first = pending?.[0] as ExpoImagePickerResult | undefined;
+      if (!first || "error" in (first as Record<string, unknown>)) return null;
+      if (first.canceled || first.cancelled) return null;
+      const assets = first.assets ?? undefined;
+      if (!assets || assets.length === 0) return null;
+      return mapAssets(assets);
+    } catch {
+      return null;
+    }
+  };
+
   return {
     async pickPhoto(options) {
       const picker = ensureImagePicker();
-      await picker.requestMediaLibraryPermissionsAsync?.();
-      const result = await picker.launchImageLibraryAsync({
+
+      // MIUI kill-recovery: önceki çağrıda MainActivity kill olduysa, pending
+      // result burada gelir. Bu check'i fresh launch'tan ÖNCE yapıyoruz.
+      const recovered = await drainPendingResult(picker);
+      if (recovered && recovered.length > 0) {
+        if (typeof console !== "undefined" && console.warn) {
+          console.warn("[picker] recovered pending result", recovered.length);
+        }
+        return recovered;
+      }
+
+      const permission = await picker.requestMediaLibraryPermissionsAsync?.();
+      if (permission && permission.granted === false) {
+        throw new Error(
+          "Galeri izni verilmedi. Ayarlar → Uygulamalar → Naro → İzinler bölümünden fotoğraflara erişim aç.",
+        );
+      }
+
+      const multiple = options?.multiple ?? false;
+      // selectionLimit'i sadece multi-select modunda gönder; Android 12 MIUI
+      // PhotoPicker'da `allowsMultipleSelection:false + selectionLimit:1`
+      // kombinasyonu result.assets'i boş döndürüyordu.
+      const launchOptions: Record<string, unknown> = {
         // expo-image-picker 16+: MediaTypeOptions deprecated → string literal array.
         mediaTypes: ["images"],
-        allowsMultipleSelection: options?.multiple ?? false,
+        allowsMultipleSelection: multiple,
         quality: options?.quality ?? 0.85,
-        selectionLimit: options?.max ?? 1,
-      });
+      };
+      if (multiple) {
+        launchOptions.selectionLimit = options?.max ?? 1;
+      }
+
+      const result = await picker.launchImageLibraryAsync(launchOptions);
+
+      // Tanılayıcı log — MIUI'da picker killed edilince sessizce boş dönüyordu.
+      // Teyit sonrası çıkarılacak.
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn("[picker] result", {
+          canceled: result.canceled ?? result.cancelled ?? null,
+          assetsLen: result.assets?.length ?? 0,
+        });
+      }
+
       if (result.canceled || result.cancelled) {
+        // MIUI kill sonrası tekrar bir drain deneyelim — bazen result cancel
+        // olarak döner ama pending result asset'i tutabiliyor.
+        const retryRecovered = await drainPendingResult(picker);
+        if (retryRecovered && retryRecovered.length > 0) {
+          return retryRecovered;
+        }
         return [];
       }
       return mapAssets(result.assets ?? undefined);
