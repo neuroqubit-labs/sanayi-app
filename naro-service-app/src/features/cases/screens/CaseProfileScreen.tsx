@@ -16,7 +16,7 @@ import {
   useApproveIncomingAppointment,
   useDeclineIncomingAppointment,
   usePoolCaseDetail,
-} from "@/features/jobs/api.case-live";
+} from "@/features/jobs";
 import { useOfferSheetStore } from "@/features/pool";
 
 type StickyVariant =

@@ -14,7 +14,7 @@ import { Pressable, ScrollView, View } from "react-native";
 
 import { CASE_KIND_META } from "@/features/cases";
 import { maskCustomerName } from "@/features/home/components/helpers";
-import { useJobsFeed } from "@/features/jobs/api";
+import { useJobsFeed } from "@/features/jobs";
 
 import { useClaimSourceSheetStore } from "../source-sheet-store";
 
@@ -28,7 +28,7 @@ export function HasarSourceSheet() {
     () =>
       jobs.filter(
         (c) =>
-          (c.kind === "accident" || c.kind === "towing") &&
+          c.kind === "accident" &&
           c.origin !== "technician" &&
           c.insurance_claim === null &&
           c.status !== "completed" &&
@@ -54,7 +54,7 @@ export function HasarSourceSheet() {
     >
       <ActionSheetSurface
         title="Hasar Dosyası Aç"
-        description="Aktif vakan için açıyorsan seç; yoksa sıfırdan başlat."
+        description="Bu turda yalnız aktif kaza/hasar vakan üzerinden canlı dosya açılır."
       >
         <View className="gap-3">
           {eligible.length > 0 ? (
@@ -79,7 +79,7 @@ export function HasarSourceSheet() {
           ) : (
             <View className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3">
               <Text variant="caption" tone="muted" className="text-[12px]">
-                Aktif vakan yok. Sıfırdan başlatabilirsin.
+                Hasar dosyası açılabilecek aktif kaza/hasar vakan yok.
               </Text>
             </View>
           )}
@@ -87,8 +87,8 @@ export function HasarSourceSheet() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sıfırdan hasar dosyası aç"
-            onPress={() => goForm()}
-            className="flex-row items-center gap-3 rounded-[16px] border border-dashed border-brand-500/40 bg-brand-500/10 px-4 py-3.5 active:opacity-85"
+            disabled
+            className="flex-row items-center gap-3 rounded-[16px] border border-dashed border-app-outline bg-app-surface-2 px-4 py-3.5 opacity-70"
           >
             <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/20">
               <Icon icon={Plus} size={18} color="#f45f25" />
@@ -102,7 +102,7 @@ export function HasarSourceSheet() {
                 tone="muted"
                 className="text-app-text-muted text-[12px]"
               >
-                Vaka sistemde yok — elle gir.
+                Canlı backend akışı bağlanınca açılacak.
               </Text>
             </View>
             <Icon icon={ChevronRight} size={16} color="#f45f25" />

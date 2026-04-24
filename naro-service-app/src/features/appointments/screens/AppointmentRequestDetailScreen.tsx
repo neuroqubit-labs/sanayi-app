@@ -10,7 +10,7 @@ import {
   useApproveIncomingAppointment,
   useDeclineIncomingAppointment,
   usePoolCaseDetail,
-} from "@/features/jobs/api";
+} from "@/features/jobs";
 
 const SLOT_LABEL: Record<string, string> = {
   today: "Bugün",

@@ -18,7 +18,7 @@ import {
   CASE_KIND_META,
   DAMAGE_AREA_LABEL,
 } from "@/features/cases";
-import { useDeclineIncomingAppointment } from "@/features/jobs/api";
+import { useDeclineIncomingAppointment } from "@/features/jobs";
 
 import { maskCustomerName } from "./helpers";
 

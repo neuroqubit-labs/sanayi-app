@@ -1,5 +1,4 @@
 import type { CaseAttachment, ServiceCase } from "@naro/domain";
-import { PRIMARY_TECHNICIAN_ID } from "@naro/mobile-core";
 import {
   BackButton,
   Button,
@@ -35,13 +34,13 @@ import {
 } from "react-native-safe-area-context";
 
 import { VakaCard } from "@/features/cases";
-import { useJobsStore } from "@/features/jobs";
-import { useJobsFeed, usePoolCaseDetail } from "@/features/jobs/api";
+import { useJobsFeed, usePoolCaseDetail } from "@/features/jobs";
 import {
   INSURER_LIST,
   useTechnicianProfileStore,
 } from "@/features/technicians";
 
+import { useSubmitTechnicianInsuranceClaim } from "../api";
 import { prefillFromCase } from "../hydrate";
 import { useClaimSourceSheetStore } from "../source-sheet-store";
 import { useClaimDraftStore } from "../store";
@@ -56,9 +55,7 @@ export function InsuranceClaimComposerScreen() {
   const standaloneMode = params.mode === "standalone";
 
   const profile = useTechnicianProfileStore();
-  const createInsuranceCase = useJobsStore(
-    (state) => state.createInsuranceCase,
-  );
+  const submitClaim = useSubmitTechnicianInsuranceClaim();
   const { data: jobs = [] } = useJobsFeed();
   const { data: sourceCase } = usePoolCaseDetail(initialCaseId ?? "");
 
@@ -85,50 +82,58 @@ export function InsuranceClaimComposerScreen() {
   }, [initialCaseId, sourceCase, standaloneMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const missing = useMemo(() => getMissingFields(draft), [draft]);
-  const canSubmit = missing.length === 0 && sourceMode !== "unselected";
+  const fromCase = sourceMode === "from_case";
+  const selectedSource = sourceCase ?? sourceCaseFromDraft(draft, jobs);
+  const standaloneDisabled = sourceMode === "standalone";
+  const unsupportedSourceKind = fromCase
+    ? selectedSource
+      ? selectedSource.kind !== "accident"
+      : false
+    : false;
+  const canSubmit =
+    missing.length === 0 &&
+    fromCase &&
+    Boolean(selectedSource) &&
+    !unsupportedSourceKind;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
-    const vehicleId =
-      draft.source_case_id?.replace("case-", "veh-src-") ??
-      `veh-ins-${Date.now()}`;
     const amount = Number(draft.estimate.replace(/[^\d]/g, ""));
 
-    const created = createInsuranceCase({
-      technician_id: PRIMARY_TECHNICIAN_ID,
-      vehicle_id: vehicleId,
-      vehicle_label: draft.vehicle_label || draft.plate,
-      plate: draft.plate.toUpperCase(),
-      damage_area: draft.damage_area,
-      summary: draft.summary,
-      location_label: draft.location_label || undefined,
-      notes: draft.notes || undefined,
-      counterparty_note: draft.counterparty_note || undefined,
-      counterparty_vehicle_count: draft.counterparty_vehicle_count,
-      vehicle_drivable: draft.vehicle_drivable,
-      report_method: draft.report_method,
-      ambulance_contacted: draft.ambulance_contacted,
-      towing_required: draft.towing_required,
-      attachments: draft.evidence,
-      insurance_claim: {
-        policy_number: draft.policy_number,
-        insurer: draft.insurer,
+    try {
+      const claim = await submitClaim.mutateAsync({
+        case_id: selectedSource!.id,
+        policy_number: draft.policy_number.trim().toUpperCase(),
+        insurer: draft.insurer.trim(),
         coverage_kind: draft.coverage_kind,
-        claim_amount_estimate:
-          Number.isFinite(amount) && amount > 0 ? amount : null,
-        status: "drafted",
-        customer_name: draft.customer_name,
-        customer_phone: draft.customer_phone || undefined,
-      },
-    });
+        estimate_amount:
+          Number.isFinite(amount) && amount > 0 ? String(amount) : null,
+        policy_holder_name: draft.customer_name.trim() || null,
+        policy_holder_phone: draft.customer_phone.trim() || null,
+        currency: "TRY",
+        notes: [
+          draft.summary.trim(),
+          draft.notes.trim(),
+          draft.damage_area.trim() ? `Hasar: ${draft.damage_area.trim()}` : "",
+          draft.location_label.trim()
+            ? `Konum: ${draft.location_label.trim()}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      });
 
-    reset();
-    Alert.alert("Dosya açıldı", `${created.title} · ${draft.insurer}`);
-    router.replace(`/is/${created.id}` as Href);
+      reset();
+      Alert.alert("Dosya açıldı", `${claim.insurer} · ${claim.policy_number}`);
+      router.replace(`/is/${claim.case_id}` as Href);
+    } catch (err) {
+      console.warn("insurance claim submit failed", err);
+      Alert.alert(
+        "Dosya açılamadı",
+        "Vaka uygun değilse veya aktif dosya varsa işlem tamamlanmaz.",
+      );
+    }
   };
-
-  const fromCase = sourceMode === "from_case";
-  const selectedSource = sourceCaseFromDraft(draft, jobs);
 
   const showSheet = useClaimSourceSheetStore((s) => s.show);
 
@@ -200,7 +205,7 @@ export function InsuranceClaimComposerScreen() {
               tone="muted"
               className="flex-1 text-app-text-muted text-[12px]"
             >
-              Sıfırdan dosya açıyorsun
+              Sıfırdan dosya açma canlı backend'e bağlanınca açılacak.
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -522,7 +527,29 @@ export function InsuranceClaimComposerScreen() {
         className="absolute inset-x-0 bottom-0 gap-2 border-t border-app-outline bg-app-bg px-6 pt-3"
         style={{ paddingBottom: insets.bottom + 12 }}
       >
-        {missing.length > 0 ? (
+        {standaloneDisabled ? (
+          <View className="flex-row items-start gap-2 rounded-[12px] border border-app-outline bg-app-surface px-3 py-2">
+            <Icon icon={AlertTriangle} size={13} color="#83a7ff" />
+            <Text
+              variant="caption"
+              tone="muted"
+              className="flex-1 text-app-text-muted text-[11px] leading-[15px]"
+            >
+              Bu turda yalnız mevcut canlı vakadan hasar dosyası açılıyor.
+            </Text>
+          </View>
+        ) : unsupportedSourceKind ? (
+          <View className="flex-row items-start gap-2 rounded-[12px] border border-app-warning/30 bg-app-warning-soft px-3 py-2">
+            <Icon icon={AlertTriangle} size={13} color="#f5b33f" />
+            <Text
+              variant="caption"
+              tone="muted"
+              className="flex-1 text-app-text-muted text-[11px] leading-[15px]"
+            >
+              Hasar dosyası yalnız kaza/hasar vakasından açılabilir.
+            </Text>
+          </View>
+        ) : missing.length > 0 ? (
           <View className="flex-row items-start gap-2 rounded-[12px] border border-app-warning/30 bg-app-warning-soft px-3 py-2">
             <Icon icon={AlertTriangle} size={13} color="#f5b33f" />
             <Text
@@ -551,6 +578,7 @@ export function InsuranceClaimComposerScreen() {
           size="lg"
           disabled={!canSubmit}
           onPress={handleSubmit}
+          loading={submitClaim.isPending}
           fullWidth
         />
       </View>
