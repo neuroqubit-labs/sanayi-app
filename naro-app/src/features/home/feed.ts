@@ -66,7 +66,7 @@ export const TIPS_POOL: FeedTip[] = [
     tone: "info",
     pullQuote:
       "Gaz kaçağı olan bir klima 15°C yerine 22°C üflüyorsa kompresör çalışmaya devam ederek yakıtı 3–5% daha fazla tüketir.",
-    route: "/(modal)/bakim-talebi",
+    route: "/(modal)/talep/maintenance",
   },
   {
     id: "tip-lastik-alis",
@@ -77,7 +77,7 @@ export const TIPS_POOL: FeedTip[] = [
     tone: "success",
     pullQuote:
       "Doğru basınçta çalışmayan bir lastik orta diş hattından değil, omuzlardan aşınır — bu ömrünü üçte bire indirir.",
-    route: "/(modal)/bakim-talebi",
+    route: "/(modal)/talep/maintenance",
   },
   {
     id: "tip-kaza-ilk",
@@ -88,7 +88,7 @@ export const TIPS_POOL: FeedTip[] = [
     tone: "warning",
     pullQuote:
       "İlk 10 dakika sigorta dosyasının %80'ini belirler; fotoğraf açısı ve tutanak detayı sonradan geri alınamaz.",
-    route: "/(modal)/kaza-bildir",
+    route: "/(modal)/talep/accident",
   },
   {
     id: "tip-fren-balata",
@@ -99,7 +99,7 @@ export const TIPS_POOL: FeedTip[] = [
     tone: "accent",
     pullQuote:
       "Balata kalınlığı 3 mm'nin altına düştüğünde disk de hasar görmeye başlar; değişim maliyeti iki katına çıkar.",
-    route: "/(modal)/bakim-talebi",
+    route: "/(modal)/talep/maintenance",
   },
   {
     id: "tip-yakit-disiplin",
@@ -120,7 +120,7 @@ export const TIPS_POOL: FeedTip[] = [
     tone: "success",
     pullQuote:
       "Akü 12.4V altına düştüğünde soğuk havada ilk marşta zorlanma başlar; CCA %70'in altındaysa değişim vakti.",
-    route: "/(modal)/bakim-talebi",
+    route: "/(modal)/talep/maintenance",
   },
   {
     id: "tip-yag-seviye",
@@ -131,7 +131,7 @@ export const TIPS_POOL: FeedTip[] = [
     tone: "accent",
     pullQuote:
       "Motor soğukken ve 10 dakika düz zeminde durduktan sonra yapılan ölçüm, sıcak motor okumasına göre 200 ml farkı yakalar.",
-    route: "/(modal)/bakim-talebi",
+    route: "/(modal)/talep/maintenance",
   },
 ];
 

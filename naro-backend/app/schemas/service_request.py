@@ -8,13 +8,20 @@ Mobil kaynak: [packages/domain/src/service-case.ts::ServiceRequestDraftSchema](p
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.case import ServiceRequestKind, ServiceRequestUrgency
+from app.models.case import (
+    ServiceRequestKind,
+    ServiceRequestUrgency,
+    TowEquipment,
+    TowIncidentReason,
+    TowMode,
+)
 
 # ─── Kind-spesifik enum'lar (mobil Zod mirror) ─────────────────────────────
 
@@ -179,6 +186,14 @@ class ServiceRequestDraftCreate(BaseModel):
     maintenance_detail: dict[str, Any] | None = None
     maintenance_tier: str | None = None
 
+    # Çekici-spesifik canonical /cases giriş alanları
+    tow_mode: TowMode | None = None
+    tow_required_equipment: list[TowEquipment] = Field(default_factory=list)
+    tow_incident_reason: TowIncidentReason | None = None
+    tow_scheduled_at: datetime | None = None
+    tow_parent_case_id: UUID | None = None
+    tow_fare_quote: dict[str, Any] | None = None
+
     @model_validator(mode="after")
     def _validate_kind_consistency(self) -> ServiceRequestDraftCreate:
         """§3 + §6.2 — kind-bazlı zorunlu/yasak + conditional alanlar."""
@@ -226,6 +241,26 @@ class ServiceRequestDraftCreate(BaseModel):
             errors.append(
                 "kind=accident için 'emergency_acknowledged' True olmalı"
             )
+        if (
+            self.kind == ServiceRequestKind.TOWING
+            and self.tow_mode == TowMode.SCHEDULED
+            and self.tow_scheduled_at is None
+        ):
+            errors.append(
+                "kind=towing + tow_mode=scheduled için 'tow_scheduled_at' zorunlu"
+            )
+        if (
+            self.kind == ServiceRequestKind.TOWING
+            and self.tow_mode == TowMode.IMMEDIATE
+        ):
+            if self.location_lat_lng is None:
+                errors.append(
+                    "kind=towing + tow_mode=immediate için 'location_lat_lng' zorunlu"
+                )
+            if self.tow_fare_quote is None:
+                errors.append(
+                    "kind=towing + tow_mode=immediate için 'tow_fare_quote' zorunlu"
+                )
         if errors:
             raise ValueError(" | ".join(errors))
         return self
@@ -241,6 +276,7 @@ _FIELD_DEFAULTS: dict[str, object] = {
     "ambulance_contacted": False,
     "emergency_acknowledged": False,
     "on_site_repair": False,
+    "tow_required_equipment": [],
 }
 
 
@@ -262,6 +298,12 @@ _KIND_FIELD_RULES: dict[ServiceRequestKind, dict[str, Literal["required", "forbi
         "maintenance_category": "forbidden",
         "maintenance_detail": "forbidden",
         "maintenance_tier": "forbidden",
+        "tow_mode": "forbidden",
+        "tow_required_equipment": "forbidden",
+        "tow_incident_reason": "forbidden",
+        "tow_scheduled_at": "forbidden",
+        "tow_parent_case_id": "forbidden",
+        "tow_fare_quote": "forbidden",
     },
     ServiceRequestKind.BREAKDOWN: {
         "breakdown_category": "required",
@@ -280,6 +322,12 @@ _KIND_FIELD_RULES: dict[ServiceRequestKind, dict[str, Literal["required", "forbi
         "maintenance_category": "forbidden",
         "maintenance_detail": "forbidden",
         "maintenance_tier": "forbidden",
+        "tow_mode": "forbidden",
+        "tow_required_equipment": "forbidden",
+        "tow_incident_reason": "forbidden",
+        "tow_scheduled_at": "forbidden",
+        "tow_parent_case_id": "forbidden",
+        "tow_fare_quote": "forbidden",
     },
     ServiceRequestKind.MAINTENANCE: {
         "maintenance_category": "required",
@@ -296,10 +344,17 @@ _KIND_FIELD_RULES: dict[ServiceRequestKind, dict[str, Literal["required", "forbi
         "ambulance_contacted": "forbidden",
         "emergency_acknowledged": "forbidden",
         "breakdown_category": "forbidden",
+        "tow_mode": "forbidden",
+        "tow_required_equipment": "forbidden",
+        "tow_incident_reason": "forbidden",
+        "tow_scheduled_at": "forbidden",
+        "tow_parent_case_id": "forbidden",
+        "tow_fare_quote": "forbidden",
     },
     ServiceRequestKind.TOWING: {
+        "tow_mode": "required",
+        "tow_incident_reason": "required",
         "dropoff_label": "required",
-        "dropoff_lat_lng": "required",
         "vehicle_drivable": "required",
         # Towing'de anlamsız
         "on_site_repair": "forbidden",

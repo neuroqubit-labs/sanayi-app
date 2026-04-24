@@ -1,4 +1,4 @@
-import type { ServiceRequestKind } from "@naro/domain";
+import type { ServiceRequestKind, TowVehicleEquipment } from "@naro/domain";
 import {
   Avatar,
   Button,
@@ -15,9 +15,10 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getMissingRequiredAttachmentCategories } from "@/features/cases/caseCreationContract";
 import { useTechnicianCooldownStore } from "@/features/cases/cooldown-store";
 import { TOW_DEFAULT_PICKUP } from "@/features/tow";
-import { useCreateTowCase, useTowFareQuote } from "@/features/tow/api";
+import { useTowFareQuote } from "@/features/tow/api";
 import { useTechnicianProfile } from "@/features/ustalar/api";
 import {
   useActiveVehicle,
@@ -99,23 +100,19 @@ export function CaseComposerScreen() {
   const { data: draft, updateDraft, resetDraft } = useCreateCaseDraft(kind);
   const submitMutation = useSubmitCase(kind);
   const towFareQuote = useTowFareQuote();
-  const towCreateCase = useCreateTowCase();
   const flow = useMemo(() => getComposerFlow(kind), [kind]);
 
   const currentStep = flow.steps[stepIndex] ?? flow.steps[0]!;
   const isLastStep = stepIndex === flow.steps.length - 1;
   const stepValidationMessage = draft ? currentStep.validate(draft) : null;
-  // PO K3 karar 2026-04-23: kaza (accident) vakalarında en az 1 fotoğraf
-  // ZORUNLU (sigorta dosyası için kritik). towing/breakdown/maintenance
-  // opsiyonel. Submit gate sadece son adımda uygulanır.
-  const accidentPhotoGap =
-    isLastStep &&
-    kind === "accident" &&
-    (draft?.attachments.length ?? 0) === 0;
+  const missingRequiredAttachments =
+    isLastStep && draft
+      ? getMissingRequiredAttachmentCategories(kind, draft)
+      : [];
   const validationMessage =
     stepValidationMessage ??
-    (accidentPhotoGap
-      ? "Kaza vakası için en az 1 fotoğraf zorunlu (sigorta dosyası)."
+    (missingRequiredAttachments.length > 0
+      ? `${missingRequiredAttachments[0]!.label} eksik.`
       : null);
   const canFastTrackToAppointment = Boolean(
     technicianId &&
@@ -256,20 +253,20 @@ export function CaseComposerScreen() {
   };
 
   async function handleSubmit() {
-    if (!activeVehicle) return;
+    if (!activeVehicle || !draft) return;
 
     if (kind === "towing") {
-      // P0-4 canonical live migration (2026-04-23):
-      // 1. Fare quote (pre-flight) → TowFareQuote snapshot
-      // 2. POST /tow/cases (fare_quote body'ye gömülü)
-      //
-      // PO kararı K1: required_equipment şu an FE "flatbed" default
-      // (BE auto-derive deploy olana kadar). PO K2: pickup_lat_lng
-      // V1 default Kayseri merkez; V1.1'de user live location.
       const isImmediate = draft.urgency === "urgent";
       const mode = isImmediate ? ("immediate" as const) : ("scheduled" as const);
       const pickupLatLng = TOW_DEFAULT_PICKUP.lat_lng;
-      const equipment = ["flatbed" as const];
+      const equipment: TowVehicleEquipment[] =
+        draft.tow_required_equipment.length > 0
+          ? draft.tow_required_equipment
+          : ["flatbed"];
+      const scheduledAt = isImmediate
+        ? null
+        : draft.tow_scheduled_at ??
+          new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
       try {
         const quote = await towFareQuote.mutateAsync({
           mode,
@@ -278,30 +275,21 @@ export function CaseComposerScreen() {
           required_equipment: equipment,
           urgency_bump: isImmediate,
         });
-        const snapshot = await towCreateCase.mutateAsync({
-          mode,
-          pickup_lat_lng: pickupLatLng,
-          pickup_label:
-            draft.location_label.trim() || TOW_DEFAULT_PICKUP.label,
-          dropoff_lat_lng: null,
-          dropoff_label: draft.dropoff_label?.trim() || null,
-          vehicle_id: activeVehicle.id,
-          incident_reason: "not_running",
-          required_equipment: equipment,
-          scheduled_at: isImmediate
-            ? null
-            : draft.preferred_window ??
-              new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-          fare_quote: quote.quote,
-          kasko: {
-            has_kasko: false,
-            pre_auth_on_customer_card: true,
+        const createdCase = await submitMutation.mutateAsync({
+          towing: {
+            mode,
+            pickupLatLng,
+            requiredEquipment: [...equipment],
+            incidentReason:
+              draft.tow_incident_reason ??
+              (draft.vehicle_drivable === false ? "not_running" : "other"),
+            scheduledAt,
+            fareQuote: quote.quote as unknown as Record<string, unknown>,
+            parentCaseId: parentCaseId ?? null,
           },
-          attachments: [],
-          parent_case_id: parentCaseId ?? null,
         });
         resetDraft();
-        router.replace(`/cekici/${snapshot.id}` as Href);
+        router.replace(`/cekici/${createdCase.id}` as Href);
       } catch (err) {
         console.warn("tow case create failed", err);
         // UX: submitLoading state zaten false'a döner; hata TanStack
@@ -358,8 +346,7 @@ export function CaseComposerScreen() {
             onPrimary={goNext}
             primaryLoading={
               submitMutation.isPending ||
-              towFareQuote.isPending ||
-              towCreateCase.isPending
+              towFareQuote.isPending
             }
             primaryDisabled={Boolean(validationMessage)}
             secondaryLabel={stepIndex === 0 ? "İptal" : "Geri"}

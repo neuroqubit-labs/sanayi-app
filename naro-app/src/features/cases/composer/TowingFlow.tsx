@@ -1,9 +1,9 @@
 import type {
   ServiceRequestDraft,
   ServiceRequestUrgency,
+  TowVehicleEquipment,
 } from "@naro/domain";
-import { Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
-import { type Href, useRouter } from "expo-router";
+import { FieldInput, Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
 import {
   AlertCircle,
   Calendar,
@@ -19,14 +19,11 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { ComposerSection } from "./components/ComposerSection";
 import { LocationPicker } from "./components/LocationPicker";
 import type { ComposerFlow, ComposerStepRenderProps } from "./types";
-
-const INPUT_CLASS =
-  "rounded-[20px] border border-app-outline bg-app-surface px-4 py-3 text-base text-app-text";
 
 const PREFERRED_WINDOWS = [
   "Bugün öğleden sonra",
@@ -47,7 +44,10 @@ const LUXURY_KEYWORDS = [
   "volvo",
 ];
 
-type EquipmentHint = "flatbed" | "hook" | "wheel_lift";
+type EquipmentHint = Extract<
+  TowVehicleEquipment,
+  "flatbed" | "hook" | "wheel_lift"
+>;
 
 const EQUIPMENT_OPTIONS: {
   id: EquipmentHint;
@@ -107,7 +107,8 @@ function LocationsStep({ draft, updateDraft }: ComposerStepRenderProps) {
         tone="muted"
         className="text-app-text-muted text-[13px] leading-[18px]"
       >
-        Nereden nereye? Teslim boşsa "anlaşırız" notu iletilir.
+        Nereden nereye? Teslim noktası çekici eşleşmesi ve tavan ücret için
+        gerekli.
       </Text>
 
       <LocationPicker
@@ -122,7 +123,7 @@ function LocationsStep({ draft, updateDraft }: ComposerStepRenderProps) {
         onChange={(next) =>
           updateDraft({ dropoff_label: next.length === 0 ? undefined : next })
         }
-        description="Teslim noktası — opsiyonel (boşsa usta ile anlaşır)"
+        description="Teslim noktası — servis, ev ya da güvenli bırakma alanı"
         mapPurpose="dropoff"
       />
     </View>
@@ -134,8 +135,8 @@ function VehicleStateStep({
   updateDraft,
 }: ComposerStepRenderProps) {
   const drivable = draft.vehicle_drivable;
-  const [equipmentPreference, setEquipmentPreference] =
-    useState<EquipmentHint | null>(null);
+  const equipmentPreference =
+    (draft.tow_required_equipment[0] as EquipmentHint | undefined) ?? null;
 
   return (
     <View className="gap-4">
@@ -153,13 +154,23 @@ function VehicleStateStep({
             title="Çalışıyor / sürülebiliyor"
             subtitle="Marş alıyor, kısa hareket edebilir"
             selected={drivable === true}
-            onPress={() => updateDraft({ vehicle_drivable: true })}
+            onPress={() =>
+              updateDraft({
+                vehicle_drivable: true,
+                tow_incident_reason: "other",
+              })
+            }
           />
           <DrivableOption
             title="Çalışmıyor / sürülemiyor"
             subtitle="Marş almıyor, hasarlı veya hareket edemiyor"
             selected={drivable === false}
-            onPress={() => updateDraft({ vehicle_drivable: false })}
+            onPress={() =>
+              updateDraft({
+                vehicle_drivable: false,
+                tow_incident_reason: "not_running",
+              })
+            }
           />
         </View>
       </ComposerSection>
@@ -175,9 +186,10 @@ function VehicleStateStep({
               label={option.label}
               selected={equipmentPreference === option.id}
               onPress={() =>
-                setEquipmentPreference((prev) =>
-                  prev === option.id ? null : option.id,
-                )
+                updateDraft({
+                  tow_required_equipment:
+                    equipmentPreference === option.id ? [] : [option.id],
+                })
               }
             />
           ))}
@@ -197,14 +209,13 @@ function VehicleStateStep({
       </ComposerSection>
 
       <ComposerSection title="Not (opsiyonel)">
-        <TextInput
+        <FieldInput
           value={draft.notes ?? ""}
           onChangeText={(value) => updateDraft({ notes: value })}
           placeholder="Örn: Araç otopark 2. katta, çift çeker gerekebilir…"
-          placeholderTextColor="#6f7b97"
-          multiline
-          textAlignVertical="top"
-          className={[INPUT_CLASS, "min-h-[88px] py-3"].join(" ")}
+          textarea
+          rows={3}
+          inputClassName="rounded-[20px]"
         />
       </ComposerSection>
     </View>
@@ -212,7 +223,6 @@ function VehicleStateStep({
 }
 
 function ScheduleStep({ draft, updateDraft }: ComposerStepRenderProps) {
-  const router = useRouter();
   const urgency = draft.urgency;
 
   const setUrgency = (next: ServiceRequestUrgency) => {
@@ -264,7 +274,7 @@ function ScheduleStep({ draft, updateDraft }: ComposerStepRenderProps) {
           <View className="flex-row items-center gap-2">
             <Icon icon={AlertCircle} size={16} color="#f5b33f" />
             <Text variant="label" tone="warning" className="text-[14px]">
-              Acil için daha hızlı bir akışımız var
+              Acil çekici modu
             </Text>
           </View>
           <Text
@@ -272,34 +282,19 @@ function ScheduleStep({ draft, updateDraft }: ComposerStepRenderProps) {
             tone="muted"
             className="text-app-text-muted text-[12px] leading-[17px]"
           >
-            Anasayfadan{" "}
-            <Text variant="label" tone="inverse" className="text-[12px]">
-              "+ → Çekici"
-            </Text>{" "}
-            ile tek tıkla en yakın çekiciye dispatch gönderebilirsin. Bu akışta
-            devam edersen talep havuza düşer, teklif toplar.
+            Bu akıştan devam ettiğinde vaka yine canonical olarak açılır;
+            ödeme ön provizyonu sonrası en yakın uygun çekiciye dispatch başlar.
           </Text>
-          <View className="flex-row gap-2">
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push("/(modal)/cekici-cagir" as Href)}
-              className="flex-1 flex-row items-center justify-center gap-2 rounded-[16px] bg-[#a75e1f] px-3 py-2.5 active:opacity-90"
-            >
-              <Icon icon={Zap} size={13} color="#ffffff" />
-              <Text variant="label" className="text-white text-[12px]">
-                Hızlı akışa git
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setUrgency("today")}
-              className="flex-row items-center justify-center gap-2 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-2"
-            >
-              <Text variant="label" tone="inverse" className="text-[12px]">
-                Planlı devam et
-              </Text>
-            </Pressable>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Planlı çekici olarak devam et"
+            onPress={() => setUrgency("today")}
+            className="flex-row items-center justify-center gap-2 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-2"
+          >
+            <Text variant="label" tone="inverse" className="text-[12px]">
+              Planlı devam et
+            </Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -636,17 +631,23 @@ export const TOWING_FLOW: ComposerFlow = {
       key: "location",
       title: "Alım + teslim",
       description: "Nereden nereye?",
-      validate: (draft) =>
-        draft.location_label.trim().length >= 3
-          ? null
-          : "Alınacak konumu gir.",
+      validate: (draft) => {
+        if (draft.location_label.trim().length < 3) {
+          return "Alınacak konumu gir.";
+        }
+        if ((draft.dropoff_label ?? "").trim().length < 3) {
+          return "Teslim noktasını gir.";
+        }
+        return null;
+      },
       render: (props) => <LocationsStep {...props} />,
     },
     {
       key: "breakdown_drivable",
       title: "Araç durumu",
       description: "Aracın durumu?",
-      validate: () => null,
+      validate: (draft) =>
+        draft.vehicle_drivable === null ? "Araç durumunu seç." : null,
       render: (props) => <VehicleStateStep {...props} />,
     },
     {

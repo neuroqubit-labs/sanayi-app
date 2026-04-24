@@ -23,6 +23,8 @@ from app.models.case import (
     ServiceCaseStatus,
     ServiceRequestKind,
     ServiceRequestUrgency,
+    TowIncidentReason,
+    TowMode,
 )
 from app.models.case_process import CaseWorkflowBlueprint
 from app.schemas.service_request import (
@@ -157,6 +159,39 @@ def test_resolve_blueprint_maintenance_standard() -> None:
         maintenance_detail={"scope": "yan", "transmittance": "35", "tier": "standard"},
     )
     assert case_create.resolve_blueprint(draft) == CaseWorkflowBlueprint.MAINTENANCE_STANDARD
+
+
+def test_resolve_blueprint_towing_immediate() -> None:
+    draft = ServiceRequestDraftCreate(
+        kind=ServiceRequestKind.TOWING,
+        vehicle_id=uuid4(),
+        urgency=ServiceRequestUrgency.URGENT,
+        summary="Çekici",
+        location_label="Yol",
+        location_lat_lng={"lat": 41, "lng": 29},
+        dropoff_label="Servis",
+        vehicle_drivable=False,
+        tow_mode=TowMode.IMMEDIATE,
+        tow_incident_reason=TowIncidentReason.NOT_RUNNING,
+        tow_fare_quote={"cap_amount": "1800.00"},
+    )
+    assert case_create.resolve_blueprint(draft) == CaseWorkflowBlueprint.TOWING_IMMEDIATE
+
+
+def test_resolve_blueprint_towing_scheduled() -> None:
+    draft = ServiceRequestDraftCreate(
+        kind=ServiceRequestKind.TOWING,
+        vehicle_id=uuid4(),
+        urgency=ServiceRequestUrgency.PLANNED,
+        summary="Planlı çekici",
+        location_label="Yol",
+        dropoff_label="Servis",
+        vehicle_drivable=False,
+        tow_mode=TowMode.SCHEDULED,
+        tow_incident_reason=TowIncidentReason.NOT_RUNNING,
+        tow_scheduled_at="2026-04-25T10:00:00+03:00",
+    )
+    assert case_create.resolve_blueprint(draft) == CaseWorkflowBlueprint.TOWING_SCHEDULED
 
 
 # ─── DB integration tests ─────────────────────────────────────────────────

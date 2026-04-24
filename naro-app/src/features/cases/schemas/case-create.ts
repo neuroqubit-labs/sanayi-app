@@ -23,6 +23,30 @@ export const ServiceRequestUrgencySchema = z.enum([
 ]);
 export type ServiceRequestUrgency = z.infer<typeof ServiceRequestUrgencySchema>;
 
+export const TowModeSchema = z.enum(["immediate", "scheduled"]);
+export type TowMode = z.infer<typeof TowModeSchema>;
+
+export const TowEquipmentSchema = z.enum([
+  "flatbed",
+  "hook",
+  "wheel_lift",
+  "heavy_duty",
+  "motorcycle",
+]);
+export type TowEquipment = z.infer<typeof TowEquipmentSchema>;
+
+export const TowIncidentReasonSchema = z.enum([
+  "not_running",
+  "accident",
+  "flat_tire",
+  "battery",
+  "fuel",
+  "locked_keys",
+  "stuck",
+  "other",
+]);
+export type TowIncidentReason = z.infer<typeof TowIncidentReasonSchema>;
+
 export const ServicePickupPreferenceSchema = z.enum([
   "dropoff",
   "pickup",
@@ -152,6 +176,13 @@ export const ServiceRequestDraftCreateSchema = z.object({
   maintenance_category: MaintenanceCategorySchema.nullable().optional(),
   maintenance_detail: z.record(z.string(), z.unknown()).nullable().optional(),
   maintenance_tier: z.string().nullable().optional(),
+  // Çekici
+  tow_mode: TowModeSchema.nullable().optional(),
+  tow_required_equipment: z.array(TowEquipmentSchema).default([]),
+  tow_incident_reason: TowIncidentReasonSchema.nullable().optional(),
+  tow_scheduled_at: z.string().nullable().optional(),
+  tow_parent_case_id: z.string().uuid().nullable().optional(),
+  tow_fare_quote: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export type ServiceRequestDraftCreate = z.infer<
   typeof ServiceRequestDraftCreateSchema

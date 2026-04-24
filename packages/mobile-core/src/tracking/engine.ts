@@ -2947,6 +2947,11 @@ export function createTechnicianInsuranceCase(
     on_site_repair: false,
     price_preference: null,
     maintenance_category: null,
+    tow_mode: null,
+    tow_required_equipment: [],
+    tow_incident_reason: null,
+    tow_scheduled_at: null,
+    tow_parent_case_id: null,
   };
 
   const technicianName =

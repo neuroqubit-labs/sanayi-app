@@ -436,6 +436,17 @@ function buildRequestFromSubtype(
     maintenance_detail: null,
     maintenance_tier:
       (subtype.maintenance_tier as string | undefined) ?? undefined,
+    tow_mode: (subtype.tow_mode as ServiceRequestDraft["tow_mode"]) ?? null,
+    tow_required_equipment: parseStringArray(
+      subtype.tow_required_equipment,
+    ) as ServiceRequestDraft["tow_required_equipment"],
+    tow_incident_reason:
+      (subtype.incident_reason as ServiceRequestDraft["tow_incident_reason"]) ??
+      null,
+    tow_scheduled_at:
+      (subtype.scheduled_at as string | null | undefined) ?? null,
+    tow_parent_case_id:
+      (subtype.parent_case_id as string | null | undefined) ?? null,
   };
   return base;
 }

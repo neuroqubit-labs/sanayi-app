@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import { MediaAssetSchema } from "./media";
+import {
+  TowIncidentReasonSchema,
+  TowServiceModeSchema,
+  TowVehicleEquipmentSchema,
+} from "./tow";
 
 export const ServiceRequestKindSchema = z.enum([
   "accident",
@@ -312,6 +317,11 @@ export const ServiceRequestDraftSchema = z.object({
    */
   maintenance_detail: z.record(z.unknown()).nullable().optional(),
   maintenance_tier: z.string().optional(),
+  tow_mode: TowServiceModeSchema.nullable().default(null),
+  tow_required_equipment: z.array(TowVehicleEquipmentSchema).default([]),
+  tow_incident_reason: TowIncidentReasonSchema.nullable().default(null),
+  tow_scheduled_at: z.string().nullable().optional(),
+  tow_parent_case_id: z.string().nullable().default(null),
 });
 export type ServiceRequestDraft = z.infer<typeof ServiceRequestDraftSchema>;
 
@@ -479,6 +489,9 @@ export const CaseWorkflowBlueprintSchema = z.enum([
   "damage_uninsured",
   "maintenance_standard",
   "maintenance_major",
+  "breakdown_standard",
+  "towing_immediate",
+  "towing_scheduled",
 ]);
 export type CaseWorkflowBlueprint = z.infer<
   typeof CaseWorkflowBlueprintSchema

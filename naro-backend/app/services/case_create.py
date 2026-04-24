@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -25,6 +26,7 @@ from app.models.case import (
     ServiceCaseStatus,
     ServiceRequestKind,
     TowDispatchStage,
+    TowEquipment,
     TowMode,
 )
 from app.models.case_audit import CaseEventType, CaseTone
@@ -52,6 +54,7 @@ from app.services.maintenance_detail_validator import (
 )
 
 if TYPE_CHECKING:
+    from app.integrations.psp import Psp
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -109,6 +112,21 @@ class DuplicateOpenCaseError(CaseCreateError):
         super().__init__(
             f"Aynı araç için açık {kind} vakası mevcut: {existing_case_id}"
         )
+
+
+class InvalidTowParentCaseError(CaseCreateError):
+    http_status = 400
+    error_type = "invalid_parent_case"
+
+
+class TowQuoteRequiredError(CaseCreateError):
+    http_status = 422
+    error_type = "tow_quote_required"
+
+
+class TowPreauthDeclinedError(CaseCreateError):
+    http_status = 402
+    error_type = "preauth_declined"
 
 
 # ─── Required attachment matrix (§5.3) ─────────────────────────────────────
@@ -183,11 +201,9 @@ def resolve_blueprint(draft: ServiceRequestDraftCreate) -> CaseWorkflowBlueprint
     if draft.kind == ServiceRequestKind.BREAKDOWN:
         return CaseWorkflowBlueprint.BREAKDOWN_STANDARD
     if draft.kind == ServiceRequestKind.TOWING:
-        # Tow kendi tow_stage makinesi kullanır; blueprint scheduled_at
-        # bayrağına göre ayrılır (tow.py route ek olarak tow_mode set eder)
         return (
             CaseWorkflowBlueprint.TOWING_SCHEDULED
-            if draft.pickup_preference is not None  # scheduled = planlı
+            if draft.tow_mode == TowMode.SCHEDULED
             else CaseWorkflowBlueprint.TOWING_IMMEDIATE
         )
     # Unreachable — tüm kind değerleri yukarıda kapsandı
@@ -225,6 +241,12 @@ async def create_case(
     try:
         # 1. Vehicle ownership
         await _assert_vehicle_owned(session, draft.vehicle_id, user_id)
+        if draft.kind == ServiceRequestKind.TOWING and draft.tow_parent_case_id:
+            await _assert_tow_parent_case_valid(
+                session,
+                parent_case_id=draft.tow_parent_case_id,
+                user_id=user_id,
+            )
 
         # 2. Maintenance detail parse
         if draft.kind == ServiceRequestKind.MAINTENANCE:
@@ -321,6 +343,80 @@ async def create_case(
         raise
 
 
+async def start_tow_operations(
+    session: AsyncSession,
+    *,
+    case: ServiceCase,
+    draft: ServiceRequestDraftCreate,
+    actor_user_id: UUID,
+    psp: Psp,
+) -> dict[str, object]:
+    """Canonical /cases sonrası tow alt sistemini başlatır."""
+    if draft.kind != ServiceRequestKind.TOWING:
+        return {}
+
+    tow_case = await session.get(TowCase, case.id)
+    if tow_case is None:
+        raise TowQuoteRequiredError("tow subtype row missing")
+    if tow_case.tow_mode != TowMode.IMMEDIATE:
+        return {"stage": tow_case.tow_stage.value}
+
+    quote = draft.tow_fare_quote or {}
+    cap_amount = _quote_decimal(quote, "cap_amount")
+    quoted_amount = _quote_decimal(quote, "locked_price") or cap_amount
+    if cap_amount is None:
+        raise TowQuoteRequiredError(
+            "immediate towing requires tow_fare_quote.cap_amount"
+        )
+
+    from app.services import tow_dispatch as dispatch_svc
+    from app.services import tow_payment as payment_svc
+
+    try:
+        await payment_svc.authorize_preauth(
+            session,
+            case=case,
+            cap_amount=cap_amount,
+            quoted_amount=quoted_amount,
+            customer_token="",
+            psp=psp,
+        )
+    except payment_svc.PaymentDeclinedError as exc:
+        raise TowPreauthDeclinedError(str(exc)) from exc
+
+    try:
+        decision = await dispatch_svc.initiate_dispatch(session, case, tow_case)
+    except dispatch_svc.NoCandidateFoundError:
+        await dispatch_svc._transition_to_pool_offered(
+            session,
+            case,
+            tow_case,
+            actor_user_id,
+        )
+        return {"stage": TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL.value}
+
+    return {
+        "stage": tow_case.tow_stage.value,
+        "first_attempt": {
+            "attempt_id": str(decision.attempt_id),
+            "technician_id": str(decision.technician_id),
+            "distance_km": str(decision.distance_km),
+            "eta_minutes": decision.eta_minutes,
+            "radius_km": decision.radius_km,
+        },
+    }
+
+
+def _quote_decimal(quote: dict[str, object], key: str) -> Decimal | None:
+    value = quote.get(key)
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+
+
 # ─── Subtype dispatch (Faz 1c canonical case architecture) ───────────────
 
 
@@ -367,10 +463,21 @@ async def _insert_subtype_row(
     """
     snapshot = await build_vehicle_snapshot(session, case.vehicle_id)
     if draft.kind == ServiceRequestKind.TOWING:
+        tow_mode = draft.tow_mode or TowMode.IMMEDIATE
+        initial_stage = (
+            TowDispatchStage.SEARCHING
+            if tow_mode == TowMode.IMMEDIATE
+            else TowDispatchStage.SCHEDULED_WAITING
+        )
+        equipment = draft.tow_required_equipment or [TowEquipment.FLATBED]
         tow = TowCase(
             case_id=case.id,
-            tow_mode=TowMode.IMMEDIATE,  # Default; tow.py route override
-            tow_stage=TowDispatchStage.SEARCHING,  # Default initial
+            parent_case_id=draft.tow_parent_case_id,
+            tow_mode=tow_mode,
+            tow_stage=initial_stage,
+            tow_required_equipment=equipment,
+            incident_reason=draft.tow_incident_reason,
+            scheduled_at=draft.tow_scheduled_at,
             pickup_lat=(
                 draft.location_lat_lng.lat if draft.location_lat_lng else None
             ),
@@ -385,6 +492,7 @@ async def _insert_subtype_row(
                 draft.dropoff_lat_lng.lng if draft.dropoff_lat_lng else None
             ),
             dropoff_address=draft.dropoff_label,
+            tow_fare_quote=draft.tow_fare_quote,
             **snapshot,
         )
         session.add(tow)
@@ -487,6 +595,25 @@ async def _assert_vehicle_owned(
     found = (await session.execute(stmt)).scalar_one_or_none()
     if found is None:
         raise VehicleNotOwnedError(f"Vehicle {vehicle_id} kullanıcıya ait değil")
+
+
+async def _assert_tow_parent_case_valid(
+    session: AsyncSession,
+    *,
+    parent_case_id: UUID,
+    user_id: UUID,
+) -> None:
+    parent = await session.get(ServiceCase, parent_case_id)
+    if (
+        parent is None
+        or parent.deleted_at is not None
+        or parent.customer_user_id != user_id
+        or parent.kind
+        not in (ServiceRequestKind.ACCIDENT, ServiceRequestKind.BREAKDOWN)
+    ):
+        raise InvalidTowParentCaseError(
+            "parent_case must be owned accident/breakdown case"
+        )
 
 
 async def _assert_attachments_valid(

@@ -224,7 +224,12 @@ const DRAFT_DEFAULT_TAIL = {
   on_site_repair: false,
   price_preference: null,
   maintenance_category: null,
-} as const;
+  tow_mode: null,
+  tow_required_equipment: [],
+  tow_incident_reason: null,
+  tow_scheduled_at: null,
+  tow_parent_case_id: null,
+};
 
 export function createTrackingDraftForKind(
   kind: ServiceRequestKind,
@@ -276,6 +281,9 @@ export function createTrackingDraftForKind(
       damage_area: undefined,
       valet_requested: false,
       ...DRAFT_DEFAULT_TAIL,
+      tow_mode: "immediate",
+      tow_required_equipment: ["flatbed"],
+      tow_incident_reason: "not_running",
     };
   }
 

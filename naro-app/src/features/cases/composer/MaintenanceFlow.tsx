@@ -3,7 +3,7 @@ import type {
   PricePreference,
   ServiceRequestDraft,
 } from "@naro/domain";
-import { Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
+import { FieldInput, Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
 import {
   Camera,
   Check,
@@ -18,13 +18,14 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { CategoryTile } from "./components/CategoryTile";
 import { ComposerSection } from "./components/ComposerSection";
 import { EvidenceStepCard } from "./components/EvidenceStepCard";
 import { LocationPicker } from "./components/LocationPicker";
 import { QuestionDispatcher } from "./components/questionFields";
+import { getMissingRequiredAttachmentCategories } from "../caseCreationContract";
 import {
   MAINTENANCE_CATEGORY_LABEL,
   MAINTENANCE_PACKAGE_CATEGORIES,
@@ -35,9 +36,6 @@ import {
   type MaintenanceTemplate,
 } from "./data/maintenanceTemplates";
 import type { ComposerFlow, ComposerStepRenderProps } from "./types";
-
-const INPUT_CLASS =
-  "rounded-[20px] border border-app-outline bg-app-surface px-4 py-3 text-base text-app-text";
 
 const PREFERRED_WINDOWS = [
   "Bu hafta",
@@ -234,7 +232,7 @@ function MediaStep({ draft, updateDraft }: ComposerStepRenderProps) {
             tone="inverse"
             className="text-[15px] leading-[19px]"
           >
-            Usta için bağlam
+            Fotoğraf ve not ekle
           </Text>
           <Text
             variant="caption"
@@ -278,14 +276,13 @@ function MediaStep({ draft, updateDraft }: ComposerStepRenderProps) {
       ))}
 
       <ComposerSection title="Kısa not (opsiyonel)">
-        <TextInput
+        <FieldInput
           value={draft.notes ?? ""}
           onChangeText={(value) => updateDraft({ notes: value })}
           placeholder="Beklentini ya da bilmesi gerekenleri kısaca yaz..."
-          placeholderTextColor="#6f7b97"
-          multiline
-          textAlignVertical="top"
-          className={[INPUT_CLASS, "min-h-[110px] py-3"].join(" ")}
+          textarea
+          rows={4}
+          inputClassName="rounded-[20px]"
         />
       </ComposerSection>
     </View>
@@ -735,17 +732,11 @@ export const MAINTENANCE_FLOW: ComposerFlow = {
       title: "Bağlam",
       description: "Usta için bağlam ekle",
       validate: (draft) => {
-        const category = draft.maintenance_category;
-        if (!category) return null;
-        const evidence = MAINTENANCE_TEMPLATES[category].evidence;
-        const missing = evidence.some((step) => {
-          if (!step.required) return false;
-          const count = draft.attachments.filter((attachment) =>
-            attachment.id.startsWith(`${step.id}:`),
-          ).length;
-          return count === 0;
-        });
-        return missing ? "Zorunlu kanıt eksik." : null;
+        const missing = getMissingRequiredAttachmentCategories(
+          "maintenance",
+          draft,
+        );
+        return missing.length > 0 ? `${missing[0]!.label} eksik.` : null;
       },
       render: (props) => <MediaStep {...props} />,
     },

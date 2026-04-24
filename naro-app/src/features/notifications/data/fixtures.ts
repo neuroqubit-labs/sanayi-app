@@ -39,7 +39,7 @@ export const mockNotifications: NotificationItem[] = [
     timeAgo: "Dün",
     createdAt: "2026-04-19T10:15:00+03:00",
     unread: false,
-    route: "/(modal)/bakim-talebi",
+    route: "/(modal)/talep/maintenance",
   },
   {
     id: "notif-invoice-balata",

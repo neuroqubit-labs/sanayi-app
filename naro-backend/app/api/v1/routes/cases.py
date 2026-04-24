@@ -23,6 +23,7 @@ from app.api.v1.deps import (
     CurrentUserDep,
     CustomerDep,
     DbDep,
+    PspDep,
     SettingsDep,
 )
 from app.integrations.storage import build_storage_gateway
@@ -180,9 +181,18 @@ async def create_case_endpoint(
     draft: ServiceRequestDraftCreate,
     user: CustomerDep,
     db: DbDep,
+    psp: PspDep,
 ) -> CaseCreateResponse:
     try:
         result = await case_create.create_case(db, user_id=user.id, draft=draft)
+        if draft.kind == ServiceRequestKind.TOWING:
+            await case_create.start_tow_operations(
+                db,
+                case=result.case,
+                draft=draft,
+                actor_user_id=user.id,
+                psp=psp,
+            )
     except case_create.CaseCreateError as exc:
         detail: dict[str, object] = {
             "type": exc.error_type,

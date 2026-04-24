@@ -5,19 +5,19 @@ export const SEARCH_PROMPTS: SearchPrompt[] = [
     id: "prompt-ariza",
     body: "Aracımdan sürekli ses geliyor — kime güvenebilirim?",
     category: "usta",
-    route: "/(modal)/ariza-bildir",
+    route: "/(modal)/talep/breakdown",
   },
   {
     id: "prompt-cekici",
     body: "Şu an yolda kaldım, hızlıca çekici çağırmam lazım.",
     category: "usta",
-    route: "/(modal)/cekici-cagir",
+    route: "/(modal)/talep/towing",
   },
   {
     id: "prompt-bakim",
     body: "Yaz öncesi hangi bakım kontrollerini yaptırmalıyım?",
     category: "bakim",
-    route: "/(modal)/bakim-talebi",
+    route: "/(modal)/talep/maintenance",
   },
   {
     id: "prompt-kampanya",
@@ -29,7 +29,7 @@ export const SEARCH_PROMPTS: SearchPrompt[] = [
     id: "prompt-kaza",
     body: "Hafif bir kazam oldu, nereden başlamalıyım?",
     category: "rehber",
-    route: "/(modal)/kaza-bildir",
+    route: "/(modal)/talep/accident",
   },
 ];
 

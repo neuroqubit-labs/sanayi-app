@@ -28,7 +28,11 @@ import {
   ServiceRequestDraftCreateSchema,
   type CaseCreateResponse,
   type CaseDetailResponse,
+  type LatLngPayload,
   type ServiceRequestDraftCreate,
+  type TowEquipment,
+  type TowIncidentReason,
+  type TowMode,
 } from "./schemas/case-create";
 import {
   ThreadMessageCreatePayloadSchema,
@@ -46,8 +50,6 @@ import {
   type CaseEventListResponse,
 } from "./schemas/timeline";
 import { useCasesStore } from "./store";
-
-const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
 
 function sortCases(cases: ServiceCase[]) {
   return [...cases].sort((left, right) =>
@@ -98,11 +100,12 @@ export function attachTechnicianToCase(caseId: string, technicianId: string) {
 
 export function useCasesFeed() {
   const { data: activeVehicle } = useActiveVehicle();
-  const vehicleId = activeVehicle?.id ?? DEFAULT_VEHICLE_ID;
+  const vehicleId = activeVehicle?.id ?? "";
 
   return useQuery<ServiceCase[]>({
     queryKey: ["cases", "feed", vehicleId],
     queryFn: () => {
+      if (!vehicleId) return [];
       const cases = useCasesStore
         .getState()
         .cases.filter((caseItem) => caseItem.vehicle_id === vehicleId);
@@ -134,20 +137,27 @@ export function useCaseDetail(caseId: string) {
 
 export function useCreateCaseDraft(kind: ServiceRequestKind) {
   const { data: activeVehicle } = useActiveVehicle();
-  const vehicleId = activeVehicle?.id ?? DEFAULT_VEHICLE_ID;
+  const vehicleId = activeVehicle?.id ?? "";
 
   const query = useQuery<ServiceRequestDraft>({
     queryKey: ["cases", "draft", kind, vehicleId],
     queryFn: async () => {
+      if (!vehicleId) {
+        throw new Error("Talep için aktif araç gerekli.");
+      }
       const draft = useCasesStore.getState().getDraft(kind, vehicleId);
       return mockDelay(draft);
     },
-    initialData: createDraftForKind(kind, vehicleId),
+    enabled: Boolean(vehicleId),
+    initialData: vehicleId ? createDraftForKind(kind, vehicleId) : undefined,
   });
 
   return {
     ...query,
     updateDraft: (patch: Partial<ServiceRequestDraft>) => {
+      if (!vehicleId) {
+        throw new Error("Talep için aktif araç gerekli.");
+      }
       const draft = useCasesStore.getState().updateDraft(kind, patch);
       void queryClient.invalidateQueries({
         queryKey: ["cases", "draft", kind, vehicleId],
@@ -155,6 +165,9 @@ export function useCreateCaseDraft(kind: ServiceRequestKind) {
       return draft;
     },
     resetDraft: () => {
+      if (!vehicleId) {
+        throw new Error("Talep için aktif araç gerekli.");
+      }
       const draft = useCasesStore.getState().resetDraft(kind, vehicleId);
       void queryClient.invalidateQueries({
         queryKey: ["cases", "draft", kind, vehicleId],
@@ -176,6 +189,20 @@ function deriveSummary(draft: ServiceRequestDraft, kind: ServiceRequestKind): st
   return kindLabel[kind];
 }
 
+export type CanonicalTowSubmitContext = {
+  mode: TowMode;
+  pickupLatLng: LatLngPayload;
+  requiredEquipment: TowEquipment[];
+  incidentReason: TowIncidentReason;
+  scheduledAt: string | null;
+  fareQuote: Record<string, unknown>;
+  parentCaseId: string | null;
+};
+
+export type SubmitCaseVariables = {
+  towing?: CanonicalTowSubmitContext;
+};
+
 /**
  * Subtype-aware payload adapter — İŞ 2 (2026-04-23).
  *
@@ -192,6 +219,7 @@ function draftToCreatePayload(
   draft: ServiceRequestDraft,
   kind: ServiceRequestKind,
   vehicleId: string,
+  variables?: SubmitCaseVariables,
 ): ServiceRequestDraftCreate {
   const attachments = draft.attachments.map((item) => ({
     id: item.id,
@@ -251,6 +279,14 @@ function draftToCreatePayload(
       null as ServiceRequestDraftCreate["maintenance_category"],
     maintenance_detail: null as Record<string, unknown> | null,
     maintenance_tier: null as string | null,
+    tow_mode: null as ServiceRequestDraftCreate["tow_mode"],
+    tow_required_equipment:
+      [] as ServiceRequestDraftCreate["tow_required_equipment"],
+    tow_incident_reason:
+      null as ServiceRequestDraftCreate["tow_incident_reason"],
+    tow_scheduled_at: null as string | null,
+    tow_parent_case_id: null as string | null,
+    tow_fare_quote: null as Record<string, unknown> | null,
   };
 
   const subtypePayload = (() => {
@@ -295,10 +331,21 @@ function draftToCreatePayload(
           mileage_km: draft.mileage_km ?? null,
         };
       case "towing":
+        if (!variables?.towing) {
+          throw new Error("Çekici talebi için canlı çekici bağlamı eksik.");
+        }
         return {
           ...subtypeDefaults,
-          dropoff_label: draft.dropoff_label ?? null,
+          location_lat_lng: variables.towing.pickupLatLng,
+          dropoff_label: draft.dropoff_label?.trim() || null,
+          dropoff_lat_lng: null,
           vehicle_drivable: draft.vehicle_drivable ?? null,
+          tow_mode: variables.towing.mode,
+          tow_required_equipment: variables.towing.requiredEquipment,
+          tow_incident_reason: variables.towing.incidentReason,
+          tow_scheduled_at: variables.towing.scheduledAt,
+          tow_parent_case_id: variables.towing.parentCaseId,
+          tow_fare_quote: variables.towing.fareQuote,
         };
     }
   })();
@@ -311,10 +358,13 @@ function draftToCreatePayload(
 
 export function useSubmitCase(kind: ServiceRequestKind) {
   const { data: activeVehicle } = useActiveVehicle();
-  const vehicleId = activeVehicle?.id ?? DEFAULT_VEHICLE_ID;
+  const vehicleId = activeVehicle?.id ?? "";
 
-  return useMutation<ServiceCase, Error, void>({
-    mutationFn: async () => {
+  return useMutation<CaseCreateResponse, Error, SubmitCaseVariables | void>({
+    mutationFn: async (variables) => {
+      if (!vehicleId) {
+        throw new Error("Talep oluşturmak için aktif araç gerekli.");
+      }
       const storeState = useCasesStore.getState();
       const draft =
         storeState.drafts[kind] ??
@@ -325,7 +375,12 @@ export function useSubmitCase(kind: ServiceRequestKind) {
       // Evidence-first invariant (I-6) — attachment ownership + kind-bazlı
       // zorunlu alan kontrolü backend yanında tekrar enforce. FE burada
       // Zod parse ile temel şekli garanti eder; 422 detayı backend'den gelir.
-      const payload = draftToCreatePayload(draft, kind, vehicleId);
+      const payload = draftToCreatePayload(
+        draft,
+        kind,
+        vehicleId,
+        variables ?? undefined,
+      );
 
       let response: CaseCreateResponse;
       try {
@@ -341,16 +396,8 @@ export function useSubmitCase(kind: ServiceRequestKind) {
         throw err instanceof Error ? err : new Error("case submit failed");
       }
 
-      // Zustand mock listesine backend id + status override'ıyla ekle —
-      // caller `/vaka/{id}` navigation'ında detay mock'unu bulsun.
-      // PR-A3'te tüm case listing/detail backend'den gelecek; mock stub
-      // o zaman kaldırılacak.
-      const createdCase = useCasesStore.getState().submitDraft(kind, vehicleId, {
-        id: response.id,
-        status: response.status,
-      });
       await invalidateCaseConsumers();
-      return createdCase;
+      return response;
     },
   });
 }

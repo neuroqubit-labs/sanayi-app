@@ -10,7 +10,13 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.models.case import ServiceRequestKind, ServiceRequestUrgency
+from app.models.case import (
+    ServiceRequestKind,
+    ServiceRequestUrgency,
+    TowEquipment,
+    TowIncidentReason,
+    TowMode,
+)
 from app.schemas.service_request import (
     AccidentReportMethod,
     BreakdownCategory,
@@ -205,23 +211,28 @@ def test_towing_happy_path() -> None:
         location_label="E5",
         location_lat_lng=LatLng(lat=41.0, lng=29.0),
         dropoff_label="Kadıköy Servisi",
-        dropoff_lat_lng=LatLng(lat=40.99, lng=29.03),
         vehicle_drivable=False,
+        tow_mode=TowMode.IMMEDIATE,
+        tow_incident_reason=TowIncidentReason.NOT_RUNNING,
+        tow_required_equipment=[TowEquipment.FLATBED],
+        tow_fare_quote={"cap_amount": "1800.00"},
     )
-    assert draft.dropoff_lat_lng.lng == 29.03
+    assert draft.tow_mode == TowMode.IMMEDIATE
 
 
 def test_towing_missing_dropoff_rejected() -> None:
-    with pytest.raises(ValidationError, match="dropoff_lat_lng"):
+    with pytest.raises(ValidationError, match="dropoff_label"):
         ServiceRequestDraftCreate(
             kind=ServiceRequestKind.TOWING,
             vehicle_id=uuid4(),
             urgency=ServiceRequestUrgency.URGENT,
             summary="Çekici",
             location_label="Yol",
+            location_lat_lng=LatLng(lat=41, lng=29),
             vehicle_drivable=False,
-            dropoff_label="Servis",
-            # dropoff_lat_lng yok
+            tow_mode=TowMode.IMMEDIATE,
+            tow_incident_reason=TowIncidentReason.NOT_RUNNING,
+            tow_fare_quote={"cap_amount": "1800.00"},
         )
 
 
@@ -235,8 +246,24 @@ def test_towing_pickup_preference_rejected() -> None:
             location_label="Yol",
             vehicle_drivable=False,
             dropoff_label="Servis",
-            dropoff_lat_lng=LatLng(lat=41, lng=29),
+            tow_mode=TowMode.IMMEDIATE,
+            tow_incident_reason=TowIncidentReason.NOT_RUNNING,
             pickup_preference=ServicePickupPreference.VALET,  # YASAK
+        )
+
+
+def test_towing_scheduled_requires_scheduled_at() -> None:
+    with pytest.raises(ValidationError, match="tow_scheduled_at"):
+        ServiceRequestDraftCreate(
+            kind=ServiceRequestKind.TOWING,
+            vehicle_id=uuid4(),
+            urgency=ServiceRequestUrgency.PLANNED,
+            summary="Çekici",
+            location_label="Yol",
+            vehicle_drivable=False,
+            dropoff_label="Servis",
+            tow_mode=TowMode.SCHEDULED,
+            tow_incident_reason=TowIncidentReason.NOT_RUNNING,
         )
 
 
