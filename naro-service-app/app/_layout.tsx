@@ -55,7 +55,16 @@ function RootShellContent() {
           headerShown: false,
           contentStyle: { backgroundColor: colors.bg },
         }}
-      />
+      >
+        <Stack.Screen
+          name="(modal)"
+          options={{
+            presentation: "transparentModal",
+            animation: "fade",
+            contentStyle: { backgroundColor: "transparent" },
+          }}
+        />
+      </Stack>
       <OfferSubmissionSheet />
       <TechnicianEvidenceUploadSheet />
       <HasarSourceSheet />
