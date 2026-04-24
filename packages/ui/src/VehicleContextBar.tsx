@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react-native";
 
 import { Icon } from "./Icon";
 import { Text } from "./Text";
+import { useNaroTheme } from "./theme";
 
 export type VehicleContextBarProps = {
   plate: string;
@@ -17,6 +18,7 @@ export function VehicleContextBar({
   subtitle,
   onPress,
 }: VehicleContextBarProps) {
+  const { colors } = useNaroTheme();
   const content = (
     <>
       <View className="gap-1">
@@ -29,7 +31,7 @@ export function VehicleContextBar({
         </Text>
       </View>
       <View className="h-11 w-11 items-center justify-center rounded-full border border-app-outline bg-app-surface">
-        <Icon icon={ChevronDown} size={18} color="#f5f7ff" />
+        <Icon icon={ChevronDown} size={18} color={colors.text} />
       </View>
     </>
   );
@@ -38,7 +40,9 @@ export function VehicleContextBar({
     return (
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={`${plate} araç seçici`}
         onPress={onPress}
+        hitSlop={6}
         className="flex-row items-center justify-between gap-4"
       >
         {content}
@@ -47,6 +51,8 @@ export function VehicleContextBar({
   }
 
   return (
-    <View className="flex-row items-center justify-between gap-4">{content}</View>
+    <View className="flex-row items-center justify-between gap-4">
+      {content}
+    </View>
   );
 }

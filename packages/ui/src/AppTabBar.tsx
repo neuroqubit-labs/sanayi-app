@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Pressable, Text as RNText, View, type ViewStyle } from "react-native";
 
-import { useNaroTheme } from "./theme";
+import { useNaroTheme, type NaroThemePalette, type ThemeScheme } from "./theme";
+import { withAlphaHex } from "./color";
 
 export type AppTabBarItem = {
   key: string;
@@ -35,6 +36,14 @@ export type AppTabBarTheme = {
   centerButtonShadow: string;
 };
 
+export type AppTabBarBrand = "customer" | "service";
+
+export type CreateAppTabBarThemeOptions = {
+  brand: AppTabBarBrand;
+  scheme: ThemeScheme;
+  colors: NaroThemePalette;
+};
+
 export type AppTabBarProps = {
   items: AppTabBarItem[];
   centerAction?: AppTabBarCenterAction;
@@ -62,8 +71,8 @@ export function AppTabBar({
     activeChip: colors.infoSoft,
     centerButtonBackground: colors.info,
     centerButtonBorder: colors.outlineStrong,
-    centerButtonHighlight: "rgba(255,255,255,0.18)",
-    centerButtonDepth: "rgba(0,0,0,0.18)",
+    centerButtonHighlight: withAlphaHex(colors.surface, 0.18),
+    centerButtonDepth: withAlphaHex(colors.shadow, 0.18),
     centerButtonShadow: colors.shadow,
   };
   const palette = { ...defaultTheme, ...theme };
@@ -195,7 +204,7 @@ export function AppTabBar({
                     bottom: 0,
                     borderRadius: 17,
                     borderWidth: 1,
-                    borderColor: "rgba(255,255,255,0.10)",
+                    borderColor: withAlphaHex(colors.surface, 0.1),
                   }}
                 />
               </View>
@@ -264,3 +273,40 @@ const CENTER_BUTTON_SHADOW: ViewStyle = {
   shadowRadius: 14,
   elevation: 10,
 };
+
+export function createAppTabBarTheme({
+  brand,
+  scheme,
+  colors,
+}: CreateAppTabBarThemeOptions): AppTabBarTheme {
+  const activeAccent = brand === "service" ? colors.warning : colors.info;
+  const brandSoft = brand === "service" ? colors.warningSoft : colors.infoSoft;
+  const centerDepthBase = brand === "service" ? colors.warning : colors.info;
+  const glassBase = scheme === "dark" ? colors.bgMuted : colors.surface;
+  const highlightBase = scheme === "dark" ? colors.text : colors.surface;
+
+  return {
+    shellBackground: withAlphaHex(glassBase, scheme === "dark" ? 0.92 : 0.94),
+    shellBorder:
+      scheme === "dark"
+        ? withAlphaHex(colors.outlineStrong, 0.58)
+        : withAlphaHex(colors.outlineStrong, 0.88),
+    shellHairline:
+      scheme === "dark"
+        ? withAlphaHex(colors.text, 0.12)
+        : withAlphaHex(colors.surface, 0.95),
+    shellShadow: colors.shadow,
+    activeAccent,
+    activeText: colors.text,
+    inactiveText: colors.textSubtle,
+    activeChip: brandSoft,
+    centerButtonBackground: activeAccent,
+    centerButtonBorder: withAlphaHex(activeAccent, 0.35),
+    centerButtonHighlight: withAlphaHex(highlightBase, 0.2),
+    centerButtonDepth: withAlphaHex(
+      centerDepthBase,
+      scheme === "dark" ? 0.24 : 0.16,
+    ),
+    centerButtonShadow: colors.shadow,
+  };
+}

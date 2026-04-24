@@ -14,10 +14,13 @@ export {
 } from "./BrandWaitState";
 export {
   AppTabBar,
+  createAppTabBarTheme,
   type AppTabBarCenterAction,
+  type AppTabBarBrand,
   type AppTabBarItem,
   type AppTabBarProps,
   type AppTabBarTheme,
+  type CreateAppTabBarThemeOptions,
 } from "./AppTabBar";
 export { Text, type TextProps, type TextTone, type TextVariant } from "./Text";
 export { Input, type InputProps } from "./Input";

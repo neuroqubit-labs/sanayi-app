@@ -3,6 +3,7 @@ import { Camera, Plus, Trash2 } from "lucide-react-native";
 
 import { Icon } from "./Icon";
 import { Text } from "./Text";
+import { useNaroTheme } from "./theme";
 
 export type PhotoGridItem = {
   id: string;
@@ -35,13 +36,13 @@ export function PhotoGrid({
   disabled = false,
   className,
 }: PhotoGridProps) {
+  const { colors, scheme } = useNaroTheme();
   const reachedMax = max !== undefined && items.length >= max;
   const belowMin = min !== undefined && items.length < min;
+  const onImageOverlay = scheme === "dark" ? colors.text : colors.surface;
 
   return (
-    <View
-      className={["gap-3", className ?? ""].filter(Boolean).join(" ")}
-    >
+    <View className={["gap-3", className ?? ""].filter(Boolean).join(" ")}>
       {title ? (
         <View className="flex-row items-center justify-between gap-3">
           <View className="flex-1 gap-1">
@@ -49,7 +50,11 @@ export function PhotoGrid({
               {title}
             </Text>
             {hint ? (
-              <Text variant="caption" tone="muted" className="text-app-text-muted">
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted"
+              >
                 {hint}
               </Text>
             ) : null}
@@ -73,7 +78,7 @@ export function PhotoGrid({
               <Image source={{ uri: item.uri }} className="h-full w-full" />
             ) : (
               <View className="flex-1 items-center justify-center">
-                <Icon icon={Camera} size={20} color="#6f7b97" />
+                <Icon icon={Camera} size={20} color={colors.textSubtle} />
               </View>
             )}
             {onRemove && !disabled ? (
@@ -81,18 +86,24 @@ export function PhotoGrid({
                 accessibilityRole="button"
                 accessibilityLabel="Fotoğrafı kaldır"
                 onPress={() => onRemove(item.id)}
-                className="absolute right-1 top-1 h-7 w-7 items-center justify-center rounded-full bg-black/60"
+                hitSlop={8}
+                className="absolute right-1 top-1 h-7 w-7 items-center justify-center rounded-full"
+                style={{ backgroundColor: colors.overlayStrong }}
               >
-                <Icon icon={Trash2} size={12} color="#ffffff" />
+                <Icon icon={Trash2} size={12} color={onImageOverlay} />
               </Pressable>
             ) : null}
             {item.label ? (
-              <View className="absolute inset-x-0 bottom-0 bg-black/55 px-2 py-1">
+              <View
+                className="absolute inset-x-0 bottom-0 px-2 py-1"
+                style={{ backgroundColor: colors.overlayStrong }}
+              >
                 <Text
                   variant="caption"
                   tone="inverse"
-                  className="text-[10px] text-white"
+                  className="text-[10px]"
                   numberOfLines={1}
+                  style={{ color: onImageOverlay }}
                 >
                   {item.label}
                 </Text>
@@ -106,9 +117,10 @@ export function PhotoGrid({
             accessibilityRole="button"
             accessibilityLabel="Fotoğraf ekle"
             onPress={onAdd}
+            hitSlop={4}
             className="h-24 w-24 items-center justify-center rounded-[18px] border border-dashed border-app-outline bg-app-surface active:bg-app-surface-2"
           >
-            <Icon icon={Plus} size={22} color="#83a7ff" />
+            <Icon icon={Plus} size={22} color={colors.info} />
             <Text variant="caption" tone="subtle" className="mt-1">
               Ekle
             </Text>

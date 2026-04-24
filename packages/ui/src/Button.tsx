@@ -17,6 +17,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
+import { withAlphaHex } from "./color";
 import { shellSpring } from "./tokens";
 import { useNaroTheme } from "./theme";
 
@@ -81,7 +82,6 @@ const SIZE_LABEL: Record<ButtonSize, string> = {
 const DEFAULT_HIT_SLOP: Insets = { bottom: 4, left: 4, right: 4, top: 4 };
 
 const PRIMARY_BUTTON_STYLE: ViewStyle = {
-  shadowColor: "#021c34",
   shadowOffset: { width: 0, height: 14 },
   shadowOpacity: 0.3,
   shadowRadius: 18,
@@ -102,7 +102,6 @@ const PRIMARY_TOP_HIGHLIGHT_STYLE: ViewStyle = {
   top: 4,
   height: "50%",
   borderRadius: 999,
-  backgroundColor: "rgba(255,255,255,0.16)",
 };
 
 const PRIMARY_BOTTOM_DEPTH_STYLE: ViewStyle = {
@@ -113,7 +112,6 @@ const PRIMARY_BOTTOM_DEPTH_STYLE: ViewStyle = {
   height: "44%",
   borderBottomLeftRadius: 12,
   borderBottomRightRadius: 12,
-  backgroundColor: "rgba(3,72,123,0.34)",
 };
 
 const PRIMARY_DIAGONAL_SHEEN_STYLE: ViewStyle = {
@@ -123,7 +121,6 @@ const PRIMARY_DIAGONAL_SHEEN_STYLE: ViewStyle = {
   width: 170,
   height: 46,
   borderRadius: 28,
-  backgroundColor: "rgba(255,255,255,0.12)",
   transform: [{ rotate: "-7deg" }],
 };
 
@@ -134,7 +131,6 @@ const PRIMARY_AURA_STYLE: ViewStyle = {
   width: 110,
   height: 74,
   borderRadius: 999,
-  backgroundColor: "rgba(111,221,255,0.16)",
 };
 
 const PRIMARY_INNER_EDGE_STYLE: ViewStyle = {
@@ -142,7 +138,6 @@ const PRIMARY_INNER_EDGE_STYLE: ViewStyle = {
   inset: 1,
   borderRadius: 11,
   borderWidth: 1,
-  borderColor: "rgba(255,255,255,0.08)",
 };
 
 export const Button = forwardRef<ViewType, ButtonProps>(function Button(
@@ -165,12 +160,14 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
   },
   ref,
 ) {
-  const { colors } = useNaroTheme();
+  const { colors, scheme } = useNaroTheme();
   const isDisabled = disabled || loading;
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
+  const overlayColor = scheme === "dark" ? colors.text : colors.surface;
+  const onAccentColor = scheme === "dark" ? colors.text : colors.surface;
 
   const containerClass = [
     CONTAINER_BASE,
@@ -191,7 +188,7 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
     .filter(Boolean)
     .join(" ");
   const spinnerColor =
-    variant === "primary" || variant === "danger" ? "#ffffff" : colors.text;
+    variant === "primary" || variant === "danger" ? onAccentColor : colors.text;
 
   return (
     <AnimatedPressable
@@ -219,11 +216,36 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
     >
       {variant === "primary" ? (
         <View pointerEvents="none" style={PRIMARY_SURFACE_STYLE}>
-          <View style={PRIMARY_TOP_HIGHLIGHT_STYLE} />
-          <View style={PRIMARY_BOTTOM_DEPTH_STYLE} />
-          <View style={PRIMARY_DIAGONAL_SHEEN_STYLE} />
-          <View style={PRIMARY_AURA_STYLE} />
-          <View style={PRIMARY_INNER_EDGE_STYLE} />
+          <View
+            style={[
+              PRIMARY_TOP_HIGHLIGHT_STYLE,
+              { backgroundColor: withAlphaHex(overlayColor, 0.16) },
+            ]}
+          />
+          <View
+            style={[
+              PRIMARY_BOTTOM_DEPTH_STYLE,
+              { backgroundColor: withAlphaHex(colors.info, 0.34) },
+            ]}
+          />
+          <View
+            style={[
+              PRIMARY_DIAGONAL_SHEEN_STYLE,
+              { backgroundColor: withAlphaHex(overlayColor, 0.12) },
+            ]}
+          />
+          <View
+            style={[
+              PRIMARY_AURA_STYLE,
+              { backgroundColor: withAlphaHex(colors.info, 0.16) },
+            ]}
+          />
+          <View
+            style={[
+              PRIMARY_INNER_EDGE_STYLE,
+              { borderColor: withAlphaHex(overlayColor, 0.08) },
+            ]}
+          />
         </View>
       ) : null}
       {loading ? (

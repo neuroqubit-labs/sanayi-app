@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react-native";
 
 import { Icon } from "./Icon";
 import { Text } from "./Text";
+import { useNaroTheme } from "./theme";
 
 export type PremiumListRowProps = {
   title: string;
@@ -24,6 +25,7 @@ export function PremiumListRow({
   badge,
   className,
 }: PremiumListRowProps) {
+  const { colors } = useNaroTheme();
   const content = (
     <>
       {leading ? <View>{leading}</View> : null}
@@ -40,7 +42,10 @@ export function PremiumListRow({
           </Text>
         ) : null}
       </View>
-      {trailing ?? (onPress ? <Icon icon={ChevronRight} size={18} color="#6f7b97" /> : null)}
+      {trailing ??
+        (onPress ? (
+          <Icon icon={ChevronRight} size={18} color={colors.textSubtle} />
+        ) : null)}
     </>
   );
 
@@ -48,7 +53,9 @@ export function PremiumListRow({
     return (
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={title}
         onPress={onPress}
+        hitSlop={4}
         className={[
           "flex-row items-center gap-3 rounded-[24px] border border-app-outline bg-app-surface px-4 py-4 active:bg-app-surface-2",
           className ?? "",

@@ -10,6 +10,7 @@ import {
 import { Icon } from "./Icon";
 import { Text } from "./Text";
 import type { StatusChipTone } from "./StatusChip";
+import { useNaroTheme, type NaroThemePalette } from "./theme";
 
 export type VehicleMemoryEventKind =
   | "maintenance"
@@ -36,14 +37,6 @@ const KIND_ICON: Record<VehicleMemoryEventKind, LucideIcon> = {
   document: FileText,
 };
 
-const KIND_ICON_COLOR: Record<VehicleMemoryEventKind, string> = {
-  maintenance: "#2dd28d",
-  repair: "#83a7ff",
-  damage: "#ff6b6b",
-  warranty: "#0ea5e9",
-  document: "#f5f7ff",
-};
-
 export type VehicleMemoryTimelineProps = {
   events: VehicleMemoryEvent[];
   emptyText?: string;
@@ -55,6 +48,8 @@ export function VehicleMemoryTimeline({
   emptyText = "Bu araç için henüz kayıtlı işlem yok.",
   className,
 }: VehicleMemoryTimelineProps) {
+  const { colors } = useNaroTheme();
+
   if (events.length === 0) {
     return (
       <View
@@ -77,12 +72,13 @@ export function VehicleMemoryTimeline({
       {events.map((event, index) => {
         const IconComp = KIND_ICON[event.kind];
         const isLast = index === events.length - 1;
+        const iconColor = getEventKindColor(event.kind, colors);
 
         return (
           <View key={event.id} className="flex-row gap-3">
             <View className="items-center">
               <View className="h-10 w-10 items-center justify-center rounded-full border border-app-outline bg-app-surface-2">
-                <Icon icon={IconComp} size={16} color={KIND_ICON_COLOR[event.kind]} />
+                <Icon icon={IconComp} size={16} color={iconColor} />
               </View>
               {isLast ? null : (
                 <View className="mt-1 w-px flex-1 bg-app-outline" />
@@ -98,7 +94,11 @@ export function VehicleMemoryTimeline({
                 </Text>
               </View>
               {event.subtitle ? (
-                <Text variant="caption" tone="muted" className="text-app-text-muted">
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted"
+                >
                   {event.subtitle}
                 </Text>
               ) : null}
@@ -108,4 +108,22 @@ export function VehicleMemoryTimeline({
       })}
     </View>
   );
+}
+
+function getEventKindColor(
+  kind: VehicleMemoryEventKind,
+  colors: NaroThemePalette,
+) {
+  switch (kind) {
+    case "maintenance":
+      return colors.success;
+    case "repair":
+      return colors.info;
+    case "damage":
+      return colors.critical;
+    case "warranty":
+      return colors.info;
+    case "document":
+      return colors.text;
+  }
 }

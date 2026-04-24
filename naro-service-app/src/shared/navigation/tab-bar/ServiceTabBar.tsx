@@ -1,6 +1,7 @@
 import {
   AppTabBar,
   Icon,
+  createAppTabBarTheme,
   type AppTabBarItem,
   useNaroTheme,
   useKeyboardVisibility,
@@ -16,42 +17,6 @@ import {
   type ServiceTabRouteName,
 } from "./tab-config";
 
-const ACTIVE_ACCENT = "#ff6b2c";
-const ACTIVE_TEXT = "#fff7f2";
-const INACTIVE_TEXT = "#8a94aa";
-
-const SERVICE_TAB_THEME = {
-  shellBackground: "#0f1622",
-  shellBorder: "rgba(255,255,255,0.08)",
-  shellHairline: "rgba(255,255,255,0.12)",
-  shellShadow: "#050910",
-  activeAccent: ACTIVE_ACCENT,
-  activeText: ACTIVE_TEXT,
-  inactiveText: INACTIVE_TEXT,
-  activeChip: "rgba(255,107,44,0.13)",
-  centerButtonBackground: "#f45f25",
-  centerButtonBorder: "rgba(255,183,145,0.24)",
-  centerButtonHighlight: "rgba(255,255,255,0.16)",
-  centerButtonDepth: "rgba(125,41,4,0.24)",
-  centerButtonShadow: "#230901",
-} as const;
-
-const SERVICE_TAB_THEME_LIGHT = {
-  shellBackground: "rgba(255,255,255,0.94)",
-  shellBorder: "rgba(184,198,218,0.88)",
-  shellHairline: "rgba(255,255,255,0.95)",
-  shellShadow: "#98A2B3",
-  activeAccent: ACTIVE_ACCENT,
-  activeText: "#101828",
-  inactiveText: "#667085",
-  activeChip: "rgba(255,107,44,0.14)",
-  centerButtonBackground: "#f45f25",
-  centerButtonBorder: "rgba(244,95,37,0.28)",
-  centerButtonHighlight: "rgba(255,255,255,0.22)",
-  centerButtonDepth: "rgba(125,41,4,0.16)",
-  centerButtonShadow: "#98A2B3",
-} as const;
-
 export function ServiceTabBar({
   state,
   descriptors,
@@ -61,6 +26,12 @@ export function ServiceTabBar({
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisibility();
   const { colors, scheme } = useNaroTheme();
+  const tabTheme = createAppTabBarTheme({
+    brand: "service",
+    colors,
+    scheme,
+  });
+  const centerIconColor = scheme === "dark" ? colors.text : colors.surface;
 
   if (keyboardVisible) {
     return null;
@@ -76,7 +47,7 @@ export function ServiceTabBar({
     }
 
     const focused = state.routes[state.index]?.name === route.name;
-    const iconColor = focused ? ACTIVE_ACCENT : INACTIVE_TEXT;
+    const iconColor = focused ? tabTheme.activeAccent : tabTheme.inactiveText;
 
     return [
       {
@@ -120,10 +91,17 @@ export function ServiceTabBar({
       items={items}
       backgroundColor={colors.bg}
       bottomInset={Math.max(insets.bottom, 10)}
-      theme={scheme === "dark" ? SERVICE_TAB_THEME : SERVICE_TAB_THEME_LIGHT}
+      theme={tabTheme}
       centerAction={{
         accessibilityLabel: "Hızlı aksiyonlar",
-        icon: <Icon icon={Plus} size={22} color="#ffffff" strokeWidth={2.4} />,
+        icon: (
+          <Icon
+            icon={Plus}
+            size={22}
+            color={centerIconColor}
+            strokeWidth={2.4}
+          />
+        ),
         onPress: () => router.push("/(modal)/quick-actions"),
       }}
     />
