@@ -598,8 +598,21 @@ async def evidence_gate_counts(
             text(
                 """
                 SELECT
-                    COUNT(*) FILTER (WHERE kind = 'photo_before') AS photo_before,
-                    COUNT(*) FILTER (WHERE kind = 'photo_after') AS photo_after,
+                    COUNT(*) FILTER (
+                        WHERE source_label = 'tow:tech_arrival'
+                    ) AS tech_arrival,
+                    COUNT(*) FILTER (
+                        WHERE source_label = 'tow:tech_loading'
+                    ) AS tech_loading,
+                    COUNT(*) FILTER (
+                        WHERE source_label = 'tow:tech_delivery'
+                    ) AS tech_delivery,
+                    COUNT(*) FILTER (
+                        WHERE source_label IN ('tow:tech_arrival', 'tow:tech_loading')
+                    ) AS photo_before,
+                    COUNT(*) FILTER (
+                        WHERE source_label = 'tow:tech_delivery'
+                    ) AS photo_after,
                     COUNT(*) AS total
                 FROM case_evidence_items
                 WHERE case_id = :case_id
@@ -609,7 +622,14 @@ async def evidence_gate_counts(
         )
     ).mappings().first()
     if not row:
-        return {"photo_before": 0, "photo_after": 0, "total": 0}
+        return {
+            "tech_arrival": 0,
+            "tech_loading": 0,
+            "tech_delivery": 0,
+            "photo_before": 0,
+            "photo_after": 0,
+            "total": 0,
+        }
     return dict(row)
 
 

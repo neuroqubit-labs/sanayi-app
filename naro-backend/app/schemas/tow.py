@@ -322,6 +322,36 @@ class TowLocationInput(BaseModel):
     captured_at: datetime
 
 
+class TowAvailabilityInput(BaseModel):
+    """POST /tow/technicians/me/availability — canlı çekici konum heartbeat."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    available: bool
+    lat: Annotated[float, Field(ge=-90, le=90)] | None = None
+    lng: Annotated[float, Field(ge=-180, le=180)] | None = None
+    captured_at: datetime | None = None
+    equipment: list[TowEquipmentSchema] = Field(default_factory=list)
+
+
+class TowAvailabilityOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    available: bool
+    availability: Literal["available", "offline", "busy"]
+    equipment: list[TowEquipmentSchema]
+    last_location: LatLng | None
+    last_location_at: datetime | None
+
+
+class TowStageTransitionInput(BaseModel):
+    """POST /tow/cases/{id}/stage — teknisyen kontrollü stage geçişi."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stage: Literal["en_route", "nearby", "arrived", "loading", "in_transit", "delivered"]
+
+
 class TowOtpIssueInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     purpose: Literal["arrival", "delivery"]
@@ -425,3 +455,23 @@ class TowDispatchResponseOutput(BaseModel):
     attempt_id: UUID
     response: TowDispatchResponseSchema
     next_stage: TowDispatchStageSchema | None
+
+
+class TowPendingDispatch(BaseModel):
+    """Service app full-screen incoming dispatch payload."""
+
+    id: UUID
+    case_id: UUID
+    attempt_id: UUID
+    customer_name: str
+    pickup_label: str
+    pickup_lat_lng: LatLng
+    dropoff_label: str | None = None
+    dropoff_lat_lng: LatLng | None = None
+    technician_lat_lng: LatLng | None = None
+    distance_km: Decimal
+    eta_minutes: int
+    price_amount: Decimal
+    equipment_label: str
+    received_at: datetime
+    expires_at: datetime

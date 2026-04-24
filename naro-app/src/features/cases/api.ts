@@ -192,6 +192,7 @@ function deriveSummary(draft: ServiceRequestDraft, kind: ServiceRequestKind): st
 export type CanonicalTowSubmitContext = {
   mode: TowMode;
   pickupLatLng: LatLngPayload;
+  dropoffLatLng: LatLngPayload;
   requiredEquipment: TowEquipment[];
   incidentReason: TowIncidentReason;
   scheduledAt: string | null;
@@ -239,7 +240,7 @@ function draftToCreatePayload(
     urgency: draft.urgency ?? "planned",
     summary: deriveSummary(draft, kind),
     location_label: draft.location_label?.trim() || "Konum belirtilmedi",
-    location_lat_lng: null,
+    location_lat_lng: draft.location_lat_lng ?? null,
     notes: draft.notes ?? null,
     attachments,
     preferred_window: draft.preferred_window ?? null,
@@ -252,7 +253,7 @@ function draftToCreatePayload(
   // sadece ilgili olanlar draft'tan doldurulur.
   const subtypeDefaults = {
     dropoff_label: null as string | null,
-    dropoff_lat_lng: null,
+    dropoff_lat_lng: draft.dropoff_lat_lng ?? null,
     symptoms: [] as string[],
     maintenance_items: [] as string[],
     vehicle_drivable: null as boolean | null,
@@ -338,7 +339,7 @@ function draftToCreatePayload(
           ...subtypeDefaults,
           location_lat_lng: variables.towing.pickupLatLng,
           dropoff_label: draft.dropoff_label?.trim() || null,
-          dropoff_lat_lng: null,
+          dropoff_lat_lng: variables.towing.dropoffLatLng,
           vehicle_drivable: draft.vehicle_drivable ?? null,
           tow_mode: variables.towing.mode,
           tow_required_equipment: variables.towing.requiredEquipment,

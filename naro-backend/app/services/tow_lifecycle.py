@@ -87,9 +87,9 @@ _ALLOWED: dict[TowDispatchStage, frozenset[TowDispatchStage]] = {
 
 _EVIDENCE_GATES: dict[TowDispatchStage, dict[str, int]] = {
     # arrived → OTP ile geçilir, lifecycle burada yalnızca counts check eder
-    TowDispatchStage.LOADING: {"photo_before": 1},
-    TowDispatchStage.IN_TRANSIT: {"photo_before": 1},
-    TowDispatchStage.DELIVERED: {"photo_after": 1},
+    TowDispatchStage.LOADING: {"tech_arrival": 1},
+    TowDispatchStage.IN_TRANSIT: {"tech_loading": 1},
+    TowDispatchStage.DELIVERED: {"tech_delivery": 1},
 }
 
 

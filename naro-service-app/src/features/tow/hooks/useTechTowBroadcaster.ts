@@ -6,7 +6,7 @@ import {
 } from "@naro/ui";
 import { useCallback } from "react";
 
-import { apiClient, env } from "@/runtime";
+import { apiClient } from "@/runtime";
 
 const ACTIVE_STAGES: TowDispatchStage[] = [
   "accepted",
@@ -16,8 +16,6 @@ const ACTIVE_STAGES: TowDispatchStage[] = [
   "loading",
   "in_transit",
 ];
-
-const LIVE_ENABLED_ENVS = new Set(["production", "staging"]);
 
 type Options = {
   caseId: string | null;
@@ -29,10 +27,8 @@ type Options = {
  *
  * - Active stage'lerde (accepted..in_transit) broadcaster çalışır.
  * - Terminal (delivered/cancelled) veya caseId null → pasif.
- * - Dev/mock env'de wsUrl benzeri guard yok (POST endpoint); yine de
- *   LIVE_ENABLED_ENVS kontrolü ile sadece prod/staging'de backend'e gönderir,
- *   aksi halde sadece local queue'da birikir (dev'de console gürültüsü
- *   yapmasın diye).
+ * - Dev cihaz smoke'unda da backend'e gider; çekici bulma mantığının kalbi
+ *   canlı heartbeat olduğu için environment guard yok.
  */
 export function useTechTowBroadcaster({
   caseId,
@@ -41,8 +37,7 @@ export function useTechTowBroadcaster({
   const active =
     caseId !== null &&
     stage !== null &&
-    ACTIVE_STAGES.includes(stage) &&
-    LIVE_ENABLED_ENVS.has(env.appEnv);
+    ACTIVE_STAGES.includes(stage);
 
   const sendLocation = useCallback(
     async (payload: LocationPostPayload) => {

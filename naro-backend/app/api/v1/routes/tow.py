@@ -6,12 +6,13 @@ location ingest, evidence, OTP issue/verify, cancel, kasko, rating, scheduled bi
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import (
@@ -35,18 +36,28 @@ from app.models.case import (
     TowEquipment,
     TowMode,
 )
+from app.models.case_artifact import CaseAttachmentKind
 from app.models.case_subtypes import TowCase
+from app.models.media import MediaAsset, MediaStatus
+from app.models.technician import TechnicianAvailability, TechnicianProfile
 from app.models.tow import (
     TowCancellationActor,
+    TowDispatchAttempt,
     TowDispatchResponse,
     TowOtpDelivery,
+    TowOtpEvent,
     TowOtpPurpose,
     TowOtpRecipient,
+    TowOtpVerifyResult,
 )
 from app.models.user import User
 from app.models.vehicle import Vehicle
+from app.repositories import technician as technician_repo
 from app.repositories import tow as tow_repo
 from app.schemas.tow import (
+    LatLng,
+    TowAvailabilityInput,
+    TowAvailabilityOutput,
     TowCancelInput,
     TowCaseSnapshot,
     TowCreateCaseRequest,
@@ -61,20 +72,148 @@ from app.schemas.tow import (
     TowModeSchema,
     TowOtpIssueInput,
     TowOtpVerifyInput,
+    TowPendingDispatch,
     TowRatingInput,
     TowSettlementStatusSchema,
+    TowStageTransitionInput,
     TowTrackingSnapshot,
     tow_phase,
     tow_stage_label,
 )
 from app.services import tow_dispatch as dispatch_svc
 from app.services import tow_evidence as evidence_svc
+from app.services import evidence as case_evidence_svc
 from app.services import tow_lifecycle as lifecycle_svc
 from app.services import tow_location as location_svc
 from app.services import tow_payment as payment_svc
 from app.services.case_create import build_vehicle_snapshot
 
 router = APIRouter(prefix="/tow", tags=["tow"])
+
+
+# ─── 0. Technician live tow shell ──────────────────────────────────────────
+
+
+@router.post(
+    "/technicians/me/availability",
+    response_model=TowAvailabilityOutput,
+    summary="Çekici canlı uygunluk + son konum heartbeat",
+)
+async def set_tow_availability(
+    payload: TowAvailabilityInput,
+    tech: TowTechnicianDep,
+    db: DbDep,
+) -> TowAvailabilityOutput:
+    profile = await _get_tow_profile_for_user(db, tech.id)
+    now = datetime.now(UTC)
+
+    if payload.available and (payload.lat is None or payload.lng is None):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "location_required",
+                "message": "available=true için lat/lng gerekir",
+            },
+        )
+
+    profile.availability = (
+        TechnicianAvailability.AVAILABLE
+        if payload.available
+        else TechnicianAvailability.OFFLINE
+    )
+    if payload.lat is not None and payload.lng is not None:
+        profile.last_known_location_lat = payload.lat
+        profile.last_known_location_lng = payload.lng
+        profile.last_location_at = payload.captured_at or now
+
+    equipment = [TowEquipment(e.value) for e in payload.equipment]
+    if equipment:
+        await technician_repo.replace_tow_equipment(
+            db, profile_id=profile.id, equipment=list(dict.fromkeys(equipment))
+        )
+
+    await db.commit()
+    equipment_after = await technician_repo.list_tow_equipment(db, profile.id)
+    return _build_availability_output(profile, equipment_after)
+
+
+@router.get(
+    "/technicians/me/availability",
+    response_model=TowAvailabilityOutput,
+    summary="Çekici canlı uygunluk durumu",
+)
+async def get_tow_availability(
+    tech: TowTechnicianDep,
+    db: DbDep,
+) -> TowAvailabilityOutput:
+    profile = await _get_tow_profile_for_user(db, tech.id)
+    equipment = await technician_repo.list_tow_equipment(db, profile.id)
+    return _build_availability_output(profile, equipment)
+
+
+@router.get(
+    "/technicians/me/dispatches/pending",
+    response_model=TowPendingDispatch | None,
+    summary="Teknisyen için canlı bekleyen dispatch attempt",
+)
+async def get_pending_dispatch(
+    tech: TowTechnicianDep,
+    db: DbDep,
+) -> TowPendingDispatch | None:
+    profile = await _get_tow_profile_for_user(db, tech.id)
+    settings = get_settings()
+    cutoff = datetime.now(UTC) - timedelta(seconds=settings.tow_accept_window_seconds)
+    stmt = (
+        select(TowDispatchAttempt, ServiceCase, TowCase, User)
+        .join(ServiceCase, ServiceCase.id == TowDispatchAttempt.case_id)
+        .join(TowCase, TowCase.case_id == ServiceCase.id)
+        .join(User, User.id == ServiceCase.customer_user_id)
+        .where(
+            and_(
+                TowDispatchAttempt.technician_id == tech.id,
+                TowDispatchAttempt.response == TowDispatchResponse.PENDING,
+                TowDispatchAttempt.sent_at >= cutoff,
+                TowCase.tow_stage == TowDispatchStage.SEARCHING,
+            )
+        )
+        .order_by(TowDispatchAttempt.sent_at.desc())
+        .limit(1)
+    )
+    row = (await db.execute(stmt)).first()
+    if row is None:
+        return None
+    attempt, case, tow_case, customer = row
+    return _build_pending_dispatch(attempt, case, tow_case, customer, profile)
+
+
+@router.get(
+    "/technicians/me/active-case",
+    response_model=TowCaseSnapshot | None,
+    summary="Teknisyenin aktif çekici işi",
+)
+async def get_active_tow_case(
+    tech: TowTechnicianDep,
+    db: DbDep,
+) -> TowCaseSnapshot | None:
+    stmt = (
+        select(ServiceCase)
+        .join(TowCase, TowCase.case_id == ServiceCase.id)
+        .where(
+            and_(
+                ServiceCase.assigned_technician_id == tech.id,
+                ServiceCase.kind == ServiceRequestKind.TOWING,
+                ~TowCase.tow_stage.in_(
+                    [TowDispatchStage.DELIVERED, TowDispatchStage.CANCELLED]
+                ),
+            )
+        )
+        .order_by(ServiceCase.updated_at.desc())
+        .limit(1)
+    )
+    case = (await db.execute(stmt)).scalar_one_or_none()
+    if case is None:
+        return None
+    return await _build_snapshot(db, case)
 
 
 # ─── 1. Fare quote (public-ish, requires auth) ──────────────────────────────
@@ -267,53 +406,7 @@ async def get_case(
     if case is None or case.kind != ServiceRequestKind.TOWING:
         raise HTTPException(status_code=404, detail="tow case not found")
     _ensure_participant(case, user)
-    tow_case = await db.get(TowCase, case.id)
-    if tow_case is None:
-        raise HTTPException(status_code=404, detail="tow subtype not found")
-    settlement = await tow_repo.get_settlement_by_case(db, case.id)
-    from app.schemas.tow import LatLng
-
-    stage_schema = TowDispatchStageSchema(tow_case.tow_stage.value)
-    return TowCaseSnapshot(
-        id=case.id,
-        created_at=case.created_at,
-        updated_at=case.updated_at,
-        mode=TowModeSchema(tow_case.tow_mode.value),
-        stage=stage_schema,
-        stage_label=tow_stage_label(stage_schema),
-        tow_phase=tow_phase(stage_schema),
-        status=case.status.value,
-        parent_case_id=tow_case.parent_case_id,
-        pickup_lat_lng=(
-            LatLng(lat=tow_case.pickup_lat, lng=tow_case.pickup_lng)
-            if tow_case.pickup_lat is not None and tow_case.pickup_lng is not None
-            else None
-        ),
-        pickup_label=tow_case.pickup_address,
-        dropoff_lat_lng=(
-            LatLng(lat=tow_case.dropoff_lat, lng=tow_case.dropoff_lng)
-            if tow_case.dropoff_lat is not None
-            and tow_case.dropoff_lng is not None
-            else None
-        ),
-        dropoff_label=tow_case.dropoff_address,
-        incident_reason=tow_case.incident_reason,
-        required_equipment=tow_case.tow_required_equipment or [],
-        scheduled_at=tow_case.scheduled_at,
-        fare_quote=(
-            TowFareQuote(**tow_case.tow_fare_quote)
-            if tow_case.tow_fare_quote
-            else None
-        ),
-        assigned_technician_id=case.assigned_technician_id,
-        settlement_status=(
-            TowSettlementStatusSchema(settlement.state.value)
-            if settlement
-            else TowSettlementStatusSchema.NONE
-        ),
-        final_amount=settlement.final_amount if settlement else None,
-        cancellation_fee=None,
-    )
+    return await _build_snapshot(db, case)
 
 
 # ─── 4. Tracking (WS fallback polling) ──────────────────────────────────────
@@ -388,6 +481,25 @@ async def respond_dispatch(
     )
     if attempt is None or attempt.case_id != case_id or attempt.technician_id != tech.id:
         raise HTTPException(status_code=404, detail="attempt not found for this technician")
+    if attempt.response != TowDispatchResponse.PENDING:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "type": "dispatch_attempt_already_answered",
+                "response": attempt.response.value,
+            },
+        )
+    expires_at = attempt.sent_at + timedelta(
+        seconds=get_settings().tow_accept_window_seconds
+    )
+    if datetime.now(UTC) > expires_at:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "type": "dispatch_attempt_expired",
+                "expires_at": expires_at.isoformat(),
+            },
+        )
 
     response = (
         TowDispatchResponse.ACCEPTED
@@ -412,6 +524,76 @@ async def respond_dispatch(
         response=TowDispatchResponseSchema(response.value),
         next_stage=next_stage,
     )
+
+
+@router.post(
+    "/cases/{case_id}/stage",
+    response_model=TowCaseSnapshot,
+    summary="Teknisyen çekici stage geçişi",
+)
+async def transition_tow_stage(
+    case_id: UUID,
+    payload: TowStageTransitionInput,
+    tech: TowTechnicianDep,
+    db: DbDep,
+    psp: PspDep,
+) -> TowCaseSnapshot:
+    case = await db.get(ServiceCase, case_id)
+    if (
+        case is None
+        or case.kind != ServiceRequestKind.TOWING
+        or case.assigned_technician_id != tech.id
+    ):
+        raise HTTPException(status_code=404, detail="tow case not assigned")
+    tow_case = await db.get(TowCase, case.id)
+    if tow_case is None:
+        raise HTTPException(status_code=404, detail="tow subtype not found")
+
+    target = TowDispatchStage(payload.stage)
+    await _ensure_stage_prerequisites(db, case.id, target)
+
+    try:
+        await lifecycle_svc.transition_stage(
+            db,
+            case=case,
+            tow_case=tow_case,
+            to_stage=target,
+            actor_user_id=tech.id,
+        )
+    except lifecycle_svc.InvalidStageTransitionError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "type": "invalid_tow_stage_transition",
+                "message": str(exc),
+                "current_stage": tow_case.tow_stage.value,
+                "target_stage": target.value,
+            },
+        ) from exc
+    except lifecycle_svc.EvidenceGateUnmetError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "tow_evidence_required", "missing": exc.missing},
+        ) from exc
+
+    if target == TowDispatchStage.DELIVERED:
+        settlement = await tow_repo.get_settlement_by_case(db, case.id)
+        if settlement is not None and settlement.preauth_id is not None:
+            amount = (
+                settlement.quoted_amount
+                or settlement.cap_amount
+                or Decimal("0")
+            )
+            await payment_svc.capture_final(
+                db,
+                case=case,
+                actual_amount=amount,
+                psp=psp,
+                actor_user_id=tech.id,
+            )
+
+    await db.commit()
+    return await _build_snapshot(db, case)
 
 
 # ─── 6. Location ping ───────────────────────────────────────────────────────
@@ -493,17 +675,33 @@ async def issue_otp(
 async def verify_otp(
     case_id: UUID,
     payload: TowOtpVerifyInput,
-    _user: CurrentUserDep,
+    user: CurrentUserDep,
     db: DbDep,
     redis: RedisDep,
 ) -> dict[str, object]:
-    ok = await evidence_svc.verify_otp(
-        db,
-        redis=redis,
-        case_id=case_id,
-        purpose=TowOtpPurpose(payload.purpose),
-        submitted_code=payload.code,
-    )
+    case = await db.get(ServiceCase, case_id)
+    if case is None or case.kind != ServiceRequestKind.TOWING:
+        raise HTTPException(status_code=404, detail="tow case not found")
+    _ensure_participant(case, user)
+
+    try:
+        ok = await evidence_svc.verify_otp(
+            db,
+            redis=redis,
+            case_id=case_id,
+            purpose=TowOtpPurpose(payload.purpose),
+            submitted_code=payload.code,
+        )
+    except (
+        evidence_svc.OtpExpiredError,
+        evidence_svc.OtpInvalidError,
+        evidence_svc.OtpMaxAttemptsError,
+        evidence_svc.OtpAlreadyVerifiedError,
+    ) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "tow_otp_invalid", "message": str(exc)},
+        ) from exc
     await db.commit()
     return {"verified": ok}
 
@@ -629,8 +827,72 @@ async def add_evidence(
     if case is None:
         raise HTTPException(status_code=404, detail="case not found")
     _ensure_participant(case, user)
-    # V1 delegates to existing case_evidence_items table via Faz 7 evidence service
-    return {"case_id": str(case.id), "kind": kind, "media_asset_id": str(media_asset_id) if media_asset_id else None}
+    if kind not in {
+        "customer_pre_state",
+        "tech_arrival",
+        "tech_loading",
+        "tech_delivery",
+    }:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "invalid_tow_evidence_kind", "kind": kind},
+        )
+    if kind.startswith("tech_") and case.assigned_technician_id != user.id:
+        raise HTTPException(status_code=403, detail="technician evidence requires assignment")
+    if media_asset_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "tow_evidence_media_required", "kind": kind},
+        )
+
+    asset = await db.get(MediaAsset, media_asset_id)
+    if asset is None or asset.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"type": "media_asset_not_found"})
+    if asset.uploaded_by_user_id != user.id:
+        raise HTTPException(status_code=403, detail={"type": "media_asset_not_owned"})
+    if asset.status not in {
+        MediaStatus.PROCESSING,
+        MediaStatus.READY,
+        MediaStatus.UPLOADED,
+    }:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "media_asset_not_ready",
+                "status": asset.status.value,
+            },
+        )
+    if asset.linked_case_id is not None and asset.linked_case_id != case.id:
+        raise HTTPException(
+            status_code=409,
+            detail={"type": "media_asset_already_linked"},
+        )
+    asset.linked_case_id = case.id
+
+    labels = {
+        "customer_pre_state": "Araç ilk durum fotoğrafı",
+        "tech_arrival": "Çekici varış fotoğrafı",
+        "tech_loading": "Yükleme fotoğrafı",
+        "tech_delivery": "Teslim fotoğrafı",
+    }
+    evidence = await case_evidence_svc.add_evidence_to_case(
+        db,
+        case_id=case.id,
+        title=labels[kind],
+        kind=CaseAttachmentKind.PHOTO,
+        actor="technician" if kind.startswith("tech_") else "customer",
+        source_label=f"tow:{kind}",
+        status_label="Yüklendi",
+        media_asset_id=media_asset_id,
+    )
+    await db.commit()
+    return {
+        "id": str(evidence.id),
+        "case_id": str(case.id),
+        "kind": kind,
+        "media_asset_id": str(media_asset_id) if media_asset_id else None,
+        "created_at": evidence.created_at.isoformat() if evidence.created_at else None,
+    }
 
 
 # ─── 13. Scheduled bid submit ───────────────────────────────────────────────
@@ -672,6 +934,165 @@ def _ensure_participant(case: ServiceCase, user: User) -> None:
     is_admin = user.role.value == "admin"
     if not is_participant and not is_admin:
         raise HTTPException(status_code=403, detail="not a case participant")
+
+
+async def _get_tow_profile_for_user(
+    db: AsyncSession, user_id: UUID
+) -> TechnicianProfile:
+    profile = (
+        await db.execute(
+            select(TechnicianProfile).where(TechnicianProfile.user_id == user_id)
+        )
+    ).scalar_one_or_none()
+    if profile is None:
+        raise HTTPException(status_code=404, detail="technician profile not found")
+    return profile
+
+
+def _profile_location(profile: TechnicianProfile) -> LatLng | None:
+    if (
+        profile.last_known_location_lat is None
+        or profile.last_known_location_lng is None
+    ):
+        return None
+    return LatLng(
+        lat=profile.last_known_location_lat,
+        lng=profile.last_known_location_lng,
+    )
+
+
+def _build_availability_output(
+    profile: TechnicianProfile, equipment: list[TowEquipment]
+) -> TowAvailabilityOutput:
+    return TowAvailabilityOutput(
+        available=profile.availability == TechnicianAvailability.AVAILABLE,
+        availability=profile.availability.value,  # type: ignore[arg-type]
+        equipment=[TowEquipmentSchema(e.value) for e in equipment],
+        last_location=_profile_location(profile),
+        last_location_at=profile.last_location_at,
+    )
+
+
+def _build_pending_dispatch(
+    attempt: TowDispatchAttempt,
+    case: ServiceCase,
+    tow_case: TowCase,
+    customer: User,
+    profile: TechnicianProfile,
+) -> TowPendingDispatch:
+    settings = get_settings()
+    quote = tow_case.tow_fare_quote or {}
+    cap_amount = quote.get("cap_amount") or quote.get("locked_price") or "0"
+    equipment = tow_case.tow_required_equipment or []
+    equipment_label = ", ".join(e.value for e in equipment) or "Standart çekici"
+    if tow_case.pickup_lat is None or tow_case.pickup_lng is None:
+        raise HTTPException(
+            status_code=409,
+            detail={"type": "tow_pickup_location_missing"},
+        )
+    return TowPendingDispatch(
+        id=attempt.id,
+        case_id=case.id,
+        attempt_id=attempt.id,
+        customer_name=customer.full_name or "Müşteri",
+        pickup_label=tow_case.pickup_address or "Alınacak konum",
+        pickup_lat_lng=LatLng(lat=tow_case.pickup_lat, lng=tow_case.pickup_lng),
+        dropoff_label=tow_case.dropoff_address,
+        dropoff_lat_lng=(
+            LatLng(lat=tow_case.dropoff_lat, lng=tow_case.dropoff_lng)
+            if tow_case.dropoff_lat is not None and tow_case.dropoff_lng is not None
+            else None
+        ),
+        technician_lat_lng=_profile_location(profile),
+        distance_km=attempt.distance_km or Decimal("0"),
+        eta_minutes=attempt.eta_minutes or 0,
+        price_amount=Decimal(str(cap_amount)),
+        equipment_label=equipment_label,
+        received_at=attempt.sent_at,
+        expires_at=attempt.sent_at
+        + timedelta(seconds=settings.tow_accept_window_seconds),
+    )
+
+
+async def _build_snapshot(db: AsyncSession, case: ServiceCase) -> TowCaseSnapshot:
+    tow_case = await db.get(TowCase, case.id)
+    if tow_case is None:
+        raise HTTPException(status_code=404, detail="tow subtype not found")
+    settlement = await tow_repo.get_settlement_by_case(db, case.id)
+    stage_schema = TowDispatchStageSchema(tow_case.tow_stage.value)
+    return TowCaseSnapshot(
+        id=case.id,
+        created_at=case.created_at,
+        updated_at=case.updated_at,
+        mode=TowModeSchema(tow_case.tow_mode.value),
+        stage=stage_schema,
+        stage_label=tow_stage_label(stage_schema),
+        tow_phase=tow_phase(stage_schema),
+        status=case.status.value,
+        parent_case_id=tow_case.parent_case_id,
+        pickup_lat_lng=(
+            LatLng(lat=tow_case.pickup_lat, lng=tow_case.pickup_lng)
+            if tow_case.pickup_lat is not None and tow_case.pickup_lng is not None
+            else None
+        ),
+        pickup_label=tow_case.pickup_address,
+        dropoff_lat_lng=(
+            LatLng(lat=tow_case.dropoff_lat, lng=tow_case.dropoff_lng)
+            if tow_case.dropoff_lat is not None and tow_case.dropoff_lng is not None
+            else None
+        ),
+        dropoff_label=tow_case.dropoff_address,
+        incident_reason=tow_case.incident_reason,
+        required_equipment=tow_case.tow_required_equipment or [],
+        scheduled_at=tow_case.scheduled_at,
+        fare_quote=(
+            TowFareQuote(**tow_case.tow_fare_quote)
+            if tow_case.tow_fare_quote
+            else None
+        ),
+        assigned_technician_id=case.assigned_technician_id,
+        settlement_status=(
+            TowSettlementStatusSchema(settlement.state.value)
+            if settlement
+            else TowSettlementStatusSchema.NONE
+        ),
+        final_amount=settlement.final_amount if settlement else None,
+        cancellation_fee=None,
+    )
+
+
+async def _ensure_stage_prerequisites(
+    db: AsyncSession, case_id: UUID, target: TowDispatchStage
+) -> None:
+    if target == TowDispatchStage.LOADING:
+        await _ensure_otp_verified(db, case_id, TowOtpPurpose.ARRIVAL)
+    if target == TowDispatchStage.DELIVERED:
+        await _ensure_otp_verified(db, case_id, TowOtpPurpose.DELIVERY)
+
+
+async def _ensure_otp_verified(
+    db: AsyncSession, case_id: UUID, purpose: TowOtpPurpose
+) -> None:
+    stmt = (
+        select(TowOtpEvent.id)
+        .where(
+            and_(
+                TowOtpEvent.case_id == case_id,
+                TowOtpEvent.purpose == purpose,
+                TowOtpEvent.verify_result == TowOtpVerifyResult.SUCCESS,
+            )
+        )
+        .limit(1)
+    )
+    found = (await db.execute(stmt)).scalar_one_or_none()
+    if found is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "tow_otp_required",
+                "purpose": purpose.value,
+            },
+        )
 
 
 async def _insert_tow_subtype_row(

@@ -2,12 +2,7 @@ import { Icon, Text } from "@naro/ui";
 import { Receipt, TrendingUp } from "lucide-react-native";
 import { View } from "react-native";
 
-import { useTowServiceStore } from "@/features/tow";
-
 export function TodayEarningsCard() {
-  const completed_count = useTowServiceStore((s) => s.completed_count);
-  const total_earnings = useTowServiceStore((s) => s.total_earnings);
-
   return (
     <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
       <View className="flex-row items-center gap-2">
@@ -18,11 +13,11 @@ export function TodayEarningsCard() {
       </View>
       <View className="flex-row items-end gap-3">
         <Text variant="h2" tone="accent">
-          ₺{total_earnings.toLocaleString("tr-TR")}
+          ₺0
         </Text>
         <View className="pb-1">
           <Text variant="caption" tone="muted" className="text-app-text-muted">
-            {completed_count} iş
+            canlı veriye bağlanıyor
           </Text>
         </View>
       </View>

@@ -12,41 +12,34 @@ import { MapPin, MapPinned, Truck } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 
-import { useRespondDispatch } from "../api";
-import { useTowServiceStore } from "../store";
+import { usePendingTowDispatch, useRespondDispatch } from "../api";
 
-const COUNTDOWN_SECONDS = 15;
-
-/**
- * P0-5 launch migration (2026-04-23): accept/decline artık canonical
- * backend endpoint'i çağırıyor. Local store `acceptDispatch/declineDispatch`
- * SAMPLE_DISPATCH demo için kaldı (preview mode); launch path canlı.
- */
 export function TowDispatchSheet() {
   const router = useRouter();
-  const incoming = useTowServiceStore((s) => s.incoming_dispatch);
-  const techLocation = useTowServiceStore((s) => s.starting_location);
-  const acceptLocal = useTowServiceStore((s) => s.acceptDispatch);
-  const declineLocal = useTowServiceStore((s) => s.declineDispatch);
+  const pendingDispatch = usePendingTowDispatch(true);
+  const incoming = pendingDispatch.data;
   const respond = useRespondDispatch(incoming?.case_id ?? "");
 
-  const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
+  const [secondsLeft, setSecondsLeft] = useState(0);
 
   useEffect(() => {
     if (!incoming) return;
-    const iv = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(iv);
-          declineLocal();
-          router.back();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const tick = () => {
+      const next = Math.max(
+        0,
+        Math.ceil(
+          (new Date(incoming.expires_at).getTime() - Date.now()) / 1000,
+        ),
+      );
+      setSecondsLeft(next);
+      if (next <= 0) {
+        router.back();
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 500);
     return () => clearInterval(iv);
-  }, [incoming, declineLocal, router]);
+  }, [incoming, router]);
 
   if (!incoming) {
     return (
@@ -73,9 +66,6 @@ export function TowDispatchSheet() {
         attempt_id: incoming.attempt_id,
         response: "accepted",
       });
-      // Local store aktif job UI state için (iter 2'de active job ekranı
-      // canonical useTowCaseSnapshot'a geçince bu çağrı sökülür).
-      acceptLocal();
       router.replace(`/cekici/${incoming.case_id}`);
     } catch {
       // 409/404 dispatch attempt expire ya da race; kullanıcı mesaj
@@ -94,9 +84,10 @@ export function TowDispatchSheet() {
         // Backend decline kayıt edemese bile local store cleanup devam eder.
       }
     }
-    declineLocal();
     router.back();
   };
+
+  const techLocation = incoming.technician_lat_lng;
 
   return (
     <Screen backgroundClassName="bg-app-bg" padded={false} className="flex-1">
@@ -118,9 +109,13 @@ export function TowDispatchSheet() {
           height={160}
           pins={[
             { coord: incoming.pickup_lat_lng, kind: "pickup", label: "Alım" },
-            { coord: techLocation, kind: "self", label: "Sen" },
+            ...(techLocation
+              ? [{ coord: techLocation, kind: "self" as const, label: "Sen" }]
+              : []),
           ]}
-          routeCoords={[techLocation, incoming.pickup_lat_lng]}
+          routeCoords={
+            techLocation ? [techLocation, incoming.pickup_lat_lng] : undefined
+          }
           bottomCaption={
             <Text
               variant="caption"

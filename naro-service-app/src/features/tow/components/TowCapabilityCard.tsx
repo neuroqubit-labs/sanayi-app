@@ -11,8 +11,9 @@ import { Switch, View } from "react-native";
 
 import { useTechnicianProfileStore } from "@/features/technicians";
 
+import { useActiveTowCase, usePendingTowDispatch } from "../api";
 import { resolveTowCapability } from "../capability";
-import { useTowServiceStore } from "../store";
+import { useTowAvailabilityController } from "../useTowAvailabilityController";
 
 export function TowCapabilityCard() {
   const router = useRouter();
@@ -26,11 +27,12 @@ export function TowCapabilityCard() {
     secondary_provider_types,
     certificates,
   });
-  const isActive = useTowServiceStore((s) => s.is_active);
-  const activate = useTowServiceStore((s) => s.activate);
-  const deactivate = useTowServiceStore((s) => s.deactivate);
-  const activeJob = useTowServiceStore((s) => s.active_job);
-  const incoming = useTowServiceStore((s) => s.incoming_dispatch);
+  const towAvailability = useTowAvailabilityController(capability.can_show_ui);
+  const isActive = towAvailability.isOnline;
+  const activeCase = useActiveTowCase(capability.can_activate);
+  const activeJob = activeCase.data;
+  const incomingQuery = usePendingTowDispatch(capability.can_activate);
+  const incoming = incomingQuery.data;
 
   if (!capability.can_show_ui) {
     return null;
@@ -82,10 +84,10 @@ export function TowCapabilityCard() {
           </Text>
         </View>
         <Text variant="label" tone="inverse">
-          {activeJob.customer_name} · {activeJob.vehicle_plate}
+          {activeJob.stage_label}
         </Text>
         <Text variant="caption" tone="muted" className="text-app-text-muted text-[12px]">
-          {activeJob.pickup_label}
+          {activeJob.pickup_label ?? "Alınacak konum"}
         </Text>
         <Button
           label="İşi aç"
@@ -128,7 +130,12 @@ export function TowCapabilityCard() {
         </View>
         <Switch
           value={isActive}
-          onValueChange={(next) => (next ? activate() : deactivate())}
+          disabled={towAvailability.isPending}
+          onValueChange={(next) => {
+            void (next
+              ? towAvailability.setOnline()
+              : towAvailability.setOffline());
+          }}
           thumbColor="#ffffff"
           trackColor={{ false: "#1d243d", true: "#0ea5e9" }}
         />
@@ -152,10 +159,6 @@ export function TowCapabilityCard() {
           ? "Yakındaki acil çekici çağrıları sana düşer. Yeni dispatch geldiğinde 15 sn içinde kabul ekranı açılır."
           : "Sertifikan onaylı. Açık olduğunda acil çekici çağrılarını alırsın; kapattığında yeni dispatch gelmez, mevcut işler devam eder."}
       </Text>
-      {/* P0-5 launch fix (2026-04-23): "Demo: test dispatch gönder"
-          butonu kaldırıldı. İncoming dispatch canonical flow ile gelir
-          (push notif / realtime). simulateIncomingDispatch artık sadece
-          test fixture — prod UI'da yok. */}
     </View>
   );
 }

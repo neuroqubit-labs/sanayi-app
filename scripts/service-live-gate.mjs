@@ -18,11 +18,22 @@ const ACTIVE_SERVICE_FILES = [
   "naro-service-app/src/features/home/screens/HomeScreen.tsx",
   "naro-service-app/src/features/home/components/HomeHeroCard.tsx",
   "naro-service-app/src/features/home/components/ActiveJobsCountCard.tsx",
+  "naro-service-app/src/features/home/components/ActiveTowJobHero.tsx",
+  "naro-service-app/src/features/home/components/AvailabilityToggleCard.tsx",
   "naro-service-app/src/features/home/components/DamagePoolCard.tsx",
   "naro-service-app/src/features/search/screens/SearchScreen.tsx",
   "naro-service-app/src/features/appointments/screens/AppointmentRequestDetailScreen.tsx",
   "naro-service-app/src/features/insurance-claim/components/HasarSourceSheet.tsx",
   "naro-service-app/src/features/insurance-claim/screens/InsuranceClaimComposerScreen.tsx",
+  "naro-service-app/src/features/tow/api.ts",
+  "naro-service-app/src/features/tow/index.ts",
+  "naro-service-app/src/features/tow/useDispatchTakeover.ts",
+  "naro-service-app/src/features/tow/components/TowCapabilityCard.tsx",
+  "naro-service-app/src/features/tow/hooks/useTechTowBroadcaster.ts",
+  "naro-service-app/src/features/tow/screens/TowDispatchSheet.tsx",
+  "naro-service-app/src/features/tow/screens/TowActiveJobScreenLive.tsx",
+  "naro-service-app/app/(modal)/cekici-dispatch.tsx",
+  "naro-service-app/app/cekici/[id].tsx",
 ];
 
 const FORBIDDEN_PATTERNS = [
@@ -36,6 +47,8 @@ const FORBIDDEN_PATTERNS = [
     pattern: /api\.case-live/g,
   },
   { label: "mock jobs store", pattern: /\buseJobsStore\b/g },
+  { label: "mock tow store", pattern: /\buseTowServiceStore\b/g },
+  { label: "mock tow dispatch simulator", pattern: /\bsimulateIncomingDispatch\b/g },
   { label: "mock delay", pattern: /\bmockDelay\b/g },
   { label: "fixture technician id", pattern: /\bPRIMARY_TECHNICIAN_ID\b/g },
 ];

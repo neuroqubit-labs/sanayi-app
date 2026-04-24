@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 
 import { useShellConfig } from "@/features/shell";
 
-import { useTowServiceStore } from "./store";
+import { usePendingTowDispatch } from "./api";
 
 const DISPATCH_ROUTE = "/cekici-dispatch";
 
@@ -11,7 +11,8 @@ export function useDispatchTakeover() {
   const shellConfig = useShellConfig();
   const hasTowCapability = shellConfig.enabled_capabilities.includes("tow");
 
-  const incoming = useTowServiceStore((s) => s.incoming_dispatch);
+  const pendingDispatch = usePendingTowDispatch(hasTowCapability);
+  const incoming = pendingDispatch.data;
   const router = useRouter();
   const pathname = usePathname();
   const lastPushedIdRef = useRef<string | null>(null);

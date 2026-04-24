@@ -3,11 +3,14 @@ import { useRouter } from "expo-router";
 import { ArrowUpRight, MapPin, Truck } from "lucide-react-native";
 import { View } from "react-native";
 
-import { useTowServiceStore } from "@/features/tow";
+import { useShellConfig } from "@/features/shell";
+import { useActiveTowCase } from "@/features/tow/api";
 
 export function ActiveTowJobHero() {
   const router = useRouter();
-  const activeJob = useTowServiceStore((s) => s.active_job);
+  const shellConfig = useShellConfig();
+  const hasTow = shellConfig.enabled_capabilities.includes("tow");
+  const activeJob = useActiveTowCase(hasTow).data;
 
   if (!activeJob) return null;
 
@@ -20,12 +23,12 @@ export function ActiveTowJobHero() {
         </Text>
         <View className="flex-1" />
         <StatusChip
-          label={activeJob.eta_minutes > 0 ? `${activeJob.eta_minutes} dk` : "Konumda"}
+          label={activeJob.stage_label}
           tone="accent"
         />
       </View>
       <Text variant="h3" tone="inverse">
-        {activeJob.customer_name} · {activeJob.vehicle_plate}
+        {activeJob.stage_label}
       </Text>
       <View className="flex-row items-start gap-2.5">
         <Icon icon={MapPin} size={14} color="#2dd28d" />
@@ -34,7 +37,7 @@ export function ActiveTowJobHero() {
           tone="muted"
           className="flex-1 text-app-text-muted text-[13px] leading-[18px]"
         >
-          {activeJob.pickup_label}
+          {activeJob.pickup_label ?? "Alınacak konum"}
         </Text>
       </View>
       <Button

@@ -40,7 +40,7 @@ import {
 } from "react-native";
 
 import { useTechTowBroadcaster } from "../hooks/useTechTowBroadcaster";
-import { type TowActiveJob, useTowServiceStore } from "../store";
+import { type TowActiveJob, useTowServiceStore } from "../store.mock";
 
 const STAGE_LABELS: Record<TowDispatchStage, string> = {
   accepted: "Kabul edildi",

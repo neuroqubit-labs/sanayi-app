@@ -214,6 +214,8 @@ export function getTrackingTechnicianName(
 }
 
 const DRAFT_DEFAULT_TAIL = {
+  location_lat_lng: null,
+  dropoff_lat_lng: null,
   counterparty_vehicle_count: null,
   report_method: null,
   kasko_selected: false,

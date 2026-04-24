@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { MediaAssetSchema } from "./media";
+import { LatLngSchema } from "./technician";
 import {
   TowIncidentReasonSchema,
   TowServiceModeSchema,
@@ -277,7 +278,9 @@ export const ServiceRequestDraftSchema = z.object({
   urgency: ServiceRequestUrgencySchema,
   summary: z.string(),
   location_label: z.string(),
+  location_lat_lng: LatLngSchema.nullable().optional(),
   dropoff_label: z.string().optional(),
+  dropoff_lat_lng: LatLngSchema.nullable().optional(),
   notes: z.string().optional(),
   attachments: z.array(CaseAttachmentSchema).default([]),
   symptoms: z.array(z.string()).default([]),

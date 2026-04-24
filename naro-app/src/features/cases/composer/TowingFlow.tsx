@@ -114,6 +114,8 @@ function LocationsStep({ draft, updateDraft }: ComposerStepRenderProps) {
       <LocationPicker
         value={draft.location_label}
         onChange={(next) => updateDraft({ location_label: next })}
+        coord={draft.location_lat_lng ?? null}
+        onCoordChange={(next) => updateDraft({ location_lat_lng: next })}
         description="Alınacak konum — şu an nereden?"
         mapPurpose="pickup"
       />
@@ -123,6 +125,8 @@ function LocationsStep({ draft, updateDraft }: ComposerStepRenderProps) {
         onChange={(next) =>
           updateDraft({ dropoff_label: next.length === 0 ? undefined : next })
         }
+        coord={draft.dropoff_lat_lng ?? null}
+        onCoordChange={(next) => updateDraft({ dropoff_lat_lng: next })}
         description="Teslim noktası — servis, ev ya da güvenli bırakma alanı"
         mapPurpose="dropoff"
       />
@@ -622,10 +626,10 @@ function AccordionRow({
 export const TOWING_FLOW: ComposerFlow = {
   kind: "towing",
   eyebrow: "",
-  title: "Çekici talebi",
+  title: "Çekici çağır",
   description: "",
   progressVariant: "bar-thin",
-  submitLabel: "Çekici talebimi gönder",
+  submitLabel: "Çekiciyi çağır",
   steps: [
     {
       key: "location",
@@ -635,8 +639,14 @@ export const TOWING_FLOW: ComposerFlow = {
         if (draft.location_label.trim().length < 3) {
           return "Alınacak konumu gir.";
         }
+        if (!draft.location_lat_lng) {
+          return "Alınacak konumu haritadan seç.";
+        }
         if ((draft.dropoff_label ?? "").trim().length < 3) {
           return "Teslim noktasını gir.";
+        }
+        if (!draft.dropoff_lat_lng) {
+          return "Teslim noktasını haritadan seç.";
         }
         return null;
       },

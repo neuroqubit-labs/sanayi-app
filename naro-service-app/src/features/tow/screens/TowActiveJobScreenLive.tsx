@@ -24,11 +24,14 @@ import {
   View,
 } from "react-native";
 
+import { useServiceMediaUpload } from "@/shared/media/useServiceMediaUpload";
+
 import {
   useIssueTowOtp,
   useRegisterTowEvidence,
   useTowCaseSnapshotTech,
   useTowTrackingTech,
+  useTransitionTowStage,
   useVerifyTowOtpTech,
 } from "../api";
 import { useTechTowBroadcaster } from "../hooks/useTechTowBroadcaster";
@@ -36,6 +39,7 @@ import type {
   TowCaseSnapshot,
   TowDispatchStage,
   TowEvidenceKind,
+  TowStageTransitionInput,
 } from "../schemas";
 
 const STAGE_LABELS: Record<TowDispatchStage, string> = {
@@ -101,9 +105,8 @@ const ACTIVE_BROADCAST_STAGES: TowDispatchStage[] = [
  * - POST /tow/cases/{id}/otp/verify (customer recipient'ten gelen kod)
  * - POST /tow/cases/{id}/evidence?kind=... (evidence register)
  *
- * Stage transitions BE tarafında otomatik (location proximity + OTP
- * verify). Teknisyen screen sadece event trigger (OTP issue, evidence
- * register) + durum izleme.
+ * Stage transitions teknisyen aksiyonlarıyla backend'e gider. Backend OTP,
+ * evidence ve valid transition gate'lerini canonical olarak tutar.
  *
  * Legacy TowActiveJobScreen (store-backed 750 satır) preview/V1.1 için
  * feature/tow/screens altında kalıyor.
@@ -291,17 +294,98 @@ export function TowActiveJobScreenLive() {
         </View>
       </ScrollView>
 
-      {isTerminal ? (
-        <View className="absolute inset-x-0 bottom-0 border-t border-app-outline bg-app-bg px-5 pb-8 pt-4">
-          <Button
-            label="Ana sayfaya dön"
-            size="lg"
-            fullWidth
-            onPress={() => router.replace("/(tabs)")}
-          />
-        </View>
-      ) : null}
+      <StageActionFooter
+        caseId={caseId}
+        snapshot={snapshot}
+        onHome={() => router.replace("/(tabs)")}
+      />
     </Screen>
+  );
+}
+
+const NEXT_STAGE_ACTIONS: Partial<
+  Record<
+    TowDispatchStage,
+    { stage: TowStageTransitionInput["stage"]; label: string; hint: string }
+  >
+> = {
+  accepted: {
+    stage: "en_route",
+    label: "Yola çıktım",
+    hint: "Konum paylaşımı başlar; müşteri çekicinin yolda olduğunu görür.",
+  },
+  en_route: {
+    stage: "arrived",
+    label: "Konuma vardım",
+    hint: "Varış kodu ve varış fotoğrafı sonraki adımı açar.",
+  },
+  nearby: {
+    stage: "arrived",
+    label: "Konuma vardım",
+    hint: "Varış kodu ve varış fotoğrafı sonraki adımı açar.",
+  },
+  arrived: {
+    stage: "loading",
+    label: "Yüklemeye başla",
+    hint: "Varış kodu ve fotoğraf olmadan backend izin vermez.",
+  },
+  loading: {
+    stage: "in_transit",
+    label: "Teslim yoluna çıktım",
+    hint: "Yükleme fotoğrafı sonrası araç varış noktasına taşınır.",
+  },
+  in_transit: {
+    stage: "delivered",
+    label: "Teslim ettim",
+    hint: "Teslim kodu ve teslim fotoğrafı sonrası ödeme kapatılır.",
+  },
+};
+
+function StageActionFooter({
+  caseId,
+  snapshot,
+  onHome,
+}: {
+  caseId: string;
+  snapshot: TowCaseSnapshot;
+  onHome: () => void;
+}) {
+  const transition = useTransitionTowStage(caseId);
+  const action = NEXT_STAGE_ACTIONS[snapshot.stage];
+  const isTerminal =
+    snapshot.stage === "delivered" || snapshot.stage === "cancelled";
+
+  if (isTerminal) {
+    return (
+      <View className="absolute inset-x-0 bottom-0 border-t border-app-outline bg-app-bg px-5 pb-8 pt-4">
+        <Button label="Ana sayfaya dön" size="lg" fullWidth onPress={onHome} />
+      </View>
+    );
+  }
+
+  if (!action) return null;
+
+  return (
+    <View className="absolute inset-x-0 bottom-0 gap-2 border-t border-app-outline bg-app-bg px-5 pb-8 pt-4">
+      <Text variant="caption" tone="muted" className="text-app-text-muted text-[11px]">
+        {action.hint}
+      </Text>
+      <Button
+        label={transition.isPending ? "Güncelleniyor..." : action.label}
+        size="lg"
+        fullWidth
+        disabled={transition.isPending}
+        loading={transition.isPending}
+        onPress={() => {
+          void transition.mutateAsync({ stage: action.stage });
+        }}
+      />
+      {transition.isError ? (
+        <Text variant="caption" tone="critical" className="text-[12px]">
+          Bu adım için kod veya fotoğraf eksik olabilir.
+        </Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -435,15 +519,28 @@ function EvidenceRow({
   };
 }) {
   const register = useRegisterTowEvidence(caseId);
+  const media = useServiceMediaUpload();
   const [done, setDone] = useState(false);
 
-  // V1 scope: media upload flow ayrı (useJobEvidenceUploader mevcut ama
-  // tow-specific variant ileri iterasyonda). Şimdilik endpoint'i media
-  // asset olmadan "intent" olarak çağrıyoruz — BE stub kabul eder
-  // (evidence kaydı oluşur, photo_url backend tarafında sonradan eklenir).
   const handleRegister = async () => {
     try {
-      await register.mutateAsync({ kind: step.kind, media_asset_id: null });
+      const uploaded = await media.pickAndUpload({
+        purpose:
+          step.kind === "tech_delivery"
+            ? "tow_delivery_photo"
+            : step.kind === "tech_loading"
+              ? "tow_loading_photo"
+              : "tow_arrival_photo",
+        ownerKind: "service_case",
+        ownerRef: caseId,
+        selection: "photo",
+        fallbackName: `${step.kind}-${Date.now()}.jpg`,
+      });
+      if (!uploaded) return;
+      await register.mutateAsync({
+        kind: step.kind,
+        media_asset_id: uploaded.asset.id,
+      });
       setDone(true);
     } catch {
       // Sessiz — UI'da istemesi ister yine basabilir.
@@ -454,7 +551,7 @@ function EvidenceRow({
     <Pressable
       accessibilityRole="button"
       onPress={done ? undefined : handleRegister}
-      disabled={done || register.isPending}
+      disabled={done || register.isPending || media.isUploading}
       className={[
         "flex-row items-center gap-3 rounded-[16px] border px-3.5 py-3",
         done
@@ -482,7 +579,9 @@ function EvidenceRow({
           {done ? "Kayıt tamam" : step.description}
         </Text>
       </View>
-      {register.isPending ? <ActivityIndicator size="small" color="#83a7ff" /> : null}
+      {register.isPending || media.isUploading ? (
+        <ActivityIndicator size="small" color="#83a7ff" />
+      ) : null}
     </Pressable>
   );
 }

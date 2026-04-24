@@ -3,7 +3,8 @@ import { CheckCircle2, Power } from "lucide-react-native";
 import { Switch, View } from "react-native";
 
 import { useTechnicianProfileStore } from "@/features/technicians";
-import { resolveTowCapability, useTowServiceStore } from "@/features/tow";
+import { resolveTowCapability } from "@/features/tow";
+import { useTowAvailabilityController } from "@/features/tow/useTowAvailabilityController";
 
 export function AvailabilityToggleCard() {
   const provider_type = useTechnicianProfileStore((s) => s.provider_type);
@@ -16,10 +17,9 @@ export function AvailabilityToggleCard() {
     secondary_provider_types,
     certificates,
   });
-  const isActive = useTowServiceStore((s) => s.is_active);
-  const activate = useTowServiceStore((s) => s.activate);
-  const deactivate = useTowServiceStore((s) => s.deactivate);
   const canToggle = capability.can_activate;
+  const towAvailability = useTowAvailabilityController(capability.can_show_ui);
+  const isActive = towAvailability.isOnline;
 
   return (
     <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
@@ -36,8 +36,12 @@ export function AvailabilityToggleCard() {
         </View>
         <Switch
           value={isActive}
-          disabled={!canToggle}
-          onValueChange={(next) => (next ? activate() : deactivate())}
+          disabled={!canToggle || towAvailability.isPending}
+          onValueChange={(next) => {
+            void (next
+              ? towAvailability.setOnline()
+              : towAvailability.setOffline());
+          }}
           thumbColor="#ffffff"
           trackColor={{ false: "#1d243d", true: "#0ea5e9" }}
         />

@@ -78,6 +78,10 @@ export const TowOtpVerifyInputSchema = z.object({
   code: z.string().min(4).max(8),
 });
 export type TowOtpVerifyInput = z.infer<typeof TowOtpVerifyInputSchema>;
+export const TowOtpVerifyOutputSchema = z.object({
+  verified: z.boolean(),
+});
+export type TowOtpVerifyOutput = z.infer<typeof TowOtpVerifyOutputSchema>;
 
 // ─── Response payloads ─────────────────────────────────────────────────────
 
@@ -91,9 +95,9 @@ export type TowDispatchResponseOutput = z.infer<
 >;
 
 export const TowOtpChallengeSchema = z.object({
-  purpose: z.enum(["arrival", "delivery"]),
+  otp_id: z.string().uuid().optional(),
+  code: z.string().optional(),
   expires_at: z.string(),
-  delivered_to: z.string().nullable().optional(),
 });
 export type TowOtpChallenge = z.infer<typeof TowOtpChallengeSchema>;
 
@@ -152,7 +156,10 @@ export const TowCaseSnapshotSchema = z.object({
   updated_at: z.string(),
   mode: TowModeSchema,
   stage: TowDispatchStageSchema,
+  stage_label: z.string(),
+  tow_phase: z.string(),
   status: z.string(),
+  parent_case_id: z.string().uuid().nullable().optional(),
   pickup_lat_lng: LatLngSchema.nullable(),
   pickup_label: z.string().nullable(),
   dropoff_lat_lng: LatLngSchema.nullable(),
@@ -178,3 +185,45 @@ export const TowTrackingSnapshotSchema = z.object({
   updated_at: z.string(),
 });
 export type TowTrackingSnapshot = z.infer<typeof TowTrackingSnapshotSchema>;
+
+export const TowAvailabilityInputSchema = z.object({
+  available: z.boolean(),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
+  captured_at: z.string().nullable().optional(),
+  equipment: z.array(TowEquipmentSchema).default([]),
+});
+export type TowAvailabilityInput = z.infer<typeof TowAvailabilityInputSchema>;
+
+export const TowAvailabilityOutputSchema = z.object({
+  available: z.boolean(),
+  availability: z.enum(["available", "offline", "busy"]),
+  equipment: z.array(TowEquipmentSchema).default([]),
+  last_location: LatLngSchema.nullable(),
+  last_location_at: z.string().nullable(),
+});
+export type TowAvailabilityOutput = z.infer<typeof TowAvailabilityOutputSchema>;
+
+export const TowPendingDispatchSchema = z.object({
+  id: z.string().uuid(),
+  case_id: z.string().uuid(),
+  attempt_id: z.string().uuid(),
+  customer_name: z.string(),
+  pickup_label: z.string(),
+  pickup_lat_lng: LatLngSchema,
+  dropoff_label: z.string().nullable(),
+  dropoff_lat_lng: LatLngSchema.nullable(),
+  technician_lat_lng: LatLngSchema.nullable(),
+  distance_km: z.union([z.string(), z.number()]).transform((value) => Number(value)),
+  eta_minutes: z.number().int(),
+  price_amount: z.union([z.string(), z.number()]).transform((value) => Number(value)),
+  equipment_label: z.string(),
+  received_at: z.string(),
+  expires_at: z.string(),
+});
+export type TowPendingDispatch = z.infer<typeof TowPendingDispatchSchema>;
+
+export const TowStageTransitionInputSchema = z.object({
+  stage: z.enum(["en_route", "nearby", "arrived", "loading", "in_transit", "delivered"]),
+});
+export type TowStageTransitionInput = z.infer<typeof TowStageTransitionInputSchema>;

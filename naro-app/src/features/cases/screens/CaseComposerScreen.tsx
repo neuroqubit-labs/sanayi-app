@@ -17,7 +17,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getMissingRequiredAttachmentCategories } from "@/features/cases/caseCreationContract";
 import { useTechnicianCooldownStore } from "@/features/cases/cooldown-store";
-import { TOW_DEFAULT_PICKUP } from "@/features/tow";
 import { useTowFareQuote } from "@/features/tow/api";
 import { useTechnicianProfile } from "@/features/ustalar/api";
 import {
@@ -258,7 +257,9 @@ export function CaseComposerScreen() {
     if (kind === "towing") {
       const isImmediate = draft.urgency === "urgent";
       const mode = isImmediate ? ("immediate" as const) : ("scheduled" as const);
-      const pickupLatLng = TOW_DEFAULT_PICKUP.lat_lng;
+      if (!draft.location_lat_lng || !draft.dropoff_lat_lng) return;
+      const pickupLatLng = draft.location_lat_lng;
+      const dropoffLatLng = draft.dropoff_lat_lng;
       const equipment: TowVehicleEquipment[] =
         draft.tow_required_equipment.length > 0
           ? draft.tow_required_equipment
@@ -271,7 +272,7 @@ export function CaseComposerScreen() {
         const quote = await towFareQuote.mutateAsync({
           mode,
           pickup_lat_lng: pickupLatLng,
-          dropoff_lat_lng: null,
+          dropoff_lat_lng: dropoffLatLng,
           required_equipment: equipment,
           urgency_bump: isImmediate,
         });
@@ -279,6 +280,7 @@ export function CaseComposerScreen() {
           towing: {
             mode,
             pickupLatLng,
+            dropoffLatLng,
             requiredEquipment: [...equipment],
             incidentReason:
               draft.tow_incident_reason ??
@@ -321,7 +323,9 @@ export function CaseComposerScreen() {
       backVariant={compactShell || stepIndex === 0 ? "close" : "back"}
       compact={compactShell}
       trailingAction={
-        compactShell ? <DraftSaveAction onPress={handleClose} /> : undefined
+        compactShell && kind !== "towing" ? (
+          <DraftSaveAction onPress={handleClose} />
+        ) : undefined
       }
       progress={
         flow.steps.length <= 1 ? undefined : (

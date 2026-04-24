@@ -544,9 +544,11 @@ function buildRequestFromDetail(detail: CaseDetailResponse): ServiceRequestDraft
     urgency: (detail.urgency as ServiceRequestDraft["urgency"]) ?? "planned",
     summary: detail.summary ?? detail.title,
     location_label: detail.location_label ?? "",
+    location_lat_lng: null,
     dropoff_label:
       (subtype.dropoff_address as string | undefined) ??
       (subtype.dropoff_label as string | undefined),
+    dropoff_lat_lng: null,
     notes: detail.customer_notes ?? undefined,
     attachments: [],
     symptoms: parseSymptoms(subtype.symptoms),
@@ -600,6 +602,16 @@ function buildRequestFromDetail(detail: CaseDetailResponse): ServiceRequestDraft
       null,
     maintenance_tier:
       (subtype.maintenance_tier as string | undefined) ?? undefined,
+    tow_mode: (subtype.tow_mode as ServiceRequestDraft["tow_mode"]) ?? null,
+    tow_required_equipment:
+      (subtype.tow_required_equipment as ServiceRequestDraft["tow_required_equipment"]) ??
+      [],
+    tow_incident_reason:
+      (subtype.incident_reason as ServiceRequestDraft["tow_incident_reason"]) ??
+      null,
+    tow_scheduled_at: (subtype.scheduled_at as string | null | undefined) ?? null,
+    tow_parent_case_id:
+      (subtype.parent_case_id as string | null | undefined) ?? null,
   };
 }
 
