@@ -18,6 +18,11 @@ export type StackedActionsProps = {
   children?: ReactNode;
   className?: string;
   floating?: boolean;
+  /**
+   * Floating olduğunda üst border'ı kaldır — içeriğe "entegre" sticky CTA.
+   * Default false (geri uyumlu, mevcut composer'lar etkilenmez).
+   */
+  integrated?: boolean;
 };
 
 export function StackedActions({
@@ -33,12 +38,19 @@ export function StackedActions({
   children,
   className,
   floating = true,
+  integrated = false,
 }: StackedActionsProps) {
+  const floatingClasses = floating
+    ? integrated
+      ? "bg-app-bg px-6 pb-5 pt-4"
+      : "border-t border-app-outline bg-app-bg px-6 pb-5 pt-4"
+    : "";
+
   return (
     <View
       className={[
         "gap-3",
-        floating ? "border-t border-app-outline bg-app-bg px-6 pb-5 pt-4" : "",
+        floatingClasses,
         className ?? "",
       ]
         .filter(Boolean)

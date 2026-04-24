@@ -15,6 +15,25 @@ export const VehicleFuelTypeSchema = z.enum([
 ]);
 export type VehicleFuelType = z.infer<typeof VehicleFuelTypeSchema>;
 
+export const VehicleKindSchema = z.enum([
+  "otomobil",
+  "suv",
+  "motosiklet",
+  "kamyonet",
+  "hafif_ticari",
+  "karavan",
+  "klasik",
+  "ticari",
+]);
+export type VehicleKind = z.infer<typeof VehicleKindSchema>;
+
+export const VehicleTransmissionSchema = z.enum([
+  "manuel",
+  "otomatik",
+  "yari_otomatik",
+]);
+export type VehicleTransmission = z.infer<typeof VehicleTransmissionSchema>;
+
 /**
  * BE canonical — DB CHECK constraint ile enforce edilir (owner/driver/family).
  * Parity audit P0-3 (2026-04-23): FE önceki `partner` + `observer` değerleri
@@ -27,11 +46,16 @@ export type UserVehicleRole = z.infer<typeof UserVehicleRoleSchema>;
 
 export const VehicleCreatePayloadSchema = z.object({
   plate: z.string().min(1).max(32),
+  vehicle_kind: VehicleKindSchema,
   make: z.string().max(64).nullable().optional(),
   model: z.string().max(128).nullable().optional(),
   year: z.number().int().min(1900).max(2100).nullable().optional(),
   color: z.string().max(64).nullable().optional(),
   fuel_type: VehicleFuelTypeSchema.nullable().optional(),
+  transmission: VehicleTransmissionSchema.nullable().optional(),
+  chassis_no: z.string().max(32).nullable().optional(),
+  engine_no: z.string().max(32).nullable().optional(),
+  photo_url: z.string().max(500).nullable().optional(),
   vin: z.string().max(32).nullable().optional(),
   current_km: z.number().int().min(0).nullable().optional(),
   note: z.string().max(500).nullable().optional(),
@@ -57,11 +81,16 @@ export const VehicleResponseSchema = z.object({
   id: z.string().uuid(),
   plate: z.string(),
   plate_normalized: z.string(),
+  vehicle_kind: VehicleKindSchema.nullable(),
   make: z.string().nullable(),
   model: z.string().nullable(),
   year: z.number().int().nullable(),
   color: z.string().nullable(),
   fuel_type: VehicleFuelTypeSchema.nullable(),
+  transmission: VehicleTransmissionSchema.nullable(),
+  chassis_no: z.string().nullable(),
+  engine_no: z.string().nullable(),
+  photo_url: z.string().nullable(),
   vin: z.string().nullable(),
   current_km: z.number().int().nullable(),
   note: z.string().nullable(),

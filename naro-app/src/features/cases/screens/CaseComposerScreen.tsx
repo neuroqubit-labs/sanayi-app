@@ -208,7 +208,7 @@ export function CaseComposerScreen() {
               label="Aracımı ekle"
               variant="primary"
               leftIcon={<Icon icon={Plus} size={16} color="#ffffff" />}
-              onPress={() => router.replace("/(modal)/arac-ekle" as Href)}
+              onPress={() => router.push("/arac/yeni" as Href)}
             />
             <Button
               label="Geri dön"

@@ -28,6 +28,25 @@ class VehicleFuelType(StrEnum):
     OTHER = "other"
 
 
+class VehicleKind(StrEnum):
+    """Araç türü — matching motoru için kritik (eşleşme filtresi V1.1)."""
+
+    OTOMOBIL = "otomobil"
+    SUV = "suv"
+    MOTOSIKLET = "motosiklet"
+    KAMYONET = "kamyonet"
+    HAFIF_TICARI = "hafif_ticari"
+    KARAVAN = "karavan"
+    KLASIK = "klasik"
+    TICARI = "ticari"
+
+
+class VehicleTransmission(StrEnum):
+    MANUEL = "manuel"
+    OTOMATIK = "otomatik"
+    YARI_OTOMATIK = "yari_otomatik"
+
+
 class UserVehicleRole(StrEnum):
     """App-level; DB'de CHECK constraint ile enforce."""
 
@@ -51,6 +70,20 @@ class Vehicle(UUIDPkMixin, TimestampMixin, Base):
         pg_enum(VehicleFuelType, name="vehicle_fuel_type"),
         nullable=True,
     )
+    # Araç türü — UI Adım 1 zorunlu; DB nullable (eski kayıtlar için backfill)
+    vehicle_kind: Mapped[VehicleKind | None] = mapped_column(
+        pg_enum(VehicleKind, name="vehicle_kind"),
+        nullable=True,
+    )
+    transmission: Mapped[VehicleTransmission | None] = mapped_column(
+        pg_enum(VehicleTransmission, name="vehicle_transmission"),
+        nullable=True,
+    )
+    chassis_no: Mapped[str | None] = mapped_column(String(32))
+    engine_no: Mapped[str | None] = mapped_column(String(32))
+    # Görsel — media_assets.download_url cached kopyası (pilot basitlik).
+    # TB-4: V1.1'de media_asset FK + lifecycle tracking.
+    photo_url: Mapped[str | None] = mapped_column(String(500))
     vin: Mapped[str | None] = mapped_column(String(32))
     current_km: Mapped[int | None] = mapped_column(Integer)
     note: Mapped[str | None] = mapped_column(String(500))

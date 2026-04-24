@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  VehicleKindSchema,
+  VehicleTransmissionSchema,
+  VehicleFuelTypeSchema,
+} from "./schema";
+
 export const VehicleMemoryEventKindSchema = z.enum([
   "maintenance",
   "repair",
@@ -44,14 +50,17 @@ export type VehicleMaintenanceReminder = z.infer<
 export const VehicleSchema = z.object({
   id: z.string(),
   plate: z.string(),
+  photoUri: z.string().optional(),
   tabThumbnailUri: z.string().optional(),
+  vehicleKind: VehicleKindSchema.optional(),
   make: z.string(),
   model: z.string(),
   year: z.number().int(),
   color: z.string().optional(),
-  fuel: z.string().optional(),
-  transmission: z.string().optional(),
-  engine: z.string().optional(),
+  fuel: VehicleFuelTypeSchema.optional(),
+  transmission: VehicleTransmissionSchema.optional(),
+  chassisNo: z.string().optional(),
+  engineNo: z.string().optional(),
   mileageKm: z.number().int(),
   note: z.string().optional(),
   healthLabel: z.string().optional(),
@@ -71,16 +80,18 @@ export type Vehicle = z.infer<typeof VehicleSchema>;
 
 export type VehicleDraft = {
   plate: string;
-  tabThumbnailUri?: string;
+  photoUri?: string;
+  photoAssetId?: string;
+  vehicleKind?: z.infer<typeof VehicleKindSchema>;
   make: string;
   model: string;
   year?: number;
   color?: string;
-  fuel?: string;
-  transmission?: string;
-  engine?: string;
+  fuel?: z.infer<typeof VehicleFuelTypeSchema>;
+  transmission?: z.infer<typeof VehicleTransmissionSchema>;
+  chassisNo?: string;
+  engineNo?: string;
   mileageKm?: number;
   note?: string;
-  chronicNotes?: string[];
   historyAccessGranted?: boolean;
 };

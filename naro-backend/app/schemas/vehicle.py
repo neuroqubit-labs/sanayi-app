@@ -7,18 +7,31 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.vehicle import UserVehicleRole, VehicleFuelType
+from app.models.vehicle import (
+    UserVehicleRole,
+    VehicleFuelType,
+    VehicleKind,
+    VehicleTransmission,
+)
 
 
 class VehicleCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     plate: str = Field(min_length=1, max_length=32)
+    # Araç türü — UI Adım 1 zorunlu; matching motoru için kritik
+    vehicle_kind: VehicleKind
     make: str | None = Field(default=None, max_length=64)
     model: str | None = Field(default=None, max_length=128)
+    # Year — UI zorunlu (product decision 2026-04-24). Backend nullable
+    # tutarak eski kayıt migrasyonu kırmıyoruz; create sırasında FE zorla.
     year: int | None = Field(default=None, ge=1900, le=2100)
     color: str | None = Field(default=None, max_length=64)
     fuel_type: VehicleFuelType | None = None
+    transmission: VehicleTransmission | None = None
+    chassis_no: str | None = Field(default=None, max_length=32)
+    engine_no: str | None = Field(default=None, max_length=32)
+    photo_url: str | None = Field(default=None, max_length=500)
     vin: str | None = Field(default=None, max_length=32)
     current_km: int | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=500)
@@ -37,11 +50,16 @@ class VehicleUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     plate: str | None = Field(default=None, min_length=1, max_length=32)
+    vehicle_kind: VehicleKind | None = None
     make: str | None = Field(default=None, max_length=64)
     model: str | None = Field(default=None, max_length=128)
     year: int | None = Field(default=None, ge=1900, le=2100)
     color: str | None = Field(default=None, max_length=64)
     fuel_type: VehicleFuelType | None = None
+    transmission: VehicleTransmission | None = None
+    chassis_no: str | None = Field(default=None, max_length=32)
+    engine_no: str | None = Field(default=None, max_length=32)
+    photo_url: str | None = Field(default=None, max_length=500)
     vin: str | None = Field(default=None, max_length=32)
     current_km: int | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=500)
@@ -60,11 +78,16 @@ class VehicleResponse(BaseModel):
     id: UUID
     plate: str
     plate_normalized: str
+    vehicle_kind: VehicleKind | None
     make: str | None
     model: str | None
     year: int | None
     color: str | None
     fuel_type: VehicleFuelType | None
+    transmission: VehicleTransmission | None
+    chassis_no: str | None
+    engine_no: str | None
+    photo_url: str | None
     vin: str | None
     current_km: int | None
     note: str | None

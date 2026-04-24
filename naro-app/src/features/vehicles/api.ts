@@ -19,45 +19,27 @@ import {
 import { useVehicleStore } from "./store";
 import type { Vehicle, VehicleDraft } from "./types";
 
-const FUEL_MAP: Record<string, NonNullable<VehicleCreatePayload["fuel_type"]>> = {
-  Benzin: "petrol",
-  Dizel: "diesel",
-  LPG: "lpg",
-  Hibrit: "hybrid",
-  Elektrik: "electric",
-};
-
 function draftToPayload(draft: VehicleDraft): VehicleCreatePayload {
-  const fuelKey = draft.fuel
-    ? FUEL_MAP[draft.fuel] ?? null
-    : null;
+  if (!draft.vehicleKind) {
+    throw new Error("Vehicle kind is required");
+  }
   return VehicleCreatePayloadSchema.parse({
     plate: draft.plate.trim().toUpperCase(),
+    vehicle_kind: draft.vehicleKind,
     make: draft.make.trim() || null,
     model: draft.model.trim() || null,
     year: draft.year ?? null,
     color: draft.color?.trim() || null,
-    fuel_type: fuelKey,
+    fuel_type: draft.fuel ?? null,
+    transmission: draft.transmission ?? null,
+    chassis_no: draft.chassisNo?.trim() || null,
+    engine_no: draft.engineNo?.trim() || null,
+    photo_url: draft.photoUri || null,
     vin: null,
     current_km: draft.mileageKm ?? null,
     note: draft.note?.trim() || null,
     is_primary: true,
   });
-}
-
-function fuelLabel(
-  type: VehicleResponse["fuel_type"],
-): string | undefined {
-  if (!type) return undefined;
-  const inv: Record<string, string> = {
-    petrol: "Benzin",
-    diesel: "Dizel",
-    lpg: "LPG",
-    hybrid: "Hibrit",
-    electric: "Elektrik",
-    other: "Diğer",
-  };
-  return inv[type];
 }
 
 /**
@@ -74,14 +56,17 @@ function adaptVehicle(
   return {
     id: res.id,
     plate: res.plate,
-    tabThumbnailUri: undefined,
+    photoUri: res.photo_url ?? undefined,
+    tabThumbnailUri: res.photo_url ?? undefined,
+    vehicleKind: res.vehicle_kind ?? undefined,
     make: res.make ?? "",
     model: res.model ?? "",
     year: res.year ?? new Date().getFullYear(),
     color: res.color ?? undefined,
-    fuel: fuelLabel(res.fuel_type),
-    transmission: undefined,
-    engine: undefined,
+    fuel: res.fuel_type === "other" ? undefined : res.fuel_type ?? undefined,
+    transmission: res.transmission ?? undefined,
+    chassisNo: res.chassis_no ?? undefined,
+    engineNo: res.engine_no ?? undefined,
     mileageKm: res.current_km ?? 0,
     note: res.note ?? undefined,
     healthLabel: undefined,

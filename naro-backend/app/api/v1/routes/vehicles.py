@@ -112,11 +112,18 @@ async def create_vehicle_endpoint(
             db,
             plate=payload.plate,
             owner_user_id=user.id,
+            vehicle_kind=payload.vehicle_kind.value,
             make=payload.make,
             model=payload.model,
             year=payload.year,
             color=payload.color,
             fuel_type=payload.fuel_type.value if payload.fuel_type else None,
+            transmission=(
+                payload.transmission.value if payload.transmission else None
+            ),
+            chassis_no=payload.chassis_no,
+            engine_no=payload.engine_no,
+            photo_url=payload.photo_url,
             vin=payload.vin,
             current_km=payload.current_km,
             note=payload.note,
@@ -231,8 +238,9 @@ async def patch_vehicle_endpoint(
 ) -> VehicleResponse:
     await _load_owner_vehicle(db, vehicle_id, user.id)
     fields = payload.model_dump(exclude_unset=True)
-    if "fuel_type" in fields and fields["fuel_type"] is not None:
-        fields["fuel_type"] = fields["fuel_type"].value
+    for enum_field in ("fuel_type", "vehicle_kind", "transmission"):
+        if enum_field in fields and fields[enum_field] is not None:
+            fields[enum_field] = fields[enum_field].value
     try:
         await vehicle_repo.update_vehicle(db, vehicle_id, **fields)
         await db.commit()

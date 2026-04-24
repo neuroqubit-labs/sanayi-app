@@ -142,7 +142,8 @@ export function ProfileScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 12, paddingRight: 8 }}
+          className="-mx-6"
+          contentContainerStyle={{ gap: 12, paddingHorizontal: 24 }}
         >
           {(vehicles ?? []).map((vehicle) => (
             <Pressable
@@ -202,7 +203,7 @@ export function ProfileScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Yeni araç ekle"
-            onPress={() => router.push("/(modal)/arac-ekle" as Href)}
+            onPress={() => router.push("/arac/yeni" as Href)}
             className="w-52 items-center justify-center gap-3 rounded-[26px] border border-dashed border-app-outline bg-app-surface px-4 py-4 active:bg-app-surface-2"
           >
             <View className="h-12 w-12 items-center justify-center rounded-full border border-app-outline bg-app-surface-2">

@@ -13,7 +13,12 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.auth_event import AuthEventType
-from app.models.vehicle import UserVehicleRole, VehicleFuelType
+from app.models.vehicle import (
+    UserVehicleRole,
+    VehicleFuelType,
+    VehicleKind,
+    VehicleTransmission,
+)
 from app.repositories.vehicle import normalize_plate
 from app.schemas.vehicle import (
     HistoryConsentRequest,
@@ -31,25 +36,40 @@ def test_vehicle_create_rejects_owner_user_id() -> None:
     with pytest.raises(ValidationError):
         VehicleCreate(
             plate="34ABC123",
+            vehicle_kind=VehicleKind.OTOMOBIL,
             owner_user_id=uuid4(),  # type: ignore[call-arg]
         )
 
 
-def test_vehicle_create_minimal_plate_only() -> None:
-    v = VehicleCreate(plate="34ABC123")
+def test_vehicle_create_minimal_plate_kind() -> None:
+    """Adım 1 zorunlu — plate + vehicle_kind yeterli."""
+    v = VehicleCreate(plate="34ABC123", vehicle_kind=VehicleKind.OTOMOBIL)
     assert v.plate == "34ABC123"
+    assert v.vehicle_kind == VehicleKind.OTOMOBIL
     assert v.is_primary is True  # default
     assert v.fuel_type is None
+    assert v.transmission is None
+    assert v.chassis_no is None
+    assert v.engine_no is None
+
+
+def test_vehicle_create_requires_vehicle_kind() -> None:
+    with pytest.raises(ValidationError):
+        VehicleCreate(plate="34ABC123")  # type: ignore[call-arg]
 
 
 def test_vehicle_create_accepts_full_lifecycle() -> None:
     v = VehicleCreate(
         plate="06XYZ123",
+        vehicle_kind=VehicleKind.SUV,
         make="BMW",
-        model="3 Series",
+        model="X3",
         year=2020,
         color="Siyah",
         fuel_type=VehicleFuelType.DIESEL,
+        transmission=VehicleTransmission.OTOMATIK,
+        chassis_no="WBA3B1C51DF123456",
+        engine_no="ENG12345",
         vin="WBA3B1C51DF123456",
         current_km=85000,
         note="Servis geçmişi temiz",
@@ -60,12 +80,38 @@ def test_vehicle_create_accepts_full_lifecycle() -> None:
         kasko_insurer="Allianz",
     )
     assert v.fuel_type == VehicleFuelType.DIESEL
+    assert v.vehicle_kind == VehicleKind.SUV
+    assert v.transmission == VehicleTransmission.OTOMATIK
+    assert v.chassis_no == "WBA3B1C51DF123456"
+    assert v.engine_no == "ENG12345"
     assert v.inspection_kind == "periodic"
 
 
 def test_vehicle_create_rejects_invalid_year() -> None:
     with pytest.raises(ValidationError):
-        VehicleCreate(plate="34A", year=1800)
+        VehicleCreate(plate="34A", vehicle_kind=VehicleKind.OTOMOBIL, year=1800)
+
+
+def test_vehicle_kind_enum_values() -> None:
+    """8 kind — UI Adım 1 tile sayısı ile birebir."""
+    assert {k.value for k in VehicleKind} == {
+        "otomobil",
+        "suv",
+        "motosiklet",
+        "kamyonet",
+        "hafif_ticari",
+        "karavan",
+        "klasik",
+        "ticari",
+    }
+
+
+def test_vehicle_transmission_enum_values() -> None:
+    assert {t.value for t in VehicleTransmission} == {
+        "manuel",
+        "otomatik",
+        "yari_otomatik",
+    }
 
 
 # ─── VehicleUpdate — partial update ────────────────────────────────────────
@@ -120,11 +166,16 @@ def _sample_vehicle_response_kwargs() -> dict[str, object]:
         "id": uuid4(),
         "plate": "34ABC123",
         "plate_normalized": "34ABC123",
+        "vehicle_kind": None,
         "make": None,
         "model": None,
         "year": None,
         "color": None,
         "fuel_type": None,
+        "transmission": None,
+        "chassis_no": None,
+        "engine_no": None,
+        "photo_url": None,
         "vin": None,
         "current_km": None,
         "note": None,

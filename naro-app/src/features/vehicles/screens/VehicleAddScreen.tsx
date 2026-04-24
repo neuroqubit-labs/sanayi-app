@@ -5,487 +5,792 @@ import {
   StackedActions,
   Text,
   ToggleChip,
-  TrustBadge,
+  useNaroTheme,
 } from "@naro/ui";
 import { useRouter } from "expo-router";
 import {
+  Bike,
+  Camera,
+  Car,
+  Caravan,
   Check,
-  Gauge,
-  Quote,
-  ShieldCheck,
-  Sparkles,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  Truck,
+  X,
+  type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import {
+  Alert,
+  Image,
+  Pressable,
+  TextInput,
+  View,
+} from "react-native";
 
+import { useAttachmentPicker } from "@/shared/attachments";
 import { useDraftGuard } from "@/shared/navigation/useDraftGuard";
 
 import { useAddVehicle } from "../api";
+import {
+  VEHICLE_CHASSIS_MAX_LENGTH,
+  VEHICLE_ENGINE_MAX_LENGTH,
+  VEHICLE_FUEL_OPTIONS,
+  VEHICLE_KINDS,
+  VEHICLE_KIND_LABELS,
+  VEHICLE_PLATE_REGEX,
+  VEHICLE_TRANSMISSIONS,
+  VEHICLE_TRANSMISSION_LABELS,
+  VEHICLE_YEAR_MIN,
+  type VehicleFuelKey,
+  type VehicleKind,
+  type VehicleTransmission,
+} from "../constants";
+import { VEHICLE_ADD_COPY } from "../copy";
 import type { VehicleDraft } from "../types";
 
-const INPUT_CLASS =
-  "rounded-[22px] border border-app-outline bg-app-surface px-4 py-3 text-base text-app-text";
+// ─── Step config ───────────────────────────────────────────────────────────
 
-const FUEL_OPTIONS = ["Benzin", "Dizel", "LPG", "Elektrik", "Hibrit"];
+const STEP_ORDER = [
+  "kind",
+  "identity",
+  "photo",
+  "basics",
+  "advanced",
+  "consent",
+] as const;
+type StepKey = (typeof STEP_ORDER)[number];
 
-const PLATE_REGEX = /^\d{2}\s?[A-ZÇĞİÖŞÜ]{1,3}\s?\d{2,4}$/;
-
-type Step = {
-  key: "basics" | "usage" | "details" | "history";
-  title: string;
-  description: string;
+const STEP_TITLES: Record<StepKey, string> = {
+  kind: VEHICLE_ADD_COPY.steps.kind.title,
+  identity: VEHICLE_ADD_COPY.steps.identity.title,
+  photo: VEHICLE_ADD_COPY.steps.photo.title,
+  basics: VEHICLE_ADD_COPY.steps.basics.title,
+  advanced: VEHICLE_ADD_COPY.steps.advanced.title,
+  consent: VEHICLE_ADD_COPY.steps.consent.title,
 };
 
-// NOTE: transmission + engine + chronicNotes alanları kaldırıldı
-// (matching-structural-audit 2026-04-23 P0-2: backend schema'da yok, FE
-// payload'a düşürülüyordu — kullanıcıya "kaydedildi" illüzyonu yaratma).
-// V1.1'de BE schema extend edilirse geri gelir.
-const STEPS: Step[] = [
-  {
-    key: "basics",
-    title: "Temel",
-    description: "Plaka, marka, model",
-  },
-  {
-    key: "usage",
-    title: "Kullanım",
-    description: "Kilometre + yakıt",
-  },
-  {
-    key: "details",
-    title: "Detay",
-    description: "Renk + not",
-  },
-  {
-    key: "history",
-    title: "Geçmiş",
-    description: "Eşleşme izni",
-  },
-];
+const KIND_ICONS: Record<VehicleKind, LucideIcon> = {
+  otomobil: Car,
+  suv: Car,
+  motosiklet: Bike,
+  kamyonet: Truck,
+  hafif_ticari: Truck,
+  karavan: Caravan,
+  klasik: Car,
+  ticari: Truck,
+};
+
+// ─── Form state ────────────────────────────────────────────────────────────
+
+type FormState = {
+  vehicleKind: VehicleKind | null;
+  plate: string;
+  make: string;
+  model: string;
+  year: string;
+  photoUri?: string;
+  fuel?: VehicleFuelKey;
+  mileage: string;
+  color: string;
+  transmission?: VehicleTransmission;
+  chassisNo: string;
+  engineNo: string;
+  note: string;
+  historyAccessGranted: boolean;
+};
+
+const INITIAL_STATE: FormState = {
+  vehicleKind: null,
+  plate: "",
+  make: "",
+  model: "",
+  year: "",
+  photoUri: undefined,
+  fuel: undefined,
+  mileage: "",
+  color: "",
+  transmission: undefined,
+  chassisNo: "",
+  engineNo: "",
+  note: "",
+  historyAccessGranted: false,
+};
+
+// ─── Main ──────────────────────────────────────────────────────────────────
 
 export function VehicleAddScreen() {
   const router = useRouter();
   const addVehicle = useAddVehicle();
   const [stepIndex, setStepIndex] = useState(0);
+  const [form, setForm] = useState<FormState>(INITIAL_STATE);
+  const stepKey = STEP_ORDER[stepIndex]!;
 
-  const [plate, setPlate] = useState("");
-  const [make, setMake] = useState("");
-  const [model, setModel] = useState("");
-  const [year, setYear] = useState("");
-  const [fuel, setFuel] = useState<string | undefined>("Benzin");
-  const [mileage, setMileage] = useState("");
-  const [color, setColor] = useState("");
-  const [note, setNote] = useState("");
-  const [historyAccessGranted, setHistoryAccessGranted] = useState(false);
-
-  const plateValid = PLATE_REGEX.test(plate.trim().toUpperCase());
-  const hasBasics = plate.trim() && make.trim() && model.trim() && plateValid;
+  const plateNormalized = form.plate.trim().toUpperCase();
+  const plateValid = VEHICLE_PLATE_REGEX.test(plateNormalized);
+  const yearCurrent = new Date().getFullYear();
+  const yearInt = form.year.trim() ? Number(form.year.trim()) : null;
+  const yearValid =
+    yearInt !== null &&
+    Number.isInteger(yearInt) &&
+    yearInt >= VEHICLE_YEAR_MIN &&
+    yearInt <= yearCurrent + 1;
 
   const hasContent = Boolean(
-    plate.trim() ||
-      make.trim() ||
-      model.trim() ||
-      color.trim() ||
-      note.trim() ||
-      mileage.trim(),
+    form.vehicleKind ||
+      form.plate.trim() ||
+      form.make.trim() ||
+      form.model.trim() ||
+      form.year.trim() ||
+      form.photoUri ||
+      form.color.trim() ||
+      form.mileage.trim() ||
+      form.note.trim() ||
+      form.chassisNo.trim() ||
+      form.engineNo.trim(),
   );
 
   useDraftGuard({
     enabled: hasContent && !addVehicle.isSuccess,
     title: "Aracı kaydet veya çık",
     message:
-      "Yeni araç bilgilerini girdin. Kaydet ya da vazgeç seçeneklerinden birini seç.",
-    onDiscard: () => {
-      // state kendisi kaybolacak — dialog dispatch ile ekran kapanıyor
-    },
+      "Girdiğin bilgiler kaybolabilir — devam etmek istediğine emin misin?",
+    onDiscard: () => {},
   });
 
-  const step = STEPS[stepIndex]!;
-
-  const validationMessage = useMemo(() => {
-    if (step.key === "basics") {
-      if (!plate.trim()) return "Plaka zorunlu.";
-      if (!plateValid) return "Plaka formatı doğru değil. Örn: 34 ABC 42.";
-      if (!make.trim()) return "Marka zorunlu.";
-      if (!model.trim()) return "Model zorunlu.";
+  const validationMessage = useMemo((): string | null => {
+    if (stepKey === "kind") {
+      if (!form.vehicleKind) return VEHICLE_ADD_COPY.validation.kindRequired;
     }
-
-    if (step.key === "usage") {
-      if (mileage && Number.isNaN(Number(mileage.replace(/\./g, "")))) {
-        return "Kilometre değeri sayı olmalı.";
+    if (stepKey === "identity") {
+      if (!form.plate.trim()) return VEHICLE_ADD_COPY.validation.plateRequired;
+      if (!plateValid) return VEHICLE_ADD_COPY.validation.plateInvalid;
+      if (!form.make.trim()) return VEHICLE_ADD_COPY.validation.makeRequired;
+      if (!form.model.trim()) return VEHICLE_ADD_COPY.validation.modelRequired;
+      if (!form.year.trim()) return VEHICLE_ADD_COPY.validation.yearRequired;
+      if (!yearValid) return VEHICLE_ADD_COPY.validation.yearInvalid;
+    }
+    if (stepKey === "basics") {
+      const digits = form.mileage.replace(/\./g, "");
+      if (digits && Number.isNaN(Number(digits))) {
+        return VEHICLE_ADD_COPY.validation.mileageInvalid;
       }
     }
-
+    if (stepKey === "advanced") {
+      if (form.chassisNo.trim().length > VEHICLE_CHASSIS_MAX_LENGTH) {
+        return VEHICLE_ADD_COPY.validation.chassisTooLong;
+      }
+      if (form.engineNo.trim().length > VEHICLE_ENGINE_MAX_LENGTH) {
+        return VEHICLE_ADD_COPY.validation.engineTooLong;
+      }
+    }
     return null;
-  }, [step.key, plate, plateValid, make, model, mileage]);
+  }, [stepKey, form, plateValid, yearValid]);
 
-  const isLast = stepIndex === STEPS.length - 1;
+  const isLast = stepIndex === STEP_ORDER.length - 1;
 
-  async function handleSave() {
-    const draft: VehicleDraft = {
-      plate: plate.trim().toUpperCase(),
-      make: make.trim(),
-      model: model.trim(),
-      year: year ? Number(year) : undefined,
-      fuel,
-      mileageKm: mileage ? Number(mileage.replace(/\./g, "")) : undefined,
-      color: color.trim() || undefined,
-      note: note.trim() || undefined,
-      chronicNotes: [],
-      historyAccessGranted,
-    };
-
-    const vehicle = await addVehicle.mutateAsync(draft);
-    router.replace(`/arac/${vehicle.id}`);
+  function update<K extends keyof FormState>(key: K, value: FormState[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  const progressSteps = STEPS.map((entry) => ({
-    key: entry.key,
-    title: entry.title,
-    description: entry.description,
+  function goNext() {
+    if (validationMessage) return;
+    if (!isLast) {
+      setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1));
+      return;
+    }
+    void handleSubmit();
+  }
+
+  function goBack() {
+    if (stepIndex === 0) {
+      router.back();
+      return;
+    }
+    setStepIndex((i) => Math.max(0, i - 1));
+  }
+
+  async function handleSubmit() {
+    if (!form.vehicleKind) return;
+    const digits = form.mileage.replace(/\./g, "");
+    const mileageNum = digits ? Number(digits) : undefined;
+    const draft: VehicleDraft = {
+      vehicleKind: form.vehicleKind,
+      plate: plateNormalized,
+      make: form.make.trim(),
+      model: form.model.trim(),
+      year: yearInt ?? undefined,
+      photoUri: form.photoUri,
+      fuel: form.fuel,
+      transmission: form.transmission,
+      chassisNo: form.chassisNo.trim() || undefined,
+      engineNo: form.engineNo.trim() || undefined,
+      mileageKm:
+        typeof mileageNum === "number" && !Number.isNaN(mileageNum)
+          ? mileageNum
+          : undefined,
+      color: form.color.trim() || undefined,
+      note: form.note.trim() || undefined,
+      historyAccessGranted: form.historyAccessGranted,
+    };
+    try {
+      const vehicle = await addVehicle.mutateAsync(draft);
+      router.replace(`/arac/${vehicle.id}`);
+    } catch (reason) {
+      const message =
+        reason instanceof Error
+          ? reason.message
+          : "Araç eklenemedi. Tekrar dene.";
+      Alert.alert("Araç eklenemedi", message);
+    }
+  }
+
+  const progressSteps = STEP_ORDER.map((key) => ({
+    key,
+    title: STEP_TITLES[key],
   }));
+
+  const primaryLabel = isLast
+    ? VEHICLE_ADD_COPY.chrome.submitLabel
+    : VEHICLE_ADD_COPY.chrome.nextLabel;
 
   return (
     <FlowScreen
-      eyebrow="Yeni araç"
-      title="Araç profilini bir kez kur, hep hazır kalsın"
-      description="Plakan ve aracın tanımlandığında vakalar, teklifler ve bakım hatırlatmaları doğrudan buraya bağlanır."
-      onBack={() => router.back()}
+      compact
+      title={VEHICLE_ADD_COPY.screen.title}
+      onBack={goBack}
       backVariant={stepIndex === 0 ? "close" : "back"}
+      trailingAction={
+        stepKey === "advanced" ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={VEHICLE_ADD_COPY.steps.advanced.skipLabel}
+            onPress={() =>
+              setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1))
+            }
+            hitSlop={8}
+          >
+            <Text variant="label" tone="accent">
+              {VEHICLE_ADD_COPY.steps.advanced.skipLabel}
+            </Text>
+          </Pressable>
+        ) : undefined
+      }
       progress={
-        <View className="gap-3">
-          <TrustBadge label="Araç hafızası" tone="accent" />
-          <FlowProgress
-            steps={progressSteps}
-            activeIndex={stepIndex}
-            variant="bar"
-          />
-        </View>
+        <FlowProgress
+          steps={progressSteps}
+          activeIndex={stepIndex}
+          variant="bar-thin"
+        />
       }
       footer={
         <StackedActions
-          primaryLabel={isLast ? "Aracı kaydet" : "Devam et"}
-          onPrimary={() => {
-            if (validationMessage) return;
-
-            if (!isLast) {
-              setStepIndex((current) =>
-                Math.min(current + 1, STEPS.length - 1),
-              );
-              return;
-            }
-
-            if (!hasBasics) {
-              setStepIndex(0);
-              return;
-            }
-
-            void handleSave();
-          }}
+          floating
+          integrated
+          primaryLabel={primaryLabel}
+          onPrimary={goNext}
           primaryLoading={addVehicle.isPending}
-          primaryDisabled={Boolean(validationMessage) || (isLast && !hasBasics)}
-          secondaryLabel={stepIndex === 0 ? "İptal" : "Geri"}
-          onSecondary={() => {
-            if (stepIndex === 0) {
-              router.back();
-              return;
-            }
-
-            setStepIndex((current) => Math.max(current - 1, 0));
-          }}
-          helperText={
-            validationMessage
-              ? validationMessage
-              : isLast
-                ? "Araç eklendiğinde doğrudan araç profiline gidersin."
-                : "Opsiyonel adımları atlayabilirsin; daha sonra düzenleyebilirsin."
-          }
+          primaryDisabled={Boolean(validationMessage)}
+          helperText={validationMessage ?? undefined}
           helperTone={validationMessage ? "warning" : "subtle"}
         />
       }
     >
-      {step.key === "basics" ? (
-        <View className="gap-4">
-          <SectionCard
-            title="Plaka"
-            description="Doğru yazıldığında vaka geçmişin otomatik eşleşir."
-          >
-            <TextInput
-              value={plate}
-              onChangeText={setPlate}
-              placeholder="Örn: 34 ABC 42"
-              placeholderTextColor="#6f7b97"
-              autoCapitalize="characters"
-              className={INPUT_CLASS}
-            />
-          </SectionCard>
-
-          <SectionCard title="Marka ve model">
-            <TextInput
-              value={make}
-              onChangeText={setMake}
-              placeholder="Marka — örn: BMW"
-              placeholderTextColor="#6f7b97"
-              className={INPUT_CLASS}
-            />
-            <TextInput
-              value={model}
-              onChangeText={setModel}
-              placeholder="Model — örn: 3 Serisi"
-              placeholderTextColor="#6f7b97"
-              className={INPUT_CLASS}
-            />
-            <TextInput
-              value={year}
-              onChangeText={setYear}
-              keyboardType="number-pad"
-              placeholder="Yıl (opsiyonel)"
-              placeholderTextColor="#6f7b97"
-              className={INPUT_CLASS}
-            />
-          </SectionCard>
-
-          <SectionCard title="Yakıt ve vites">
-            <Text variant="label" tone="inverse">
-              Yakıt
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {FUEL_OPTIONS.map((option) => (
-                <ToggleChip
-                  key={option}
-                  label={option}
-                  selected={fuel === option}
-                  onPress={() => setFuel(fuel === option ? undefined : option)}
-                />
-              ))}
-            </View>
-          </SectionCard>
-        </View>
+      {stepKey === "kind" ? (
+        <KindStep
+          selected={form.vehicleKind}
+          onSelect={(kind) => {
+            update("vehicleKind", kind);
+            setTimeout(
+              () => setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1)),
+              150,
+            );
+          }}
+        />
       ) : null}
 
-      {step.key === "usage" ? (
-        <View className="gap-4">
-          <SectionCard
-            title="Güncel kilometre"
-            description="Servisler bakım önerilerini bu değere göre planlıyor."
-          >
-            <TextInput
-              value={mileage}
-              onChangeText={setMileage}
-              keyboardType="number-pad"
-              placeholder="Örn: 87500"
-              placeholderTextColor="#6f7b97"
-              className={INPUT_CLASS}
-            />
-          </SectionCard>
-        </View>
+      {stepKey === "identity" ? (
+        <IdentityStep form={form} onChange={update} />
       ) : null}
 
-      {step.key === "details" ? (
-        <View className="gap-4">
-          <SectionCard title="Renk + ek not (opsiyonel)">
-            <TextInput
-              value={color}
-              onChangeText={setColor}
-              placeholder="Renk — örn: Koyu Gri"
-              placeholderTextColor="#6f7b97"
-              className={INPUT_CLASS}
-            />
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Sadece senin görebileceğin kısa bir not..."
-              placeholderTextColor="#6f7b97"
-              className={[INPUT_CLASS, "min-h-[96px] py-3"].join(" ")}
-              multiline
-              textAlignVertical="top"
-            />
-          </SectionCard>
-        </View>
+      {stepKey === "photo" ? (
+        <PhotoStep
+          photoUri={form.photoUri}
+          onChange={(uri) => update("photoUri", uri)}
+        />
       ) : null}
 
-      {step.key === "history" ? (
-        <HistoryConsentStep
-          granted={historyAccessGranted}
-          plate={plate.trim()}
-          onToggle={() => setHistoryAccessGranted((prev) => !prev)}
+      {stepKey === "basics" ? (
+        <BasicsStep form={form} onChange={update} />
+      ) : null}
+
+      {stepKey === "advanced" ? (
+        <AdvancedStep form={form} onChange={update} />
+      ) : null}
+
+      {stepKey === "consent" ? (
+        <ConsentStep
+          granted={form.historyAccessGranted}
+          onToggle={() =>
+            update("historyAccessGranted", !form.historyAccessGranted)
+          }
         />
       ) : null}
     </FlowScreen>
   );
 }
 
-type HistoryConsentStepProps = {
-  granted: boolean;
-  plate: string;
-  onToggle: () => void;
-};
+// ─── Step: Kind (8 tile grid) ──────────────────────────────────────────────
 
-function HistoryConsentStep({
-  granted,
-  plate,
-  onToggle,
-}: HistoryConsentStepProps) {
+function KindStep({
+  selected,
+  onSelect,
+}: {
+  selected: VehicleKind | null;
+  onSelect: (kind: VehicleKind) => void;
+}) {
+  const { colors } = useNaroTheme();
   return (
-    <View className="gap-4">
-      <View className="items-center gap-4 rounded-[28px] border border-app-outline-strong bg-app-surface-2 px-5 py-7">
-        <View className="h-20 w-20 items-center justify-center rounded-[28px] border border-brand-500/30 bg-brand-500/15">
-          <Icon icon={Gauge} size={36} color="#0ea5e9" />
-        </View>
-        <View className="items-center gap-2">
-          <Text
-            variant="display"
-            tone="inverse"
-            className="text-center text-[26px] leading-[30px]"
+    <View className="gap-5">
+      <View className="gap-1">
+        <Text variant="h2" tone="inverse">
+          {VEHICLE_ADD_COPY.steps.kind.title}
+        </Text>
+        <Text tone="muted" className="text-app-text-muted">
+          {VEHICLE_ADD_COPY.steps.kind.helper}
+        </Text>
+      </View>
+
+      <View className="flex-row flex-wrap gap-3">
+        {VEHICLE_KINDS.map((kind) => {
+          const KindIcon = KIND_ICONS[kind];
+          const isSelected = selected === kind;
+          return (
+            <Pressable
+              key={kind}
+              accessibilityRole="button"
+              accessibilityLabel={VEHICLE_KIND_LABELS[kind]}
+              accessibilityState={{ selected: isSelected }}
+              onPress={() => onSelect(kind)}
+              className={[
+                "items-center justify-center gap-2 rounded-2xl border px-3 py-5",
+                isSelected
+                  ? "border-brand-500 bg-brand-500/10"
+                  : "border-app-outline bg-app-surface",
+              ].join(" ")}
+              style={{ width: "47%", minHeight: 100 }}
+            >
+              <Icon
+                icon={KindIcon}
+                size={28}
+                color={isSelected ? colors.info : colors.textMuted}
+                strokeWidth={1.8}
+              />
+              <Text
+                variant="label"
+                tone={isSelected ? "accent" : "inverse"}
+                className="text-center"
+              >
+                {VEHICLE_KIND_LABELS[kind]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+// ─── Step: Identity (plate, make, model, year) ─────────────────────────────
+
+function IdentityStep({
+  form,
+  onChange,
+}: {
+  form: FormState;
+  onChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+}) {
+  const { colors } = useNaroTheme();
+  return (
+    <View className="gap-5">
+      <View className="gap-1">
+        <Text variant="h2" tone="inverse">
+          {VEHICLE_ADD_COPY.steps.identity.title}
+        </Text>
+        <Text tone="muted" className="text-app-text-muted text-[12px]">
+          {VEHICLE_ADD_COPY.steps.identity.helper}
+        </Text>
+      </View>
+
+      <View className="gap-3">
+        <TextField
+          value={form.plate}
+          onChangeText={(v) => onChange("plate", v)}
+          placeholder={VEHICLE_ADD_COPY.steps.identity.placeholders.plate}
+          autoCapitalize="characters"
+          placeholderColor={colors.textSubtle}
+        />
+        <TextField
+          value={form.make}
+          onChangeText={(v) => onChange("make", v)}
+          placeholder={VEHICLE_ADD_COPY.steps.identity.placeholders.make}
+          placeholderColor={colors.textSubtle}
+        />
+        <TextField
+          value={form.model}
+          onChangeText={(v) => onChange("model", v)}
+          placeholder={VEHICLE_ADD_COPY.steps.identity.placeholders.model}
+          placeholderColor={colors.textSubtle}
+        />
+        <TextField
+          value={form.year}
+          onChangeText={(v) => onChange("year", v.replace(/[^0-9]/g, ""))}
+          placeholder={VEHICLE_ADD_COPY.steps.identity.placeholders.year}
+          placeholderColor={colors.textSubtle}
+          keyboardType="number-pad"
+          maxLength={4}
+        />
+      </View>
+    </View>
+  );
+}
+
+// ─── Step: Photo (optional, encouraged) ────────────────────────────────────
+
+function PhotoStep({
+  photoUri,
+  onChange,
+}: {
+  photoUri: string | undefined;
+  onChange: (uri: string | undefined) => void;
+}) {
+  const { colors } = useNaroTheme();
+  // OwnerRef pilot scope'ta pending string — asset user-level saklanıyor,
+  // photoUri vehicle.photo_url'e copy ediliyor. TB-4: V1.1'de FK+lifecycle.
+  const { pickPhoto, status } = useAttachmentPicker({
+    purpose: "vehicle_photo",
+    ownerRef: `vehicle:new:${Date.now()}`,
+  });
+
+  async function handlePick() {
+    const drafts = await pickPhoto("photo", "Araç fotoğrafı", {
+      multiple: false,
+      quality: 0.85,
+    });
+    const first = drafts[0];
+    if (first?.remoteUri) {
+      onChange(first.remoteUri);
+    } else if (first?.localUri) {
+      onChange(first.localUri);
+    }
+  }
+
+  const busy = status === "picking" || status === "uploading";
+
+  return (
+    <View className="gap-5">
+      <View className="gap-1">
+        <Text variant="h2" tone="inverse">
+          {VEHICLE_ADD_COPY.steps.photo.title}
+        </Text>
+        <Text tone="muted" className="text-app-text-muted text-[13px]">
+          {VEHICLE_ADD_COPY.steps.photo.helper}
+        </Text>
+      </View>
+
+      {photoUri ? (
+        <View className="gap-3">
+          <View
+            className="overflow-hidden rounded-2xl border border-app-outline"
+            style={{ aspectRatio: 16 / 10 }}
           >
-            Naro aracını tanısın
+            <Image
+              source={{ uri: photoUri }}
+              resizeMode="cover"
+              style={{ width: "100%", height: "100%" }}
+            />
+          </View>
+          <View className="flex-row gap-2">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={VEHICLE_ADD_COPY.steps.photo.replaceLabel}
+              onPress={handlePick}
+              disabled={busy}
+              className="flex-1 items-center justify-center rounded-xl border border-app-outline bg-app-surface px-4 py-3"
+              style={{ opacity: busy ? 0.6 : 1 }}
+            >
+              <Text tone="inverse" variant="label">
+                {busy
+                  ? VEHICLE_ADD_COPY.steps.photo.uploading
+                  : VEHICLE_ADD_COPY.steps.photo.replaceLabel}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={VEHICLE_ADD_COPY.steps.photo.removeLabel}
+              onPress={() => onChange(undefined)}
+              className="items-center justify-center rounded-xl border border-app-outline bg-app-surface px-4 py-3"
+            >
+              <Icon icon={X} size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={VEHICLE_ADD_COPY.steps.photo.addLabel}
+          onPress={handlePick}
+          disabled={busy}
+          className="items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-app-outline-strong bg-app-surface px-6 py-10"
+          style={{ opacity: busy ? 0.6 : 1 }}
+        >
+          <Icon
+            icon={busy ? Camera : ImageIcon}
+            size={32}
+            color={colors.info}
+            strokeWidth={1.6}
+          />
+          <Text tone="inverse" variant="label">
+            {busy
+              ? VEHICLE_ADD_COPY.steps.photo.uploading
+              : VEHICLE_ADD_COPY.steps.photo.addLabel}
           </Text>
-          <Text tone="muted" className="text-center text-app-text-muted leading-6">
-            Bakım, sigorta ve plaka geçmişine erişmemize izin ver — sana çıkan
-            ustalar ve teklifler daha doğru eşleşir.
-          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+// ─── Step: Basics (fuel + mileage + color) ─────────────────────────────────
+
+function BasicsStep({
+  form,
+  onChange,
+}: {
+  form: FormState;
+  onChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+}) {
+  const { colors } = useNaroTheme();
+  return (
+    <View className="gap-5">
+      <View className="gap-1">
+        <Text variant="h2" tone="inverse">
+          {VEHICLE_ADD_COPY.steps.basics.title}
+        </Text>
+      </View>
+
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          {VEHICLE_ADD_COPY.steps.basics.fuelLabel}
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {VEHICLE_FUEL_OPTIONS.map((opt) => (
+            <ToggleChip
+              key={opt.key}
+              label={opt.label}
+              selected={form.fuel === opt.key}
+              onPress={() =>
+                onChange("fuel", form.fuel === opt.key ? undefined : opt.key)
+              }
+            />
+          ))}
         </View>
       </View>
 
-      <View className="gap-3 rounded-[24px] border border-app-outline bg-app-surface px-5 py-5">
-        <View className="flex-row items-start gap-3">
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-app-surface-2">
-            <Icon icon={Quote} size={16} color="#83a7ff" />
-          </View>
-          <Text
-            tone="muted"
-            className="flex-1 italic text-app-text-muted leading-6"
-          >
-            İki yıl önce Beşiktaş'ta 3 Serisi'nin yağ değişimini yaptıran Ayşe,
-            geçen ay başka bir ustaya gitti — kimse önceki raporu görmediği
-            için "önce genel bakım yapalım" dendi. Aynı filtre ikinci kez
-            değişti, aynı para ikinci kez gitti.
-          </Text>
+      <View className="gap-3">
+        <TextField
+          value={form.mileage}
+          onChangeText={(v) => onChange("mileage", v.replace(/[^0-9]/g, ""))}
+          placeholder={VEHICLE_ADD_COPY.steps.basics.placeholders.mileage}
+          placeholderColor={colors.textSubtle}
+          keyboardType="number-pad"
+          maxLength={7}
+        />
+        <TextField
+          value={form.color}
+          onChangeText={(v) => onChange("color", v)}
+          placeholder={VEHICLE_ADD_COPY.steps.basics.placeholders.color}
+          placeholderColor={colors.textSubtle}
+          maxLength={32}
+        />
+      </View>
+    </View>
+  );
+}
+
+// ─── Step: Advanced (transmission + chassis + engine + note) ───────────────
+
+function AdvancedStep({
+  form,
+  onChange,
+}: {
+  form: FormState;
+  onChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+}) {
+  const { colors } = useNaroTheme();
+  return (
+    <View className="gap-5">
+      <View className="gap-1">
+        <Text variant="h2" tone="inverse">
+          {VEHICLE_ADD_COPY.steps.advanced.title}
+        </Text>
+        <Text tone="muted" className="text-app-text-muted text-[12px]">
+          {VEHICLE_ADD_COPY.steps.advanced.helper}
+        </Text>
+      </View>
+
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          {VEHICLE_ADD_COPY.steps.advanced.transmissionLabel}
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {VEHICLE_TRANSMISSIONS.map((t) => (
+            <ToggleChip
+              key={t}
+              label={VEHICLE_TRANSMISSION_LABELS[t]}
+              selected={form.transmission === t}
+              onPress={() =>
+                onChange(
+                  "transmission",
+                  form.transmission === t ? undefined : t,
+                )
+              }
+            />
+          ))}
         </View>
-        <View className="h-px bg-app-outline/60" />
-        <Text variant="caption" tone="muted" className="text-app-text-subtle">
-          Naro tanırsa bu tekrar etmez.
+      </View>
+
+      <View className="gap-3">
+        <TextField
+          value={form.chassisNo}
+          onChangeText={(v) => onChange("chassisNo", v.toUpperCase())}
+          placeholder={VEHICLE_ADD_COPY.steps.advanced.placeholders.chassis}
+          placeholderColor={colors.textSubtle}
+          autoCapitalize="characters"
+          maxLength={VEHICLE_CHASSIS_MAX_LENGTH}
+        />
+        <TextField
+          value={form.engineNo}
+          onChangeText={(v) => onChange("engineNo", v.toUpperCase())}
+          placeholder={VEHICLE_ADD_COPY.steps.advanced.placeholders.engine}
+          placeholderColor={colors.textSubtle}
+          autoCapitalize="characters"
+          maxLength={VEHICLE_ENGINE_MAX_LENGTH}
+        />
+        <TextField
+          value={form.note}
+          onChangeText={(v) => onChange("note", v)}
+          placeholder={VEHICLE_ADD_COPY.steps.advanced.placeholders.note}
+          placeholderColor={colors.textSubtle}
+          multiline
+          maxLength={500}
+          minHeight={96}
+        />
+      </View>
+    </View>
+  );
+}
+
+// ─── Step: Consent (single toggle) ─────────────────────────────────────────
+
+function ConsentStep({
+  granted,
+  onToggle,
+}: {
+  granted: boolean;
+  onToggle: () => void;
+}) {
+  const { colors } = useNaroTheme();
+  return (
+    <View className="gap-5">
+      <View className="gap-2">
+        <Text variant="h2" tone="inverse">
+          {VEHICLE_ADD_COPY.steps.consent.title}
+        </Text>
+        <Text tone="muted" className="text-app-text-muted leading-6">
+          {VEHICLE_ADD_COPY.steps.consent.body}
         </Text>
       </View>
 
       <Pressable
         accessibilityRole="checkbox"
         accessibilityState={{ checked: granted }}
-        accessibilityLabel="Geçmişe erişim izni ver"
+        accessibilityLabel={VEHICLE_ADD_COPY.steps.consent.toggleLabel}
         onPress={onToggle}
         className={[
-          "gap-3 rounded-[22px] border px-4 py-4 active:opacity-90",
+          "flex-row items-center gap-3 rounded-2xl border px-4 py-4",
           granted
             ? "border-brand-500/40 bg-brand-500/10"
             : "border-app-outline bg-app-surface",
         ].join(" ")}
       >
-        <View className="flex-row items-center gap-3">
-          <View
-            className={[
-              "h-6 w-6 items-center justify-center rounded-[8px] border",
-              granted
-                ? "border-brand-500 bg-brand-500"
-                : "border-app-outline bg-app-surface",
-            ].join(" ")}
-          >
-            {granted ? <Icon icon={Check} size={14} color="#ffffff" /> : null}
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text variant="label" tone="inverse">
-              Geçmişe erişim izni veriyorum
-            </Text>
-            <Text
-              variant="caption"
-              tone="muted"
-              className="text-app-text-muted"
-            >
-              {plate
-                ? `${plate} · TRAMER + servis kayıtları dahil`
-                : "TRAMER + servis kayıtları dahil"}
-            </Text>
-          </View>
-        </View>
-      </Pressable>
-
-      <View
-        className={[
-          "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5",
-          granted
-            ? "border-app-success/30 bg-app-success-soft"
-            : "border-app-outline bg-app-surface",
-        ].join(" ")}
-      >
         <View
           className={[
-            "h-9 w-9 items-center justify-center rounded-full",
-            granted ? "bg-app-success/20" : "bg-app-surface-2",
+            "h-6 w-6 items-center justify-center rounded-md border",
+            granted
+              ? "border-brand-500 bg-brand-500"
+              : "border-app-outline bg-app-surface",
           ].join(" ")}
         >
-          <Icon
-            icon={Sparkles}
-            size={16}
-            color={granted ? "#2dd28d" : "#83a7ff"}
-          />
+          {granted ? (
+            <Icon icon={Check} size={14} color={colors.text} />
+          ) : null}
         </View>
-        <View className="flex-1 gap-0.5">
-          <Text
-            variant="label"
-            tone={granted ? "success" : "inverse"}
-          >
-            {granted ? "Eşleşme skorun +12 puan" : "Eşleşme skorun için +12 puan"}
-          </Text>
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted"
-          >
-            {granted
-              ? "Naro aracını tanıdığında sana daha uyumlu ustalar ve teklifler çıkar."
-              : "İzin verdiğinde aktifleşir — istediğin zaman aracın profilinden kapatabilirsin."}
+        <View className="flex-1">
+          <Text variant="label" tone="inverse">
+            {VEHICLE_ADD_COPY.steps.consent.toggleLabel}
           </Text>
         </View>
-      </View>
-
-      <View className="flex-row items-start gap-3 rounded-[20px] border border-app-info/30 bg-app-info-soft px-4 py-3.5">
-        <View className="mt-0.5 h-7 w-7 items-center justify-center rounded-full bg-app-info/20">
-          <Icon icon={ShieldCheck} size={14} color="#83a7ff" />
-        </View>
-        <Text
-          variant="caption"
-          tone="muted"
-          className="flex-1 text-app-text-muted leading-5"
-        >
-          Veri yalnızca Naro algoritmasında kalır. Servislerle ancak sen vaka
-          açtığında paylaşılır; istediğin zaman geri alabilirsin.
-        </Text>
-      </View>
+        <Icon
+          icon={granted ? Eye : EyeOff}
+          size={16}
+          color={granted ? colors.info : colors.textSubtle}
+        />
+      </Pressable>
     </View>
   );
 }
 
-function SectionCard({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
+// ─── Shared TextField (theme-aware, no hardcoded hex) ──────────────────────
+
+type TextFieldProps = {
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  placeholderColor: string;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  keyboardType?: "default" | "number-pad" | "email-address";
+  maxLength?: number;
+  multiline?: boolean;
+  minHeight?: number;
+};
+
+function TextField({
+  value,
+  onChangeText,
+  placeholder,
+  placeholderColor,
+  autoCapitalize,
+  keyboardType,
+  maxLength,
+  multiline,
+  minHeight,
+}: TextFieldProps) {
   return (
-    <View className="gap-3 rounded-[28px] border border-app-outline bg-app-surface px-4 py-4">
-      <View className="gap-1">
-        <Text variant="h3" tone="inverse">
-          {title}
-        </Text>
-        {description ? (
-          <Text variant="caption" tone="muted" className="text-app-text-muted">
-            {description}
-          </Text>
-        ) : null}
-      </View>
-      {children}
-    </View>
+    <TextInput
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor={placeholderColor}
+      autoCapitalize={autoCapitalize}
+      keyboardType={keyboardType}
+      maxLength={maxLength}
+      multiline={multiline}
+      textAlignVertical={multiline ? "top" : "auto"}
+      className="rounded-xl border border-app-outline bg-app-surface px-4 py-3 text-base text-app-text"
+      style={multiline ? { minHeight: minHeight ?? 96 } : undefined}
+    />
   );
 }
