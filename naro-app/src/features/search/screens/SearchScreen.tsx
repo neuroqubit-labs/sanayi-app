@@ -166,6 +166,7 @@ function SectionEyebrow({ title, action }: SectionEyebrowProps) {
       {action ? (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={action.label}
           onPress={action.onPress}
           hitSlop={6}
         >
@@ -325,6 +326,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
       return (
         <Pressable
           accessibilityRole={tip.route ? "button" : undefined}
+          accessibilityLabel={tip.title}
           onPress={tip.route ? () => onOpen(tip.route as Href) : undefined}
           className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
         >
@@ -355,6 +357,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
       return (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={tech.name}
           onPress={() => onOpen(`/usta/${tech.id}` as Href)}
           className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
         >
@@ -396,6 +399,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
       return (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={service.name}
           onPress={() => onOpen(service.route as Href)}
           className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
         >
@@ -424,6 +428,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
       return (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={campaign.title}
           onPress={() => onOpen(campaign.route as Href)}
           className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/30 bg-app-surface-2 px-4 py-3.5 active:opacity-95"
         >

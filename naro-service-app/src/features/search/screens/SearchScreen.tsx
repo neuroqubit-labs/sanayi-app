@@ -111,7 +111,12 @@ export function SearchScreen() {
                   <Text variant="eyebrow" tone="subtle">
                     Son aramalar
                   </Text>
-                  <Pressable onPress={clearRecent} hitSlop={8}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Son aramaları temizle"
+                    onPress={clearRecent}
+                    hitSlop={8}
+                  >
                     <Text
                       variant="caption"
                       tone="muted"
@@ -126,6 +131,7 @@ export function SearchScreen() {
                     <Pressable
                       key={q}
                       accessibilityRole="button"
+                      accessibilityLabel={`${q} ara`}
                       onPress={() => setQuery(q)}
                       className="rounded-full border border-app-outline bg-app-surface px-3 py-1.5 active:opacity-80"
                     >
@@ -151,6 +157,7 @@ export function SearchScreen() {
                   <Pressable
                     key={s}
                     accessibilityRole="button"
+                    accessibilityLabel={`${s} ara`}
                     onPress={() => setQuery(s)}
                     className="rounded-full border border-app-outline bg-app-surface-2 px-3 py-1.5 active:opacity-80"
                   >
