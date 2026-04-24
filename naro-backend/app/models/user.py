@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import StrEnum
+from uuid import UUID
 
-from sqlalchemy import DateTime, Index, String
+from sqlalchemy import DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -60,6 +61,9 @@ class User(UUIDPkMixin, TimestampMixin, Base):
         pg_enum(UserApprovalStatus, name="user_approval_status"), nullable=True
     )
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="tr-TR")
+    avatar_asset_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True
+    )
     last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

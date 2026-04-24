@@ -8,6 +8,18 @@ export type UserRole = z.infer<typeof UserRoleSchema>;
 export const UserStatusSchema = z.enum(["pending", "active", "suspended"]);
 export type UserStatus = z.infer<typeof UserStatusSchema>;
 
+export const UserApprovalStatusSchema = z.enum([
+  "pending",
+  "active",
+  "suspended",
+  "rejected",
+]);
+export type UserApprovalStatus = z.infer<typeof UserApprovalStatusSchema>;
+
+/**
+ * Authenticated user's own profile — GET /users/me response.
+ * Backend `app/schemas/user.py::UserResponse` ile 1:1 eşleşir.
+ */
 export const UserSchema = z.object({
   id: z.string().uuid(),
   phone: z.string().nullable(),
@@ -15,10 +27,26 @@ export const UserSchema = z.object({
   full_name: z.string().nullable(),
   role: UserRoleSchema,
   status: UserStatusSchema,
+  approval_status: UserApprovalStatusSchema.nullable().default(null),
+  locale: z.string().default("tr-TR"),
+  avatar_asset_id: z.string().uuid().nullable().default(null),
+  last_login_at: z.string().nullable().default(null),
   created_at: z.string(),
-  updated_at: z.string(),
 });
 export type User = z.infer<typeof UserSchema>;
+
+/**
+ * PATCH /users/me body — partial update.
+ * Phone değişikliği bu endpoint'te yapılmaz (OTP-reverify ayrı akış).
+ * `avatar_asset_id: null` gönderilirse mevcut avatar temizlenir.
+ */
+export const UserUpdatePayloadSchema = z.object({
+  full_name: z.string().trim().min(2).max(255).optional(),
+  email: z.string().email().optional(),
+  locale: z.string().min(2).max(10).optional(),
+  avatar_asset_id: z.string().uuid().nullable().optional(),
+});
+export type UserUpdatePayload = z.infer<typeof UserUpdatePayloadSchema>;
 
 export const TechnicianCapabilitySchema = z.object({
   insurance_case_handler: z.boolean().default(false),

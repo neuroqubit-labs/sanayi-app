@@ -19,6 +19,7 @@ from app.api.v1.routes import (
     technicians_public,
     tow,
     tow_ws,
+    users,
     vehicles,
     webhooks,
 )
@@ -26,6 +27,7 @@ from app.api.v1.routes import (
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
+api_router.include_router(users.router)
 api_router.include_router(media.router)
 api_router.include_router(cases.router)
 api_router.include_router(case_thread.router)

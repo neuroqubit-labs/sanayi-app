@@ -9,6 +9,7 @@ export * from "./media";
 export * from "./media/compressor";
 export * from "./media/useMediaUpload";
 export * from "./network";
+export * from "./phone";
 export * from "./platform-storage";
 export * from "./posthog";
 export * from "./query";
