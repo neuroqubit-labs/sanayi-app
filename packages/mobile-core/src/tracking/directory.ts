@@ -178,7 +178,9 @@ export function getTrackingVehicleMeta(vehicleId: string | null | undefined) {
   );
 }
 
-export function getTrackingServiceMeta(technicianId: string | null | undefined) {
+export function getTrackingServiceMeta(
+  technicianId: string | null | undefined,
+) {
   if (!technicianId) {
     return null;
   }
@@ -274,7 +276,7 @@ export function createTrackingDraftForKind(
       symptoms: [],
       maintenance_items: [],
       preferred_window: undefined,
-      vehicle_drivable: null,
+      vehicle_drivable: false,
       towing_required: true,
       pickup_preference: "pickup",
       mileage_km: null,

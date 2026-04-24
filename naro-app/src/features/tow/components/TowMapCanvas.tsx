@@ -20,7 +20,7 @@ type Props = {
 
 /**
  * Müşteri tarafı çekici canlı takip haritası. `packages/ui/map` primitif'leri
- * üzerine inşa. Fallback render Expo Go'da çalışır; dev client + Mapbox
+ * üzerine inşa. Fallback render Expo Go'da çalışır; dev client + native map
  * SDK geçince aynı prop API'si canlı tile üzerine yansır.
  */
 export function TowMapCanvas({

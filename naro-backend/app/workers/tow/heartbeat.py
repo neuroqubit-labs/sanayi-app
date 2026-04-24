@@ -1,8 +1,7 @@
 """ARQ job — heartbeat enforcer (Plan R2).
 
-Her 30sn: availability='available' ama last_location_at 90sn+ eski teknisyenleri
-availability='offline' yap. Dispatch query `last_location_at > NOW - 90s` filter
-ile zaten güvende; bu job ek güvenlik katmanı + WS push.
+Availability='available' olup freshness penceresini aşan teknisyenleri offline'a
+çeker. Dispatch query aynı pencereyi kullandığı için bu job ek güvenlik katmanı.
 """
 
 from __future__ import annotations
@@ -23,7 +22,9 @@ async def heartbeat_enforcer(ctx: dict[str, object]) -> None:
     """
     _ = ctx
     settings = get_settings()
-    cutoff = datetime.now(UTC) - timedelta(seconds=settings.tow_heartbeat_seconds)
+    cutoff = datetime.now(UTC) - timedelta(
+        seconds=settings.tow_heartbeat_seconds + settings.tow_heartbeat_grace_seconds
+    )
     async for session in get_db():
         await session.execute(
             _text(

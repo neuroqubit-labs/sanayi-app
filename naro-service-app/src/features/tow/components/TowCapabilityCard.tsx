@@ -159,6 +159,11 @@ export function TowCapabilityCard() {
           ? "Yakındaki acil çekici çağrıları sana düşer. Yeni dispatch geldiğinde 15 sn içinde kabul ekranı açılır."
           : "Sertifikan onaylı. Açık olduğunda acil çekici çağrılarını alırsın; kapattığında yeni dispatch gelmez, mevcut işler devam eder."}
       </Text>
+      {towAvailability.error ? (
+        <Text variant="caption" tone="critical" className="text-[12px]">
+          {towAvailability.error}
+        </Text>
+      ) : null}
     </View>
   );
 }

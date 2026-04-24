@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
@@ -27,6 +28,7 @@ from app.repositories import tow as tow_repo
 from app.services.tow_dispatch import (
     compute_cancellation_fee,
     compute_cap_amount,
+    initiate_dispatch,
 )
 
 # ─── Pure helpers (no DB) ───────────────────────────────────────────────────
@@ -101,6 +103,106 @@ def test_cancellation_fee_scheduled_buckets() -> None:
         TowDispatchStage.ARRIVED,
         locked_price=Decimal("2000"),
     ) == Decimal("2000")
+
+
+@pytest.mark.asyncio
+async def test_initiate_dispatch_uses_redis_geo_candidates(monkeypatch) -> None:
+    """Redis GEO narrows the hot candidate set; DB still validates/scorers."""
+    tech_id = uuid4()
+    attempt_id = uuid4()
+    captured: dict[str, object] = {}
+
+    async def fake_nearby(*_args, **_kwargs):
+        return [tech_id]
+
+    async def fake_select_next_candidate(_session, **kwargs):
+        captured["candidate_ids"] = kwargs.get("candidate_technician_ids")
+        return {
+            "technician_id": tech_id,
+            "distance_km": Decimal("1.250"),
+            "eta_minutes": 3,
+            "score": Decimal("0.9000"),
+        }
+
+    async def fake_lock(*_args, **_kwargs):
+        return True
+
+    async def fake_create_attempt(*_args, **_kwargs):
+        return SimpleNamespace(id=attempt_id)
+
+    async def fake_append_event(*_args, **_kwargs):
+        return SimpleNamespace(id=uuid4())
+
+    from app.services import tow_dispatch as dispatch_svc
+
+    monkeypatch.setattr(dispatch_svc.tow_presence, "nearby_candidate_ids", fake_nearby)
+    monkeypatch.setattr(dispatch_svc.tow_repo, "select_next_candidate", fake_select_next_candidate)
+    monkeypatch.setattr(dispatch_svc.tow_repo, "lock_offer_to_technician", fake_lock)
+    monkeypatch.setattr(dispatch_svc.tow_repo, "create_attempt", fake_create_attempt)
+    monkeypatch.setattr(dispatch_svc, "append_event", fake_append_event)
+
+    case = SimpleNamespace(id=uuid4())
+    tow_case = SimpleNamespace(
+        tow_mode=TowMode.IMMEDIATE,
+        pickup_lat=41.0,
+        pickup_lng=29.0,
+        tow_required_equipment=None,
+    )
+
+    decision = await initiate_dispatch(object(), case, tow_case, redis=object())
+
+    assert decision.technician_id == tech_id
+    assert captured["candidate_ids"] == [tech_id]
+
+
+@pytest.mark.asyncio
+async def test_initiate_dispatch_falls_back_when_redis_empty(monkeypatch) -> None:
+    """Redis cache miss must not block canonical PostGIS/DB dispatch."""
+    tech_id = uuid4()
+    attempt_id = uuid4()
+    captured: dict[str, object] = {}
+
+    async def fake_nearby(*_args, **_kwargs):
+        return []
+
+    async def fake_select_next_candidate(_session, **kwargs):
+        captured["candidate_ids"] = kwargs.get("candidate_technician_ids")
+        return {
+            "technician_id": tech_id,
+            "distance_km": Decimal("2.000"),
+            "eta_minutes": 4,
+            "score": Decimal("0.7000"),
+        }
+
+    async def fake_lock(*_args, **_kwargs):
+        return True
+
+    async def fake_create_attempt(*_args, **_kwargs):
+        return SimpleNamespace(id=attempt_id)
+
+    async def fake_append_event(*_args, **_kwargs):
+        return SimpleNamespace(id=uuid4())
+
+    from app.services import tow_dispatch as dispatch_svc
+
+    monkeypatch.setattr(dispatch_svc.tow_presence, "nearby_candidate_ids", fake_nearby)
+    monkeypatch.setattr(dispatch_svc.tow_repo, "select_next_candidate", fake_select_next_candidate)
+    monkeypatch.setattr(dispatch_svc.tow_repo, "lock_offer_to_technician", fake_lock)
+    monkeypatch.setattr(dispatch_svc.tow_repo, "create_attempt", fake_create_attempt)
+    monkeypatch.setattr(dispatch_svc, "append_event", fake_append_event)
+
+    case = SimpleNamespace(id=uuid4())
+    tow_case = SimpleNamespace(
+        tow_mode=TowMode.IMMEDIATE,
+        pickup_lat=41.0,
+        pickup_lng=29.0,
+        tow_required_equipment=None,
+    )
+
+    decision = await initiate_dispatch(object(), case, tow_case, redis=object())
+
+    assert decision.technician_id == tech_id
+    assert captured["candidate_ids"] is None
 
 
 # ─── DB integration helpers (raw SQL to bypass pre-existing SAEnum bug) ─────

@@ -17,7 +17,7 @@ export type RouteLineProps = {
 
 /**
  * Fallback: koordinat dizisini segment'lere böler + küçük daireler çizer.
- * Gerçek Mapbox entegrasyonunda polyline.
+ * Gerçek harita entegrasyonunda polyline.
  */
 export function RouteLine({
   coords,

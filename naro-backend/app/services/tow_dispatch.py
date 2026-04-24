@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from uuid import UUID
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case import (
@@ -25,6 +26,7 @@ from app.models.case_audit import CaseEventType
 from app.models.case_subtypes import TowCase
 from app.models.tow import TowDispatchResponse
 from app.repositories import tow as tow_repo
+from app.services import tow_presence
 from app.services.case_events import append_event
 
 DISPATCH_RADIUS_LADDER_KM: tuple[int, ...] = (10, 25, 50)
@@ -53,6 +55,8 @@ async def initiate_dispatch(
     session: AsyncSession,
     case: ServiceCase,
     tow_case: TowCase,
+    *,
+    redis: Redis | None = None,
 ) -> DispatchDecision:
     """Initial candidate selection + attempt INSERT + optimistic lock.
 
@@ -69,6 +73,7 @@ async def initiate_dispatch(
         tow_case=tow_case,
         attempt_order=1,
         excluded=[],
+        redis=redis,
     )
 
 
@@ -81,6 +86,7 @@ async def record_dispatch_response(
     response: TowDispatchResponse,
     actor_user_id: UUID,
     rejection_reason: str | None = None,
+    redis: Redis | None = None,
 ) -> DispatchDecision | None:
     """Accept → stage='accepted'. Decline/timeout → next candidate or pool.
 
@@ -117,6 +123,7 @@ async def record_dispatch_response(
             tow_case=tow_case,
             attempt_order=next_order,
             excluded=excluded,
+            redis=redis,
         )
     except NoCandidateFoundError:
         await _transition_to_pool_offered(session, case, tow_case, actor_user_id)
@@ -130,6 +137,7 @@ async def _attempt_next_candidate(
     tow_case: TowCase,
     attempt_order: int,
     excluded: list[UUID],
+    redis: Redis | None,
 ) -> DispatchDecision:
     required_equipment = (
         [
@@ -143,6 +151,28 @@ async def _attempt_next_candidate(
     candidate: dict[str, object] | None = None
     used_radius = DISPATCH_RADIUS_LADDER_KM[-1]
     for radius in DISPATCH_RADIUS_LADDER_KM:
+        redis_candidates: list[UUID] | None = None
+        if redis is not None:
+            redis_candidates = await tow_presence.nearby_candidate_ids(
+                redis,
+                pickup_lat=tow_case.pickup_lat,
+                pickup_lng=tow_case.pickup_lng,
+                radius_km=radius,
+            )
+            if redis_candidates:
+                candidate = await tow_repo.select_next_candidate(
+                    session,
+                    pickup_lat=tow_case.pickup_lat,
+                    pickup_lng=tow_case.pickup_lng,
+                    radius_km=radius,
+                    excluded_technician_ids=excluded,
+                    candidate_technician_ids=redis_candidates,
+                    required_equipment=required_equipment,
+                )
+                if candidate:
+                    used_radius = radius
+                    break
+
         candidate = await tow_repo.select_next_candidate(
             session,
             pickup_lat=tow_case.pickup_lat,
@@ -172,6 +202,7 @@ async def _attempt_next_candidate(
             tow_case=tow_case,
             attempt_order=attempt_order,
             excluded=excluded,
+            redis=redis,
         )
 
     distance = candidate["distance_km"]

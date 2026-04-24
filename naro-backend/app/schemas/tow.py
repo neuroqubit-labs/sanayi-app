@@ -401,6 +401,9 @@ class TowFareQuoteResponse(BaseModel):
     pickup_address: str | None = None
     dropoff_address: str | None = None
     distance_km: Decimal
+    duration_minutes: int | None = None
+    distance_source: Literal["google", "haversine"] = "haversine"
+    route_coords: list[LatLng] | None = None
     expires_at: datetime
 
 

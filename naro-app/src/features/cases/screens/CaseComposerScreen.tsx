@@ -1,4 +1,5 @@
 import type { ServiceRequestKind, TowVehicleEquipment } from "@naro/domain";
+import { ApiError } from "@naro/mobile-core";
 import {
   Avatar,
   Button,
@@ -11,7 +12,7 @@ import {
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { CarFront, ChevronDown, Plus } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -29,6 +30,7 @@ import { useDraftGuard } from "@/shared/navigation/useDraftGuard";
 
 import { useCreateCaseDraft, useSubmitCase } from "../api";
 import { getComposerFlow } from "../composer";
+import { TowCallComposer } from "../composer/TowCallComposer";
 import { getCaseKindLabel } from "../presentation";
 
 const KIND_VALUES: ServiceRequestKind[] = [
@@ -55,6 +57,19 @@ function hasMeaningfulDraft(draft: {
   if ((draft.summary ?? "").trim().length > 0) return true;
   if ((draft.location_label ?? "").trim().length > 0) return true;
   return false;
+}
+
+function extractDuplicateOpenCaseId(err: unknown): string | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const detail = (err.body as { detail?: unknown } | undefined)?.detail;
+  if (!detail || typeof detail !== "object") return null;
+  const type = (detail as { type?: unknown }).type;
+  const existingCaseId = (detail as { existing_case_id?: unknown })
+    .existing_case_id;
+  if (type !== "duplicate_open_case" || typeof existingCaseId !== "string") {
+    return null;
+  }
+  return existingCaseId;
 }
 
 export function CaseComposerScreen() {
@@ -85,6 +100,7 @@ export function CaseComposerScreen() {
     technicianId ? state.isInCooldown(technicianId) : false,
   );
   const [stepIndex, setStepIndex] = useState(0);
+  const [towSubmitMessage, setTowSubmitMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (vehicleId && vehicleId !== activeVehicle?.id) {
@@ -99,6 +115,11 @@ export function CaseComposerScreen() {
   const { data: draft, updateDraft, resetDraft } = useCreateCaseDraft(kind);
   const submitMutation = useSubmitCase(kind);
   const towFareQuote = useTowFareQuote();
+  const resetTowSubmitErrors = useCallback(() => {
+    setTowSubmitMessage(null);
+    submitMutation.reset();
+    towFareQuote.reset();
+  }, [submitMutation, towFareQuote]);
   const flow = useMemo(() => getComposerFlow(kind), [kind]);
 
   const currentStep = flow.steps[stepIndex] ?? flow.steps[0]!;
@@ -253,10 +274,13 @@ export function CaseComposerScreen() {
 
   async function handleSubmit() {
     if (!activeVehicle || !draft) return;
+    setTowSubmitMessage(null);
 
     if (kind === "towing") {
       const isImmediate = draft.urgency === "urgent";
-      const mode = isImmediate ? ("immediate" as const) : ("scheduled" as const);
+      const mode = isImmediate
+        ? ("immediate" as const)
+        : ("scheduled" as const);
       if (!draft.location_lat_lng || !draft.dropoff_lat_lng) return;
       const pickupLatLng = draft.location_lat_lng;
       const dropoffLatLng = draft.dropoff_lat_lng;
@@ -266,8 +290,8 @@ export function CaseComposerScreen() {
           : ["flatbed"];
       const scheduledAt = isImmediate
         ? null
-        : draft.tow_scheduled_at ??
-          new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+        : (draft.tow_scheduled_at ??
+          new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString());
       try {
         const quote = await towFareQuote.mutateAsync({
           mode,
@@ -293,10 +317,15 @@ export function CaseComposerScreen() {
         resetDraft();
         router.replace(`/cekici/${createdCase.id}` as Href);
       } catch (err) {
-        console.warn("tow case create failed", err);
-        // UX: submitLoading state zaten false'a döner; hata TanStack
-        // mutation'da tutulur. Ekstra Alert eklemek kullanıcı deneyimini
-        // bozar; composer kullanıcı tekrar butona basarak retry eder.
+        const existingCaseId = extractDuplicateOpenCaseId(err);
+        if (existingCaseId) {
+          resetDraft();
+          router.replace(`/cekici/${existingCaseId}` as Href);
+          return;
+        }
+        setTowSubmitMessage(
+          "Çekici çağrısı oluşturulamadı. Bağlantını kontrol edip tekrar dene.",
+        );
       }
       return;
     }
@@ -314,6 +343,28 @@ export function CaseComposerScreen() {
     router.back();
   };
 
+  if (kind === "towing") {
+    return (
+      <TowCallComposer
+        draft={draft}
+        activeVehicle={activeVehicle}
+        updateDraft={updateDraft}
+        onClose={handleClose}
+        onSubmit={() => {
+          void handleSubmit();
+        }}
+        onResetSubmitError={resetTowSubmitErrors}
+        onOpenVehicleSwitcher={openVehicleSwitcher}
+        loading={submitMutation.isPending || towFareQuote.isPending}
+        error={
+          towSubmitMessage
+            ? new Error(towSubmitMessage)
+            : (submitMutation.error ?? towFareQuote.error ?? null)
+        }
+      />
+    );
+  }
+
   return (
     <FlowScreen
       eyebrow={compactShell ? undefined : flow.eyebrow}
@@ -323,9 +374,7 @@ export function CaseComposerScreen() {
       backVariant={compactShell || stepIndex === 0 ? "close" : "back"}
       compact={compactShell}
       trailingAction={
-        compactShell && kind !== "towing" ? (
-          <DraftSaveAction onPress={handleClose} />
-        ) : undefined
+        compactShell ? <DraftSaveAction onPress={handleClose} /> : undefined
       }
       progress={
         flow.steps.length <= 1 ? undefined : (
@@ -348,10 +397,7 @@ export function CaseComposerScreen() {
               isLastStep ? (flow.submitLabel ?? "Bildirimi gönder") : "Devam et"
             }
             onPrimary={goNext}
-            primaryLoading={
-              submitMutation.isPending ||
-              towFareQuote.isPending
-            }
+            primaryLoading={submitMutation.isPending || towFareQuote.isPending}
             primaryDisabled={Boolean(validationMessage)}
             secondaryLabel={stepIndex === 0 ? "İptal" : "Geri"}
             onSecondary={goBack}

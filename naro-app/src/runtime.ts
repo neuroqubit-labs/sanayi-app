@@ -17,12 +17,24 @@ import {
 
 const AppEnvSchema = z
   .object({
-    EXPO_PUBLIC_API_URL: z.string().url().default("http://localhost:8000/api/v1"),
-    EXPO_PUBLIC_APP_ENV: z.enum(["development", "staging", "production"]).default("development"),
+    EXPO_PUBLIC_API_URL: z
+      .string()
+      .url()
+      .default("http://localhost:8000/api/v1"),
+    EXPO_PUBLIC_APP_ENV: z
+      .enum(["development", "staging", "production"])
+      .default("development"),
     EXPO_PUBLIC_MOCK_AUTH: z.enum(["true", "false"]).default("false"),
-    EXPO_PUBLIC_POSTHOG_HOST: z.string().url().default("https://us.i.posthog.com"),
+    EXPO_PUBLIC_POSTHOG_HOST: z
+      .string()
+      .url()
+      .default("https://us.i.posthog.com"),
     EXPO_PUBLIC_POSTHOG_KEY: z.string().default(""),
-    EXPO_PUBLIC_SENTRY_DSN: z.union([z.string().url(), z.literal("")]).default(""),
+    EXPO_PUBLIC_SENTRY_DSN: z
+      .union([z.string().url(), z.literal("")])
+      .default(""),
+    EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY: z.string().default(""),
+    EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY: z.string().default(""),
   })
   .transform((values) => ({
     apiUrl: values.EXPO_PUBLIC_API_URL,
@@ -31,6 +43,10 @@ const AppEnvSchema = z
     posthogHost: values.EXPO_PUBLIC_POSTHOG_HOST,
     posthogKey: values.EXPO_PUBLIC_POSTHOG_KEY || undefined,
     sentryDsn: values.EXPO_PUBLIC_SENTRY_DSN || undefined,
+    googleMapsAndroidApiKey:
+      values.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY || undefined,
+    googleMapsIosApiKey:
+      values.EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY || undefined,
   }));
 
 export const env = createExpoPublicEnv(AppEnvSchema);
@@ -60,7 +76,10 @@ const sentryTelemetry = createSentryTelemetryAdapter({
   environment: env.appEnv,
 });
 
-export const telemetry = combineTelemetryAdapters(sentryTelemetry, posthogTelemetry);
+export const telemetry = combineTelemetryAdapters(
+  sentryTelemetry,
+  posthogTelemetry,
+);
 
 export const useAuthStore = createAuthStore({
   repository: sessionRepository,

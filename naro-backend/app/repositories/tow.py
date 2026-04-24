@@ -18,6 +18,7 @@ from sqlalchemy import and_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.case import TowDispatchStage
 from app.models.case_subtypes import TowCase
 from app.models.technician import TechnicianProfile
@@ -118,6 +119,7 @@ async def select_next_candidate(
     pickup_lng: float,
     radius_km: int,
     excluded_technician_ids: list[UUID],
+    candidate_technician_ids: list[UUID] | None = None,
     required_equipment: list[str] | None = None,
     heartbeat_cutoff: datetime | None = None,
 ) -> dict[str, object] | None:
@@ -125,7 +127,15 @@ async def select_next_candidate(
 
     Dönen: {technician_id, distance_km, eta_minutes, score}. None → pool empty.
     """
-    cutoff = heartbeat_cutoff or (datetime.now(UTC) - timedelta(seconds=90))
+    settings = get_settings()
+    default_cutoff_seconds = (
+        settings.tow_heartbeat_seconds + settings.tow_heartbeat_grace_seconds
+    )
+    cutoff = heartbeat_cutoff or (
+        datetime.now(UTC) - timedelta(seconds=default_cutoff_seconds)
+    )
+    if candidate_technician_ids is not None and len(candidate_technician_ids) == 0:
+        return None
     equip_filter = (
         ""
         if not required_equipment
@@ -142,6 +152,9 @@ async def select_next_candidate(
     )
     excluded_clause = (
         "" if not excluded_technician_ids else "AND tp.user_id != ALL(:excluded)"
+    )
+    candidate_clause = (
+        "" if candidate_technician_ids is None else "AND tp.user_id = ANY(:candidates)"
     )
 
     sql = f"""
@@ -172,6 +185,7 @@ async def select_next_candidate(
           AND tp.last_location_at IS NOT NULL
           AND tp.last_location_at > :cutoff
           AND tp.current_offer_case_id IS NULL
+          {candidate_clause}
           -- B-P1-9 fix: capacity guard — current_queue_depth < max_concurrent_jobs
           -- Kapasite kaydı yoksa teknisyen default kapasitede sayılır (geçmiş
           -- mock/onboarding seed'ler için güvenli).
@@ -194,6 +208,8 @@ async def select_next_candidate(
     }
     if excluded_technician_ids:
         params["excluded"] = excluded_technician_ids
+    if candidate_technician_ids is not None:
+        params["candidates"] = candidate_technician_ids
     if required_equipment:
         params["required_equipment"] = required_equipment
 

@@ -44,6 +44,26 @@ export function useTowFareQuote() {
   });
 }
 
+export function useTowFareQuotePreview(payload: TowFareQuoteRequest | null) {
+  return useQuery<TowFareQuoteResponse>({
+    queryKey: ["tow", "fare-quote", payload],
+    enabled: payload !== null,
+    staleTime: 25_000,
+    gcTime: 2 * 60_000,
+    queryFn: async () => {
+      if (!payload) {
+        throw new Error("quote payload is required");
+      }
+      const body = TowFareQuoteRequestSchema.parse(payload);
+      const raw = await apiClient(`/tow/fare/quote`, {
+        method: "POST",
+        body: JSON.parse(JSON.stringify(body)),
+      });
+      return TowFareQuoteResponseSchema.parse(raw);
+    },
+  });
+}
+
 // ─── Case lifecycle ────────────────────────────────────────────────────────
 
 export function useCreateTowCase() {

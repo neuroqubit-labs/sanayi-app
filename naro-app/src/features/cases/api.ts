@@ -159,6 +159,7 @@ export function useCreateCaseDraft(kind: ServiceRequestKind) {
         throw new Error("Talep için aktif araç gerekli.");
       }
       const draft = useCasesStore.getState().updateDraft(kind, patch);
+      queryClient.setQueryData(["cases", "draft", kind, vehicleId], draft);
       void queryClient.invalidateQueries({
         queryKey: ["cases", "draft", kind, vehicleId],
       });
@@ -169,6 +170,7 @@ export function useCreateCaseDraft(kind: ServiceRequestKind) {
         throw new Error("Talep için aktif araç gerekli.");
       }
       const draft = useCasesStore.getState().resetDraft(kind, vehicleId);
+      queryClient.setQueryData(["cases", "draft", kind, vehicleId], draft);
       void queryClient.invalidateQueries({
         queryKey: ["cases", "draft", kind, vehicleId],
       });

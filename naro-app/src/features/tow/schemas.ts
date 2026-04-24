@@ -108,6 +108,9 @@ export const TowFareQuoteResponseSchema = z.object({
   pickup_address: z.string().nullable().optional(),
   dropoff_address: z.string().nullable().optional(),
   distance_km: z.string(),
+  duration_minutes: z.number().int().positive().nullable().optional(),
+  distance_source: z.enum(["google", "haversine"]).optional(),
+  route_coords: z.array(LatLngSchema).nullable().optional(),
   expires_at: z.string(),
 });
 export type TowFareQuoteResponse = z.infer<typeof TowFareQuoteResponseSchema>;

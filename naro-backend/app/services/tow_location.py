@@ -21,7 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case_audit import CaseEventType
 from app.models.case_subtypes import TowCase
+from app.repositories import technician as technician_repo
 from app.repositories import tow as tow_repo
+from app.services import tow_presence
 from app.services.case_events import append_event
 
 LAST_LOCATION_TTL_SECONDS = 300
@@ -71,6 +73,20 @@ async def record_location(
         lng=lng,
         captured_at=captured_at,
     )
+    profile = await technician_repo.get_profile_by_user_id(session, technician_id)
+    if profile is not None:
+        profile.last_known_location_lat = lat
+        profile.last_known_location_lng = lng
+        profile.last_location_at = captured_at
+        await tow_presence.mark_available(
+            session,
+            redis,
+            profile=profile,
+            technician_id=technician_id,
+            lat=lat,
+            lng=lng,
+            captured_at=captured_at,
+        )
     # 3. Redis flat cache (broadcast)
     await redis.set(
         f"tow:loc:last:{technician_id}",

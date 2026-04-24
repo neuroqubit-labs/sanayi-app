@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -77,6 +77,20 @@ for (const file of ACTIVE_SERVICE_FILES) {
         failures.push(`${file}: ${matches.length} ${label} match(es)`);
       }
     }
+  }
+}
+
+const TOW_ROUTE_DIR = path.join(ROOT, "naro-backend/app/api/v1/routes/tow");
+for (const entry of readdirSync(TOW_ROUTE_DIR)) {
+  if (!entry.endsWith(".py")) continue;
+  const file = path.join(TOW_ROUTE_DIR, entry);
+  const stat = statSync(file);
+  if (!stat.isFile()) continue;
+  const lineCount = readFileSync(file, "utf8").split("\n").length;
+  if (lineCount > 350) {
+    failures.push(
+      `naro-backend/app/api/v1/routes/tow/${entry}: ${lineCount} lines exceeds 350 line route module limit`,
+    );
   }
 }
 

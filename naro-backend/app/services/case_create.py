@@ -18,6 +18,7 @@ from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from redis.asyncio import Redis
 from sqlalchemy import and_, select, update
 
 from app.models.case import (
@@ -54,8 +55,9 @@ from app.services.maintenance_detail_validator import (
 )
 
 if TYPE_CHECKING:
-    from app.integrations.psp import Psp
     from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.integrations.psp import Psp
 
 
 # ─── Domain exceptions ─────────────────────────────────────────────────────
@@ -350,6 +352,7 @@ async def start_tow_operations(
     draft: ServiceRequestDraftCreate,
     actor_user_id: UUID,
     psp: Psp,
+    redis: Redis | None = None,
 ) -> dict[str, object]:
     """Canonical /cases sonrası tow alt sistemini başlatır."""
     if draft.kind != ServiceRequestKind.TOWING:
@@ -385,7 +388,9 @@ async def start_tow_operations(
         raise TowPreauthDeclinedError(str(exc)) from exc
 
     try:
-        decision = await dispatch_svc.initiate_dispatch(session, case, tow_case)
+        decision = await dispatch_svc.initiate_dispatch(
+            session, case, tow_case, redis=redis
+        )
     except dispatch_svc.NoCandidateFoundError:
         await dispatch_svc._transition_to_pool_offered(
             session,

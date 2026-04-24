@@ -93,14 +93,14 @@ export type MapViewProps = {
   className?: string;
   style?: StyleProp<ViewStyle>;
   /**
-   * `true` → "önizleme" rozeti gizlenir. Lansman hazır Mapbox entegrasyonunda
+   * `true` → "önizleme" rozeti gizlenir. Lansman hazır native harita entegrasyonunda
    * iletilir; Faz 1 fallback için varsayılan `false`.
    */
   hideFallbackBadge?: boolean;
 };
 
 /**
- * Naro shared Map wrapper — dev client + Mapbox SDK ile canlıya dönecek,
+ * Naro shared Map wrapper — dev client + native harita SDK ile canlıya dönecek,
  * şu an Expo Go için **fallback grid render** ediyor:
  * - Çocuk marker'lar (PinMarker, TruckMarker vs.) normalized projection ile
  *   konuma yerleştirilir

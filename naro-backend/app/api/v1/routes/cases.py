@@ -24,6 +24,7 @@ from app.api.v1.deps import (
     CustomerDep,
     DbDep,
     PspDep,
+    RedisDep,
     SettingsDep,
 )
 from app.integrations.storage import build_storage_gateway
@@ -182,6 +183,7 @@ async def create_case_endpoint(
     user: CustomerDep,
     db: DbDep,
     psp: PspDep,
+    redis: RedisDep,
 ) -> CaseCreateResponse:
     try:
         result = await case_create.create_case(db, user_id=user.id, draft=draft)
@@ -192,6 +194,7 @@ async def create_case_endpoint(
                 draft=draft,
                 actor_user_id=user.id,
                 psp=psp,
+                redis=redis,
             )
     except case_create.CaseCreateError as exc:
         detail: dict[str, object] = {

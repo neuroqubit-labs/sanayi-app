@@ -62,9 +62,8 @@ class Settings(BaseSettings):
     # Faz B-2 — Iyzico 3DS callback + webhook (PO sandbox başvuru 3-7g)
     iyzico_webhook_secret: str = ""
     iyzico_callback_url: str = "https://api-sandbox.naro.app/api/v1/webhooks/iyzico/payment"
-    maps_provider: Literal["mapbox", "offline"] = "offline"
-    mapbox_backend_token: str = ""
-    mapbox_public_token: str = ""
+    maps_provider: Literal["google", "offline"] = "offline"
+    google_maps_backend_api_key: str = ""
     tow_dispatch_timeout_seconds: int = 180
     tow_accept_window_seconds: int = 30
     tow_location_retention_days: int = 30
@@ -75,7 +74,8 @@ class Settings(BaseSettings):
     tow_quote_buffer_pct: float = 0.10
     tow_otp_ttl_minutes: int = 10
     tow_otp_max_attempts: int = 3
-    tow_heartbeat_seconds: int = 90
+    tow_heartbeat_seconds: int = 600
+    tow_heartbeat_grace_seconds: int = 120
 
     # QA tur 2 P1-4: offer expires_at default TTL (B-P1-6 cron filter için)
     offer_ttl_minutes: int = 15

@@ -57,6 +57,11 @@ export function AvailabilityToggleCard() {
             ? "Konumun yayında. Yeni çekici çağrısı geldiğinde tam ekran kabul ekranı açılır."
             : "Açtığında çevrendeki acil çağrılar sana düşer. Kapattığında yeni dispatch gelmez."}
       </Text>
+      {towAvailability.error ? (
+        <Text variant="caption" tone="critical" className="text-[12px]">
+          {towAvailability.error}
+        </Text>
+      ) : null}
     </View>
   );
 }
