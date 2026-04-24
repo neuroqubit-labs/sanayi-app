@@ -1,10 +1,13 @@
 import {
   ActionSheetSurface,
+  ActionRow,
   BottomSheetOverlay,
   Button,
+  FieldInput,
   Icon,
   MoneyAmount,
   Text,
+  useNaroTheme,
 } from "@naro/ui";
 import {
   CheckCircle2,
@@ -13,13 +16,7 @@ import {
   MessageCircle,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 
 import { useCaseApprovals, useDecideApproval } from "@/features/approvals";
 import type { ApprovalResponse } from "@/features/approvals";
@@ -45,6 +42,7 @@ export function InvoiceApprovalSheet({
   onClose,
   onTalkToTechnician,
 }: InvoiceApprovalSheetProps) {
+  const { colors } = useNaroTheme();
   const approvalsQuery = useCaseApprovals(caseId);
   const approval = useMemo(
     () =>
@@ -104,7 +102,7 @@ export function InvoiceApprovalSheet({
       >
         {approvalsQuery.isLoading ? (
           <View className="items-center py-6">
-            <ActivityIndicator size="small" color="#83a7ff" />
+            <ActivityIndicator size="small" color={colors.info} />
           </View>
         ) : approvalsQuery.isError || !approval ? (
           <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
@@ -169,6 +167,7 @@ function InvoiceBody({
   onCancelDispute,
   onTalkToTechnician,
 }: BodyProps) {
+  const { colors } = useNaroTheme();
   const reasonValid = reason.trim().length >= 10;
   return (
     <View className="gap-3">
@@ -190,7 +189,7 @@ function InvoiceBody({
         {data.line_items.length > 0 ? (
           <View className="gap-2">
             <View className="flex-row items-center gap-1.5">
-              <Icon icon={FileText} size={12} color="#83a7ff" />
+              <Icon icon={FileText} size={12} color={colors.info} />
               <Text variant="eyebrow" tone="subtle">
                 Yapılan işlemler
               </Text>
@@ -221,7 +220,7 @@ function InvoiceBody({
         {amount !== null ? (
           <View className="gap-2 rounded-[16px] border border-app-success/40 bg-app-success-soft px-4 py-3.5">
             <View className="flex-row items-center gap-2">
-              <Icon icon={CheckCircle2} size={14} color="#2dd28d" />
+              <Icon icon={CheckCircle2} size={14} color={colors.success} />
               <Text variant="eyebrow" tone="success">
                 Nihai tutar
               </Text>
@@ -239,7 +238,7 @@ function InvoiceBody({
         ) : null}
 
         <View className="flex-row items-center gap-2 rounded-[12px] border border-dashed border-app-outline bg-app-surface-2/50 px-3 py-2">
-          <Icon icon={Clock3} size={11} color="#83a7ff" />
+          <Icon icon={Clock3} size={11} color={colors.info} />
           <Text
             variant="caption"
             tone="muted"
@@ -263,15 +262,12 @@ function InvoiceBody({
             Admin arabulucu 3-5 iş günü içinde inceler. Açıklaman net olursa
             süreç hızlanır.
           </Text>
-          <TextInput
+          <FieldInput
             value={reason}
             onChangeText={setReason}
             placeholder="Sorunu kısaca anlat — iş yapılmadı / tahminden farklı / kalite problemi"
-            placeholderTextColor="#6f7b97"
-            multiline
-            className="rounded-[10px] border border-app-outline bg-app-surface px-3 py-2 text-sm text-app-text"
-            textAlignVertical="top"
-            style={{ minHeight: 80 }}
+            textarea
+            rows={4}
           />
           <View className="flex-row gap-2">
             <View className="flex-1">
@@ -321,18 +317,15 @@ function InvoiceBody({
             </View>
           </View>
           {onTalkToTechnician ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Usta ile konuş"
+            <ActionRow
+              label="Önce ustaya sor"
+              leading={
+                <Icon icon={MessageCircle} size={13} color={colors.info} />
+              }
               onPress={onTalkToTechnician}
               disabled={submitPending}
-              className="flex-row items-center justify-center gap-2 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2 active:bg-app-surface-2"
-            >
-              <Icon icon={MessageCircle} size={13} color="#83a7ff" />
-              <Text variant="label" tone="inverse" className="text-[12px]">
-                Önce ustaya sor
-              </Text>
-            </Pressable>
+              className="justify-center"
+            />
           ) : null}
           {submitError ? (
             <View className="rounded-[10px] border border-app-critical/30 bg-app-critical-soft px-3 py-2">

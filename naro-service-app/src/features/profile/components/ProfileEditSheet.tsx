@@ -2,12 +2,15 @@ import {
   ActionSheetSurface,
   BottomSheetOverlay,
   Button,
+  FieldInput,
   Icon,
+  IconButton,
   Text,
+  useNaroTheme,
 } from "@naro/ui";
 import { Plus, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import type { BusinessInfo } from "@/features/technicians";
 
@@ -63,6 +66,7 @@ type Props = {
 };
 
 export function ProfileEditSheet({ target, onClose, onSave }: Props) {
+  const { colors } = useNaroTheme();
   const [textValue, setTextValue] = useState("");
   const [tagList, setTagList] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
@@ -149,25 +153,21 @@ export function ProfileEditSheet({ target, onClose, onSave }: Props) {
       <ActionSheetSurface title={target.title} description={target.description}>
         <View className="gap-4">
           {target.kind === "text" ? (
-            <TextInput
+            <FieldInput
               value={textValue}
               onChangeText={setTextValue}
               placeholder={target.placeholder}
-              placeholderTextColor="#66718d"
-              className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
               autoFocus
             />
           ) : null}
 
           {target.kind === "textarea" ? (
-            <TextInput
+            <FieldInput
               value={textValue}
               onChangeText={setTextValue}
               placeholder={target.placeholder}
-              placeholderTextColor="#66718d"
-              multiline
-              className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
-              style={{ minHeight: 120, textAlignVertical: "top" }}
+              textarea
+              rows={4}
               autoFocus
             />
           ) : null}
@@ -181,6 +181,7 @@ export function ProfileEditSheet({ target, onClose, onSave }: Props) {
                       key={tag}
                       accessibilityRole="button"
                       accessibilityLabel={`${tag} kaldır`}
+                      hitSlop={8}
                       onPress={() => handleRemoveTag(tag)}
                       className="flex-row items-center gap-1.5 rounded-full border border-brand-500/40 bg-brand-500/15 px-3 py-1.5 active:opacity-80"
                     >
@@ -191,7 +192,7 @@ export function ProfileEditSheet({ target, onClose, onSave }: Props) {
                       >
                         {tag}
                       </Text>
-                      <Icon icon={X} size={11} color="#f45f25" />
+                      <Icon icon={X} size={11} color={colors.info} />
                     </Pressable>
                   ))
                 ) : (
@@ -205,28 +206,25 @@ export function ProfileEditSheet({ target, onClose, onSave }: Props) {
                 )}
               </View>
               <View className="flex-row gap-2">
-                <TextInput
+                <FieldInput
                   value={tagDraft}
                   onChangeText={setTagDraft}
                   placeholder="Yeni etiket"
-                  placeholderTextColor="#66718d"
-                  className="flex-1 rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
+                  containerClassName="flex-1"
                   onSubmitEditing={handleAddTag}
                   returnKeyType="done"
                 />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Etiket ekle"
+                <IconButton
+                  label="Etiket ekle"
+                  icon={<Icon icon={Plus} size={16} color={colors.info} />}
                   onPress={handleAddTag}
                   disabled={!tagDraft.trim()}
-                  className={`items-center justify-center rounded-[14px] border px-4 ${
+                  className={
                     tagDraft.trim()
                       ? "border-brand-500/40 bg-brand-500/15"
-                      : "border-app-outline bg-app-surface"
-                  }`}
-                >
-                  <Icon icon={Plus} size={16} color="#f45f25" />
-                </Pressable>
+                      : undefined
+                  }
+                />
               </View>
             </View>
           ) : null}
@@ -307,17 +305,13 @@ function BusinessField({
       <Text variant="eyebrow" tone="subtle">
         {label}
       </Text>
-      <TextInput
+      <FieldInput
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor="#66718d"
-        multiline={multiline}
+        textarea={multiline}
+        rows={multiline ? 2 : undefined}
         keyboardType={keyboardType}
-        className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
-        style={
-          multiline ? { minHeight: 72, textAlignVertical: "top" } : undefined
-        }
       />
     </View>
   );

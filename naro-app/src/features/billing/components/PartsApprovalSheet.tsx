@@ -1,20 +1,17 @@
 import {
   ActionSheetSurface,
+  ActionRow,
   BottomSheetOverlay,
   Button,
+  FieldInput,
   Icon,
   MoneyAmount,
   Text,
+  useNaroTheme,
 } from "@naro/ui";
 import { AlertTriangle, Clock3, MessageCircle } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 
 import { useCaseApprovals, useDecideApproval } from "@/features/approvals";
 import type { ApprovalResponse } from "@/features/approvals";
@@ -41,6 +38,7 @@ export function PartsApprovalSheet({
   onClose,
   onTalkToTechnician,
 }: PartsApprovalSheetProps) {
+  const { colors } = useNaroTheme();
   const approvalsQuery = useCaseApprovals(caseId);
   const approval = useMemo(
     () =>
@@ -101,7 +99,7 @@ export function PartsApprovalSheet({
       >
         {approvalsQuery.isLoading ? (
           <View className="items-center py-6">
-            <ActivityIndicator size="small" color="#83a7ff" />
+            <ActivityIndicator size="small" color={colors.info} />
           </View>
         ) : approvalsQuery.isError || !approval ? (
           <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
@@ -166,6 +164,8 @@ function ApprovalBody({
   onCancelReject,
   onTalkToTechnician,
 }: BodyProps) {
+  const { colors } = useNaroTheme();
+
   return (
     <View className="gap-3">
       <ScrollView
@@ -214,7 +214,7 @@ function ApprovalBody({
         {amount !== null ? (
           <View className="gap-2 rounded-[16px] border border-app-warning/40 bg-app-warning-soft px-4 py-3.5">
             <View className="flex-row items-center gap-2">
-              <Icon icon={AlertTriangle} size={14} color="#f5b33f" />
+              <Icon icon={AlertTriangle} size={14} color={colors.warning} />
               <Text variant="eyebrow" tone="warning">
                 Ek tutar
               </Text>
@@ -232,7 +232,7 @@ function ApprovalBody({
         ) : null}
 
         <View className="flex-row items-center gap-2 rounded-[12px] border border-dashed border-app-outline bg-app-surface-2/50 px-3 py-2">
-          <Icon icon={Clock3} size={11} color="#83a7ff" />
+          <Icon icon={Clock3} size={11} color={colors.info} />
           <Text
             variant="caption"
             tone="muted"
@@ -248,15 +248,12 @@ function ApprovalBody({
           <Text variant="eyebrow" tone="subtle" className="text-[10px]">
             Red sebebi (opsiyonel)
           </Text>
-          <TextInput
+          <FieldInput
             value={reason}
             onChangeText={setReason}
             placeholder="Kısa açıklama — usta görecek"
-            placeholderTextColor="#6f7b97"
-            multiline
-            className="rounded-[10px] border border-app-outline bg-app-surface px-3 py-2 text-sm text-app-text"
-            textAlignVertical="top"
-            style={{ minHeight: 60 }}
+            textarea
+            rows={3}
           />
           <View className="flex-row gap-2">
             <View className="flex-1">
@@ -305,18 +302,15 @@ function ApprovalBody({
             </View>
           </View>
           {onTalkToTechnician ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Usta ile konuş"
+            <ActionRow
+              label="Usta ile konuş"
+              leading={
+                <Icon icon={MessageCircle} size={13} color={colors.info} />
+              }
               onPress={onTalkToTechnician}
               disabled={submitPending}
-              className="flex-row items-center justify-center gap-2 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2 active:bg-app-surface-2"
-            >
-              <Icon icon={MessageCircle} size={13} color="#83a7ff" />
-              <Text variant="label" tone="inverse" className="text-[12px]">
-                Usta ile konuş
-              </Text>
-            </Pressable>
+              className="justify-center"
+            />
           ) : null}
           {submitError ? (
             <View className="rounded-[10px] border border-app-critical/30 bg-app-critical-soft px-3 py-2">

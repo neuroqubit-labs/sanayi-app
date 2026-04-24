@@ -1,13 +1,16 @@
 import {
   ActionSheetSurface,
+  ActionRow,
   BottomSheetOverlay,
   Button,
+  FieldInput,
   Icon,
   Text,
+  useNaroTheme,
 } from "@naro/ui";
 import { CheckCircle2, Clock3, MessageCircle } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 import { useCaseApprovals, useDecideApproval } from "@/features/approvals";
 
@@ -30,6 +33,7 @@ export function CompletionApprovalSheet({
   onClose,
   onTalkToTechnician,
 }: CompletionApprovalSheetProps) {
+  const { colors } = useNaroTheme();
   const approvalsQuery = useCaseApprovals(caseId);
   const approval = useMemo(
     () =>
@@ -88,7 +92,7 @@ export function CompletionApprovalSheet({
       >
         {approvalsQuery.isLoading ? (
           <View className="items-center py-6">
-            <ActivityIndicator size="small" color="#83a7ff" />
+            <ActivityIndicator size="small" color={colors.info} />
           </View>
         ) : approvalsQuery.isError || !approval ? (
           <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
@@ -110,7 +114,7 @@ export function CompletionApprovalSheet({
 
             <View className="gap-2 rounded-[16px] border border-app-success/40 bg-app-success-soft px-4 py-3.5">
               <View className="flex-row items-center gap-2">
-                <Icon icon={CheckCircle2} size={14} color="#2dd28d" />
+                <Icon icon={CheckCircle2} size={14} color={colors.success} />
                 <Text variant="eyebrow" tone="success">
                   Son kontrol
                 </Text>
@@ -126,7 +130,7 @@ export function CompletionApprovalSheet({
             </View>
 
             <View className="flex-row items-center gap-2 rounded-[12px] border border-dashed border-app-outline bg-app-surface-2/50 px-3 py-2">
-              <Icon icon={Clock3} size={11} color="#83a7ff" />
+              <Icon icon={Clock3} size={11} color={colors.info} />
               <Text
                 variant="caption"
                 tone="muted"
@@ -141,15 +145,12 @@ export function CompletionApprovalSheet({
                 <Text variant="eyebrow" tone="subtle" className="text-[10px]">
                   Sorun ne? (en az 5 karakter)
                 </Text>
-                <TextInput
+                <FieldInput
                   value={note}
                   onChangeText={setNote}
                   placeholder="Kısa açıklama — usta ve admin görecek"
-                  placeholderTextColor="#6f7b97"
-                  multiline
-                  className="rounded-[10px] border border-app-outline bg-app-surface px-3 py-2 text-sm text-app-text"
-                  textAlignVertical="top"
-                  style={{ minHeight: 70 }}
+                  textarea
+                  rows={3}
                 />
                 <View className="flex-row gap-2">
                   <View className="flex-1">
@@ -204,22 +205,19 @@ export function CompletionApprovalSheet({
                   </View>
                 </View>
                 {onTalkToTechnician ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Usta ile konuş"
+                  <ActionRow
+                    label="Usta ile konuş"
+                    leading={
+                      <Icon
+                        icon={MessageCircle}
+                        size={13}
+                        color={colors.info}
+                      />
+                    }
                     onPress={() => onTalkToTechnician(approval.case_id)}
                     disabled={submit.isPending}
-                    className="flex-row items-center justify-center gap-2 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2 active:bg-app-surface-2"
-                  >
-                    <Icon icon={MessageCircle} size={13} color="#83a7ff" />
-                    <Text
-                      variant="label"
-                      tone="inverse"
-                      className="text-[12px]"
-                    >
-                      Usta ile konuş
-                    </Text>
-                  </Pressable>
+                    className="justify-center"
+                  />
                 ) : null}
                 {submit.isError ? (
                   <View className="rounded-[10px] border border-app-critical/30 bg-app-critical-soft px-3 py-2">

@@ -3,11 +3,12 @@ import {
   BottomSheetOverlay,
   Button,
   FeeWarningCard,
+  FieldInput,
+  OptionPillGroup,
   Text,
-  ToggleChip,
 } from "@naro/ui";
 import { useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { ScrollView, View } from "react-native";
 
 import { useSubmitCancellation } from "../api";
 import { useCancellationFeeCompute, type CaseBillingStage } from "../hooks";
@@ -91,35 +92,25 @@ export function CancellationSheet({
             <Text variant="eyebrow" tone="subtle">
               Sebep
             </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {REASON_OPTIONS.map((option) => (
-                <ToggleChip
-                  key={option.value}
-                  label={option.label}
-                  selected={reason === option.value}
-                  onPress={() =>
-                    setReason(reason === option.value ? null : option.value)
-                  }
-                />
-              ))}
-            </View>
-          </View>
-
-          <View className="gap-2">
-            <Text variant="eyebrow" tone="subtle">
-              Kısa açıklama (opsiyonel)
-            </Text>
-            <TextInput
-              value={comment}
-              onChangeText={setComment}
-              placeholder="Usta ve platform için kısaca anlat"
-              placeholderTextColor="#6f7b97"
-              multiline
-              textAlignVertical="top"
-              className="rounded-[14px] border border-app-outline bg-app-surface px-3 py-2.5 text-sm text-app-text"
-              style={{ minHeight: 80 }}
+            <OptionPillGroup
+              options={REASON_OPTIONS.map((option) => ({
+                key: option.value,
+                label: option.label,
+              }))}
+              selectedKey={reason}
+              onSelect={(next) => setReason(reason === next ? null : next)}
+              size="md"
             />
           </View>
+
+          <FieldInput
+            label="Kısa açıklama (opsiyonel)"
+            value={comment}
+            onChangeText={setComment}
+            placeholder="Usta ve platform için kısaca anlat"
+            textarea
+            rows={4}
+          />
 
           {feeEstimate.waived ? (
             <View className="gap-1 rounded-[14px] border border-app-success/30 bg-app-success-soft px-3 py-2.5">

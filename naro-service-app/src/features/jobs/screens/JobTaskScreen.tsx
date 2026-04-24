@@ -1,12 +1,17 @@
 import {
+  ActionRow,
   BackButton,
   Button,
+  FieldInput,
   Icon,
+  IconButton,
+  OptionPillGroup,
   PremiumListRow,
   Screen,
   SectionHeader,
   Text,
   TrustBadge,
+  useNaroTheme,
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -19,7 +24,7 @@ import {
   Trash2,
 } from "lucide-react-native";
 import { useState } from "react";
-import { Alert, Pressable, TextInput, View } from "react-native";
+import { Alert, View } from "react-native";
 
 import {
   useJobDetail,
@@ -70,6 +75,7 @@ function newLineItem(): LineItem {
 
 export function JobTaskScreen() {
   const router = useRouter();
+  const { colors } = useNaroTheme();
   const { id, taskId } = useLocalSearchParams<{
     id: string;
     taskId: string;
@@ -82,10 +88,8 @@ export function JobTaskScreen() {
   const shareInvoice = useShareJobInvoice(caseId);
   const markReady = useMarkReadyForDelivery(caseId);
   const openUploadSheet = useEvidenceUploadStore((state) => state.open);
-  const { isUploading: isEvidenceUploading, uploadEvidence } = useJobEvidenceUploader(
-    caseId,
-    taskId ?? undefined,
-  );
+  const { isUploading: isEvidenceUploading, uploadEvidence } =
+    useJobEvidenceUploader(caseId, taskId ?? undefined);
 
   // Form state — kind'a göre kullanılır
   const [statusNote, setStatusNote] = useState("");
@@ -99,11 +103,18 @@ export function JobTaskScreen() {
 
   if (!caseItem || !task) {
     return (
-      <Screen backgroundClassName="bg-app-bg" className="flex-1 justify-center gap-4">
+      <Screen
+        backgroundClassName="bg-app-bg"
+        className="flex-1 justify-center gap-4"
+      >
         <Text variant="h2" tone="inverse">
           Görev bulunamadı
         </Text>
-        <Button label="Geri dön" variant="outline" onPress={() => router.back()} />
+        <Button
+          label="Geri dön"
+          variant="outline"
+          onPress={() => router.back()}
+        />
       </Screen>
     );
   }
@@ -176,7 +187,9 @@ export function JobTaskScreen() {
     goBack();
   };
 
-  const submitUploadQuick = async (kind: "photo" | "video" | "audio" | "document") => {
+  const submitUploadQuick = async (
+    kind: "photo" | "video" | "audio" | "document",
+  ) => {
     try {
       await uploadEvidence(
         kind,
@@ -184,7 +197,9 @@ export function JobTaskScreen() {
       );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Dosya yüklenirken bir sorun oluştu.";
+        error instanceof Error
+          ? error.message
+          : "Dosya yüklenirken bir sorun oluştu.";
       Alert.alert("Yükleme başarısız", message);
     }
   };
@@ -272,7 +287,7 @@ export function JobTaskScreen() {
           <View className="gap-2">
             <Button
               label="Hızlı görsel ekle"
-              leftIcon={<Icon icon={Plus} size={14} color="#ffffff" />}
+              leftIcon={<Icon icon={Plus} size={14} color={colors.text} />}
               onPress={() => openUploadSheet({ caseId, taskId: task.id })}
             />
             <Text
@@ -285,25 +300,25 @@ export function JobTaskScreen() {
             <View className="gap-2">
               <QuickUploadRow
                 icon={Camera}
-                color="#83a7ff"
+                color={colors.info}
                 label="Hızlı fotoğraf yükle"
                 onPress={() => submitUploadQuick("photo")}
               />
               <QuickUploadRow
                 icon={Film}
-                color="#0ea5e9"
+                color={colors.info}
                 label="Hızlı video yükle"
                 onPress={() => submitUploadQuick("video")}
               />
               <QuickUploadRow
                 icon={AudioWaveform}
-                color="#2dd28d"
+                color={colors.success}
                 label="Hızlı ses notu"
                 onPress={() => submitUploadQuick("audio")}
               />
               <QuickUploadRow
                 icon={FileText}
-                color="#f5b33f"
+                color={colors.warning}
                 label="Hızlı belge yükle"
                 onPress={() => submitUploadQuick("document")}
               />
@@ -324,41 +339,27 @@ export function JobTaskScreen() {
             title="Durum güncellemesi paylaş"
             description="Müşteri bu notu thread'de görecek ve timeline'a düşecek."
           />
-          <View className="flex-row flex-wrap gap-2">
-            {STATUS_TEMPLATES.map((template) => (
-              <Pressable
-                key={template.id}
-                onPress={() => applyTemplate(template)}
-                className={`rounded-full border px-3 py-1.5 ${
-                  selectedTemplate === template.id
-                    ? "border-brand-500 bg-brand-500"
-                    : "border-app-outline bg-app-surface"
-                }`}
-              >
-                <Text
-                  variant="caption"
-                  tone={selectedTemplate === template.id ? "inverse" : "muted"}
-                  className="text-[12px]"
-                >
-                  {template.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          <View className="rounded-[18px] border border-app-outline bg-app-surface px-4 py-3">
-            <TextInput
-              value={statusNote}
-              onChangeText={(value) => {
-                setStatusNote(value);
-                setSelectedTemplate(null);
-              }}
-              placeholder="Müşteri için kısa, net bir güncelleme yaz..."
-              placeholderTextColor="#6f7b97"
-              multiline
-              textAlignVertical="top"
-              className="min-h-[100px] text-base text-app-text"
-            />
-          </View>
+          <OptionPillGroup
+            options={STATUS_TEMPLATES.map((template) => ({
+              key: template.id,
+              label: template.label,
+            }))}
+            selectedKey={selectedTemplate}
+            onSelect={(key) => {
+              const template = STATUS_TEMPLATES.find((item) => item.id === key);
+              if (template) applyTemplate(template);
+            }}
+          />
+          <FieldInput
+            value={statusNote}
+            onChangeText={(value) => {
+              setStatusNote(value);
+              setSelectedTemplate(null);
+            }}
+            placeholder="Müşteri için kısa, net bir güncelleme yaz..."
+            textarea
+            rows={4}
+          />
           <Button
             label="Paylaş"
             size="lg"
@@ -387,83 +388,66 @@ export function JobTaskScreen() {
                     Kalem {index + 1}
                   </Text>
                   {lineItems.length > 1 ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      hitSlop={8}
+                    <IconButton
+                      label={`Kalem ${index + 1} sil`}
+                      variant="ghost"
+                      icon={
+                        <Icon icon={Trash2} size={14} color={colors.critical} />
+                      }
                       onPress={() => removeLineItem(item.id)}
-                    >
-                      <Icon icon={Trash2} size={14} color="#ff6b6b" />
-                    </Pressable>
+                    />
                   ) : null}
                 </View>
-                <View className="rounded-[12px] border border-app-outline bg-app-surface-2 px-3 py-2">
-                  <TextInput
-                    value={item.label}
-                    onChangeText={(v) => updateLineItem(item.id, { label: v })}
-                    placeholder="Parça / işçilik açıklaması"
-                    placeholderTextColor="#6f7b97"
-                    className="text-base text-app-text"
-                  />
-                </View>
+                <FieldInput
+                  value={item.label}
+                  onChangeText={(v) => updateLineItem(item.id, { label: v })}
+                  placeholder="Parça / işçilik açıklaması"
+                  inputClassName="bg-app-surface-2"
+                />
                 <View className="flex-row gap-2">
-                  <View className="flex-1 rounded-[12px] border border-app-outline bg-app-surface-2 px-3 py-2">
-                    <Text variant="caption" tone="subtle" className="text-[10px]">
-                      Adet
-                    </Text>
-                    <TextInput
-                      value={item.qty}
-                      onChangeText={(v) =>
-                        updateLineItem(item.id, {
-                          qty: v.replace(/[^\d]/g, ""),
-                        })
-                      }
-                      placeholder="1"
-                      placeholderTextColor="#6f7b97"
-                      keyboardType="numeric"
-                      className="text-base text-app-text"
-                    />
-                  </View>
-                  <View className="flex-[2] rounded-[12px] border border-app-outline bg-app-surface-2 px-3 py-2">
-                    <Text variant="caption" tone="subtle" className="text-[10px]">
-                      Birim fiyat (₺)
-                    </Text>
-                    <TextInput
-                      value={item.unit}
-                      onChangeText={(v) =>
-                        updateLineItem(item.id, {
-                          unit: v.replace(/[^\d.]/g, ""),
-                        })
-                      }
-                      placeholder="0"
-                      placeholderTextColor="#6f7b97"
-                      keyboardType="numeric"
-                      className="text-base text-app-text"
-                    />
-                  </View>
+                  <FieldInput
+                    label="Adet"
+                    value={item.qty}
+                    onChangeText={(v) =>
+                      updateLineItem(item.id, {
+                        qty: v.replace(/[^\d]/g, ""),
+                      })
+                    }
+                    placeholder="1"
+                    numeric
+                    containerClassName="flex-1"
+                    inputClassName="bg-app-surface-2"
+                  />
+                  <FieldInput
+                    label="Birim fiyat (₺)"
+                    value={item.unit}
+                    onChangeText={(v) =>
+                      updateLineItem(item.id, {
+                        unit: v.replace(/[^\d.]/g, ""),
+                      })
+                    }
+                    placeholder="0"
+                    numeric
+                    containerClassName="flex-[2]"
+                    inputClassName="bg-app-surface-2"
+                  />
                 </View>
               </View>
             ))}
-            <Pressable
+            <ActionRow
+              label="Kalem ekle"
+              leading={<Icon icon={Plus} size={14} color={colors.info} />}
               onPress={addLineItemRow}
-              className="flex-row items-center gap-2 rounded-[14px] border border-dashed border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
-            >
-              <Icon icon={Plus} size={14} color="#83a7ff" />
-              <Text variant="label" tone="inverse" className="text-[13px]">
-                Kalem ekle
-              </Text>
-            </Pressable>
-          </View>
-          <View className="rounded-[18px] border border-app-outline bg-app-surface px-4 py-3">
-            <TextInput
-              value={partsNote}
-              onChangeText={setPartsNote}
-              placeholder="Ek not (opsiyonel — neden, alternatif vs.)"
-              placeholderTextColor="#6f7b97"
-              multiline
-              textAlignVertical="top"
-              className="min-h-[60px] text-base text-app-text"
+              className="border-dashed"
             />
           </View>
+          <FieldInput
+            value={partsNote}
+            onChangeText={setPartsNote}
+            placeholder="Ek not (opsiyonel — neden, alternatif vs.)"
+            textarea
+            rows={3}
+          />
           <View className="flex-row items-center justify-between rounded-[14px] border border-app-outline bg-app-surface-2 px-4 py-3">
             <Text variant="eyebrow" tone="subtle">
               Toplam
@@ -489,36 +473,27 @@ export function JobTaskScreen() {
             title="Fatura paylaş"
             description="Müşteri fatura onayıyla teslim aşamasına geçer."
           />
-          <FormField label="Fatura başlığı">
-            <TextInput
-              value={invoiceTitle}
-              onChangeText={setInvoiceTitle}
-              placeholder="örn: Periyodik bakım + yağ değişimi"
-              placeholderTextColor="#6f7b97"
-              className="text-base text-app-text"
-            />
-          </FormField>
-          <FormField label="Toplam tutar (₺)">
-            <TextInput
-              value={invoiceAmount}
-              onChangeText={(v) => setInvoiceAmount(v.replace(/[^\d.]/g, ""))}
-              placeholder="örn: 2.850"
-              placeholderTextColor="#6f7b97"
-              keyboardType="numeric"
-              className="text-base text-app-text"
-            />
-          </FormField>
-          <FormField label="Ek not (opsiyonel)">
-            <TextInput
-              value={invoiceNote}
-              onChangeText={setInvoiceNote}
-              placeholder="Garanti bilgisi, ek kalem detayı, teslim notu..."
-              placeholderTextColor="#6f7b97"
-              multiline
-              textAlignVertical="top"
-              className="min-h-[70px] text-base text-app-text"
-            />
-          </FormField>
+          <FieldInput
+            label="Fatura başlığı"
+            value={invoiceTitle}
+            onChangeText={setInvoiceTitle}
+            placeholder="örn: Periyodik bakım + yağ değişimi"
+          />
+          <FieldInput
+            label="Toplam tutar (₺)"
+            value={invoiceAmount}
+            onChangeText={(v) => setInvoiceAmount(v.replace(/[^\d.]/g, ""))}
+            placeholder="örn: 2.850"
+            numeric
+          />
+          <FieldInput
+            label="Ek not (opsiyonel)"
+            value={invoiceNote}
+            onChangeText={setInvoiceNote}
+            placeholder="Garanti bilgisi, ek kalem detayı, teslim notu..."
+            textarea
+            rows={3}
+          />
           <Button
             label="Faturayı gönder"
             size="lg"
@@ -538,7 +513,7 @@ export function JobTaskScreen() {
           />
           <View className="gap-3 rounded-[18px] border border-app-success/40 bg-app-success/10 px-4 py-4">
             <View className="flex-row items-center gap-2">
-              <Icon icon={CheckCircle2} size={16} color="#2dd28d" />
+              <Icon icon={CheckCircle2} size={16} color={colors.success} />
               <Text variant="label" tone="success" className="text-[14px]">
                 Araç teslime hazır
               </Text>
@@ -548,20 +523,18 @@ export function JobTaskScreen() {
               tone="muted"
               className="text-app-text-muted leading-[18px]"
             >
-              Müşteriye bildirim gidecek. Teslim sonrası upload_delivery_proof ile kapanış fotoğrafını da eklemeyi unutma.
+              Müşteriye bildirim gidecek. Teslim sonrası upload_delivery_proof
+              ile kapanış fotoğrafını da eklemeyi unutma.
             </Text>
           </View>
-          <FormField label="Müşteriye hatırlatma (opsiyonel)">
-            <TextInput
-              value={deliveryNote}
-              onChangeText={setDeliveryNote}
-              placeholder="Teslim saati, not, özel uyarı..."
-              placeholderTextColor="#6f7b97"
-              multiline
-              textAlignVertical="top"
-              className="min-h-[70px] text-base text-app-text"
-            />
-          </FormField>
+          <FieldInput
+            label="Müşteriye hatırlatma (opsiyonel)"
+            value={deliveryNote}
+            onChangeText={setDeliveryNote}
+            placeholder="Teslim saati, not, özel uyarı..."
+            textarea
+            rows={3}
+          />
           <Button
             label="Teslim hazır olarak işaretle"
             size="lg"
@@ -602,37 +575,14 @@ function QuickUploadRow({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
+    <ActionRow
+      label={label}
+      leading={
+        <View className="h-9 w-9 items-center justify-center rounded-full bg-app-surface-2">
+          <Icon icon={icon} size={16} color={color} />
+        </View>
+      }
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
-    >
-      <View className="h-9 w-9 items-center justify-center rounded-full bg-app-surface-2">
-        <Icon icon={icon} size={16} color={color} />
-      </View>
-      <Text variant="label" tone="inverse" className="flex-1 text-[13px]">
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function FormField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View className="gap-1.5">
-      <Text variant="eyebrow" tone="subtle">
-        {label}
-      </Text>
-      <View className="rounded-[14px] border border-app-outline bg-app-surface px-3 py-2.5">
-        {children}
-      </View>
-    </View>
+    />
   );
 }

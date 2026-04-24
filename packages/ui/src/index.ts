@@ -22,6 +22,11 @@ export {
 export { Text, type TextProps, type TextTone, type TextVariant } from "./Text";
 export { Input, type InputProps } from "./Input";
 export { FieldInput, type FieldInputProps } from "./FieldInput";
+export {
+  OptionPillGroup,
+  type OptionPillGroupOption,
+  type OptionPillGroupProps,
+} from "./OptionPillGroup";
 export { FormField, type FormFieldProps } from "./FormField";
 export { Screen, type ScreenProps } from "./Screen";
 export { Icon, type IconProps } from "./Icon";

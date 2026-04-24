@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import { Pressable, View, type PressableProps } from "react-native";
+import {
+  Pressable,
+  View,
+  type Insets,
+  type PressableProps,
+} from "react-native";
 
 import { Text } from "./Text";
 
@@ -11,6 +16,8 @@ export type ActionRowProps = Omit<PressableProps, "children"> & {
   className?: string;
 };
 
+const DEFAULT_HIT_SLOP: Insets = { bottom: 8, left: 8, right: 8, top: 8 };
+
 export function ActionRow({
   label,
   description,
@@ -19,12 +26,14 @@ export function ActionRow({
   className,
   accessibilityLabel,
   accessibilityRole = "button",
+  hitSlop,
   ...rest
 }: ActionRowProps) {
   return (
     <Pressable
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole={accessibilityRole}
+      hitSlop={hitSlop ?? DEFAULT_HIT_SLOP}
       className={[
         "min-h-[56px] flex-row items-center gap-3 rounded-[16px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2",
         className ?? "",

@@ -2,12 +2,15 @@ import {
   ActionSheetSurface,
   BottomSheetOverlay,
   Button,
+  FieldInput,
   Icon,
+  OptionPillGroup,
   Text,
+  useNaroTheme,
 } from "@naro/ui";
 import { Clock, PackageCheck, ShieldCheck } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { View } from "react-native";
 
 import {
   usePoolCaseDetailLive,
@@ -68,6 +71,7 @@ const TOW_WARRANTIES = [
  * Pressable ağacı yerine).
  */
 export function OfferSubmissionSheet() {
+  const { colors } = useNaroTheme();
   const caseId = useOfferSheetStore((state) => state.caseId);
   const close = useOfferSheetStore((state) => state.close);
   const { data: caseItem } = usePoolCaseDetailLive(caseId ?? "");
@@ -158,128 +162,75 @@ export function OfferSubmissionSheet() {
       >
         <View className="gap-4">
           <View className="gap-2">
-            <Text variant="eyebrow" tone="subtle">
-              Teklif tutarı (₺)
-            </Text>
-            <View className="rounded-[16px] border border-app-outline bg-app-surface px-4 py-3">
-              <TextInput
-                value={amount}
-                onChangeText={(value) =>
-                  setAmount(value.replace(/[^\d.]/g, ""))
-                }
-                placeholder="örn: 2.500"
-                placeholderTextColor="#6f7b97"
-                keyboardType="numeric"
-                className="text-base text-app-text"
-              />
-            </View>
+            <FieldInput
+              label="Teklif tutarı (₺)"
+              value={amount}
+              onChangeText={(value) => setAmount(value.replace(/[^\d.]/g, ""))}
+              placeholder="örn: 2.500"
+              numeric
+            />
           </View>
 
           <View className="gap-2">
             <View className="flex-row items-center gap-2">
-              <Icon icon={Clock} size={12} color="#83a7ff" />
+              <Icon icon={Clock} size={12} color={colors.info} />
               <Text variant="eyebrow" tone="subtle">
                 {etaSectionTitle}
               </Text>
             </View>
-            <View className="flex-row flex-wrap gap-2">
-              {etaPresets.map((preset, index) => (
-                <Pressable
-                  key={preset.label}
-                  onPress={() => setEtaIndex(index)}
-                  className={`rounded-full border px-3 py-1.5 ${
-                    etaIndex === index
-                      ? "border-brand-500 bg-brand-500"
-                      : "border-app-outline bg-app-surface"
-                  }`}
-                >
-                  <Text
-                    variant="caption"
-                    tone={etaIndex === index ? "inverse" : "muted"}
-                    className="text-[12px]"
-                  >
-                    {preset.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <OptionPillGroup
+              options={etaPresets.map((preset, index) => ({
+                key: String(index),
+                label: preset.label,
+              }))}
+              selectedKey={String(etaIndex)}
+              onSelect={(key) => setEtaIndex(Number(key))}
+            />
           </View>
 
           <View className="gap-2">
             <View className="flex-row items-center gap-2">
-              <Icon icon={PackageCheck} size={12} color="#83a7ff" />
+              <Icon icon={PackageCheck} size={12} color={colors.info} />
               <Text variant="eyebrow" tone="subtle">
                 {deliverySectionTitle}
               </Text>
             </View>
-            <View className="flex-row flex-wrap gap-2">
-              {deliveryModes.map((mode, index) => (
-                <Pressable
-                  key={mode}
-                  onPress={() => setDeliveryIndex(index)}
-                  className={`rounded-full border px-3 py-1.5 ${
-                    deliveryIndex === index
-                      ? "border-brand-500 bg-brand-500"
-                      : "border-app-outline bg-app-surface"
-                  }`}
-                >
-                  <Text
-                    variant="caption"
-                    tone={deliveryIndex === index ? "inverse" : "muted"}
-                    className="text-[12px]"
-                  >
-                    {mode}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <OptionPillGroup
+              options={deliveryModes.map((mode, index) => ({
+                key: String(index),
+                label: mode,
+              }))}
+              selectedKey={String(deliveryIndex)}
+              onSelect={(key) => setDeliveryIndex(Number(key))}
+            />
           </View>
 
           <View className="gap-2">
             <View className="flex-row items-center gap-2">
-              <Icon icon={ShieldCheck} size={12} color="#83a7ff" />
+              <Icon icon={ShieldCheck} size={12} color={colors.info} />
               <Text variant="eyebrow" tone="subtle">
                 {warrantySectionTitle}
               </Text>
             </View>
-            <View className="flex-row flex-wrap gap-2">
-              {warranties.map((label, index) => (
-                <Pressable
-                  key={label}
-                  onPress={() => setWarrantyIndex(index)}
-                  className={`rounded-full border px-3 py-1.5 ${
-                    warrantyIndex === index
-                      ? "border-brand-500 bg-brand-500"
-                      : "border-app-outline bg-app-surface"
-                  }`}
-                >
-                  <Text
-                    variant="caption"
-                    tone={warrantyIndex === index ? "inverse" : "muted"}
-                    className="text-[12px]"
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <OptionPillGroup
+              options={warranties.map((label, index) => ({
+                key: String(index),
+                label,
+              }))}
+              selectedKey={String(warrantyIndex)}
+              onSelect={(key) => setWarrantyIndex(Number(key))}
+            />
           </View>
 
           <View className="gap-2">
-            <Text variant="eyebrow" tone="subtle">
-              Ek not (opsiyonel)
-            </Text>
-            <View className="rounded-[16px] border border-app-outline bg-app-surface px-4 py-3">
-              <TextInput
-                value={note}
-                onChangeText={setNote}
-                placeholder={notePlaceholder}
-                placeholderTextColor="#6f7b97"
-                multiline
-                textAlignVertical="top"
-                className="min-h-[60px] text-base text-app-text"
-              />
-            </View>
+            <FieldInput
+              label="Ek not (opsiyonel)"
+              value={note}
+              onChangeText={setNote}
+              placeholder={notePlaceholder}
+              textarea
+              rows={3}
+            />
           </View>
 
           {submit.isError ? (
