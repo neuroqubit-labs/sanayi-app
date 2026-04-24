@@ -52,7 +52,12 @@ from app.models.technician import (
 )
 from app.repositories import case as case_repo
 from app.repositories import technician as technician_repo
+from app.schemas.insurance_claim import (
+    InsuranceClaimResponse,
+    InsuranceClaimSubmit,
+)
 from app.schemas.shell_config import ShellConfig
+from app.services import insurance_claim_flow as claim_flow
 from app.services import technician_mutations, technician_shell
 from app.services.case_public_showcases import revoke_for_actor, snapshot_value
 from app.services.technician_admission import (
@@ -268,6 +273,66 @@ async def get_me_cases(
 ) -> list[TechnicianCaseSummary]:
     cases = await case_repo.list_cases_for_technician(db, user.id)
     return [TechnicianCaseSummary.model_validate(case) for case in cases]
+
+
+@router.post(
+    "/insurance-claims",
+    response_model=InsuranceClaimResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_me_insurance_claim(
+    payload: InsuranceClaimSubmit,
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> InsuranceClaimResponse:
+    case = await case_repo.get_case(db, payload.case_id)
+    if case is None or case.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
+    if case.assigned_technician_id != user.id:
+        raise HTTPException(
+            status_code=403, detail={"type": "not_assigned_technician"}
+        )
+    if case.kind != ServiceRequestKind.ACCIDENT:
+        raise HTTPException(
+            status_code=422, detail={"type": "case_kind_not_accident"}
+        )
+
+    profile = await _get_profile_for_user(db, user.id)
+    try:
+        claim = await claim_flow.submit_claim(
+            db,
+            case_id=payload.case_id,
+            policy_number=payload.policy_number,
+            insurer=payload.insurer,
+            coverage_kind=payload.coverage_kind,
+            estimate_amount=payload.estimate_amount,
+            policy_holder_name=payload.policy_holder_name,
+            policy_holder_phone=payload.policy_holder_phone,
+            currency=payload.currency,
+            notes=payload.notes,
+            insurer_claim_reference=payload.insurer_claim_reference,
+            created_by_user_id=user.id,
+            created_by_snapshot_name=profile.display_name,
+        )
+    except claim_flow.ClaimAlreadyActiveError as exc:
+        raise HTTPException(
+            status_code=409, detail={"type": "claim_already_active"}
+        ) from exc
+    except claim_flow.InvalidCaseKindError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "invalid_case_kind",
+                "expected": "accident",
+                "actual": exc.actual_kind,
+            },
+        ) from exc
+    except claim_flow.ClaimNotFoundError as exc:
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"}) from exc
+
+    await db.commit()
+    await db.refresh(claim)
+    return InsuranceClaimResponse.model_validate(claim)
 
 
 @router.get("/showcases", response_model=list[TechnicianShowcaseManageItem])

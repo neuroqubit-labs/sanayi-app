@@ -389,6 +389,46 @@ async def _load_showcase_media(
     return items
 
 
+async def _load_showcase_media_batch(
+    db: AsyncSession,
+    settings: Any,
+    showcase_ids: list[UUID],
+    *,
+    limit_per_showcase: int = 1,
+) -> dict[UUID, list[PublicCaseShowcaseMedia]]:
+    if not showcase_ids:
+        return {}
+    stmt = (
+        select(CasePublicShowcaseMedia, MediaAsset)
+        .join(MediaAsset, MediaAsset.id == CasePublicShowcaseMedia.media_asset_id)
+        .where(CasePublicShowcaseMedia.showcase_id.in_(showcase_ids))
+        .order_by(
+            CasePublicShowcaseMedia.showcase_id.asc(),
+            CasePublicShowcaseMedia.sequence.asc(),
+        )
+    )
+    grouped: dict[UUID, list[PublicCaseShowcaseMedia]] = {
+        showcase_id: [] for showcase_id in showcase_ids
+    }
+    for showcase_media, asset in (await db.execute(stmt)).all():
+        current = grouped.setdefault(showcase_media.showcase_id, [])
+        if len(current) >= limit_per_showcase:
+            continue
+        public_asset = _serialize_public_media(settings, asset)
+        if public_asset is None:
+            continue
+        current.append(
+            PublicCaseShowcaseMedia(
+                id=showcase_media.id,
+                kind=showcase_media.kind,
+                title=showcase_media.title,
+                caption=showcase_media.caption,
+                media=public_asset,
+            )
+        )
+    return grouped
+
+
 def _showcase_preview_from_row(
     row: CasePublicShowcase,
     media_items: list[PublicCaseShowcaseMedia],
@@ -440,11 +480,16 @@ async def _load_case_showcases(
         .limit(limit)
     )
     rows = list((await db.execute(stmt)).scalars().all())
-    previews: list[PublicCaseShowcasePreview] = []
-    for row in rows:
-        media_items = await _load_showcase_media(db, settings, row.id, limit=1)
-        previews.append(_showcase_preview_from_row(row, media_items))
-    return previews
+    media_by_showcase = await _load_showcase_media_batch(
+        db,
+        settings,
+        [row.id for row in rows],
+        limit_per_showcase=1,
+    )
+    return [
+        _showcase_preview_from_row(row, media_by_showcase.get(row.id, []))
+        for row in rows
+    ]
 
 
 async def _build_operations_summary(
