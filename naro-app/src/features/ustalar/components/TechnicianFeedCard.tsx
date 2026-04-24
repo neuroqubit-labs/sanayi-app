@@ -1,12 +1,7 @@
-import {
-  Avatar,
-  Icon,
-  PressableCard,
-  Text,
-  TrustBadge,
-} from "@naro/ui";
+import { Avatar, Icon, PressableCard, Text, TrustBadge } from "@naro/ui";
+import { type Href, useRouter } from "expo-router";
 import { CheckCircle2, MapPin, Star, Wrench } from "lucide-react-native";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { useUstaPreviewStore } from "../preview-store";
 import type { TechnicianFeedItem } from "../schemas";
@@ -34,6 +29,7 @@ export type TechnicianFeedCardProps = {
 };
 
 export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
+  const router = useRouter();
   const activeType = item.active_provider_type ?? item.provider_type;
   const primaryLabel =
     PROVIDER_TYPE_LABEL[activeType] ?? PROVIDER_TYPE_LABEL.usta ?? "Servis";
@@ -57,7 +53,12 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
   const quickBarLabel = quickBarParts.join(" · ");
 
   const openPreview = useUstaPreviewStore((state) => state.open);
+  const closePreview = useUstaPreviewStore((state) => state.close);
   const showPreview = () => openPreview(item.id);
+  const openFullProfile = () => {
+    closePreview();
+    router.push(`/usta/${item.id}` as Href);
+  };
 
   return (
     <PressableCard
@@ -77,9 +78,20 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
           ) : null}
         </View>
         <View className="absolute inset-x-0 bottom-0 translate-y-6 items-center">
-          <View className="rounded-full border-2 border-brand-500/60 p-[3px]">
-            <Avatar name={item.display_name} size="xl" />
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.display_name} tam profilini aç`}
+            hitSlop={8}
+            onPress={(event) => {
+              event.stopPropagation();
+              openFullProfile();
+            }}
+            className="rounded-full active:opacity-85"
+          >
+            <View className="rounded-full border-2 border-brand-500/60 p-[3px]">
+              <Avatar name={item.display_name} size="xl" />
+            </View>
+          </Pressable>
         </View>
       </View>
 
@@ -106,52 +118,48 @@ export function TechnicianFeedCard({ item }: TechnicianFeedCardProps) {
         </View>
 
         <View className="gap-4">
-        <View className="flex-row gap-2">
-          <MetricCell
-            icon={<Icon icon={Star} size={14} color="#f5b33f" />}
-            value={ratingValue ?? "Yeni"}
-            label={
-              ratingValue
-                ? `${item.rating_count} yorum`
-                : "İlk işini sen aç"
-            }
-          />
-          <MetricCell
-            icon={<Icon icon={MapPin} size={14} color="#83a7ff" />}
-            value={districtLabel ?? cityLabel ?? "—"}
-            label={cityLabel && districtLabel ? cityLabel : "Konum"}
-          />
-          <MetricCell
-            icon={<Icon icon={Wrench} size={14} color="#2dd28d" />}
-            value={
-              item.completed_jobs_30d > 0
-                ? item.completed_jobs_30d.toString()
-                : radiusKm
-                  ? `${radiusKm} km`
-                  : "—"
-            }
-            label={
-              item.completed_jobs_30d > 0 ? "30g iş" : "Hizmet alanı"
-            }
-          />
-        </View>
-
-        {quickBarLabel ? (
-          <View className="items-center rounded-[14px] border border-brand-500/30 bg-brand-500/10 px-3 py-2.5">
-            <Text variant="label" tone="accent" className="text-[13px]">
-              {quickBarLabel}
-            </Text>
+          <View className="flex-row gap-2">
+            <MetricCell
+              icon={<Icon icon={Star} size={14} color="#f5b33f" />}
+              value={ratingValue ?? "Yeni"}
+              label={
+                ratingValue ? `${item.rating_count} yorum` : "İlk işini sen aç"
+              }
+            />
+            <MetricCell
+              icon={<Icon icon={MapPin} size={14} color="#83a7ff" />}
+              value={districtLabel ?? cityLabel ?? "—"}
+              label={cityLabel && districtLabel ? cityLabel : "Konum"}
+            />
+            <MetricCell
+              icon={<Icon icon={Wrench} size={14} color="#2dd28d" />}
+              value={
+                item.completed_jobs_30d > 0
+                  ? item.completed_jobs_30d.toString()
+                  : radiusKm
+                    ? `${radiusKm} km`
+                    : "—"
+              }
+              label={item.completed_jobs_30d > 0 ? "30g iş" : "Hizmet alanı"}
+            />
           </View>
-        ) : null}
 
-        {secondaryLabels.length > 0 || primaryLabel ? (
-          <View className="flex-row flex-wrap justify-center gap-2">
-            <SpecialtyChip label={primaryLabel} highlighted />
-            {secondaryLabels.map((label) => (
-              <SpecialtyChip key={label} label={label} />
-            ))}
-          </View>
-        ) : null}
+          {quickBarLabel ? (
+            <View className="items-center rounded-[14px] border border-brand-500/30 bg-brand-500/10 px-3 py-2.5">
+              <Text variant="label" tone="accent" className="text-[13px]">
+                {quickBarLabel}
+              </Text>
+            </View>
+          ) : null}
+
+          {secondaryLabels.length > 0 || primaryLabel ? (
+            <View className="flex-row flex-wrap justify-center gap-2">
+              <SpecialtyChip label={primaryLabel} highlighted />
+              {secondaryLabels.map((label) => (
+                <SpecialtyChip key={label} label={label} />
+              ))}
+            </View>
+          ) : null}
         </View>
       </View>
     </PressableCard>

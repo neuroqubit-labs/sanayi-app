@@ -1,15 +1,13 @@
-import { ActionSheetSurface, Button, Icon, Text } from "@naro/ui";
+import {
+  ActionSheetSurface,
+  BottomSheetOverlay,
+  Button,
+  Icon,
+  Text,
+} from "@naro/ui";
 import { Plus, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  TextInput,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, TextInput, View } from "react-native";
 
 import type { BusinessInfo } from "@/features/technicians";
 
@@ -65,7 +63,6 @@ type Props = {
 };
 
 export function ProfileEditSheet({ target, onClose, onSave }: Props) {
-  const insets = useSafeAreaInsets();
   const [textValue, setTextValue] = useState("");
   const [tagList, setTagList] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
@@ -94,11 +91,7 @@ export function ProfileEditSheet({ target, onClose, onSave }: Props) {
   }, [target]);
 
   if (!target) {
-    return (
-      <Modal visible={false} transparent onRequestClose={onClose}>
-        <View />
-      </Modal>
-    );
+    return null;
   }
 
   const handleAddTag = () => {
@@ -147,174 +140,150 @@ export function ProfileEditSheet({ target, onClose, onSave }: Props) {
         : textValue.trim().length > 0;
 
   return (
-    <Modal
+    <BottomSheetOverlay
       visible={target !== null}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onClose}
+      onClose={onClose}
+      accessibilityLabel="Kapat"
+      keyboardAvoiding
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Kapat"
-        onPress={onClose}
-        className="flex-1 justify-end bg-black/60"
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={{ paddingBottom: insets.bottom + 8 }}
-        >
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <ActionSheetSurface
-              title={target.title}
-              description={target.description}
-            >
-              <View className="gap-4">
-                {target.kind === "text" ? (
-                  <TextInput
-                    value={textValue}
-                    onChangeText={setTextValue}
-                    placeholder={target.placeholder}
-                    placeholderTextColor="#66718d"
-                    className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
-                    autoFocus
-                  />
-                ) : null}
+      <ActionSheetSurface title={target.title} description={target.description}>
+        <View className="gap-4">
+          {target.kind === "text" ? (
+            <TextInput
+              value={textValue}
+              onChangeText={setTextValue}
+              placeholder={target.placeholder}
+              placeholderTextColor="#66718d"
+              className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
+              autoFocus
+            />
+          ) : null}
 
-                {target.kind === "textarea" ? (
-                  <TextInput
-                    value={textValue}
-                    onChangeText={setTextValue}
-                    placeholder={target.placeholder}
-                    placeholderTextColor="#66718d"
-                    multiline
-                    className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
-                    style={{ minHeight: 120, textAlignVertical: "top" }}
-                    autoFocus
-                  />
-                ) : null}
+          {target.kind === "textarea" ? (
+            <TextInput
+              value={textValue}
+              onChangeText={setTextValue}
+              placeholder={target.placeholder}
+              placeholderTextColor="#66718d"
+              multiline
+              className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
+              style={{ minHeight: 120, textAlignVertical: "top" }}
+              autoFocus
+            />
+          ) : null}
 
-                {target.kind === "tags" ? (
-                  <View className="gap-3">
-                    <View className="flex-row flex-wrap gap-2">
-                      {tagList.length > 0 ? (
-                        tagList.map((tag) => (
-                          <Pressable
-                            key={tag}
-                            accessibilityRole="button"
-                            accessibilityLabel={`${tag} kaldır`}
-                            onPress={() => handleRemoveTag(tag)}
-                            className="flex-row items-center gap-1.5 rounded-full border border-brand-500/40 bg-brand-500/15 px-3 py-1.5 active:opacity-80"
-                          >
-                            <Text
-                              variant="caption"
-                              tone="inverse"
-                              className="text-[12px]"
-                            >
-                              {tag}
-                            </Text>
-                            <Icon icon={X} size={11} color="#f45f25" />
-                          </Pressable>
-                        ))
-                      ) : (
-                        <Text
-                          variant="caption"
-                          tone="muted"
-                          className="text-app-text-subtle text-[11px]"
-                        >
-                          Henüz etiket yok
-                        </Text>
-                      )}
-                    </View>
-                    <View className="flex-row gap-2">
-                      <TextInput
-                        value={tagDraft}
-                        onChangeText={setTagDraft}
-                        placeholder="Yeni etiket"
-                        placeholderTextColor="#66718d"
-                        className="flex-1 rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
-                        onSubmitEditing={handleAddTag}
-                        returnKeyType="done"
-                      />
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Etiket ekle"
-                        onPress={handleAddTag}
-                        disabled={!tagDraft.trim()}
-                        className={`items-center justify-center rounded-[14px] border px-4 ${
-                          tagDraft.trim()
-                            ? "border-brand-500/40 bg-brand-500/15"
-                            : "border-app-outline bg-app-surface"
-                        }`}
+          {target.kind === "tags" ? (
+            <View className="gap-3">
+              <View className="flex-row flex-wrap gap-2">
+                {tagList.length > 0 ? (
+                  tagList.map((tag) => (
+                    <Pressable
+                      key={tag}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${tag} kaldır`}
+                      onPress={() => handleRemoveTag(tag)}
+                      className="flex-row items-center gap-1.5 rounded-full border border-brand-500/40 bg-brand-500/15 px-3 py-1.5 active:opacity-80"
+                    >
+                      <Text
+                        variant="caption"
+                        tone="inverse"
+                        className="text-[12px]"
                       >
-                        <Icon icon={Plus} size={16} color="#f45f25" />
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : null}
-
-                {target.kind === "business" ? (
-                  <View className="gap-3">
-                    <BusinessField
-                      label="Ticari ünvan"
-                      value={business.legal_name}
-                      onChange={(v) =>
-                        setBusiness({ ...business, legal_name: v })
-                      }
-                      placeholder="Örn. AutoPro Servis Ltd. Şti."
-                    />
-                    <BusinessField
-                      label="Vergi numarası"
-                      value={business.tax_number}
-                      onChange={(v) =>
-                        setBusiness({ ...business, tax_number: v })
-                      }
-                      placeholder="Opsiyonel"
-                      keyboardType="number-pad"
-                    />
-                    <BusinessField
-                      label="Adres"
-                      value={business.address}
-                      onChange={(v) => setBusiness({ ...business, address: v })}
-                      placeholder="Cadde, mahalle, no"
-                      multiline
-                    />
-                    <BusinessField
-                      label="İl / İlçe"
-                      value={business.city_district}
-                      onChange={(v) =>
-                        setBusiness({ ...business, city_district: v })
-                      }
-                      placeholder="Örn. Sarıyer / İstanbul"
-                    />
-                  </View>
-                ) : null}
-
-                <View className="flex-row gap-2">
-                  <View className="flex-1">
-                    <Button
-                      label="Vazgeç"
-                      variant="outline"
-                      onPress={onClose}
-                      fullWidth
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Button
-                      label="Kaydet"
-                      variant={canSave ? "primary" : "outline"}
-                      disabled={!canSave}
-                      onPress={handleSave}
-                      fullWidth
-                    />
-                  </View>
-                </View>
+                        {tag}
+                      </Text>
+                      <Icon icon={X} size={11} color="#f45f25" />
+                    </Pressable>
+                  ))
+                ) : (
+                  <Text
+                    variant="caption"
+                    tone="muted"
+                    className="text-app-text-subtle text-[11px]"
+                  >
+                    Henüz etiket yok
+                  </Text>
+                )}
               </View>
-            </ActionSheetSurface>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Pressable>
-    </Modal>
+              <View className="flex-row gap-2">
+                <TextInput
+                  value={tagDraft}
+                  onChangeText={setTagDraft}
+                  placeholder="Yeni etiket"
+                  placeholderTextColor="#66718d"
+                  className="flex-1 rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
+                  onSubmitEditing={handleAddTag}
+                  returnKeyType="done"
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Etiket ekle"
+                  onPress={handleAddTag}
+                  disabled={!tagDraft.trim()}
+                  className={`items-center justify-center rounded-[14px] border px-4 ${
+                    tagDraft.trim()
+                      ? "border-brand-500/40 bg-brand-500/15"
+                      : "border-app-outline bg-app-surface"
+                  }`}
+                >
+                  <Icon icon={Plus} size={16} color="#f45f25" />
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
+          {target.kind === "business" ? (
+            <View className="gap-3">
+              <BusinessField
+                label="Ticari ünvan"
+                value={business.legal_name}
+                onChange={(v) => setBusiness({ ...business, legal_name: v })}
+                placeholder="Örn. AutoPro Servis Ltd. Şti."
+              />
+              <BusinessField
+                label="Vergi numarası"
+                value={business.tax_number}
+                onChange={(v) => setBusiness({ ...business, tax_number: v })}
+                placeholder="Opsiyonel"
+                keyboardType="number-pad"
+              />
+              <BusinessField
+                label="Adres"
+                value={business.address}
+                onChange={(v) => setBusiness({ ...business, address: v })}
+                placeholder="Cadde, mahalle, no"
+                multiline
+              />
+              <BusinessField
+                label="İl / İlçe"
+                value={business.city_district}
+                onChange={(v) => setBusiness({ ...business, city_district: v })}
+                placeholder="Örn. Sarıyer / İstanbul"
+              />
+            </View>
+          ) : null}
+
+          <View className="flex-row gap-2">
+            <View className="flex-1">
+              <Button
+                label="Vazgeç"
+                variant="outline"
+                onPress={onClose}
+                fullWidth
+              />
+            </View>
+            <View className="flex-1">
+              <Button
+                label="Kaydet"
+                variant={canSave ? "primary" : "outline"}
+                disabled={!canSave}
+                onPress={handleSave}
+                fullWidth
+              />
+            </View>
+          </View>
+        </View>
+      </ActionSheetSurface>
+    </BottomSheetOverlay>
   );
 }
 
@@ -346,7 +315,9 @@ function BusinessField({
         multiline={multiline}
         keyboardType={keyboardType}
         className="rounded-[14px] border border-app-outline bg-app-surface px-4 py-3 text-app-text"
-        style={multiline ? { minHeight: 72, textAlignVertical: "top" } : undefined}
+        style={
+          multiline ? { minHeight: 72, textAlignVertical: "top" } : undefined
+        }
       />
     </View>
   );

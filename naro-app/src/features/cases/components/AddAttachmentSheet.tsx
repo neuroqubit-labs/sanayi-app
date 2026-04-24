@@ -1,5 +1,5 @@
 import type { CaseAttachment, CaseAttachmentKind } from "@naro/domain";
-import { ActionSheetSurface, Icon, Text } from "@naro/ui";
+import { ActionSheetSurface, BottomSheetOverlay, Icon, Text } from "@naro/ui";
 import {
   AudioWaveform,
   Camera,
@@ -7,8 +7,7 @@ import {
   Film,
   type LucideIcon,
 } from "lucide-react-native";
-import { Modal, Pressable, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, View } from "react-native";
 
 import { useAttachmentPicker } from "@/shared/attachments";
 import type { AttachmentUploadTarget } from "@/shared/attachments";
@@ -74,8 +73,8 @@ export function AddAttachmentSheet({
   onSubmit,
   target,
 }: AddAttachmentSheetProps) {
-  const insets = useSafeAreaInsets();
-  const { pickDocument, pickPhoto, pickVideo, status } = useAttachmentPicker(target);
+  const { pickDocument, pickPhoto, pickVideo, status } =
+    useAttachmentPicker(target);
   const busy = status === "picking" || status === "uploading";
 
   const handleSelect = async (option: AttachmentOption) => {
@@ -87,12 +86,7 @@ export function AddAttachmentSheet({
           : option.kind === "audio"
             ? await pickDocument("audio", option.defaultTitle, {
                 multiple: false,
-                types: [
-                  "audio/mp4",
-                  "audio/mpeg",
-                  "audio/wav",
-                  "audio/x-wav",
-                ],
+                types: ["audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"],
               })
             : await pickDocument("document", option.defaultTitle, {
                 multiple: false,
@@ -116,67 +110,53 @@ export function AddAttachmentSheet({
   };
 
   return (
-    <Modal
+    <BottomSheetOverlay
       visible={visible}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onClose}
+      onClose={onClose}
+      accessibilityLabel="Dosya seçimi kapat"
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Dosya seçimi kapat"
-        onPress={onClose}
-        className="flex-1 justify-end bg-black/60"
+      <ActionSheetSurface
+        title="Dosya ekle"
+        description="Hangi tür dosyayı yüklemek istiyorsun?"
       >
-        <Pressable
-          onPress={(event) => event.stopPropagation()}
-          style={{ paddingBottom: insets.bottom + 8 }}
-        >
-          <ActionSheetSurface
-            title="Dosya ekle"
-            description="Hangi tür dosyayı yüklemek istiyorsun?"
-          >
-            <View className="gap-2">
-              {OPTIONS.map((option) => (
-                <Pressable
-                  key={option.kind}
-                  accessibilityRole="button"
-                  accessibilityLabel={option.label}
-                  onPress={() => void handleSelect(option)}
-                  disabled={busy}
-                  className="flex-row items-center gap-3 rounded-[16px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
+        <View className="gap-2">
+          {OPTIONS.map((option) => (
+            <Pressable
+              key={option.kind}
+              accessibilityRole="button"
+              accessibilityLabel={option.label}
+              onPress={() => void handleSelect(option)}
+              disabled={busy}
+              className="flex-row items-center gap-3 rounded-[16px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
+            >
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-app-surface-2">
+                <Icon icon={option.icon} size={18} color={option.color} />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text variant="label" tone="inverse" className="text-[14px]">
+                  {option.label}
+                </Text>
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted text-[12px]"
                 >
-                  <View className="h-10 w-10 items-center justify-center rounded-full bg-app-surface-2">
-                    <Icon icon={option.icon} size={18} color={option.color} />
-                  </View>
-                  <View className="flex-1 gap-0.5">
-                    <Text variant="label" tone="inverse" className="text-[14px]">
-                      {option.label}
-                    </Text>
-                    <Text
-                      variant="caption"
-                      tone="muted"
-                      className="text-app-text-muted text-[12px]"
-                    >
-                      {option.description}
-                    </Text>
-                  </View>
-                  {busy ? (
-                    <Text
-                      variant="caption"
-                      tone="muted"
-                      className="text-app-text-subtle text-[11px]"
-                    >
-                      Yükleniyor
-                    </Text>
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
-          </ActionSheetSurface>
-        </Pressable>
-      </Pressable>
-    </Modal>
+                  {option.description}
+                </Text>
+              </View>
+              {busy ? (
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-subtle text-[11px]"
+                >
+                  Yükleniyor
+                </Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
+      </ActionSheetSurface>
+    </BottomSheetOverlay>
   );
 }

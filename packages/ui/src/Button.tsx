@@ -4,6 +4,8 @@ import {
   Pressable,
   Text as RNText,
   View,
+  type GestureResponderEvent,
+  type Insets,
   type PressableProps,
   type StyleProp,
   type View as ViewType,
@@ -16,6 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { shellSpring } from "./tokens";
+import { useNaroTheme } from "./theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -44,7 +47,7 @@ const CONTAINER_BASE =
   "relative overflow-hidden flex-row items-center justify-center rounded-xl";
 
 const VARIANT_CONTAINER: Record<ButtonVariant, string> = {
-  primary: "border border-[#8de6ff]/25 bg-[#1398e7]",
+  primary: "border border-brand-200/25 bg-brand-500",
   secondary: "bg-neutral-200 active:bg-neutral-300",
   ghost: "bg-transparent border border-neutral-300 active:bg-neutral-100",
   danger: "bg-red-600 active:bg-red-800",
@@ -75,14 +78,7 @@ const SIZE_LABEL: Record<ButtonSize, string> = {
   xl: "text-lg",
 };
 
-const SPINNER_COLOR: Record<ButtonVariant, string> = {
-  primary: "#ffffff",
-  secondary: "#111827",
-  ghost: "#111827",
-  danger: "#ffffff",
-  surface: "#f5f7ff",
-  outline: "#f5f7ff",
-};
+const DEFAULT_HIT_SLOP: Insets = { bottom: 4, left: 4, right: 4, top: 4 };
 
 const PRIMARY_BUTTON_STYLE: ViewStyle = {
   shadowColor: "#021c34",
@@ -96,7 +92,7 @@ const PRIMARY_SURFACE_STYLE: ViewStyle = {
   position: "absolute",
   inset: 1,
   borderRadius: 11,
-  backgroundColor: "#159be9",
+  backgroundColor: "transparent",
 };
 
 const PRIMARY_TOP_HIGHLIGHT_STYLE: ViewStyle = {
@@ -158,6 +154,10 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
     leftIcon,
     fullWidth = false,
     disabled,
+    hitSlop,
+    accessibilityRole,
+    onPressIn,
+    onPressOut,
     className,
     labelClassName,
     style,
@@ -165,6 +165,7 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
   },
   ref,
 ) {
+  const { colors } = useNaroTheme();
   const isDisabled = disabled || loading;
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -189,21 +190,28 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
   ]
     .filter(Boolean)
     .join(" ");
+  const spinnerColor =
+    variant === "primary" || variant === "danger" ? "#ffffff" : colors.text;
 
   return (
     <AnimatedPressable
       ref={ref as never}
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole ?? "button"}
       disabled={isDisabled}
-      onPressIn={() => {
+      hitSlop={hitSlop ?? DEFAULT_HIT_SLOP}
+      onPressIn={(event: GestureResponderEvent) => {
         scale.value = withSpring(0.97, shellSpring.snappy);
+        onPressIn?.(event);
       }}
-      onPressOut={() => {
+      onPressOut={(event: GestureResponderEvent) => {
         scale.value = withSpring(1, shellSpring.snappy);
+        onPressOut?.(event);
       }}
       className={containerClass}
       style={[
-        variant === "primary" ? PRIMARY_BUTTON_STYLE : null,
+        variant === "primary"
+          ? [PRIMARY_BUTTON_STYLE, { shadowColor: colors.shadow }]
+          : null,
         animatedStyle,
         style,
       ]}
@@ -220,7 +228,7 @@ export const Button = forwardRef<ViewType, ButtonProps>(function Button(
       ) : null}
       {loading ? (
         <View className="relative z-10">
-          <ActivityIndicator size="small" color={SPINNER_COLOR[variant]} />
+          <ActivityIndicator size="small" color={spinnerColor} />
         </View>
       ) : (
         <>

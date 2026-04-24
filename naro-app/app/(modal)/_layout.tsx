@@ -1,12 +1,15 @@
+import { useNaroTheme } from "@naro/ui";
 import { Stack } from "expo-router";
 
 export default function ModalLayout() {
+  const { colors } = useNaroTheme();
+
   return (
     <Stack
       screenOptions={{
         headerShown: false,
         presentation: "modal",
-        contentStyle: { backgroundColor: "#060915" },
+        contentStyle: { backgroundColor: colors.bg },
       }}
     >
       <Stack.Screen

@@ -1,6 +1,8 @@
+import { NaroThemeProvider, useNaroTheme } from "@naro/ui";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -37,19 +39,39 @@ function AuthGuard() {
 }
 
 export default function RootLayout() {
-  useInitializeRuntime();
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
-          <StatusBar style="auto" />
-          <AuthGuard />
-          <Stack screenOptions={{ headerShown: false }} />
-          <VehicleSwitcherSheet />
-          <UstaPreviewSheet />
+          <NaroThemeProvider>
+            <RootShellContent />
+          </NaroThemeProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
+  );
+}
+
+function RootShellContent() {
+  useInitializeRuntime();
+  const { colors } = useNaroTheme();
+
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.bg);
+  }, [colors.bg]);
+
+  return (
+    <>
+      <StatusBar style={colors.statusBarStyle} />
+      <AuthGuard />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+        }}
+      />
+      <VehicleSwitcherSheet />
+      <UstaPreviewSheet />
+    </>
   );
 }

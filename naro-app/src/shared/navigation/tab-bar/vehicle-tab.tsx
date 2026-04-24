@@ -1,3 +1,4 @@
+import { useNaroTheme } from "@naro/ui";
 import type { ReactNode } from "react";
 import { Image, Text as RNText, View } from "react-native";
 
@@ -56,6 +57,11 @@ export function VehicleProfileTabVisual({
   fallback,
 }: VehicleProfileTabVisualProps) {
   const identity = getVehicleTabIdentity(vehicle);
+  const { colors, scheme } = useNaroTheme();
+  const quietBorder = scheme === "dark" ? "#31405d" : colors.outlineStrong;
+  const quietSurface = scheme === "dark" ? "#11192b" : colors.surface2;
+  const focusedPlateSurface =
+    scheme === "dark" ? "rgba(40, 194, 255, 0.12)" : colors.infoSoft;
 
   if (identity.kind === "thumbnail") {
     return (
@@ -66,8 +72,8 @@ export function VehicleProfileTabVisual({
           borderRadius: 10,
           overflow: "hidden",
           borderWidth: 1,
-          borderColor: focused ? "rgba(156, 231, 255, 0.42)" : "#31405d",
-          backgroundColor: "#11192b",
+          borderColor: focused ? "rgba(66, 196, 255, 0.52)" : quietBorder,
+          backgroundColor: quietSurface,
         }}
       >
         <Image
@@ -88,18 +94,18 @@ export function VehicleProfileTabVisual({
           paddingHorizontal: 7,
           borderRadius: 10,
           borderWidth: 1,
-          borderColor: focused ? "rgba(156, 231, 255, 0.42)" : "#31405d",
-          backgroundColor: focused ? "rgba(40, 194, 255, 0.12)" : "#101726",
+          borderColor: focused ? "rgba(66, 196, 255, 0.52)" : quietBorder,
+          backgroundColor: focused ? focusedPlateSurface : quietSurface,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
         <RNText
           style={{
-            color: focused ? "#f7fbff" : "#dce7f8",
+            color: focused ? colors.text : colors.textMuted,
             fontSize: 10,
             fontWeight: "800",
-            letterSpacing: 0.45,
+            letterSpacing: 0,
           }}
         >
           {identity.label}

@@ -1,3 +1,4 @@
+import { useNaroTheme } from "@naro/ui";
 import { Tabs } from "expo-router";
 import { Vibration } from "react-native";
 
@@ -6,12 +7,13 @@ import { CustomerTabBar } from "@/shared/navigation/tab-bar/CustomerTabBar";
 
 export default function TabsLayout() {
   const openVehicleSwitcher = useVehicleSwitcherStore((state) => state.open);
+  const { colors } = useNaroTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        sceneStyle: { backgroundColor: "#060915" },
+        sceneStyle: { backgroundColor: colors.bg },
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           position: "absolute",

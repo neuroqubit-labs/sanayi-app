@@ -1,6 +1,8 @@
+import { NaroThemeProvider, useNaroTheme } from "@naro/ui";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -38,11 +40,22 @@ function AuthGuard() {
 function RootShellContent() {
   useInitializeRuntime();
   useDispatchTakeover();
+  const { colors } = useNaroTheme();
+
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(colors.bg);
+  }, [colors.bg]);
 
   return (
     <>
+      <StatusBar style={colors.statusBarStyle} />
       <AuthGuard />
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+        }}
+      />
       <OfferSubmissionSheet />
       <TechnicianEvidenceUploadSheet />
       <HasarSourceSheet />
@@ -55,8 +68,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
-          <StatusBar style="auto" />
-          <RootShellContent />
+          <NaroThemeProvider>
+            <RootShellContent />
+          </NaroThemeProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

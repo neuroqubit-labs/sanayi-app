@@ -1,12 +1,13 @@
 import {
   ActionSheetSurface,
   Avatar,
+  BottomSheetOverlay,
   Button,
   Icon,
   Text,
   TrustBadge,
 } from "@naro/ui";
-import { type Href, useRouter } from "expo-router";
+import { type Href, useRouter, useSegments } from "expo-router";
 import {
   Clock,
   Heart,
@@ -17,8 +18,7 @@ import {
   X,
 } from "lucide-react-native";
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, Modal, Pressable, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { useMyCasesLive } from "@/features/cases/api";
 import { useFavoriteTechniciansStore } from "@/features/profile";
@@ -54,11 +54,14 @@ const VERIFIED_META: Record<
 export function UstaPreviewSheet() {
   const technicianId = useUstaPreviewStore((state) => state.technicianId);
   const close = useUstaPreviewStore((state) => state.close);
-  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { data: profile, isLoading, isError } = useTechnicianPublicView(
-    technicianId ?? "",
-  );
+  const segments = useSegments();
+  const routeKey = segments.join("/");
+  const {
+    data: profile,
+    isLoading,
+    isError,
+  } = useTechnicianPublicView(technicianId ?? "");
   const { data: myCases } = useMyCasesLive();
   const isFavorite = useFavoriteTechniciansStore((state) =>
     technicianId ? state.ids.includes(technicianId) : false,
@@ -66,9 +69,26 @@ export function UstaPreviewSheet() {
   const toggleFavorite = useFavoriteTechniciansStore((state) => state.toggle);
 
   const isOpen = Boolean(technicianId);
+  const routeKeyAtOpen = useRef<string | null>(null);
 
-  // Android Modal slide animasyonu sırasında, kart tıklamasındaki parmak hâlâ
-  // ekrandayken sheet yukarı kayıyor ve avatar Pressable tıklanan koordinata
+  useEffect(() => {
+    if (!isOpen) {
+      routeKeyAtOpen.current = null;
+      return;
+    }
+
+    if (routeKeyAtOpen.current === null) {
+      routeKeyAtOpen.current = routeKey;
+      return;
+    }
+
+    if (routeKeyAtOpen.current !== routeKey) {
+      close();
+    }
+  }, [close, isOpen, routeKey]);
+
+  // Android'de kart tıklamasındaki parmak hâlâ ekrandayken sheet açılırsa
+  // avatar Pressable tıklanan koordinata
   // "altına" gelip phantom tap yutuyor → ilk açılışta openFullProfile fire ediyor.
   // 350ms settle gate ile bunu önlüyoruz — kullanıcı gerçekten tekrar dokunana kadar navigate etme.
   const navigateReady = useRef(false);
@@ -106,63 +126,48 @@ export function UstaPreviewSheet() {
   };
 
   return (
-    <Modal
+    <BottomSheetOverlay
       visible={isOpen}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={close}
+      onClose={close}
+      accessibilityLabel="Ön izlemeyi kapat"
     >
-      <View className="flex-1">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ön izlemeyi kapat"
-          onPress={close}
-          className="absolute inset-0 bg-black/60"
-        />
-        <View
-          style={{ paddingBottom: insets.bottom + 8 }}
-          className="absolute bottom-0 left-0 right-0"
-        >
-          <ActionSheetSurface
-            title="Usta önizleme"
-            description="Kısa bilgi — tam profil için avatara dokun."
-          >
-            {isLoading ? (
-              <View className="items-center gap-2 py-8">
-                <ActivityIndicator color="#83a7ff" />
-                <Text tone="muted" variant="caption">
-                  Usta bilgisi yükleniyor…
-                </Text>
-              </View>
-            ) : isError || !profile ? (
-              <View className="items-center gap-2 py-8 px-4">
-                <Text variant="label" tone="inverse" className="text-center">
-                  Usta bilgisi yüklenemedi
-                </Text>
-                <Text
-                  variant="caption"
-                  tone="muted"
-                  className="text-center text-app-text-muted"
-                >
-                  Bağlantını kontrol edip yeniden dene.
-                </Text>
-              </View>
-            ) : (
-              <PreviewContent
-                profile={profile}
-                isFavorite={isFavorite}
-                onToggleFavorite={() => toggleFavorite(profile.id)}
-                onClose={close}
-                onOpenFull={openFullProfile}
-                cta={cta}
-                onPrimary={handlePrimary}
-              />
-            )}
-          </ActionSheetSurface>
-        </View>
-      </View>
-    </Modal>
+      <ActionSheetSurface
+        title="Usta önizleme"
+        description="Kısa bilgi — tam profil için avatara dokun."
+      >
+        {isLoading ? (
+          <View className="items-center gap-2 py-8">
+            <ActivityIndicator color="#83a7ff" />
+            <Text tone="muted" variant="caption">
+              Usta bilgisi yükleniyor…
+            </Text>
+          </View>
+        ) : isError || !profile ? (
+          <View className="items-center gap-2 py-8 px-4">
+            <Text variant="label" tone="inverse" className="text-center">
+              Usta bilgisi yüklenemedi
+            </Text>
+            <Text
+              variant="caption"
+              tone="muted"
+              className="text-center text-app-text-muted"
+            >
+              Bağlantını kontrol edip yeniden dene.
+            </Text>
+          </View>
+        ) : (
+          <PreviewContent
+            profile={profile}
+            isFavorite={isFavorite}
+            onToggleFavorite={() => toggleFavorite(profile.id)}
+            onClose={close}
+            onOpenFull={openFullProfile}
+            cta={cta}
+            onPrimary={handlePrimary}
+          />
+        )}
+      </ActionSheetSurface>
+    </BottomSheetOverlay>
   );
 }
 
@@ -191,7 +196,9 @@ function PreviewContent({
     PROVIDER_TYPE_LABEL[activeType] ?? PROVIDER_TYPE_LABEL.usta ?? "Servis";
 
   const ratingValue =
-    profile.rating_bayesian !== null ? profile.rating_bayesian.toFixed(1) : null;
+    profile.rating_bayesian !== null
+      ? profile.rating_bayesian.toFixed(1)
+      : null;
 
   const districtLabel = profile.location_summary.primary_district_label;
   const cityLabel = profile.location_summary.city_label;
@@ -296,7 +303,9 @@ function PreviewContent({
           icon={Star}
           iconColor="#f5b33f"
           value={ratingValue ?? "Yeni"}
-          label={ratingValue ? `${profile.rating_count} yorum` : "Değerlendirme"}
+          label={
+            ratingValue ? `${profile.rating_count} yorum` : "Değerlendirme"
+          }
         />
         <PreviewMetric
           icon={Clock}

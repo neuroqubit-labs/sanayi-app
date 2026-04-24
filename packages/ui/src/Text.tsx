@@ -28,14 +28,14 @@ export type TextProps = RNTextProps & {
 };
 
 const VARIANT_CLASS: Record<TextVariant, string> = {
-  display: "text-4xl font-bold tracking-tight",
+  display: "text-4xl font-bold",
   h1: "text-3xl font-bold",
   h2: "text-2xl font-bold",
   h3: "text-xl font-semibold",
   body: "text-base",
   caption: "text-sm",
   label: "text-sm font-semibold",
-  eyebrow: "text-xs font-semibold uppercase tracking-[0.18em]",
+  eyebrow: "text-xs font-semibold uppercase",
 };
 
 const TONE_CLASS: Record<TextTone, string> = {

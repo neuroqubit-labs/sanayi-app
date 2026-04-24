@@ -1,6 +1,7 @@
 import { forwardRef, type ReactNode } from "react";
 import {
   Pressable,
+  type Insets,
   type PressableProps,
   type StyleProp,
   type View,
@@ -20,6 +21,7 @@ import {
 } from "./tokens";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const DEFAULT_HIT_SLOP: Insets = { bottom: 6, left: 6, right: 6, top: 6 };
 
 export type PressableCardVariant = "flat" | "elevated";
 
@@ -48,6 +50,10 @@ export const PressableCard = forwardRef<View, PressableCardProps>(
       style,
       children,
       disabled,
+      hitSlop,
+      accessibilityRole,
+      onPress,
+      onLongPress,
       ...rest
     },
     ref,
@@ -61,11 +67,18 @@ export const PressableCard = forwardRef<View, PressableCardProps>(
     const classes = [VARIANT_CLASS[variant], className]
       .filter(Boolean)
       .join(" ");
+    const interactive = Boolean(onPress || onLongPress);
 
     return (
       <AnimatedPressable
         ref={ref as never}
         disabled={disabled}
+        accessibilityRole={
+          accessibilityRole ?? (interactive ? "button" : undefined)
+        }
+        hitSlop={hitSlop ?? (interactive ? DEFAULT_HIT_SLOP : undefined)}
+        onPress={onPress}
+        onLongPress={onLongPress}
         onPressIn={() => {
           scale.value = withSpring(0.97, shellSpring.snappy);
         }}

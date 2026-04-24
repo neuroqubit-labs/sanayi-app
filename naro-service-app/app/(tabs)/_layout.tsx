@@ -1,13 +1,16 @@
+import { useNaroTheme } from "@naro/ui";
 import { Tabs } from "expo-router";
 
 import { ServiceTabBar } from "@/shared/navigation/tab-bar/ServiceTabBar";
 
 export default function TabsLayout() {
+  const { colors } = useNaroTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        sceneStyle: { backgroundColor: "#060915" },
+        sceneStyle: { backgroundColor: colors.bg },
         tabBarHideOnKeyboard: true,
       }}
       tabBar={(props) => <ServiceTabBar {...props} />}

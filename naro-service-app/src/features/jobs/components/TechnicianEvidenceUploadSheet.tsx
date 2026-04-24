@@ -1,4 +1,4 @@
-import { ActionSheetSurface, Icon, Text } from "@naro/ui";
+import { ActionSheetSurface, BottomSheetOverlay, Icon, Text } from "@naro/ui";
 import {
   AudioWaveform,
   Camera,
@@ -6,8 +6,7 @@ import {
   Film,
   type LucideIcon,
 } from "lucide-react-native";
-import { Alert, Modal, Pressable, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Alert, Pressable, View } from "react-native";
 
 import { useEvidenceUploadStore } from "../evidence-upload-store";
 import { useJobEvidenceUploader } from "../useJobEvidenceUploader";
@@ -60,7 +59,6 @@ export function TechnicianEvidenceUploadSheet() {
   const caseId = useEvidenceUploadStore((state) => state.caseId);
   const taskId = useEvidenceUploadStore((state) => state.taskId);
   const close = useEvidenceUploadStore((state) => state.close);
-  const insets = useSafeAreaInsets();
   const { isUploading, uploadEvidence } = useJobEvidenceUploader(
     caseId ?? "",
     taskId ?? undefined,
@@ -75,64 +73,52 @@ export function TechnicianEvidenceUploadSheet() {
       close();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Dosya yüklenirken bir sorun oluştu.";
+        error instanceof Error
+          ? error.message
+          : "Dosya yüklenirken bir sorun oluştu.";
       Alert.alert("Yükleme başarısız", message);
     }
   };
 
   return (
-    <Modal
+    <BottomSheetOverlay
       visible={isOpen}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={close}
+      onClose={close}
+      accessibilityLabel="Görsel yüklemeyi kapat"
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Görsel yüklemeyi kapat"
-        onPress={close}
-        className="flex-1 justify-end bg-black/60"
+      <ActionSheetSurface
+        title="Görsel ekle"
+        description="Hangi tür dosya yükleyeceksin? Thread'e ve dosya feed'ine eklenir."
       >
-        <Pressable
-          onPress={(event) => event.stopPropagation()}
-          style={{ paddingBottom: insets.bottom + 8 }}
-        >
-          <ActionSheetSurface
-            title="Görsel ekle"
-            description="Hangi tür dosya yükleyeceksin? Thread'e ve dosya feed'ine eklenir."
-          >
-            <View className="gap-2">
-              {OPTIONS.map((option) => (
-                <Pressable
-                  key={option.kind}
-                  accessibilityRole="button"
-                  accessibilityLabel={option.label}
-                  onPress={() => void handleSelect(option)}
-                  disabled={isUploading}
-                  className="flex-row items-center gap-3 rounded-[16px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
+        <View className="gap-2">
+          {OPTIONS.map((option) => (
+            <Pressable
+              key={option.kind}
+              accessibilityRole="button"
+              accessibilityLabel={option.label}
+              onPress={() => void handleSelect(option)}
+              disabled={isUploading}
+              className="flex-row items-center gap-3 rounded-[16px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
+            >
+              <View className="h-10 w-10 items-center justify-center rounded-full bg-app-surface-2">
+                <Icon icon={option.icon} size={18} color={option.color} />
+              </View>
+              <View className="flex-1 gap-0.5">
+                <Text variant="label" tone="inverse" className="text-[14px]">
+                  {option.label}
+                </Text>
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted text-[12px]"
                 >
-                  <View className="h-10 w-10 items-center justify-center rounded-full bg-app-surface-2">
-                    <Icon icon={option.icon} size={18} color={option.color} />
-                  </View>
-                  <View className="flex-1 gap-0.5">
-                    <Text variant="label" tone="inverse" className="text-[14px]">
-                      {option.label}
-                    </Text>
-                    <Text
-                      variant="caption"
-                      tone="muted"
-                      className="text-app-text-muted text-[12px]"
-                    >
-                      {option.description}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          </ActionSheetSurface>
-        </Pressable>
-      </Pressable>
-    </Modal>
+                  {option.description}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      </ActionSheetSurface>
+    </BottomSheetOverlay>
   );
 }

@@ -1,5 +1,6 @@
 module.exports = function createTailwindConfig(options) {
   const { brandColors } = options;
+  const appColor = (name) => `var(--${name})`;
 
   return {
     content: [
@@ -14,24 +15,24 @@ module.exports = function createTailwindConfig(options) {
         colors: {
           brand: brandColors,
           app: {
-            bg: "#060915",
-            "bg-muted": "#0d1324",
-            surface: "#11182a",
-            "surface-2": "#182138",
-            "surface-3": "#223154",
-            outline: "#26344f",
-            "outline-strong": "#3a527d",
-            text: "#f5f7ff",
-            "text-muted": "#acb7d2",
-            "text-subtle": "#6f7b97",
-            success: "#2dd28d",
-            "success-soft": "#143526",
-            warning: "#f5b33f",
-            "warning-soft": "#3f2b0b",
-            critical: "#ff6b6b",
-            "critical-soft": "#441a20",
-            info: "#83a7ff",
-            "info-soft": "#1b2850",
+            bg: appColor("app-bg"),
+            "bg-muted": appColor("app-bg-muted"),
+            surface: appColor("app-surface"),
+            "surface-2": appColor("app-surface-2"),
+            "surface-3": appColor("app-surface-3"),
+            outline: appColor("app-outline"),
+            "outline-strong": appColor("app-outline-strong"),
+            text: appColor("app-text"),
+            "text-muted": appColor("app-text-muted"),
+            "text-subtle": appColor("app-text-subtle"),
+            success: appColor("app-success"),
+            "success-soft": appColor("app-success-soft"),
+            warning: appColor("app-warning"),
+            "warning-soft": appColor("app-warning-soft"),
+            critical: appColor("app-critical"),
+            "critical-soft": appColor("app-critical-soft"),
+            info: appColor("app-info"),
+            "info-soft": appColor("app-info-soft"),
           },
         },
         boxShadow: {

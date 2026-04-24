@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Pressable, Text as RNText, View, type ViewStyle } from "react-native";
 
+import { useNaroTheme } from "./theme";
+
 export type AppTabBarItem = {
   key: string;
   label: string;
@@ -41,22 +43,6 @@ export type AppTabBarProps = {
   theme?: Partial<AppTabBarTheme>;
 };
 
-const DEFAULT_THEME: AppTabBarTheme = {
-  shellBackground: "#0d1424",
-  shellBorder: "rgba(255,255,255,0.08)",
-  shellHairline: "rgba(255,255,255,0.12)",
-  shellShadow: "#030917",
-  activeAccent: "#42c4ff",
-  activeText: "#f7fbff",
-  inactiveText: "#7c89a4",
-  activeChip: "rgba(66,196,255,0.12)",
-  centerButtonBackground: "#149ae8",
-  centerButtonBorder: "rgba(141,230,255,0.24)",
-  centerButtonHighlight: "rgba(255,255,255,0.18)",
-  centerButtonDepth: "rgba(3,72,123,0.28)",
-  centerButtonShadow: "#021726",
-};
-
 export function AppTabBar({
   items,
   centerAction,
@@ -64,7 +50,23 @@ export function AppTabBar({
   bottomInset = 0,
   theme,
 }: AppTabBarProps) {
-  const palette = { ...DEFAULT_THEME, ...theme };
+  const { colors } = useNaroTheme();
+  const defaultTheme: AppTabBarTheme = {
+    shellBackground: colors.surface,
+    shellBorder: colors.outline,
+    shellHairline: colors.outlineStrong,
+    shellShadow: colors.shadow,
+    activeAccent: colors.info,
+    activeText: colors.text,
+    inactiveText: colors.textSubtle,
+    activeChip: colors.infoSoft,
+    centerButtonBackground: colors.info,
+    centerButtonBorder: colors.outlineStrong,
+    centerButtonHighlight: "rgba(255,255,255,0.18)",
+    centerButtonDepth: "rgba(0,0,0,0.18)",
+    centerButtonShadow: colors.shadow,
+  };
+  const palette = { ...defaultTheme, ...theme };
   const splitIndex = centerAction ? Math.ceil(items.length / 2) : items.length;
   const leftItems = items.slice(0, splitIndex);
   const rightItems = items.slice(splitIndex);
@@ -129,6 +131,7 @@ export function AppTabBar({
               accessibilityRole="button"
               accessibilityLabel={centerAction.accessibilityLabel}
               onPress={centerAction.onPress}
+              hitSlop={8}
               android_ripple={{
                 color: palette.centerButtonHighlight,
                 borderless: false,
@@ -222,6 +225,7 @@ function TabBarItem({ item, theme }: TabBarItemProps) {
       accessibilityState={{ selected: item.selected }}
       onPress={item.onPress}
       onLongPress={item.onLongPress}
+      hitSlop={{ bottom: 6, left: 4, right: 4, top: 6 }}
       style={{
         flex: 1,
         alignItems: "center",
@@ -244,7 +248,7 @@ function TabBarItem({ item, theme }: TabBarItemProps) {
             color: item.selected ? theme.activeAccent : theme.inactiveText,
             fontSize: 11,
             fontWeight: item.selected ? "700" : "600",
-            letterSpacing: 0.15,
+            letterSpacing: 0,
           }}
         >
           {item.label}

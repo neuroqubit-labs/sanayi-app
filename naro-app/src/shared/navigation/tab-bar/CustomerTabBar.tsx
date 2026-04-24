@@ -2,6 +2,7 @@ import {
   AppTabBar,
   Icon,
   type AppTabBarItem,
+  useNaroTheme,
   useKeyboardVisibility,
 } from "@naro/ui";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
@@ -38,6 +39,22 @@ const CUSTOMER_TAB_THEME = {
   centerButtonShadow: "#021726",
 } as const;
 
+const CUSTOMER_TAB_THEME_LIGHT = {
+  shellBackground: "rgba(255,255,255,0.94)",
+  shellBorder: "rgba(184,198,218,0.88)",
+  shellHairline: "rgba(255,255,255,0.95)",
+  shellShadow: "#98A2B3",
+  activeAccent: ACTIVE_ACCENT,
+  activeText: "#101828",
+  inactiveText: "#667085",
+  activeChip: "rgba(66,196,255,0.14)",
+  centerButtonBackground: "#149ae8",
+  centerButtonBorder: "rgba(14,165,233,0.28)",
+  centerButtonHighlight: "rgba(255,255,255,0.26)",
+  centerButtonDepth: "rgba(3,72,123,0.18)",
+  centerButtonShadow: "#98A2B3",
+} as const;
+
 export function CustomerTabBar({
   state,
   descriptors,
@@ -47,6 +64,7 @@ export function CustomerTabBar({
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisibility();
   const { data: activeVehicle } = useActiveVehicle();
+  const { colors, scheme } = useNaroTheme();
 
   if (keyboardVisible) {
     return null;
@@ -111,8 +129,9 @@ export function CustomerTabBar({
   return (
     <AppTabBar
       items={items}
+      backgroundColor={colors.bg}
       bottomInset={Math.max(insets.bottom, 10)}
-      theme={CUSTOMER_TAB_THEME}
+      theme={scheme === "dark" ? CUSTOMER_TAB_THEME : CUSTOMER_TAB_THEME_LIGHT}
       centerAction={{
         accessibilityLabel: "Hızlı aksiyonlar",
         icon: <Icon icon={Plus} size={22} color="#ffffff" strokeWidth={2.4} />,

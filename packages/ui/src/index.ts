@@ -2,6 +2,11 @@ import "./nativewind";
 
 export { Button, type ButtonProps } from "./Button";
 export {
+  BottomSheetOverlay,
+  type BottomSheetOverlayProps,
+} from "./BottomSheetOverlay";
+export { OverlayPortal, type OverlayPortalProps } from "./OverlayPortal";
+export {
   BrandWaitState,
   type BrandWaitStateAction,
   type BrandWaitStateMode,
@@ -19,6 +24,12 @@ export { Input, type InputProps } from "./Input";
 export { FormField, type FormFieldProps } from "./FormField";
 export { Screen, type ScreenProps } from "./Screen";
 export { Icon, type IconProps } from "./Icon";
+export {
+  IconButton,
+  type IconButtonProps,
+  type IconButtonSize,
+  type IconButtonVariant,
+} from "./IconButton";
 export { Avatar, type AvatarProps } from "./Avatar";
 export {
   ActionSheetSurface,
@@ -55,6 +66,15 @@ export {
   type ShellRadiusKey,
   type ShellSpringKey,
 } from "./tokens";
+export {
+  NaroThemeProvider,
+  themePalettes,
+  themeVars,
+  useNaroTheme,
+  type NaroTheme,
+  type NaroThemePalette,
+  type ThemeScheme,
+} from "./theme";
 export { Surface, type SurfaceProps, type SurfaceVariant } from "./Surface";
 export { GlassSurface, type GlassSurfaceProps } from "./GlassSurface";
 export {

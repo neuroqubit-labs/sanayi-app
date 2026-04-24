@@ -1,5 +1,6 @@
 import {
   ActionSheetSurface,
+  BottomSheetOverlay,
   Button,
   Icon,
   MoneyAmount,
@@ -9,7 +10,6 @@ import { AlertTriangle, Clock3, MessageCircle } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   TextInput,
@@ -89,61 +89,51 @@ export function PartsApprovalSheet({
   };
 
   return (
-    <Modal
+    <BottomSheetOverlay
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
+      onClose={handleClose}
+      accessibilityLabel="Kapat"
+      dismissible={!submit.isPending}
     >
-      <View className="flex-1">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Kapat"
-          onPress={handleClose}
-          className="absolute inset-0 bg-black/50"
-        />
-        <View className="absolute inset-x-0 bottom-0">
-          <ActionSheetSurface
-            title="Ek parça onayı"
-            description="Usta ek parça talep etti"
-          >
-            {approvalsQuery.isLoading ? (
-              <View className="items-center py-6">
-                <ActivityIndicator size="small" color="#83a7ff" />
-              </View>
-            ) : approvalsQuery.isError || !approval ? (
-              <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
-                <Text variant="caption" tone="critical" className="text-[12px]">
-                  Onay talebi yüklenemedi. Daha sonra tekrar dene.
-                </Text>
-              </View>
-            ) : (
-              <ApprovalBody
-                data={approval}
-                amount={amount}
-                rejecting={rejecting}
-                reason={reason}
-                setReason={setReason}
-                submitPending={submit.isPending}
-                submitError={submit.isError}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onStartReject={() => setRejecting(true)}
-                onCancelReject={() => {
-                  setRejecting(false);
-                  setReason("");
-                }}
-                onTalkToTechnician={
-                  onTalkToTechnician
-                    ? () => onTalkToTechnician(approval.case_id)
-                    : undefined
-                }
-              />
-            )}
-          </ActionSheetSurface>
-        </View>
-      </View>
-    </Modal>
+      <ActionSheetSurface
+        title="Ek parça onayı"
+        description="Usta ek parça talep etti"
+      >
+        {approvalsQuery.isLoading ? (
+          <View className="items-center py-6">
+            <ActivityIndicator size="small" color="#83a7ff" />
+          </View>
+        ) : approvalsQuery.isError || !approval ? (
+          <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
+            <Text variant="caption" tone="critical" className="text-[12px]">
+              Onay talebi yüklenemedi. Daha sonra tekrar dene.
+            </Text>
+          </View>
+        ) : (
+          <ApprovalBody
+            data={approval}
+            amount={amount}
+            rejecting={rejecting}
+            reason={reason}
+            setReason={setReason}
+            submitPending={submit.isPending}
+            submitError={submit.isError}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onStartReject={() => setRejecting(true)}
+            onCancelReject={() => {
+              setRejecting(false);
+              setReason("");
+            }}
+            onTalkToTechnician={
+              onTalkToTechnician
+                ? () => onTalkToTechnician(approval.case_id)
+                : undefined
+            }
+          />
+        )}
+      </ActionSheetSurface>
+    </BottomSheetOverlay>
   );
 }
 
@@ -235,8 +225,8 @@ function ApprovalBody({
               tone="muted"
               className="text-app-text-muted text-[11px] leading-[16px]"
             >
-              Onaylarsan kartından bu tutar ek olarak pre-auth tutulur.
-              İş bitince kesin tutar üzerinden kesilir.
+              Onaylarsan kartından bu tutar ek olarak pre-auth tutulur. İş
+              bitince kesin tutar üzerinden kesilir.
             </Text>
           </View>
         ) : null}

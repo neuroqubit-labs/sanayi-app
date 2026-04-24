@@ -20,7 +20,7 @@ export function Screen({
   backgroundClassName,
   edges = ["top", "bottom"],
 }: ScreenProps) {
-  const background = backgroundClassName ?? "bg-white";
+  const background = backgroundClassName ?? "bg-app-bg";
   const base = ["flex-1", background].filter(Boolean).join(" ");
   const padding = padded ? "px-6 pt-6" : "";
   const composed = [padding, className ?? ""].filter(Boolean).join(" ");

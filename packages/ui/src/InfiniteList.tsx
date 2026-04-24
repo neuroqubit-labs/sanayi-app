@@ -8,6 +8,7 @@ import {
 } from "react-native";
 
 import { Text } from "./Text";
+import { useNaroTheme } from "./theme";
 
 export type InfiniteListProps<TItem> = Omit<
   FlatListProps<TItem>,
@@ -45,13 +46,22 @@ export function InfiniteList<TItem>({
   header,
   gap = 12,
   contentContainerStyle,
+  initialNumToRender = 8,
+  maxToRenderPerBatch = 8,
+  windowSize = 7,
+  onEndReachedThreshold = 0.4,
   ...rest
 }: InfiniteListProps<TItem>) {
+  const { colors } = useNaroTheme();
+
   return (
     <FlatList
       data={data ?? []}
       keyExtractor={keyExtractor}
       renderItem={({ item, index }) => renderItem(item, index)}
+      initialNumToRender={initialNumToRender}
+      maxToRenderPerBatch={maxToRenderPerBatch}
+      windowSize={windowSize}
       ItemSeparatorComponent={() => <View style={{ height: gap }} />}
       contentContainerStyle={[
         { paddingBottom: 48, flexGrow: 1 },
@@ -61,7 +71,7 @@ export function InfiniteList<TItem>({
       ListEmptyComponent={
         isLoading ? (
           <View className="items-center justify-center py-10">
-            <ActivityIndicator color="#83a7ff" />
+            <ActivityIndicator color={colors.info} />
           </View>
         ) : (
           <View className="items-center gap-3 rounded-[26px] border border-app-outline bg-app-surface px-5 py-8">
@@ -80,18 +90,20 @@ export function InfiniteList<TItem>({
       ListFooterComponent={
         isFetchingNextPage ? (
           <View className="items-center py-6">
-            <ActivityIndicator color="#83a7ff" />
+            <ActivityIndicator color={colors.info} />
           </View>
         ) : null
       }
       onEndReached={hasNextPage ? onEndReached : undefined}
-      onEndReachedThreshold={0.4}
+      onEndReachedThreshold={onEndReachedThreshold}
       refreshControl={
         onRefresh ? (
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            tintColor="#83a7ff"
+            tintColor={colors.info}
+            colors={[colors.info]}
+            progressBackgroundColor={colors.surface}
           />
         ) : undefined
       }

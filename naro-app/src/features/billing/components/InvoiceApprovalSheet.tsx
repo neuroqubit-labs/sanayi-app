@@ -1,5 +1,6 @@
 import {
   ActionSheetSurface,
+  BottomSheetOverlay,
   Button,
   Icon,
   MoneyAmount,
@@ -14,7 +15,6 @@ import {
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   TextInput,
@@ -92,61 +92,51 @@ export function InvoiceApprovalSheet({
   };
 
   return (
-    <Modal
+    <BottomSheetOverlay
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
+      onClose={handleClose}
+      accessibilityLabel="Kapat"
+      dismissible={!submit.isPending}
     >
-      <View className="flex-1">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Kapat"
-          onPress={handleClose}
-          className="absolute inset-0 bg-black/50"
-        />
-        <View className="absolute inset-x-0 bottom-0">
-          <ActionSheetSurface
-            title="Fatura onayı"
-            description="İş tamamlandı — ücret onayını bekliyor"
-          >
-            {approvalsQuery.isLoading ? (
-              <View className="items-center py-6">
-                <ActivityIndicator size="small" color="#83a7ff" />
-              </View>
-            ) : approvalsQuery.isError || !approval ? (
-              <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
-                <Text variant="caption" tone="critical" className="text-[12px]">
-                  Fatura talebi yüklenemedi. Daha sonra tekrar dene.
-                </Text>
-              </View>
-            ) : (
-              <InvoiceBody
-                data={approval}
-                amount={finalAmount}
-                disputing={disputing}
-                reason={reason}
-                setReason={setReason}
-                submitPending={submit.isPending}
-                submitError={submit.isError}
-                onApprove={handleApprove}
-                onDispute={handleDispute}
-                onStartDispute={() => setDisputing(true)}
-                onCancelDispute={() => {
-                  setDisputing(false);
-                  setReason("");
-                }}
-                onTalkToTechnician={
-                  onTalkToTechnician
-                    ? () => onTalkToTechnician(approval.case_id)
-                    : undefined
-                }
-              />
-            )}
-          </ActionSheetSurface>
-        </View>
-      </View>
-    </Modal>
+      <ActionSheetSurface
+        title="Fatura onayı"
+        description="İş tamamlandı — ücret onayını bekliyor"
+      >
+        {approvalsQuery.isLoading ? (
+          <View className="items-center py-6">
+            <ActivityIndicator size="small" color="#83a7ff" />
+          </View>
+        ) : approvalsQuery.isError || !approval ? (
+          <View className="gap-2 rounded-[16px] border border-app-critical/30 bg-app-critical-soft px-3 py-2.5">
+            <Text variant="caption" tone="critical" className="text-[12px]">
+              Fatura talebi yüklenemedi. Daha sonra tekrar dene.
+            </Text>
+          </View>
+        ) : (
+          <InvoiceBody
+            data={approval}
+            amount={finalAmount}
+            disputing={disputing}
+            reason={reason}
+            setReason={setReason}
+            submitPending={submit.isPending}
+            submitError={submit.isError}
+            onApprove={handleApprove}
+            onDispute={handleDispute}
+            onStartDispute={() => setDisputing(true)}
+            onCancelDispute={() => {
+              setDisputing(false);
+              setReason("");
+            }}
+            onTalkToTechnician={
+              onTalkToTechnician
+                ? () => onTalkToTechnician(approval.case_id)
+                : undefined
+            }
+          />
+        )}
+      </ActionSheetSurface>
+    </BottomSheetOverlay>
   );
 }
 
@@ -270,8 +260,8 @@ function InvoiceBody({
             tone="muted"
             className="text-app-text-muted text-[11px] leading-[15px]"
           >
-            Admin arabulucu 3-5 iş günü içinde inceler. Açıklaman net
-            olursa süreç hızlanır.
+            Admin arabulucu 3-5 iş günü içinde inceler. Açıklaman net olursa
+            süreç hızlanır.
           </Text>
           <TextInput
             value={reason}

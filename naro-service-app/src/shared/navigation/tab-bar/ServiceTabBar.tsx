@@ -2,6 +2,7 @@ import {
   AppTabBar,
   Icon,
   type AppTabBarItem,
+  useNaroTheme,
   useKeyboardVisibility,
 } from "@naro/ui";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
@@ -35,6 +36,22 @@ const SERVICE_TAB_THEME = {
   centerButtonShadow: "#230901",
 } as const;
 
+const SERVICE_TAB_THEME_LIGHT = {
+  shellBackground: "rgba(255,255,255,0.94)",
+  shellBorder: "rgba(184,198,218,0.88)",
+  shellHairline: "rgba(255,255,255,0.95)",
+  shellShadow: "#98A2B3",
+  activeAccent: ACTIVE_ACCENT,
+  activeText: "#101828",
+  inactiveText: "#667085",
+  activeChip: "rgba(255,107,44,0.14)",
+  centerButtonBackground: "#f45f25",
+  centerButtonBorder: "rgba(244,95,37,0.28)",
+  centerButtonHighlight: "rgba(255,255,255,0.22)",
+  centerButtonDepth: "rgba(125,41,4,0.16)",
+  centerButtonShadow: "#98A2B3",
+} as const;
+
 export function ServiceTabBar({
   state,
   descriptors,
@@ -43,6 +60,7 @@ export function ServiceTabBar({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisibility();
+  const { colors, scheme } = useNaroTheme();
 
   if (keyboardVisible) {
     return null;
@@ -100,9 +118,9 @@ export function ServiceTabBar({
   return (
     <AppTabBar
       items={items}
-      backgroundColor="#060915"
+      backgroundColor={colors.bg}
       bottomInset={Math.max(insets.bottom, 10)}
-      theme={SERVICE_TAB_THEME}
+      theme={scheme === "dark" ? SERVICE_TAB_THEME : SERVICE_TAB_THEME_LIGHT}
       centerAction={{
         accessibilityLabel: "Hızlı aksiyonlar",
         icon: <Icon icon={Plus} size={22} color="#ffffff" strokeWidth={2.4} />,
