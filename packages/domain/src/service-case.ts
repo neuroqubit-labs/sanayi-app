@@ -421,19 +421,14 @@ export const AppointmentSchema = z.object({
 });
 export type Appointment = z.infer<typeof AppointmentSchema>;
 
-export const CaseApprovalKindSchema = z.enum([
-  "parts_request",
-  "invoice",
-  "completion",
-]);
-export type CaseApprovalKind = z.infer<typeof CaseApprovalKindSchema>;
+// ─── Approval — HTTP kind/status enumları ./approval.ts'e taşındı (tek kaynak).
+// Detail dossier read model (CaseApprovalSchema, id'li line item) burada kalır;
+// CaseDossier içinde `pending_approvals` alanı bu shape'i bekler.
 
-export const CaseApprovalStatusSchema = z.enum([
-  "pending",
-  "approved",
-  "rejected",
-]);
-export type CaseApprovalStatus = z.infer<typeof CaseApprovalStatusSchema>;
+import { CaseApprovalKindSchema, CaseApprovalStatusSchema } from "./approval";
+
+export { CaseApprovalKindSchema, CaseApprovalStatusSchema } from "./approval";
+export type { CaseApprovalKind, CaseApprovalStatus } from "./approval";
 
 export const CaseApprovalLineItemSchema = z.object({
   id: z.string(),

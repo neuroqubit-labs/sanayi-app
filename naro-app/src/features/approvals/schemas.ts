@@ -1,85 +1,28 @@
-import { z } from "zod";
-
 /**
- * Approval canonical schemas — brief 2026-04-23 (PO karar, BE shipped).
+ * Approval schemas — canonical source: `@naro/domain/approval`.
  *
- * Endpoints:
- * - POST /api/v1/cases/{case_id}/approvals (technician creates)
- * - GET  /api/v1/cases/{case_id}/approvals (participant list)
- * - POST /api/v1/cases/{case_id}/approvals/{approval_id}/decide (customer)
+ * Bu dosya thin re-export katmanı. Feature tarafı tek import path'ten
+ * (feature-local) schema tüketmeye devam eder; taşınma sırasında
+ * call-site kırılmasın diye bu wrapper korunur.
  *
- * Decimal serialization: BE Pydantic v2 Decimal → string ("123.45").
+ * Domain'deki approval modülü BE Pydantic (`app/api/v1/routes/approvals.py`)
+ * ile 1:1 eşleşir — kind/status enum'ları, request/decide payload'ları,
+ * response shape'i orada tanımlı.
  */
 
-export const CaseApprovalKindSchema = z.enum([
-  "parts_request",
-  "invoice",
-  "completion",
-]);
-export type CaseApprovalKind = z.infer<typeof CaseApprovalKindSchema>;
-
-export const CaseApprovalStatusSchema = z.enum([
-  "pending",
-  "approved",
-  "rejected",
-]);
-export type CaseApprovalStatus = z.infer<typeof CaseApprovalStatusSchema>;
-
-export const ApprovalLineItemSchema = z.object({
-  label: z.string(),
-  value: z.string(),
-  note: z.string().nullable().optional(),
-});
-export type ApprovalLineItem = z.infer<typeof ApprovalLineItemSchema>;
-
-export const ApprovalResponseSchema = z.object({
-  id: z.string().uuid(),
-  case_id: z.string().uuid(),
-  kind: CaseApprovalKindSchema,
-  status: CaseApprovalStatusSchema,
-  amount: z.string().nullable().optional(),
-  currency: z.string().default("TRY"),
-  description: z.string().nullable().optional(),
-  service_comment: z.string().nullable().optional(),
-  line_items: z.array(ApprovalLineItemSchema).default([]),
-  created_at: z.string(),
-  resolved_at: z.string().nullable().optional(),
-  resolver_note: z.string().nullable().optional(),
-});
-export type ApprovalResponse = z.infer<typeof ApprovalResponseSchema>;
-
-// ─── Technician creates approval (service app) ─────────────────────────────
-
-/**
- * BE canonical ApprovalRequestPayload (api-validation-hotlist 2026-04-23
- * P0-4): `title` ZORUNLU — service app usta onay talebi açarken kullanıcı
- * input'u ("Parça talebi başlığı" vb.).
- */
-export const ApprovalRequestPayloadSchema = z.object({
-  kind: CaseApprovalKindSchema,
-  title: z.string().min(1).max(255),
-  amount: z.string().nullable().optional(),
-  currency: z.string().default("TRY"),
-  description: z.string().max(2000).nullable().optional(),
-  service_comment: z.string().max(2000).nullable().optional(),
-  line_items: z.array(ApprovalLineItemSchema).default([]).optional(),
-  delivery_report: z.record(z.string(), z.unknown()).nullable().optional(),
-  public_showcase_consent: z.boolean().default(false).optional(),
-  public_showcase_media_ids: z.array(z.string().uuid()).default([]).optional(),
-});
-export type ApprovalRequestPayload = z.infer<
-  typeof ApprovalRequestPayloadSchema
->;
-
-// ─── Customer decides approval ─────────────────────────────────────────────
-
-export const ApprovalDecidePayloadSchema = z.object({
-  decision: z.enum(["approve", "reject"]),
-  note: z.string().max(1000).nullable().optional(),
-  rating: z.number().int().min(1).max(5).nullable().optional(),
-  review_body: z.string().max(2000).nullable().optional(),
-  public_showcase_consent: z.boolean().default(false).optional(),
-});
-export type ApprovalDecidePayload = z.infer<
-  typeof ApprovalDecidePayloadSchema
->;
+export {
+  CaseApprovalKindSchema,
+  CaseApprovalStatusSchema,
+  ApprovalLineItemSchema,
+  ApprovalResponseSchema,
+  ApprovalRequestPayloadSchema,
+  ApprovalDecidePayloadSchema,
+} from "@naro/domain";
+export type {
+  CaseApprovalKind,
+  CaseApprovalStatus,
+  ApprovalLineItem,
+  ApprovalResponse,
+  ApprovalRequestPayload,
+  ApprovalDecidePayload,
+} from "@naro/domain";
