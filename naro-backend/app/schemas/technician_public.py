@@ -14,11 +14,15 @@ from __future__ import annotations
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.media import MediaPurpose
+from app.models.case import ServiceRequestKind
 from app.models.technician import (
+    GalleryItemKind,
     ProviderMode,
     ProviderType,
+    TechnicianCertificateKind,
     TechnicianVerifiedLevel,
 )
 
@@ -32,6 +36,153 @@ class LocationSummary(BaseModel):
     city_label: str | None = None
     primary_district_label: str | None = None
     service_radius_km: int | None = None
+
+
+class PublicMediaAsset(BaseModel):
+    """Public-safe media descriptor — object key/bucket bilgisi YOK."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    purpose: MediaPurpose
+    mime_type: str
+    preview_url: str | None = None
+    thumb_url: str | None = None
+    download_url: str | None = None
+
+
+class PublicIdentitySummary(BaseModel):
+    """Profilin karar ekranında kullanılan public kimlik özeti."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str
+    tagline: str | None = None
+    provider_type: ProviderType
+    secondary_provider_types: list[ProviderType] = Field(default_factory=list)
+    active_provider_type: ProviderType | None = None
+    provider_mode: ProviderMode
+    avatar_asset_id: UUID | None = None
+    avatar_media: PublicMediaAsset | None = None
+    verified_level: TechnicianVerifiedLevel
+    accepting_new_jobs: bool
+
+
+class LabelledSignal(BaseModel):
+    """Taxonomy-backed public signal."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    label: str
+
+
+class BrandCoverageSignal(LabelledSignal):
+    is_authorized: bool = False
+    is_premium_authorized: bool = False
+
+
+class FitSummary(BaseModel):
+    """Müşteri açısından 'bu servis benim işime uyar mı?' özeti."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider_type: ProviderType
+    active_provider_type: ProviderType | None = None
+    service_domains: list[LabelledSignal] = Field(default_factory=list)
+    procedure_tags: list[str] = Field(default_factory=list)
+    brand_coverage: list[BrandCoverageSignal] = Field(default_factory=list)
+
+
+class TrustSummary(BaseModel):
+    """Public güven sinyalleri — detay yorum listesi bu response'ta yok."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rating_bayesian: Decimal | None = None
+    rating_count: int = 0
+    completed_jobs_30d: int = 0
+    response_time_p50_minutes: int | None = None
+    verified_level: TechnicianVerifiedLevel
+    approved_certificate_count: int = 0
+    approved_certificate_kinds: list[TechnicianCertificateKind] = Field(
+        default_factory=list
+    )
+
+
+class ProofPreviewItem(BaseModel):
+    """Public galeri vitrini. Sadece public URL'ler ve kısa metin."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    kind: GalleryItemKind
+    title: str | None = None
+    caption: str | None = None
+    media: PublicMediaAsset
+
+
+class PublicCaseShowcaseMedia(BaseModel):
+    """Doğrulanmış vaka vitrini medyası — object key yok."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    kind: str
+    title: str | None = None
+    caption: str | None = None
+    media: PublicMediaAsset
+
+
+class PublicCaseShowcasePreview(BaseModel):
+    """Public profilde görünen PII-safe tamamlanmış vaka kartı."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    kind: ServiceRequestKind
+    kind_label: str
+    title: str
+    summary: str
+    month_label: str | None = None
+    location_label: str | None = None
+    rating: int | None = Field(default=None, ge=1, le=5)
+    review_body: str | None = None
+    media: PublicCaseShowcaseMedia | None = None
+
+
+class PublicCaseShowcaseDetail(PublicCaseShowcasePreview):
+    """Tek showcase detay response'u; hala public-safe."""
+
+    delivery_report: list[dict[str, str]] = Field(default_factory=list)
+    media_items: list[PublicCaseShowcaseMedia] = Field(default_factory=list)
+
+
+class OperationsSummary(BaseModel):
+    """Adres/koordinat açmadan operasyonel çalışma özeti."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    location_summary: LocationSummary = Field(default_factory=LocationSummary)
+    area_label: str | None = None
+    working_hours: str | None = None
+    mobile_service: bool = False
+    valet_service: bool = False
+    on_site_repair: bool = False
+    towing_coordination: bool = False
+    mobile_unit_count: int = 0
+    staff_count: int | None = None
+    max_concurrent_jobs: int | None = None
+    night_service: bool = False
+    weekend_service: bool = False
+    emergency_service: bool = False
+
+
+class PublicAbout(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    biography: str | None = None
+    service_note: str | None = None
 
 
 class TechnicianPublicView(BaseModel):
@@ -58,7 +209,14 @@ class TechnicianPublicView(BaseModel):
     rating_count: int = 0
     completed_jobs_30d: int = 0
     response_time_p50_minutes: int | None = None
-    location_summary: LocationSummary = LocationSummary()
+    location_summary: LocationSummary = Field(default_factory=LocationSummary)
+    identity: PublicIdentitySummary | None = None
+    fit_summary: FitSummary | None = None
+    trust_summary: TrustSummary | None = None
+    proof_preview: list[ProofPreviewItem] = Field(default_factory=list)
+    case_showcases: list[PublicCaseShowcasePreview] = Field(default_factory=list)
+    operations: OperationsSummary | None = None
+    about: PublicAbout | None = None
 
 
 class TechnicianFeedItem(BaseModel):
@@ -78,4 +236,6 @@ class TechnicianFeedItem(BaseModel):
     rating_bayesian: Decimal | None = None
     rating_count: int = 0
     completed_jobs_30d: int = 0
-    location_summary: LocationSummary = LocationSummary()
+    location_summary: LocationSummary = Field(default_factory=LocationSummary)
+    proof_preview: list[ProofPreviewItem] = Field(default_factory=list)
+    case_showcases: list[PublicCaseShowcasePreview] = Field(default_factory=list)

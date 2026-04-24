@@ -2,6 +2,7 @@ import type { CaseAttachment, ServiceCase } from "@naro/domain";
 import {
   buildTechnicianTrackingView,
   PRIMARY_TECHNICIAN_ID,
+  type DeliveryReportPayload,
   type OfferSubmissionPayload,
 } from "@naro/mobile-core";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -205,8 +206,10 @@ export function useShareJobInvoice(caseId: string) {
 
 export function useMarkReadyForDelivery(caseId: string) {
   return useMutation({
-    mutationFn: async () => {
-      const updatedCase = useJobsStore.getState().markReadyForDelivery(caseId);
+    mutationFn: async (report?: DeliveryReportPayload) => {
+      const updatedCase = useJobsStore
+        .getState()
+        .markReadyForDelivery(caseId, report);
       await invalidateJobConsumers();
       return updatedCase;
     },

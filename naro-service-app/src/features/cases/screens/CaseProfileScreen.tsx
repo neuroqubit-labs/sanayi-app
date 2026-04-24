@@ -1,5 +1,4 @@
 import type { ServiceCase } from "@naro/domain";
-import { PRIMARY_TECHNICIAN_ID } from "@naro/mobile-core";
 import {
   BackButton,
   Button,
@@ -12,11 +11,12 @@ import {
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
 import {
   useApproveIncomingAppointment,
   useDeclineIncomingAppointment,
   usePoolCaseDetail,
-} from "@/features/jobs/api";
+} from "@/features/jobs/api.case-live";
 import { useOfferSheetStore } from "@/features/pool";
 
 type StickyVariant =
@@ -174,7 +174,11 @@ export function CaseProfileScreen() {
   }
 
   const context = deriveContext(caseItem);
-  const sticky = deriveSticky(caseItem, PRIMARY_TECHNICIAN_ID);
+  const myTechnicianId =
+    caseItem.assigned_technician_id ??
+    caseItem.preferred_technician_id ??
+    "";
+  const sticky = deriveSticky(caseItem, myTechnicianId);
   const kindMeta = CASE_KIND_META[caseItem.kind];
   const badge = statusBadge(caseItem);
 
@@ -227,7 +231,7 @@ export function CaseProfileScreen() {
       >
         <CaseInspectionView
           caseItem={caseItem}
-          myTechnicianId={PRIMARY_TECHNICIAN_ID}
+          myTechnicianId={myTechnicianId}
           contextState={context}
           actor="technician"
         />

@@ -29,7 +29,16 @@ from sqlalchemy import select
 
 from app.api.v1.deps import CurrentTechnicianDep, DbDep, RedisDep
 from app.models.auth_event import AuthEvent, AuthEventType
-from app.models.case import TowEquipment
+from app.models.case import (
+    ServiceCaseStatus,
+    ServiceRequestKind,
+    ServiceRequestUrgency,
+    TowEquipment,
+)
+from app.models.case_public_showcase import (
+    CasePublicShowcase,
+    CasePublicShowcaseStatus,
+)
 from app.models.technician import (
     ProviderMode,
     ProviderType,
@@ -41,9 +50,11 @@ from app.models.technician import (
     TechnicianProfile,
     TechnicianVerifiedLevel,
 )
+from app.repositories import case as case_repo
 from app.repositories import technician as technician_repo
 from app.schemas.shell_config import ShellConfig
 from app.services import technician_mutations, technician_shell
+from app.services.case_public_showcases import revoke_for_actor, snapshot_value
 from app.services.technician_admission import (
     AdmissionGateError,
     assert_admission_for_available,
@@ -100,6 +111,39 @@ class TechnicianCertificateResponse(BaseModel):
     verified_at: object | None
     expires_at: object | None
     reviewer_note: str | None
+
+
+class TechnicianShowcaseManageItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    case_id: UUID
+    kind: str
+    status: CasePublicShowcaseStatus
+    title: str
+    summary: str
+    month_label: str | None = None
+    location_label: str | None = None
+    rating: int | None = None
+
+
+class TechnicianCaseSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    vehicle_id: UUID
+    kind: ServiceRequestKind
+    urgency: ServiceRequestUrgency
+    status: ServiceCaseStatus
+    title: str
+    summary: str | None = None
+    subtitle: str | None = None
+    location_label: str | None = None
+    estimate_amount: Decimal | None = None
+    assigned_technician_id: UUID | None = None
+    preferred_technician_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProfilePatchPayload(BaseModel):
@@ -215,6 +259,83 @@ async def get_me_certificates(
     )
     certs = list((await db.execute(stmt)).scalars().all())
     return [TechnicianCertificateResponse.model_validate(c) for c in certs]
+
+
+@router.get("/cases", response_model=list[TechnicianCaseSummary])
+async def get_me_cases(
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> list[TechnicianCaseSummary]:
+    cases = await case_repo.list_cases_for_technician(db, user.id)
+    return [TechnicianCaseSummary.model_validate(case) for case in cases]
+
+
+@router.get("/showcases", response_model=list[TechnicianShowcaseManageItem])
+async def get_me_showcases(
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> list[TechnicianShowcaseManageItem]:
+    profile = await _get_profile_for_user(db, user.id)
+    stmt = (
+        select(CasePublicShowcase)
+        .where(CasePublicShowcase.technician_profile_id == profile.id)
+        .order_by(
+            CasePublicShowcase.created_at.desc(),
+            CasePublicShowcase.id.asc(),
+        )
+        .limit(50)
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+    items: list[TechnicianShowcaseManageItem] = []
+    for row in rows:
+        snapshot = dict(row.public_snapshot or {})
+        items.append(
+            TechnicianShowcaseManageItem(
+                id=row.id,
+                case_id=row.case_id,
+                kind=row.kind.value,
+                status=row.status,
+                title=str(snapshot_value(snapshot, "title") or row.kind.value),
+                summary=str(snapshot_value(snapshot, "summary") or "Vaka özeti"),
+                month_label=snapshot_value(snapshot, "month_label"),
+                location_label=snapshot_value(snapshot, "location_label"),
+                rating=snapshot_value(snapshot, "rating"),
+            )
+        )
+    return items
+
+
+@router.post(
+    "/showcases/{showcase_id}/revoke",
+    response_model=TechnicianShowcaseManageItem,
+)
+async def revoke_me_showcase(
+    showcase_id: UUID,
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> TechnicianShowcaseManageItem:
+    profile = await _get_profile_for_user(db, user.id)
+    stmt = select(CasePublicShowcase).where(
+        CasePublicShowcase.id == showcase_id,
+        CasePublicShowcase.technician_profile_id == profile.id,
+    )
+    showcase = (await db.execute(stmt)).scalar_one_or_none()
+    if showcase is None:
+        raise HTTPException(status_code=404, detail={"type": "showcase_not_found"})
+    showcase = await revoke_for_actor(db, showcase=showcase, actor="technician")
+    await db.commit()
+    snapshot = dict(showcase.public_snapshot or {})
+    return TechnicianShowcaseManageItem(
+        id=showcase.id,
+        case_id=showcase.case_id,
+        kind=showcase.kind.value,
+        status=showcase.status,
+        title=str(snapshot_value(snapshot, "title") or showcase.kind.value),
+        summary=str(snapshot_value(snapshot, "summary") or "Vaka özeti"),
+        month_label=snapshot_value(snapshot, "month_label"),
+        location_label=snapshot_value(snapshot, "location_label"),
+        rating=snapshot_value(snapshot, "rating"),
+    )
 
 
 @router.get("/shell-config", response_model=ShellConfig)

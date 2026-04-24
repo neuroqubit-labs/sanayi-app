@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useInsuranceCapability } from "@/features/technicians";
 
-import { useIncomingAppointments, useJobsFeed } from "../api";
+import { useIncomingAppointments, useJobsFeed } from "../api.case-live";
 import { JobRecordCard } from "../components/JobRecordCard";
 import { buildSearchHaystack, normalizeForSearch } from "../search";
 

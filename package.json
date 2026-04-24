@@ -12,6 +12,7 @@
     "lint": "pnpm -r --parallel --if-present lint",
     "doctor": "pnpm --filter naro-app run doctor && pnpm --filter naro-service-app run doctor",
     "ui:audit": "node scripts/ui-audit.mjs",
+    "service:live-gate": "node scripts/service-live-gate.mjs",
     "ci:mobile": "pnpm lint && pnpm typecheck && pnpm test && pnpm ui:audit && pnpm run doctor",
     "format": "pnpm -r --parallel --if-present format"
   },

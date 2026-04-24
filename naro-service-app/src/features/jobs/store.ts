@@ -18,6 +18,7 @@ import {
   sendCaseMessage,
   shareTechnicianInvoice,
   shareTechnicianStatusUpdate,
+  type DeliveryReportPayload,
   submitOfferForCase,
   type OfferSubmissionPayload,
   type TechnicianInsuranceCasePayload,
@@ -37,7 +38,10 @@ type JobsState = {
   shareStatusUpdate: (caseId: string, note: string) => ServiceCase | null;
   requestPartsApproval: (caseId: string) => ServiceCase | null;
   shareInvoice: (caseId: string) => ServiceCase | null;
-  markReadyForDelivery: (caseId: string) => ServiceCase | null;
+  markReadyForDelivery: (
+    caseId: string,
+    report?: DeliveryReportPayload,
+  ) => ServiceCase | null;
   sendMessage: (caseId: string, body: string) => ServiceCase | null;
   submitOffer: (
     caseId: string,
@@ -179,11 +183,13 @@ export const useJobsStore = create<JobsState>((set) => ({
 
     return updatedCase;
   },
-  markReadyForDelivery: (caseId) => {
+  markReadyForDelivery: (caseId, report) => {
     let updatedCase: ServiceCase | null = null;
 
     set((state) => {
-      const result = updateCaseById(state.cases, caseId, markCaseReadyForDelivery);
+      const result = updateCaseById(state.cases, caseId, (caseItem) =>
+        markCaseReadyForDelivery(caseItem, report),
+      );
       updatedCase = result.updatedCase;
       return { cases: result.cases };
     });

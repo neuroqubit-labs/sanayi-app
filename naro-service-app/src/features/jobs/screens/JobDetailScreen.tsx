@@ -30,7 +30,7 @@ import {
   useJobDetail,
   useMarkJobSeen,
   useTechnicianTrackingJob,
-} from "../api";
+} from "../api.case-live";
 import { CustomerPreviewCard } from "../components/CustomerPreviewCard";
 
 type StageTone = "accent" | "neutral" | "success" | "warning" | "critical" | "info";

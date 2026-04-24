@@ -16,9 +16,15 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.v1.deps import CurrentUserDep, CustomerDep, DbDep, SettingsDep
+from app.api.v1.deps import (
+    CurrentTechnicianDep,
+    CurrentUserDep,
+    CustomerDep,
+    DbDep,
+    SettingsDep,
+)
 from app.integrations.storage import build_storage_gateway
 from app.models.case import (
     CaseWaitActor,
@@ -26,6 +32,7 @@ from app.models.case import (
     ServiceCaseStatus,
     ServiceRequestKind,
 )
+from app.models.case_artifact import CaseAttachmentKind
 from app.models.case_audit import CaseEventType, CaseTone
 from app.models.case_subtypes import (
     AccidentCase,
@@ -33,6 +40,7 @@ from app.models.case_subtypes import (
     MaintenanceCase,
     TowCase,
 )
+from app.models.media import MediaAsset, MediaStatus
 from app.models.user import UserRole
 from app.repositories import appointment as appointment_repo
 from app.repositories import case as case_repo
@@ -43,9 +51,11 @@ from app.schemas.case_document import (
     CaseEventItem,
     CaseEventListResponse,
 )
+from app.schemas.case_process import CaseEvidenceItemResponse
 from app.schemas.case_thread import CaseNotesPayload
 from app.schemas.service_request import ServiceRequestDraftCreate
 from app.services import approval_flow, case_create, case_documents
+from app.services import evidence as evidence_service
 from app.services.case_events import append_event
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -136,6 +146,27 @@ class CaseDetailResponse(CaseSummaryResponse):
     assigned_technician_id: UUID | None = None
 
 
+class StatusUpdatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    note: str = Field(min_length=1, max_length=2000)
+
+
+class CaseEvidencePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=255)
+    kind: CaseAttachmentKind
+    source_label: str = Field(default="Usta uygulaması", min_length=1, max_length=255)
+    status_label: str = Field(default="Yüklendi", min_length=1, max_length=255)
+    subtitle: str | None = Field(default=None, max_length=255)
+    media_asset_id: UUID | None = None
+    task_id: UUID | None = None
+    milestone_id: UUID | None = None
+    approval_id: UUID | None = None
+    requirement_id: str | None = Field(default=None, max_length=64)
+
+
 # ─── Endpoints ──────────────────────────────────────────────────────────────
 
 
@@ -221,6 +252,7 @@ async def get_case_endpoint(
     next_action = _build_next_action(case, user.role)
     return CaseDetailResponse(
         id=case.id,
+        vehicle_id=case.vehicle_id,
         kind=case.kind,
         status=case.status,
         urgency=case.urgency.value,
@@ -279,6 +311,7 @@ async def update_case_notes(
     next_action = _build_next_action(case, user.role)
     return CaseDetailResponse(
         id=case.id,
+        vehicle_id=case.vehicle_id,
         kind=case.kind,
         status=case.status,
         urgency=case.urgency.value,
@@ -299,6 +332,110 @@ async def update_case_notes(
         estimate_amount=case.estimate_amount,
         assigned_technician_id=case.assigned_technician_id,
     )
+
+
+@router.post(
+    "/{case_id}/status-updates",
+    response_model=CaseEventItem,
+    summary="Teknisyen süreç güncellemesi paylaşır",
+)
+async def create_status_update(
+    case_id: UUID,
+    payload: StatusUpdatePayload,
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> CaseEventItem:
+    case = await case_repo.get_case(db, case_id)
+    if case is None or case.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
+    _assert_assigned_technician(case, user_id=user.id)
+    note = " ".join(payload.note.strip().split())
+    event = await append_event(
+        db,
+        case_id=case.id,
+        event_type=CaseEventType.STATUS_UPDATE,
+        title="Usta süreç güncellemesi paylaştı",
+        body=note,
+        tone=CaseTone.INFO,
+        actor_user_id=user.id,
+        context={"source": "technician_app"},
+    )
+    await db.commit()
+    return CaseEventItem(
+        id=event.id,
+        type=event.event_type,
+        title=event.title,
+        body=event.body,
+        tone=CaseTone(event.tone),
+        actor_user_id=event.actor_user_id,
+        actor_role="technician",
+        context=event.context,
+        created_at=event.created_at,
+    )
+
+
+@router.post(
+    "/{case_id}/evidence",
+    response_model=CaseEvidenceItemResponse,
+    summary="Teknisyen vaka kanıtı ekler",
+)
+async def create_case_evidence(
+    case_id: UUID,
+    payload: CaseEvidencePayload,
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> CaseEvidenceItemResponse:
+    case = await case_repo.get_case(db, case_id)
+    if case is None or case.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
+    _assert_assigned_technician(case, user_id=user.id)
+
+    if payload.media_asset_id is not None:
+        asset = await db.get(MediaAsset, payload.media_asset_id)
+        if asset is None or asset.deleted_at is not None:
+            raise HTTPException(
+                status_code=404, detail={"type": "media_asset_not_found"}
+            )
+        if asset.uploaded_by_user_id != user.id:
+            raise HTTPException(
+                status_code=403, detail={"type": "media_asset_not_owned"}
+            )
+        if asset.status not in {
+            MediaStatus.PROCESSING,
+            MediaStatus.READY,
+            MediaStatus.UPLOADED,
+        }:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "type": "media_asset_not_ready",
+                    "status": asset.status.value,
+                },
+            )
+        if asset.linked_case_id is not None and asset.linked_case_id != case.id:
+            raise HTTPException(
+                status_code=409,
+                detail={"type": "media_asset_already_linked"},
+            )
+        asset.linked_case_id = case.id
+
+    evidence = await evidence_service.add_evidence_to_case(
+        db,
+        case_id=case.id,
+        title=payload.title,
+        kind=payload.kind,
+        actor="technician",
+        source_label=payload.source_label,
+        status_label=payload.status_label,
+        subtitle=payload.subtitle,
+        media_asset_id=payload.media_asset_id,
+        task_id=payload.task_id,
+        milestone_id=payload.milestone_id,
+        approval_id=payload.approval_id,
+        requirement_id=payload.requirement_id,
+    )
+    await db.commit()
+    return CaseEvidenceItemResponse.model_validate(evidence)
 
 
 @router.post(
@@ -484,6 +621,13 @@ def _assert_participant(case: ServiceCase, *, user_id: UUID, role: UserRole) -> 
     if user_id not in participant_ids:
         raise HTTPException(
             status_code=403, detail={"type": "not_case_participant"}
+        )
+
+
+def _assert_assigned_technician(case: ServiceCase, *, user_id: UUID) -> None:
+    if case.assigned_technician_id != user_id:
+        raise HTTPException(
+            status_code=403, detail={"type": "not_assigned_technician"}
         )
 
 

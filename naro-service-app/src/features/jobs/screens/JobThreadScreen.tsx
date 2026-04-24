@@ -11,7 +11,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useJobDetail, useJobThread, useSendJobMessage } from "../api";
+import {
+  useJobDetail,
+  useJobThread,
+  useSendJobMessage,
+} from "../api.case-live";
 import { MessageBubble } from "../components/MessageBubble";
 
 export function JobThreadScreen() {

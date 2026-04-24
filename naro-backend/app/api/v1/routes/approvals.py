@@ -26,6 +26,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.api.v1.deps import (
     CurrentCustomerDep,
@@ -40,8 +41,11 @@ from app.models.case_process import (
     CaseApprovalLineItem,
     CaseApprovalStatus,
 )
+from app.models.review import Review
 from app.models.user import UserRole
+from app.repositories import review as review_repo
 from app.services import approval_flow
+from app.services import case_public_showcases
 
 router = APIRouter(prefix="/cases", tags=["approvals"])
 
@@ -79,6 +83,9 @@ class ApprovalRequestPayload(BaseModel):
     currency: str = Field(default="TRY", min_length=3, max_length=8)
     service_comment: str | None = Field(default=None, max_length=2000)
     line_items: list[ApprovalLineItemInput] = Field(default_factory=list)
+    delivery_report: dict[str, object] | None = None
+    public_showcase_consent: bool = False
+    public_showcase_media_ids: list[UUID] = Field(default_factory=list)
 
 
 class ApprovalDecidePayload(BaseModel):
@@ -88,6 +95,9 @@ class ApprovalDecidePayload(BaseModel):
 
     decision: Literal["approve", "reject"]
     note: str | None = Field(default=None, max_length=1000)
+    rating: int | None = Field(default=None, ge=1, le=5)
+    review_body: str | None = Field(default=None, max_length=2000)
+    public_showcase_consent: bool = False
 
 
 class ApprovalResponse(BaseModel):
@@ -117,15 +127,11 @@ class ApprovalResponse(BaseModel):
 async def _load_case_or_404(db: DbDep, case_id: UUID) -> ServiceCase:
     case = await db.get(ServiceCase, case_id)
     if case is None or case.deleted_at is not None:
-        raise HTTPException(
-            status_code=404, detail={"type": "case_not_found"}
-        )
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
     return case
 
 
-async def _load_line_items(
-    db: DbDep, approval_id: UUID
-) -> list[CaseApprovalLineItem]:
+async def _load_line_items(db: DbDep, approval_id: UUID) -> list[CaseApprovalLineItem]:
     stmt = (
         select(CaseApprovalLineItem)
         .where(CaseApprovalLineItem.approval_id == approval_id)
@@ -134,16 +140,12 @@ async def _load_line_items(
     return list((await db.execute(stmt)).scalars().all())
 
 
-async def _build_response(
-    db: DbDep, approval: CaseApproval
-) -> ApprovalResponse:
+async def _build_response(db: DbDep, approval: CaseApproval) -> ApprovalResponse:
     items = await _load_line_items(db, approval.id)
     return ApprovalResponse.model_validate(
         {
             **{c.name: getattr(approval, c.name) for c in approval.__table__.columns},
-            "line_items": [
-                ApprovalLineItemOut.model_validate(it) for it in items
-            ],
+            "line_items": [ApprovalLineItemOut.model_validate(it) for it in items],
         }
     )
 
@@ -165,9 +167,7 @@ async def request_approval_endpoint(
 ) -> ApprovalResponse:
     case = await _load_case_or_404(db, case_id)
     if case.assigned_technician_id != user.id:
-        raise HTTPException(
-            status_code=403, detail={"type": "not_assigned_technician"}
-        )
+        raise HTTPException(status_code=403, detail={"type": "not_assigned_technician"})
 
     try:
         approval = await approval_flow.request_approval(
@@ -183,6 +183,16 @@ async def request_approval_endpoint(
             service_comment=payload.service_comment,
             line_items=[it.model_dump() for it in payload.line_items],
         )
+        if payload.kind == CaseApprovalKind.COMPLETION:
+            line_items = await _load_line_items(db, approval.id)
+            await case_public_showcases.upsert_from_completion_request(
+                db,
+                case=case,
+                approval=approval,
+                line_items=line_items,
+                technician_consented=payload.public_showcase_consent,
+                media_ids=payload.public_showcase_media_ids,
+            )
     except approval_flow.ApprovalAlreadyActiveError as exc:
         await db.rollback()
         raise HTTPException(
@@ -210,9 +220,7 @@ async def list_approvals_endpoint(
     if user.role != UserRole.ADMIN:
         participant_ids = {case.customer_user_id, case.assigned_technician_id}
         if user.id not in participant_ids:
-            raise HTTPException(
-                status_code=403, detail={"type": "not_case_participant"}
-            )
+            raise HTTPException(status_code=403, detail={"type": "not_case_participant"})
     stmt = (
         select(CaseApproval)
         .where(CaseApproval.case_id == case_id)
@@ -238,24 +246,64 @@ async def decide_approval_endpoint(
     _ = payload.note  # V1: ignore; V1.1 analytics için saklanır
     case = await _load_case_or_404(db, case_id)
     if case.customer_user_id != user.id:
-        raise HTTPException(
-            status_code=403, detail={"type": "not_case_owner"}
-        )
+        raise HTTPException(status_code=403, detail={"type": "not_case_owner"})
     approval = await db.get(CaseApproval, approval_id)
     if approval is None or approval.case_id != case_id:
+        raise HTTPException(status_code=404, detail={"type": "approval_not_found"})
+    if (
+        payload.decision == "approve"
+        and approval.kind == CaseApprovalKind.COMPLETION
+        and payload.rating is None
+    ):
         raise HTTPException(
-            status_code=404, detail={"type": "approval_not_found"}
+            status_code=422,
+            detail={"type": "completion_rating_required"},
+        )
+    if (
+        payload.decision == "approve"
+        and approval.kind == CaseApprovalKind.COMPLETION
+        and case.assigned_technician_id is None
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "case_has_no_technician"},
         )
 
     try:
         if payload.decision == "approve":
-            decided = await approval_flow.approve(
-                db, approval_id, actor_user_id=user.id
-            )
+            decided = await approval_flow.approve(db, approval_id, actor_user_id=user.id)
+            if decided.kind == CaseApprovalKind.COMPLETION:
+                existing_review = (
+                    await db.execute(
+                        select(Review).where(
+                            Review.case_id == case_id,
+                            Review.reviewer_user_id == user.id,
+                        )
+                    )
+                ).scalar_one_or_none()
+                review = existing_review
+                if review is None:
+                    review = await review_repo.create_review(
+                        db,
+                        case_id=case_id,
+                        reviewer_user_id=user.id,
+                        reviewee_user_id=case.assigned_technician_id,
+                        rating=payload.rating or 1,
+                        body=payload.review_body,
+                    )
+                line_items = await _load_line_items(db, decided.id)
+                await case_public_showcases.apply_customer_completion_decision(
+                    db,
+                    case=case,
+                    approval=decided,
+                    line_items=line_items,
+                    customer_consented=payload.public_showcase_consent,
+                    rating=review.rating,
+                    review_body=review.body,
+                    review_id=review.id,
+                )
         else:
-            decided = await approval_flow.reject(
-                db, approval_id, actor_user_id=user.id
-            )
+            decided = await approval_flow.reject(db, approval_id, actor_user_id=user.id)
     except approval_flow.ApprovalNotPendingError as exc:
         raise HTTPException(
             status_code=409,
@@ -265,9 +313,7 @@ async def decide_approval_endpoint(
             },
         ) from exc
     except approval_flow.ApprovalNotFoundError as exc:
-        raise HTTPException(
-            status_code=404, detail={"type": "approval_not_found"}
-        ) from exc
+        raise HTTPException(status_code=404, detail={"type": "approval_not_found"}) from exc
     except approval_flow.CompletionGateError as exc:
         raise HTTPException(
             status_code=409,
@@ -276,6 +322,14 @@ async def decide_approval_endpoint(
                 "missing": exc.missing,
             },
         ) from exc
+    except IntegrityError as exc:
+        await db.rollback()
+        if "uq_reviews_case_reviewer" in str(exc.orig):
+            raise HTTPException(
+                status_code=409,
+                detail={"type": "review_already_exists"},
+            ) from exc
+        raise
 
     await db.commit()
     return await _build_response(db, decided)

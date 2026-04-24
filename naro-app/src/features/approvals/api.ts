@@ -42,6 +42,7 @@ export function useDecideApproval(caseId: string, approvalId: string) {
     },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["approvals", caseId] });
+      queryClient.invalidateQueries({ queryKey: ["technicians", "public"] });
       queryClient.invalidateQueries({
         queryKey: ["billing", "summary", response.case_id],
       });

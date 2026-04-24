@@ -3491,12 +3491,75 @@ export function shareTechnicianInvoice(caseItem: ServiceCase) {
   });
 }
 
-export function markCaseReadyForDelivery(caseItem: ServiceCase) {
+export type DeliveryReportPayload = {
+  currentKm: number | null;
+  serviceDate: string;
+  nextServiceKm?: number | null;
+  workSummary: string;
+  warrantyNote?: string;
+  customerNote?: string;
+  publicShowcaseConsent?: boolean;
+  publicShowcaseMediaIds?: string[];
+};
+
+function formatKm(value: number | null | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) return null;
+  return `${value.toLocaleString("tr-TR")} km`;
+}
+
+function buildDeliveryReportLineItems(report?: DeliveryReportPayload) {
+  if (!report) return [];
+
+  const rows = [
+    {
+      label: "Teslim kilometresi",
+      value: formatKm(report.currentKm) ?? "Belirtilmedi",
+    },
+    {
+      label: "Bakım / tamir tarihi",
+      value: report.serviceDate.trim(),
+    },
+    {
+      label: "Yapılan işlem",
+      value: report.workSummary.trim(),
+    },
+  ];
+  const nextServiceKm = formatKm(report.nextServiceKm);
+
+  if (nextServiceKm) {
+    rows.push({
+      label: "Sonraki bakım",
+      value: nextServiceKm,
+    });
+  }
+  if (report.warrantyNote?.trim()) {
+    rows.push({
+      label: "Garanti / dikkat notu",
+      value: report.warrantyNote.trim(),
+    });
+  }
+
+  return rows.map((item) => ({
+    id: nextId("line"),
+    note: undefined,
+    ...item,
+  }));
+}
+
+export function markCaseReadyForDelivery(
+  caseItem: ServiceCase,
+  report?: DeliveryReportPayload,
+) {
   if (caseItem.status !== "invoice_approval") {
     return syncTrackingCase(caseItem);
   }
 
   const proofDocId = nextId("doc");
+  const lineItems = buildDeliveryReportLineItems(report);
+  const serviceComment =
+    report?.customerNote?.trim() ||
+    "Arac temizlendi, final kontrol tamamlandi, teslime hazir.";
+  const workSummary = report?.workSummary.trim();
 
   return syncTrackingCase({
     ...caseItem,
@@ -3508,27 +3571,27 @@ export function markCaseReadyForDelivery(caseItem: ServiceCase) {
         id: nextId("approval"),
         kind: "completion",
         status: "pending",
-        title: "Teslim teyidi",
+        title: "Araç teslim raporu",
         description:
-          "Son fotograflar ve teslim hazir notu yuklendi; musteri son teyidi verebilir.",
+          "Servis son kilometre, islem ozeti ve sonraki bakim notunu paylasti; musteri teslim teyidi verebilir.",
         requested_by: caseItem.assigned_service?.name ?? "Servis",
         requested_at: nowIso(),
         requested_at_label: nowLabel(),
         amount_label: null,
         action_label: "Teslimi onayla",
-        service_comment:
-          "Arac temizlendi, final kontrol tamamlandi, teslime hazir.",
-        line_items: [],
+        service_comment: serviceComment,
+        line_items: lineItems,
         evidence_document_ids: [proofDocId],
       },
     ],
     documents: [
       {
         id: proofDocId,
-        kind: "photo",
-        title: "Teslim oncesi son fotograf",
-        subtitle: "Genel durum ve hazirlik notu",
-        source_label: "Servis teslim kaydi",
+        kind: "report",
+        title: "Araç teslim raporu",
+        subtitle:
+          workSummary ?? "Genel durum, kilometre ve sonraki bakım notu",
+        source_label: "Servis teslim raporu",
         status_label: "Yeni",
         created_at: nowIso(),
         asset: null,
@@ -3539,9 +3602,9 @@ export function markCaseReadyForDelivery(caseItem: ServiceCase) {
     evidence_feed: [
       serviceEvidence(
         caseItem.id,
-        "photo",
-        "Teslim fotografi",
-        "Son durum ve teslim hazirlik notu eklendi.",
+        "report",
+        "Araç teslim raporu",
+        workSummary ?? "Son durum, kilometre ve teslim notu eklendi.",
         null,
       ),
       ...caseItem.evidence_feed,
@@ -3549,8 +3612,16 @@ export function markCaseReadyForDelivery(caseItem: ServiceCase) {
     events: appendEvent(
       caseItem,
       "Teslime hazir",
-      "Son kanit yuklendi; musteri teslim teyidi bekleniyor.",
+      workSummary
+        ? `Teslim raporu eklendi: ${workSummary}`
+        : "Teslim raporu eklendi; musteri teslim teyidi bekleniyor.",
       "success",
+    ),
+    thread: appendThreadMessage(
+      caseItem,
+      caseItem.assigned_service?.name ?? "Servis",
+      "technician",
+      `Teslim raporunu paylastik. ${serviceComment}`,
     ),
   });
 }

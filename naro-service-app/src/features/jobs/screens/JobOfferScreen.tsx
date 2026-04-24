@@ -1,4 +1,3 @@
-import { PRIMARY_TECHNICIAN_ID } from "@naro/mobile-core";
 import {
   BackButton,
   Button,
@@ -13,7 +12,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Clock, Lock, PackageCheck, ShieldCheck, Users } from "lucide-react-native";
 import { View } from "react-native";
 
-import { useJobDetail } from "../api";
+import { useJobDetail } from "../api.case-live";
 
 const STATUS_TONE_MAP: Record<
   string,
@@ -51,10 +50,12 @@ export function JobOfferScreen() {
   }
 
   const myOffer = caseItem.offers.find(
-    (offer) => offer.technician_id === PRIMARY_TECHNICIAN_ID,
+    (offer) =>
+      offer.technician_id === caseItem.assigned_technician_id ||
+      offer.status === "accepted",
   );
   const competitorOffers = caseItem.offers.filter(
-    (offer) => offer.technician_id !== PRIMARY_TECHNICIAN_ID,
+    (offer) => offer.id !== myOffer?.id,
   );
   const competitorMin = competitorOffers.length
     ? Math.min(...competitorOffers.map((o) => o.amount))

@@ -13,11 +13,13 @@ import {
   BrandOutSchema,
   ServiceDomainOutSchema,
   TechnicianFeedResponseSchema,
+  PublicCaseShowcaseDetailSchema,
   TechnicianPublicViewSchema,
   type BrandOut,
   type ServiceDomainOut,
   type TechnicianFeedItem,
   type TechnicianFeedResponse,
+  type PublicCaseShowcaseDetail,
   type TechnicianPublicView,
 } from "./schemas";
 import type { TechnicianMatch, TechnicianProfile } from "./types";
@@ -177,7 +179,35 @@ export function useTechnicianPublicView(technicianId: string) {
   });
 }
 
-export type { BrandOut, ServiceDomainOut, TechnicianFeedItem, TechnicianPublicView };
+export function useTechnicianShowcaseDetail(
+  technicianId: string,
+  showcaseId: string,
+) {
+  return useQuery<PublicCaseShowcaseDetail>({
+    queryKey: [
+      "technicians",
+      "public",
+      "showcase",
+      technicianId,
+      showcaseId,
+    ],
+    enabled: technicianId.length > 0 && showcaseId.length > 0,
+    queryFn: async () => {
+      const raw = await apiClient(
+        `/technicians/public/${technicianId}/showcases/${showcaseId}`,
+      );
+      return PublicCaseShowcaseDetailSchema.parse(raw);
+    },
+  });
+}
+
+export type {
+  BrandOut,
+  PublicCaseShowcaseDetail,
+  ServiceDomainOut,
+  TechnicianFeedItem,
+  TechnicianPublicView,
+};
 
 const TAXONOMY_STALE_TIME = 60 * 60 * 1000; // 1 saat
 

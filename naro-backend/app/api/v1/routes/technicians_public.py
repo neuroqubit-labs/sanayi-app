@@ -31,24 +31,55 @@ from app.api.pagination import (
     decode_cursor,
     encode_cursor,
 )
-from app.api.v1.deps import CurrentUserDep, DbDep, RedisDep
-from app.models.taxonomy import TaxonomyCity, TaxonomyDistrict
+from app.api.v1.deps import CurrentUserDep, DbDep, RedisDep, SettingsDep
+from app.models.media import MediaAsset, MediaStatus, MediaVisibility
+from app.models.case_public_showcase import (
+    CasePublicShowcase,
+    CasePublicShowcaseMedia,
+    CasePublicShowcaseStatus,
+)
+from app.models.taxonomy import (
+    TaxonomyBrand,
+    TaxonomyCity,
+    TaxonomyDistrict,
+    TaxonomyServiceDomain,
+)
 from app.models.technician import (
     TechnicianAvailability,
+    TechnicianCapability,
+    TechnicianCertificate,
+    TechnicianCertificateStatus,
+    TechnicianGalleryItem,
     TechnicianProfile,
     TechnicianVerifiedLevel,
 )
 from app.models.technician_signal import (
+    TechnicianBrandCoverage,
+    TechnicianCapacity,
     TechnicianPerformanceSnapshot,
+    TechnicianProcedureTag,
     TechnicianServiceArea,
     TechnicianServiceDomain,
 )
 from app.models.user import User, UserApprovalStatus, UserRole, UserStatus
 from app.schemas.technician_public import (
+    BrandCoverageSignal,
+    FitSummary,
+    LabelledSignal,
     LocationSummary,
+    OperationsSummary,
+    ProofPreviewItem,
+    PublicCaseShowcaseDetail,
+    PublicCaseShowcaseMedia,
+    PublicCaseShowcasePreview,
+    PublicAbout,
+    PublicIdentitySummary,
+    PublicMediaAsset,
     TechnicianFeedItem,
     TechnicianPublicView,
+    TrustSummary,
 )
+from app.services.case_public_showcases import snapshot_value
 from app.services.taxonomy_cache import (
     PUBLIC_FEED_TTL_SECONDS,
     PUBLIC_PROFILE_TTL_SECONDS,
@@ -140,6 +171,320 @@ async def _load_snapshot_aggregates(
     return result
 
 
+def _media_public_url(settings: Any, object_key: str | None) -> str | None:
+    """Public bucket URL helper; object key itself response'a çıkmaz."""
+    if not object_key:
+        return None
+    base_url = (settings.cloudfront_public_base_url or "").rstrip("/")
+    if base_url:
+        return f"{base_url}/{object_key}"
+    endpoint = (settings.aws_s3_endpoint_url or "").rstrip("/")
+    if endpoint:
+        return f"{endpoint}/{settings.s3_public_bucket}/{object_key}"
+    return f"https://{settings.s3_public_bucket}.s3.amazonaws.com/{object_key}"
+
+
+def _serialize_public_media(
+    settings: Any,
+    asset: MediaAsset | None,
+) -> PublicMediaAsset | None:
+    if asset is None:
+        return None
+    if asset.visibility != MediaVisibility.PUBLIC:
+        return None
+    if asset.status not in {MediaStatus.READY, MediaStatus.UPLOADED}:
+        return None
+    if asset.deleted_at is not None:
+        return None
+
+    return PublicMediaAsset(
+        id=asset.id,
+        purpose=asset.purpose,
+        mime_type=asset.mime_type,
+        preview_url=_media_public_url(
+            settings, asset.preview_object_key or asset.object_key
+        ),
+        thumb_url=_media_public_url(
+            settings, asset.thumb_object_key or asset.preview_object_key
+        ),
+        download_url=_media_public_url(settings, asset.object_key),
+    )
+
+
+async def _load_public_asset(
+    db: AsyncSession,
+    settings: Any,
+    asset_id: UUID | None,
+) -> PublicMediaAsset | None:
+    if asset_id is None:
+        return None
+    return _serialize_public_media(settings, await db.get(MediaAsset, asset_id))
+
+
+async def _build_fit_summary(
+    db: AsyncSession,
+    profile: TechnicianProfile,
+) -> FitSummary:
+    domain_stmt = (
+        select(
+            TechnicianServiceDomain.domain_key,
+            TaxonomyServiceDomain.label,
+        )
+        .join(
+            TaxonomyServiceDomain,
+            TaxonomyServiceDomain.domain_key
+            == TechnicianServiceDomain.domain_key,
+        )
+        .where(TechnicianServiceDomain.profile_id == profile.id)
+        .order_by(TaxonomyServiceDomain.display_order.asc())
+        .limit(8)
+    )
+    service_domains = [
+        LabelledSignal(key=row[0], label=row[1])
+        for row in (await db.execute(domain_stmt)).all()
+    ]
+
+    tag_stmt = (
+        select(TechnicianProcedureTag.tag)
+        .where(TechnicianProcedureTag.profile_id == profile.id)
+        .order_by(TechnicianProcedureTag.created_at.asc())
+        .limit(10)
+    )
+    procedure_tags = list((await db.execute(tag_stmt)).scalars().all())
+
+    brand_stmt = (
+        select(
+            TechnicianBrandCoverage.brand_key,
+            TaxonomyBrand.label,
+            TechnicianBrandCoverage.is_authorized,
+            TechnicianBrandCoverage.is_premium_authorized,
+        )
+        .join(
+            TaxonomyBrand,
+            TaxonomyBrand.brand_key == TechnicianBrandCoverage.brand_key,
+        )
+        .where(TechnicianBrandCoverage.profile_id == profile.id)
+        .order_by(
+            TechnicianBrandCoverage.is_premium_authorized.desc(),
+            TechnicianBrandCoverage.is_authorized.desc(),
+            TaxonomyBrand.display_order.asc(),
+        )
+        .limit(8)
+    )
+    brand_coverage = [
+        BrandCoverageSignal(
+            key=row[0],
+            label=row[1],
+            is_authorized=bool(row[2]),
+            is_premium_authorized=bool(row[3]),
+        )
+        for row in (await db.execute(brand_stmt)).all()
+    ]
+
+    return FitSummary(
+        provider_type=profile.provider_type,
+        active_provider_type=profile.active_provider_type,
+        service_domains=service_domains,
+        procedure_tags=procedure_tags,
+        brand_coverage=brand_coverage,
+    )
+
+
+async def _build_trust_summary(
+    db: AsyncSession,
+    profile: TechnicianProfile,
+    *,
+    rating_bayesian: Any,
+    rating_count: int,
+    completed_jobs_30d: int,
+    response_time_p50_minutes: int | None,
+) -> TrustSummary:
+    cert_stmt = (
+        select(TechnicianCertificate.kind)
+        .where(
+            TechnicianCertificate.profile_id == profile.id,
+            TechnicianCertificate.status == TechnicianCertificateStatus.APPROVED,
+        )
+        .order_by(TechnicianCertificate.kind.asc())
+    )
+    approved_kinds = list((await db.execute(cert_stmt)).scalars().all())
+    return TrustSummary(
+        rating_bayesian=rating_bayesian,
+        rating_count=rating_count,
+        completed_jobs_30d=completed_jobs_30d,
+        response_time_p50_minutes=response_time_p50_minutes,
+        verified_level=profile.verified_level,
+        approved_certificate_count=len(approved_kinds),
+        approved_certificate_kinds=approved_kinds,
+    )
+
+
+async def _load_proof_preview(
+    db: AsyncSession,
+    settings: Any,
+    profile_id: UUID,
+    *,
+    limit: int = 6,
+) -> list[ProofPreviewItem]:
+    stmt = (
+        select(TechnicianGalleryItem, MediaAsset)
+        .join(MediaAsset, MediaAsset.id == TechnicianGalleryItem.media_asset_id)
+        .where(
+            TechnicianGalleryItem.profile_id == profile_id,
+            MediaAsset.visibility == MediaVisibility.PUBLIC,
+            MediaAsset.status.in_([MediaStatus.READY, MediaStatus.UPLOADED]),
+            MediaAsset.deleted_at.is_(None),
+        )
+        .order_by(
+            TechnicianGalleryItem.display_order.asc(),
+            TechnicianGalleryItem.created_at.desc(),
+        )
+        .limit(limit)
+    )
+    items: list[ProofPreviewItem] = []
+    for gallery_item, asset in (await db.execute(stmt)).all():
+        public_asset = _serialize_public_media(settings, asset)
+        if public_asset is None:
+            continue
+        items.append(
+            ProofPreviewItem(
+                id=gallery_item.id,
+                kind=gallery_item.kind,
+                title=gallery_item.title,
+                caption=gallery_item.caption,
+                media=public_asset,
+            )
+        )
+    return items
+
+
+async def _load_showcase_media(
+    db: AsyncSession,
+    settings: Any,
+    showcase_id: UUID,
+    *,
+    limit: int = 4,
+) -> list[PublicCaseShowcaseMedia]:
+    stmt = (
+        select(CasePublicShowcaseMedia, MediaAsset)
+        .join(MediaAsset, MediaAsset.id == CasePublicShowcaseMedia.media_asset_id)
+        .where(CasePublicShowcaseMedia.showcase_id == showcase_id)
+        .order_by(CasePublicShowcaseMedia.sequence.asc())
+        .limit(limit)
+    )
+    items: list[PublicCaseShowcaseMedia] = []
+    for showcase_media, asset in (await db.execute(stmt)).all():
+        public_asset = _serialize_public_media(settings, asset)
+        if public_asset is None:
+            continue
+        items.append(
+            PublicCaseShowcaseMedia(
+                id=showcase_media.id,
+                kind=showcase_media.kind,
+                title=showcase_media.title,
+                caption=showcase_media.caption,
+                media=public_asset,
+            )
+        )
+    return items
+
+
+def _showcase_preview_from_row(
+    row: CasePublicShowcase,
+    media_items: list[PublicCaseShowcaseMedia],
+) -> PublicCaseShowcasePreview:
+    snapshot = dict(row.public_snapshot or {})
+    return PublicCaseShowcasePreview(
+        id=row.id,
+        kind=row.kind,
+        kind_label=str(snapshot_value(snapshot, "kind_label") or row.kind.value),
+        title=str(snapshot_value(snapshot, "title") or "Tamamlanan iş"),
+        summary=str(snapshot_value(snapshot, "summary") or "Servis süreci tamamlandı."),
+        month_label=snapshot_value(snapshot, "month_label"),
+        location_label=snapshot_value(snapshot, "location_label"),
+        rating=snapshot_value(snapshot, "rating"),
+        review_body=snapshot_value(snapshot, "review_body"),
+        media=media_items[0] if media_items else None,
+    )
+
+
+def _showcase_detail_from_row(
+    row: CasePublicShowcase,
+    media_items: list[PublicCaseShowcaseMedia],
+) -> PublicCaseShowcaseDetail:
+    snapshot = dict(row.public_snapshot or {})
+    return PublicCaseShowcaseDetail(
+        **_showcase_preview_from_row(row, media_items).model_dump(),
+        delivery_report=snapshot_value(snapshot, "delivery_report") or [],
+        media_items=media_items,
+    )
+
+
+async def _load_case_showcases(
+    db: AsyncSession,
+    settings: Any,
+    profile_id: UUID,
+    *,
+    limit: int = 4,
+) -> list[PublicCaseShowcasePreview]:
+    stmt = (
+        select(CasePublicShowcase)
+        .where(
+            CasePublicShowcase.technician_profile_id == profile_id,
+            CasePublicShowcase.status == CasePublicShowcaseStatus.PUBLISHED,
+        )
+        .order_by(
+            CasePublicShowcase.published_at.desc(),
+            CasePublicShowcase.created_at.desc(),
+        )
+        .limit(limit)
+    )
+    rows = list((await db.execute(stmt)).scalars().all())
+    previews: list[PublicCaseShowcasePreview] = []
+    for row in rows:
+        media_items = await _load_showcase_media(db, settings, row.id, limit=1)
+        previews.append(_showcase_preview_from_row(row, media_items))
+    return previews
+
+
+async def _build_operations_summary(
+    db: AsyncSession,
+    profile: TechnicianProfile,
+    location: LocationSummary,
+) -> OperationsSummary:
+    service_area = (
+        await db.execute(
+            select(TechnicianServiceArea).where(
+                TechnicianServiceArea.profile_id == profile.id
+            )
+        )
+    ).scalar_one_or_none()
+    capability = await db.get(TechnicianCapability, profile.id)
+    capacity = await db.get(TechnicianCapacity, profile.id)
+
+    mobile_unit_count = (
+        int(service_area.mobile_unit_count) if service_area is not None else 0
+    )
+    on_site_repair = bool(capability and capability.on_site_repair)
+    return OperationsSummary(
+        location_summary=location,
+        area_label=profile.area_label,
+        working_hours=profile.working_hours,
+        mobile_service=on_site_repair or mobile_unit_count > 0,
+        valet_service=bool(capability and capability.valet_service),
+        on_site_repair=on_site_repair,
+        towing_coordination=bool(capability and capability.towing_coordination),
+        mobile_unit_count=mobile_unit_count,
+        staff_count=int(capacity.staff_count) if capacity is not None else None,
+        max_concurrent_jobs=(
+            int(capacity.max_concurrent_jobs) if capacity is not None else None
+        ),
+        night_service=bool(capacity and capacity.night_service),
+        weekend_service=bool(capacity and capacity.weekend_service),
+        emergency_service=bool(capacity and capacity.emergency_service),
+    )
+
+
 def _accepting_new_jobs(availability: TechnicianAvailability) -> bool:
     return availability == TechnicianAvailability.AVAILABLE
 
@@ -153,6 +498,7 @@ async def get_public_feed(
     _user: CurrentUserDep,
     db: DbDep,
     redis: RedisDep,
+    settings: SettingsDep,
     cursor: CursorQuery = None,
     limit: LimitQuery = 20,
 ) -> PaginatedResponse[TechnicianFeedItem]:
@@ -226,6 +572,8 @@ async def get_public_feed(
         rating_count = int(snap[2]) if snap else 0
         completed_jobs_30d = int(snap[3]) if snap else 0
         location = await _build_location_summary(db, p.id)
+        proof_preview = await _load_proof_preview(db, settings, p.id, limit=3)
+        case_showcases = await _load_case_showcases(db, settings, p.id, limit=1)
         items.append(
             TechnicianFeedItem(
                 id=p.id,
@@ -241,6 +589,8 @@ async def get_public_feed(
                 rating_count=rating_count,
                 completed_jobs_30d=completed_jobs_30d,
                 location_summary=location,
+                proof_preview=proof_preview,
+                case_showcases=case_showcases,
             )
         )
 
@@ -258,12 +608,37 @@ async def get_public_feed(
     return paginated
 
 
+@router.get(
+    "/{technician_id}/showcases/{showcase_id}",
+    response_model=PublicCaseShowcaseDetail,
+    summary="Public usta profilindeki doğrulanmış iş detayı",
+)
+async def get_public_showcase_detail(
+    technician_id: UUID,
+    showcase_id: UUID,
+    _user: CurrentUserDep,
+    db: DbDep,
+    settings: SettingsDep,
+) -> PublicCaseShowcaseDetail:
+    stmt = select(CasePublicShowcase).where(
+        CasePublicShowcase.id == showcase_id,
+        CasePublicShowcase.technician_profile_id == technician_id,
+        CasePublicShowcase.status == CasePublicShowcaseStatus.PUBLISHED,
+    )
+    showcase = (await db.execute(stmt)).scalar_one_or_none()
+    if showcase is None:
+        raise HTTPException(status_code=404, detail={"type": "showcase_not_found"})
+    media_items = await _load_showcase_media(db, settings, showcase.id, limit=4)
+    return _showcase_detail_from_row(showcase, media_items)
+
+
 @router.get("/{technician_id}", response_model=TechnicianPublicView)
 async def get_public_profile(
     technician_id: UUID,
     _user: CurrentUserDep,
     db: DbDep,
     redis: RedisDep,
+    settings: SettingsDep,
 ) -> TechnicianPublicView:
     """Tek teknisyenin public detay görünümü. PII mask sıkı."""
     profile = await db.get(TechnicianProfile, technician_id)
@@ -305,6 +680,20 @@ async def get_public_profile(
     response_time = snap[4] if snap else None
 
     location = await _build_location_summary(db, profile.id)
+    accepting_new_jobs = _accepting_new_jobs(profile.availability)
+    avatar_media = await _load_public_asset(db, settings, profile.avatar_asset_id)
+    fit_summary = await _build_fit_summary(db, profile)
+    trust_summary = await _build_trust_summary(
+        db,
+        profile,
+        rating_bayesian=rating_bayesian,
+        rating_count=rating_count,
+        completed_jobs_30d=completed_jobs_30d,
+        response_time_p50_minutes=response_time,
+    )
+    proof_preview = await _load_proof_preview(db, settings, profile.id)
+    case_showcases = await _load_case_showcases(db, settings, profile.id)
+    operations = await _build_operations_summary(db, profile, location)
 
     view = TechnicianPublicView(
         id=profile.id,
@@ -317,12 +706,33 @@ async def get_public_profile(
         secondary_provider_types=list(profile.secondary_provider_types or []),
         active_provider_type=profile.active_provider_type,
         provider_mode=profile.provider_mode,
-        accepting_new_jobs=_accepting_new_jobs(profile.availability),
+        accepting_new_jobs=accepting_new_jobs,
         rating_bayesian=rating_bayesian,
         rating_count=rating_count,
         completed_jobs_30d=completed_jobs_30d,
         response_time_p50_minutes=response_time,
         location_summary=location,
+        identity=PublicIdentitySummary(
+            display_name=profile.display_name,
+            tagline=profile.tagline,
+            provider_type=profile.provider_type,
+            secondary_provider_types=list(profile.secondary_provider_types or []),
+            active_provider_type=profile.active_provider_type,
+            provider_mode=profile.provider_mode,
+            avatar_asset_id=profile.avatar_asset_id,
+            avatar_media=avatar_media,
+            verified_level=profile.verified_level,
+            accepting_new_jobs=accepting_new_jobs,
+        ),
+        fit_summary=fit_summary,
+        trust_summary=trust_summary,
+        proof_preview=proof_preview,
+        case_showcases=case_showcases,
+        operations=operations,
+        about=PublicAbout(
+            biography=profile.biography,
+            service_note=profile.tagline,
+        ),
     )
     await set_cached_model(
         redis, key=cache_key, value=view, ttl=PUBLIC_PROFILE_TTL_SECONDS

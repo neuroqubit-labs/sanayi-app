@@ -16,11 +16,14 @@ import {
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
   AudioWaveform,
+  CalendarDays,
   Camera,
   CheckCircle2,
   FileText,
   Film,
+  Gauge,
   Plus,
+  ShieldCheck,
   Trash2,
 } from "lucide-react-native";
 import { useState } from "react";
@@ -33,7 +36,7 @@ import {
   useRequestJobPartsApproval,
   useShareJobInvoice,
   useShareJobStatusUpdate,
-} from "../api";
+} from "../api.case-live";
 import { useEvidenceUploadStore } from "../evidence-upload-store";
 import { useJobEvidenceUploader } from "../useJobEvidenceUploader";
 
@@ -73,6 +76,21 @@ function newLineItem(): LineItem {
   };
 }
 
+function defaultServiceDate() {
+  return new Date().toLocaleDateString("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function parseKmInput(value: string) {
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const parsed = Number(digits);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function JobTaskScreen() {
   const router = useRouter();
   const { colors } = useNaroTheme();
@@ -99,7 +117,13 @@ export function JobTaskScreen() {
   const [invoiceTitle, setInvoiceTitle] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
   const [invoiceNote, setInvoiceNote] = useState("");
+  const [deliveryKm, setDeliveryKm] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState(defaultServiceDate);
+  const [nextMaintenanceKm, setNextMaintenanceKm] = useState("");
+  const [workSummary, setWorkSummary] = useState("");
+  const [warrantyNote, setWarrantyNote] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
+  const [publicShowcaseConsent, setPublicShowcaseConsent] = useState(false);
 
   if (!caseItem || !task) {
     return (
@@ -149,6 +173,13 @@ export function JobTaskScreen() {
     (acc, item) => acc + Number(item.qty || "1") * Number(item.unit || "0"),
     0,
   );
+  const deliveryKmNumber = parseKmInput(deliveryKm);
+  const nextMaintenanceKmNumber = parseKmInput(nextMaintenanceKm);
+  const requiresDeliveryKm = caseItem.kind !== "towing";
+  const deliveryReportReady =
+    (!requiresDeliveryKm || deliveryKmNumber !== null) &&
+    deliveryDate.trim().length >= 6 &&
+    workSummary.trim().length >= 6;
 
   // ─── Submit handlers ─────────────────────────────────────────
 
@@ -161,29 +192,44 @@ export function JobTaskScreen() {
 
   const submitParts = async () => {
     if (validLineItems.length === 0) return;
-    await requestPartsApproval.mutateAsync();
+    await requestPartsApproval.mutateAsync({
+      lineItems: validLineItems,
+      note: partsNote.trim() || undefined,
+      amount: partsTotal,
+    });
     Alert.alert(
       "Parça onayı talep edildi",
-      "Müşteri onayı beklemeye alındı. (Mock — v1'de line_items domain'de default ile kaydediliyor.)",
+      "Müşteri onayı beklemeye alındı. Kalemler canlı vaka akışına işlendi.",
     );
     goBack();
   };
 
   const submitInvoice = async () => {
     if (!invoiceTitle.trim() || !invoiceAmount) return;
-    await shareInvoice.mutateAsync();
+    await shareInvoice.mutateAsync({
+      title: invoiceTitle.trim(),
+      amount: invoiceAmount,
+      note: invoiceNote.trim() || undefined,
+    });
     Alert.alert(
       "Fatura gönderildi",
-      "Müşteri onayına düştü. (Mock — v1'de amount domain'de default ile kaydediliyor.)",
+      "Müşteri onayına düştü. Tutar ve not canlı vaka akışına işlendi.",
     );
     goBack();
   };
 
   const submitDelivery = async () => {
-    await markReady.mutateAsync();
-    if (deliveryNote.trim()) {
-      await shareStatusUpdate.mutateAsync(deliveryNote.trim());
-    }
+    if (!deliveryReportReady) return;
+    await markReady.mutateAsync({
+      currentKm: deliveryKmNumber,
+      serviceDate: deliveryDate.trim(),
+      nextServiceKm: nextMaintenanceKmNumber,
+      workSummary: workSummary.trim(),
+      warrantyNote: warrantyNote.trim() || undefined,
+      customerNote: deliveryNote.trim() || undefined,
+      publicShowcaseConsent,
+      publicShowcaseMediaIds: [],
+    });
     goBack();
   };
 
@@ -508,37 +554,125 @@ export function JobTaskScreen() {
       {task.kind === "mark_ready_for_delivery" ? (
         <View className="gap-4">
           <SectionHeader
-            title="Teslim hazır"
-            description="Müşteriyi teslim zamanı hakkında bilgilendir."
+            title="Araç teslim raporu"
+            description="Son onay adımı: müşteri vakayı kapatmadan önce bu özeti görür."
           />
-          <View className="gap-3 rounded-[18px] border border-app-success/40 bg-app-success/10 px-4 py-4">
+          <View className="gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-4">
+            <View className="flex-row gap-2">
+              <FieldInput
+                label={requiresDeliveryKm ? "Teslim km" : "Teslim / mesafe km"}
+                value={deliveryKm}
+                onChangeText={(v) => setDeliveryKm(v.replace(/[^\d]/g, ""))}
+                placeholder={requiresDeliveryKm ? "örn: 86450" : "opsiyonel"}
+                numeric
+                containerClassName="flex-1"
+                inputClassName="bg-app-surface-2"
+              />
+              <FieldInput
+                label="Tarih"
+                value={deliveryDate}
+                onChangeText={setDeliveryDate}
+                placeholder="24.04.2026"
+                containerClassName="flex-1"
+                inputClassName="bg-app-surface-2"
+              />
+            </View>
+            <FieldInput
+              label="Yapılan işlem özeti"
+              value={workSummary}
+              onChangeText={setWorkSummary}
+              placeholder="örn: Periyodik bakım, yağ-filtre değişimi ve fren kontrolü tamamlandı."
+              textarea
+              rows={3}
+              inputClassName="bg-app-surface-2"
+            />
+            <View className="flex-row gap-2">
+              <FieldInput
+                label="Sonraki bakım km"
+                value={nextMaintenanceKm}
+                onChangeText={(v) =>
+                  setNextMaintenanceKm(v.replace(/[^\d]/g, ""))
+                }
+                placeholder="örn: 96450"
+                numeric
+                containerClassName="flex-1"
+                inputClassName="bg-app-surface-2"
+              />
+              <FieldInput
+                label="Garanti / dikkat"
+                value={warrantyNote}
+                onChangeText={setWarrantyNote}
+                placeholder="örn: 6 ay işçilik"
+                containerClassName="flex-1"
+                inputClassName="bg-app-surface-2"
+              />
+            </View>
+            <FieldInput
+              label="Müşteriye teslim notu"
+              value={deliveryNote}
+              onChangeText={setDeliveryNote}
+              placeholder="Teslim saati, kullanım uyarısı, özel not..."
+              textarea
+              rows={3}
+              inputClassName="bg-app-surface-2"
+            />
+          </View>
+          <ActionRow
+            label="Bu süreci profilimde göster"
+            description="Müşteri de kapanışta izin verirse, plaka/ad/tutar olmadan doğrulanmış iş olarak görünür."
+            leading={
+              <View
+                className={[
+                  "h-9 w-9 items-center justify-center rounded-full border",
+                  publicShowcaseConsent
+                    ? "border-app-success bg-app-success-soft"
+                    : "border-app-outline bg-app-surface-2",
+                ].join(" ")}
+              >
+                <Icon
+                  icon={publicShowcaseConsent ? CheckCircle2 : ShieldCheck}
+                  size={16}
+                  color={
+                    publicShowcaseConsent ? colors.success : colors.textMuted
+                  }
+                />
+              </View>
+            }
+            trailing={
+              <TrustBadge
+                label={publicShowcaseConsent ? "İzin verildi" : "Kapalı"}
+                tone={publicShowcaseConsent ? "success" : "neutral"}
+              />
+            }
+            onPress={() => setPublicShowcaseConsent((current) => !current)}
+          />
+          <View className="gap-3 rounded-[18px] border border-app-success/40 bg-app-success-soft px-4 py-4">
             <View className="flex-row items-center gap-2">
               <Icon icon={CheckCircle2} size={16} color={colors.success} />
               <Text variant="label" tone="success" className="text-[14px]">
-                Araç teslime hazır
+                Müşterinin son onayına düşer
               </Text>
             </View>
-            <Text
-              variant="caption"
-              tone="muted"
-              className="text-app-text-muted leading-[18px]"
-            >
-              Müşteriye bildirim gidecek. Teslim sonrası upload_delivery_proof
-              ile kapanış fotoğrafını da eklemeyi unutma.
-            </Text>
+            <View className="gap-2">
+              <ReportHintRow
+                icon={Gauge}
+                label="Kilometre ve sonraki bakım araç hafızasının ana referansı olur."
+              />
+              <ReportHintRow
+                icon={CalendarDays}
+                label="Tarih ve işlem özeti vaka kayıtlarında teslim raporu olarak kalır."
+              />
+              <ReportHintRow
+                icon={ShieldCheck}
+                label="Garanti veya dikkat notu varsa müşteri onay ekranında görünür."
+              />
+            </View>
           </View>
-          <FieldInput
-            label="Müşteriye hatırlatma (opsiyonel)"
-            value={deliveryNote}
-            onChangeText={setDeliveryNote}
-            placeholder="Teslim saati, not, özel uyarı..."
-            textarea
-            rows={3}
-          />
           <Button
-            label="Teslim hazır olarak işaretle"
+            label="Teslim raporunu gönder"
             size="lg"
             fullWidth
+            disabled={!deliveryReportReady || isLoading}
             loading={isLoading}
             onPress={submitDelivery}
           />
@@ -584,5 +718,27 @@ function QuickUploadRow({
       }
       onPress={onPress}
     />
+  );
+}
+
+function ReportHintRow({
+  icon,
+  label,
+}: {
+  icon: typeof Gauge;
+  label: string;
+}) {
+  const { colors } = useNaroTheme();
+  return (
+    <View className="flex-row items-start gap-2">
+      <Icon icon={icon} size={13} color={colors.success} />
+      <Text
+        variant="caption"
+        tone="muted"
+        className="flex-1 text-app-text-muted text-[12px] leading-[17px]"
+      >
+        {label}
+      </Text>
+    </View>
   );
 }

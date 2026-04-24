@@ -252,7 +252,8 @@ function approvalToDomain(approval: ApprovalResponse): CaseApproval {
     requested_at_label: formatRelativeTurkish(approval.created_at),
     amount_label: amountLabel,
     action_label: null,
-    service_comment: approval.resolver_note ?? undefined,
+    service_comment:
+      approval.service_comment ?? approval.resolver_note ?? undefined,
     line_items: approval.line_items.map((item, index) => ({
       id: `${approval.id}-line-${index}`,
       label: item.label,

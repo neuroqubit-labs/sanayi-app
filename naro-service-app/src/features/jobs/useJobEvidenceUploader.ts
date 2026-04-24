@@ -6,7 +6,7 @@ import {
   useServiceMediaUpload,
 } from "@/shared/media/useServiceMediaUpload";
 
-import { useAddJobEvidence } from "./api";
+import { useAddJobEvidence } from "./api.case-live";
 
 const KIND_LABEL: Record<CaseAttachmentKind, string> = {
   photo: "Fotoğraf",

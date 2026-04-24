@@ -102,7 +102,9 @@ export function UstalarScreen() {
   );
 
   const renderTechnicianCard = useCallback(
-    (item: TechnicianFeedItem) => <TechnicianFeedCard item={item} />,
+    (item: TechnicianFeedItem, itemHeight: number) => (
+      <TechnicianFeedCard item={item} itemHeight={itemHeight} />
+    ),
     [],
   );
 
@@ -139,7 +141,7 @@ export function UstalarScreen() {
           items={items}
           keyExtractor={(item) => item.id}
           renderCard={renderTechnicianCard}
-          itemContainerClassName="justify-center px-5"
+          itemContainerClassName="px-5 py-2"
           isLoading={feedQuery.isLoading}
           isError={feedQuery.isError}
           hasFilters={hasFilters}

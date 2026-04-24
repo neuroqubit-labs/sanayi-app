@@ -5,6 +5,7 @@ DB integration skip (cross-test asyncpg bloker); smoke + QA ile doğrulanır.
 
 from __future__ import annotations
 
+import inspect
 from uuid import uuid4
 
 import pytest
@@ -16,6 +17,7 @@ from app.services.approval_flow import (
     ApprovalNotPendingError,
     CompletionGateError,
 )
+from app.services import approval_flow
 
 
 def test_completion_gate_error_carries_missing_context() -> None:
@@ -51,3 +53,9 @@ def test_approval_already_active_carries_kind_and_case_id() -> None:
     assert exc.case_id == case_id
     assert exc.kind == CaseApprovalKind.PARTS_REQUEST
     assert "parts_request" in str(exc)
+
+
+def test_pending_approval_lookup_uses_row_lock() -> None:
+    """Concurrent approve/reject decisions must serialize on the approval row."""
+    source = inspect.getsource(approval_flow._get_pending)
+    assert ".with_for_update()" in source

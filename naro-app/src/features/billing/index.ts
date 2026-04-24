@@ -15,6 +15,11 @@ export {
   type CompletionApprovalSheetProps,
 } from "./components/CompletionApprovalSheet";
 export {
+  CompletionDecisionPanel,
+  type CompletionDecisionApproval,
+  type CompletionDecisionPayload,
+} from "./components/CompletionDecisionPanel";
+export {
   BillingSummaryCard,
   type BillingSummaryCardProps,
 } from "./components/BillingSummaryCard";

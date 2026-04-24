@@ -40,6 +40,7 @@ export const ApprovalResponseSchema = z.object({
   amount: z.string().nullable().optional(),
   currency: z.string().default("TRY"),
   description: z.string().nullable().optional(),
+  service_comment: z.string().nullable().optional(),
   line_items: z.array(ApprovalLineItemSchema).default([]),
   created_at: z.string(),
   resolved_at: z.string().nullable().optional(),
@@ -60,7 +61,11 @@ export const ApprovalRequestPayloadSchema = z.object({
   amount: z.string().nullable().optional(),
   currency: z.string().default("TRY"),
   description: z.string().max(2000).nullable().optional(),
+  service_comment: z.string().max(2000).nullable().optional(),
   line_items: z.array(ApprovalLineItemSchema).default([]).optional(),
+  delivery_report: z.record(z.string(), z.unknown()).nullable().optional(),
+  public_showcase_consent: z.boolean().default(false).optional(),
+  public_showcase_media_ids: z.array(z.string().uuid()).default([]).optional(),
 });
 export type ApprovalRequestPayload = z.infer<
   typeof ApprovalRequestPayloadSchema
@@ -71,6 +76,9 @@ export type ApprovalRequestPayload = z.infer<
 export const ApprovalDecidePayloadSchema = z.object({
   decision: z.enum(["approve", "reject"]),
   note: z.string().max(1000).nullable().optional(),
+  rating: z.number().int().min(1).max(5).nullable().optional(),
+  review_body: z.string().max(2000).nullable().optional(),
+  public_showcase_consent: z.boolean().default(false).optional(),
 });
 export type ApprovalDecidePayload = z.infer<
   typeof ApprovalDecidePayloadSchema

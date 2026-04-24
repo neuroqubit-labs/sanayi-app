@@ -47,6 +47,8 @@ import {
   type GalleryItem,
   MONTHLY_STATS,
   getProviderTypeMeta,
+  useMyTechnicianShowcases,
+  useRevokeTechnicianShowcase,
   useTechnicianProfileStore,
 } from "@/features/technicians";
 import { telemetry } from "@/runtime";
@@ -55,12 +57,50 @@ import { openMediaAsset } from "@/shared/media/openAsset";
 import { useServiceMediaUpload } from "@/shared/media/useServiceMediaUpload";
 
 type CapabilityKey = keyof TechnicianCapability;
+type ShowcaseStatus =
+  | "pending_customer"
+  | "pending_technician"
+  | "published"
+  | "revoked"
+  | "hidden";
+
+function showcaseStatusLabel(status: ShowcaseStatus) {
+  switch (status) {
+    case "published":
+      return "Yayında";
+    case "pending_customer":
+      return "Müşteri bekliyor";
+    case "pending_technician":
+      return "İzin kapalı";
+    case "revoked":
+      return "Gizlendi";
+    case "hidden":
+      return "Yayından kalktı";
+    default:
+      return "Durum";
+  }
+}
+
+function showcaseStatusTone(status: ShowcaseStatus) {
+  switch (status) {
+    case "published":
+      return "success" as const;
+    case "pending_customer":
+      return "warning" as const;
+    case "pending_technician":
+      return "info" as const;
+    default:
+      return "neutral" as const;
+  }
+}
 
 export function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const clear = useAuthStore((s) => s.clear);
   const profile = useTechnicianProfileStore();
+  const showcasesQuery = useMyTechnicianShowcases();
+  const revokeShowcase = useRevokeTechnicianShowcase();
   const toggleCapability = useTechnicianProfileStore(
     (state) => state.toggleCapability,
   );
@@ -122,6 +162,33 @@ export function ProfileScreen() {
   const approvedCount = profile.certificates.filter(
     (c) => c.status === "approved",
   ).length;
+  const publicProfileCompletion = completionMeta(
+    [
+      Boolean(profile.name.trim()),
+      Boolean(profile.tagline.trim()),
+      Boolean(profile.biography.trim()),
+      Boolean(profile.avatar_asset),
+      profile.gallery.length > 0,
+    ].filter(Boolean).length,
+    5,
+  );
+  const scopeCompletion = completionMeta(
+    [
+      profile.specialties.length > 0,
+      profile.expertise.length > 0,
+      Object.values(profile.capabilities).some(Boolean),
+    ].filter(Boolean).length,
+    3,
+  );
+  const operationsCompletion = completionMeta(
+    [
+      Boolean(profile.working_hours.trim()),
+      Boolean(profile.area_label.trim()),
+      Boolean(profile.business.city_district?.trim()),
+    ].filter(Boolean).length,
+    3,
+  );
+  const trustCompletion = completionMeta(approvedCount, 6);
 
   async function onLogout() {
     Alert.alert("Çıkış yapılsın mı?", "Tekrar giriş için OTP kodu gerekecek.", [
@@ -336,20 +403,14 @@ export function ProfileScreen() {
         {/* Yönetim merkezi — anasayfadan taşınan 4 kısayol */}
         <ProfileManagementHub />
 
-        {/* Sağlayıcı profili */}
+        {/* Müşteriye görünen profil */}
         <ProfileSection
-          title="Sağlayıcı profili"
-          description={`${providerMeta.label} olarak kayıtlısın`}
+          title="Müşteriye görünen profil"
+          description="Ad, vaat, avatar, galeri ve kısa hikaye public tarafta kullanılır."
           accessory={
             <TrustBadge
-              label={
-                profile.verified_level === "premium"
-                  ? "Naro Pro"
-                  : profile.verified_level === "verified"
-                    ? "Doğrulandı"
-                    : "Temel"
-              }
-              tone={profile.verified_level === "basic" ? "neutral" : "success"}
+              label={publicProfileCompletion.label}
+              tone={publicProfileCompletion.tone}
             />
           }
         >
@@ -391,10 +452,91 @@ export function ProfileScreen() {
           </View>
         </ProfileSection>
 
-        {/* Sertifikalar */}
         <ProfileSection
-          title="Sertifikalar"
-          description={`${approvedCount}/6 doğrulandı · verified_level: ${profile.verified_level}`}
+          title="Profilde görünen işler"
+          description="Kapanan vakalar iki taraf onayı varsa public profilde doğrulanmış iş olarak görünür."
+        >
+          <View className="mx-4 gap-2">
+            {(showcasesQuery.data ?? []).slice(0, 4).map((item) => (
+              <View
+                key={item.id}
+                className="gap-2 rounded-[18px] border border-app-outline bg-app-surface px-4 py-3.5"
+              >
+                <View className="flex-row items-start justify-between gap-3">
+                  <View className="min-w-0 flex-1 gap-1">
+                    <Text variant="label" tone="inverse" numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text
+                      variant="caption"
+                      tone="muted"
+                      className="text-app-text-muted leading-[18px]"
+                      numberOfLines={2}
+                    >
+                      {item.summary}
+                    </Text>
+                  </View>
+                  <TrustBadge
+                    label={showcaseStatusLabel(item.status)}
+                    tone={showcaseStatusTone(item.status)}
+                  />
+                </View>
+                <View className="flex-row items-center justify-between gap-3">
+                  <Text variant="caption" tone="subtle" className="text-[11px]">
+                    {[item.month_label, item.location_label]
+                      .filter(Boolean)
+                      .join(" · ") || "Kapanış özeti"}
+                  </Text>
+                  {item.status === "published" ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="İşi profilden kaldır"
+                      hitSlop={8}
+                      onPress={() => revokeShowcase.mutate(item.id)}
+                      className="rounded-full border border-app-outline bg-app-surface-2 px-3 py-1 active:opacity-80"
+                    >
+                      <Text
+                        variant="caption"
+                        tone="muted"
+                        className="text-[11px]"
+                      >
+                        Gizle
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+            {showcasesQuery.isLoading ? (
+              <View className="rounded-[18px] border border-app-outline bg-app-surface px-4 py-3.5">
+                <Text variant="caption" tone="muted">
+                  Görünen işler yükleniyor…
+                </Text>
+              </View>
+            ) : null}
+            {!showcasesQuery.isLoading &&
+            (showcasesQuery.data ?? []).length === 0 ? (
+              <View className="rounded-[18px] border border-dashed border-app-outline bg-app-surface px-4 py-3.5">
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted leading-[18px]"
+                >
+                  İlk teslim raporunda izin verdiğinde ve müşteri de kapanışta
+                  onayladığında burada görünür.
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </ProfileSection>
+
+        {/* Güven ve doğrulama */}
+        <ProfileSection
+          title="Güven ve doğrulama"
+          description={`${approvedCount}/6 belge onaylı · public profilde yalnızca onay özeti görünür.`}
+          accessory={
+            <TrustBadge label={trustCompletion.label} tone={trustCompletion.tone} />
+          }
         >
           <CertificateSection
             certificates={profile.certificates}
@@ -405,7 +547,7 @@ export function ProfileScreen() {
 
         <ProfileSection
           title="Medya vitrini"
-          description="Avatar, galeri ve tanıtım videonu aynı upload hattından yönet."
+          description="Müşteri profilindeki kanıt vitrini buradan beslenir."
         >
           <View className="gap-3 px-4">
             <View className="gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-4">
@@ -607,10 +749,13 @@ export function ProfileScreen() {
           </ProfileSection>
         ) : null}
 
-        {/* Hizmet kapsamı (capabilities) */}
+        {/* Hizmet kapsamı */}
         <ProfileSection
           title="Hizmet kapsamı"
-          description="Hangi işleri alıyorsun? + butonundaki aksiyonlar buna bağlı."
+          description="Hangi işleri alıyorsun? Eşleşme ve + menüsü bu sinyalleri kullanır."
+          accessory={
+            <TrustBadge label={scopeCompletion.label} tone={scopeCompletion.tone} />
+          }
         >
           <View className="mx-4 gap-2">
             <CapabilityRow
@@ -651,7 +796,7 @@ export function ProfileScreen() {
         {/* Uzmanlık */}
         <ProfileSection
           title="Uzmanlık & hizmetler"
-          description="Hizmet ve alan etiketleri"
+          description="Public profilde 'vakanla uyum' ve arama sinyali olarak görünür."
           onEdit={() =>
             openEdit({
               kind: "tags",
@@ -709,9 +854,16 @@ export function ProfileScreen() {
           </View>
         </ProfileSection>
 
-        {/* Çalışma saatleri */}
+        {/* Operasyon */}
         <ProfileSection
-          title="Çalışma saatleri"
+          title="Operasyon"
+          description="Çalışma düzeni, hizmet bölgesi ve kapasite müşterinin beklentisini belirler."
+          accessory={
+            <TrustBadge
+              label={operationsCompletion.label}
+              tone={operationsCompletion.tone}
+            />
+          }
           onEdit={() =>
             openEdit({
               kind: "text",
@@ -739,9 +891,10 @@ export function ProfileScreen() {
           </View>
         </ProfileSection>
 
-        {/* Konum + işletme */}
+        {/* Private işletme kayıtları */}
         <ProfileSection
-          title="İşletme bilgileri"
+          title="Private işletme kayıtları"
+          description="Doğrulama için saklanır; vergi no, açık adres ve ticari detaylar public profilde gösterilmez."
           onEdit={() =>
             openEdit({
               kind: "business",
@@ -822,10 +975,10 @@ export function ProfileScreen() {
           </View>
         </ProfileSection>
 
-        {/* Yorumlar */}
+        {/* Performans */}
         <ProfileSection
-          title={`Yorumlar (${MONTHLY_STATS.review_count})`}
-          description="Son müşteri geri bildirimleri"
+          title={`Performans (${MONTHLY_STATS.review_count})`}
+          description="Müşteriye puan özeti görünür; detay yorum listesi ayrı akışta kalır."
           onEdit={() => router.push("/(modal)/yorumlar")}
           editLabel="Tümü"
         >
@@ -1010,6 +1163,19 @@ function CapabilityRow({
       </View>
     </Pressable>
   );
+}
+
+function completionMeta(done: number, total: number): {
+  label: string;
+  tone: "neutral" | "info" | "success" | "warning";
+} {
+  if (done >= total) {
+    return { label: "Yayınlanabilir", tone: "success" };
+  }
+  if (done === 0) {
+    return { label: "Eksik", tone: "warning" };
+  }
+  return { label: `${done}/${total} tamam`, tone: "info" };
 }
 
 function SettingsRow({

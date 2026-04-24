@@ -5,6 +5,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useDecideApproval } from "@/features/approvals";
+import { CompletionDecisionPanel } from "@/features/billing";
 
 import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
@@ -75,7 +76,27 @@ export function CaseApprovalScreen() {
     router.replace(`/vaka/${currentCase.id}` as Href);
   }
 
+  async function onApproveCompletion(payload: {
+    rating: number;
+    review_body?: string;
+    public_showcase_consent: boolean;
+  }) {
+    await decideApproval.mutateAsync({
+      decision: "approve",
+      rating: payload.rating,
+      review_body: payload.review_body,
+      public_showcase_consent: payload.public_showcase_consent,
+    });
+    router.replace(`/vaka/${currentCase.id}` as Href);
+  }
+
+  async function onRejectCompletion(note: string) {
+    await decideApproval.mutateAsync({ decision: "reject", note });
+    router.replace(`/vaka/${currentCase.id}` as Href);
+  }
+
   const isLoading = decideApproval.isPending;
+  const isCompletion = currentApproval.kind === "completion";
 
   return (
     <SafeAreaView className="flex-1 bg-app-bg">
@@ -126,20 +147,37 @@ export function CaseApprovalScreen() {
           ) : null}
         </View>
 
-        <View className="gap-3">
-          {currentApproval.line_items.map((item) => (
-            <PremiumListRow
-              key={item.id}
-              title={item.label}
-              subtitle={item.note}
-              trailing={
-                <Text variant="label" tone="warning">
-                  {item.value}
-                </Text>
-              }
-            />
-          ))}
-        </View>
+        {!isCompletion ? (
+          <View className="gap-3">
+            {currentApproval.line_items.map((item) => (
+              <PremiumListRow
+                key={item.id}
+                title={item.label}
+                subtitle={item.note}
+                trailing={
+                  <Text variant="label" tone="warning">
+                    {item.value}
+                  </Text>
+                }
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {isCompletion ? (
+          <CompletionDecisionPanel
+            approval={{
+              case_id: currentCase.id,
+              description: currentApproval.description,
+              service_comment: currentApproval.service_comment,
+              line_items: currentApproval.line_items,
+            }}
+            isSubmitting={isLoading}
+            isError={decideApproval.isError}
+            onApprove={onApproveCompletion}
+            onReject={onRejectCompletion}
+          />
+        ) : null}
 
         {relatedDocuments.length ? (
           <View className="gap-4">
@@ -169,15 +207,17 @@ export function CaseApprovalScreen() {
         ) : null}
       </ScrollView>
 
-      <View className="border-t border-app-outline bg-app-bg px-6 pb-5 pt-4">
-        <Button
-          label={actionLabel}
-          fullWidth
-          size="lg"
-          loading={isLoading}
-          onPress={() => void onApprove()}
-        />
-      </View>
+      {!isCompletion ? (
+        <View className="border-t border-app-outline bg-app-bg px-6 pb-5 pt-4">
+          <Button
+            label={actionLabel}
+            fullWidth
+            size="lg"
+            loading={isLoading}
+            onPress={() => void onApprove()}
+          />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }

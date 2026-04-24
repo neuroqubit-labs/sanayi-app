@@ -66,6 +66,11 @@ from app.models.case_process import (
     CaseTaskUrgency,
     CaseWorkflowBlueprint,
 )
+from app.models.case_public_showcase import (
+    CasePublicShowcase,
+    CasePublicShowcaseMedia,
+    CasePublicShowcaseStatus,
+)
 from app.models.case_subtypes import (
     AccidentCase,
     BreakdownCase,
@@ -177,6 +182,9 @@ __all__ = [
     "CaseOfferKind",
     "CaseOfferStatus",
     "CaseOrigin",
+    "CasePublicShowcase",
+    "CasePublicShowcaseMedia",
+    "CasePublicShowcaseStatus",
     "CaseRefund",
     "CaseRefundReason",
     "CaseRefundState",

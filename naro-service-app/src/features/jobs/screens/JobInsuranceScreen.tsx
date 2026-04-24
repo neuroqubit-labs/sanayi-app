@@ -17,7 +17,7 @@ import {
 } from "lucide-react-native";
 import { Alert, View } from "react-native";
 
-import { useJobDetail } from "../api";
+import { useJobDetail } from "../api.case-live";
 
 const STATUS_FLOW = ["drafted", "submitted", "accepted", "paid"] as const;
 

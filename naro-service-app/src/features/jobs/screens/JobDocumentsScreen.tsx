@@ -21,7 +21,7 @@ import { Pressable, View } from "react-native";
 
 import { openMediaAsset } from "@/shared/media/openAsset";
 
-import { useJobDetail } from "../api";
+import { useJobDetail } from "../api.case-live";
 import { useEvidenceUploadStore } from "../evidence-upload-store";
 
 const KIND_ICON = {
