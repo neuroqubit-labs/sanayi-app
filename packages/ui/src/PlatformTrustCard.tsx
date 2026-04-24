@@ -24,8 +24,8 @@ const PILLARS = [
   {
     icon: ShieldCheck,
     iconColor: "#0ea5e9",
-    title: "Şeffaf itiraz",
-    description: "Anlaşmazlıkta Naro kayıtları inceler, arabuluculuk sağlar.",
+    title: "Şeffaf kayıt",
+    description: "Notlar, fotoğraflar ve faturalar kayıt altında; her iki taraf erişebilir.",
   },
 ] as const;
 
@@ -44,7 +44,7 @@ export function PlatformTrustCard({ className }: PlatformTrustCardProps) {
           Platform güvencesi
         </Text>
         <Text variant="h3" tone="inverse">
-          Naro seninle birlikte takip ediyor
+          Kayıtlar Naro'da şeffafça saklanır
         </Text>
       </View>
 

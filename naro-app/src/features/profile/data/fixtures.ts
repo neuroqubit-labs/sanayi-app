@@ -279,7 +279,7 @@ export const SUPPORT_TOPICS: SupportTopicFixture[] = [
     id: "support-ihtilaf",
     title: "Anlaşmazlıkta ne olur?",
     answer:
-      "Tarafların notları, fotoğrafları ve faturalar Naro tarafından incelenir; şeffaf karar için arabuluculuk yapılır.",
+      "Tarafların notları, fotoğrafları ve faturalar Naro'da kayıt altında tutulur; her iki taraf kendi kayıtlarına erişebilir ve gerekirse yetkili mercilere iletebilir.",
   },
 ];
 

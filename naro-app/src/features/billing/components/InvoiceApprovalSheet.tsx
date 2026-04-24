@@ -259,8 +259,8 @@ function InvoiceBody({
             tone="muted"
             className="text-app-text-muted text-[11px] leading-[15px]"
           >
-            Admin arabulucu 3-5 iş günü içinde inceler. Açıklaman net olursa
-            süreç hızlanır.
+            Naro destek ekibi 3-5 iş günü içinde kayıtları inceler ve tarafları
+            bilgilendirir. Açıklaman net olursa süreç hızlanır.
           </Text>
           <FieldInput
             value={reason}
