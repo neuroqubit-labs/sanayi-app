@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const RecordItemSchema = z.object({
   id: z.string(),
+  vehicleId: z.string().uuid(),
   title: z.string(),
   subtitle: z.string(),
   dateLabel: z.string(),

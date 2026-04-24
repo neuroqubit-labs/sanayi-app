@@ -207,6 +207,7 @@ export type VehicleSnapshotResponse = z.infer<
 
 export const CaseSummaryResponseSchema = z.object({
   id: z.string().uuid(),
+  vehicle_id: z.string().uuid(),
   kind: ServiceRequestKindSchema,
   status: ServiceCaseStatusSchema,
   urgency: z.string(),

@@ -69,6 +69,7 @@ class CaseSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    vehicle_id: UUID
     kind: ServiceRequestKind
     status: ServiceCaseStatus
     urgency: str

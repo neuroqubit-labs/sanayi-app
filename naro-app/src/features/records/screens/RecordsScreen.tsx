@@ -13,12 +13,13 @@ import {
   ArrowRight,
   ChevronDown,
   Heart,
+  SlidersHorizontal,
   Sparkles,
   Truck,
   Wrench,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, View } from "react-native";
+import { FlatList, View } from "react-native";
 
 import { useActiveVehicle, useVehicleSwitcherStore } from "@/features/vehicles";
 
@@ -77,6 +78,7 @@ export function RecordsScreen() {
   const { data: feed = { activeRecords: [], items: [] } as RecordsFeed } =
     useRecordsFeed();
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const archiveItems = useMemo<RecordItem[]>(() => {
     if (filter === "all") return feed.items;
@@ -111,33 +113,31 @@ export function RecordsScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View className="gap-5 px-5 pb-4">
-            {activeVehicle ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Araç seç"
-                onPress={openVehicleSwitcher}
-                className="flex-row items-center gap-3 self-start rounded-full border border-app-outline bg-app-surface px-3 py-2 active:bg-app-surface-2"
-              >
-                <Text variant="label" tone="inverse" className="text-[13px]">
-                  {activeVehicle.plate}
-                </Text>
-                <View className="h-1 w-1 rounded-full bg-app-text-subtle" />
-                <Text
-                  variant="caption"
-                  tone="muted"
-                  className="text-app-text-muted text-[12px]"
-                  numberOfLines={1}
-                >
-                  {activeVehicle.make} {activeVehicle.model} · {activeVehicle.year}
-                </Text>
-                <Icon icon={ChevronDown} size={13} color="#83a7ff" />
-              </Pressable>
-            ) : null}
+            <RecordsPillHeader
+              activeVehicleLabel={
+                activeVehicle
+                  ? `${activeVehicle.plate} · ${activeVehicle.make} ${activeVehicle.model}`
+                  : null
+              }
+              onOpenVehicleSwitcher={openVehicleSwitcher}
+              filterActive={filter !== "all"}
+              filtersOpen={filtersOpen}
+              onToggleFilters={() => setFiltersOpen((prev) => !prev)}
+            />
 
-            <Text tone="muted" className="text-app-text-muted leading-5">
-              Aktif süreçler üstte, geçmiş kayıtlar aşağıda. Bir kayıt için
-              tümü bu sayfa üzerinden görünür.
-            </Text>
+            {filtersOpen ? (
+              <View className="flex-row flex-wrap gap-2">
+                {ARCHIVE_FILTERS.map((item) => (
+                  <ToggleChip
+                    key={item.key}
+                    label={item.label}
+                    selected={filter === item.key}
+                    onPress={() => setFilter(item.key)}
+                    size="sm"
+                  />
+                ))}
+              </View>
+            ) : null}
 
             {isEmpty ? (
               <EmptyState onAction={(route) => router.push(route as Href)} />
@@ -175,19 +175,6 @@ export function RecordsScreen() {
                     {totalCompleted} kayıt
                   </Text>
                 </View>
-                {totalCompleted >= 2 ? (
-                  <View className="flex-row flex-wrap gap-2">
-                    {ARCHIVE_FILTERS.map((item) => (
-                      <ToggleChip
-                        key={item.key}
-                        label={item.label}
-                        selected={filter === item.key}
-                        onPress={() => setFilter(item.key)}
-                        size="sm"
-                      />
-                    ))}
-                  </View>
-                ) : null}
               </View>
             ) : null}
 
@@ -300,6 +287,73 @@ function GuidanceCard({ onAction }: EmptyStateProps) {
         ))}
       </View>
     </Surface>
+  );
+}
+
+type RecordsPillHeaderProps = {
+  activeVehicleLabel: string | null;
+  onOpenVehicleSwitcher: () => void;
+  filterActive: boolean;
+  filtersOpen: boolean;
+  onToggleFilters: () => void;
+};
+
+function RecordsPillHeader({
+  activeVehicleLabel,
+  onOpenVehicleSwitcher,
+  filterActive,
+  filtersOpen,
+  onToggleFilters,
+}: RecordsPillHeaderProps) {
+  return (
+    <View className="flex-row items-center gap-2">
+      <PressableCard
+        accessibilityRole="button"
+        accessibilityLabel="Araç seç"
+        onPress={onOpenVehicleSwitcher}
+        variant="flat"
+        radius="lg"
+        className="h-14 flex-1 flex-row items-center gap-3 border-app-outline-strong px-3"
+      >
+        <View className="h-9 w-9 items-center justify-center rounded-full bg-brand-500/15">
+          <Icon icon={Truck} size={18} color="#0ea5e9" />
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text variant="label" tone="inverse" numberOfLines={1}>
+            {activeVehicleLabel ?? "Araç seç"}
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted"
+            numberOfLines={1}
+          >
+            Bu araca ait kayıtlar
+          </Text>
+        </View>
+        <Icon icon={ChevronDown} size={16} color="#83a7ff" />
+      </PressableCard>
+      <PressableCard
+        accessibilityRole="button"
+        accessibilityLabel={filtersOpen ? "Filtreleri kapat" : "Filtre"}
+        onPress={onToggleFilters}
+        variant="flat"
+        radius="lg"
+        className={[
+          "h-14 w-14 items-center justify-center",
+          filtersOpen || filterActive
+            ? "border-brand-500/50"
+            : "border-app-outline-strong",
+        ].join(" ")}
+      >
+        <View>
+          <Icon icon={SlidersHorizontal} size={22} color="#f5f7ff" />
+          {filterActive ? (
+            <View className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-app-surface bg-brand-500" />
+          ) : null}
+        </View>
+      </PressableCard>
+    </View>
   );
 }
 

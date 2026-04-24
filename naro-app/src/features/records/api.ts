@@ -8,6 +8,7 @@ import {
   getCaseStatusTone,
 } from "@/features/cases/presentation";
 import type { CaseSummaryResponse } from "@/features/cases/schemas/case-create";
+import { useVehicleStore } from "@/features/vehicles";
 
 import type { RecordItem, RecordsFeed } from "./types";
 
@@ -39,6 +40,7 @@ function formatDateLabel(iso: string): string {
 function toRecordItem(summary: CaseSummaryResponse): RecordItem {
   return {
     id: summary.id,
+    vehicleId: summary.vehicle_id,
     title: summary.title,
     subtitle: summary.summary?.trim() || summary.location_label || "",
     route: getCaseRoute(summary.id),
@@ -53,17 +55,27 @@ function toRecordItem(summary: CaseSummaryResponse): RecordItem {
 
 /**
  * Customer kayıtlar feed — canlı GET /cases/me.
- * Mock useCasesStore bağı koparıldı; araç/vaka yoksa boş döner →
- * RecordsScreen empty state gösterir.
+ * **Aktif araca göre filtrelenir** — RecordsScreen header'ındaki VehiclePill
+ * ile seçilen araç store'a yazılır, feed onu okur. `activeVehicleId` boşsa
+ * tüm vakaları döner (ilk mount / araç yokken geçerli).
  */
 export function useRecordsFeed() {
   const cases = useMyCasesLive();
+  const activeVehicleId = useVehicleStore((s) => s.activeVehicleId);
 
   return useQuery<RecordsFeed>({
-    queryKey: ["records", "feed", cases.data?.map((c) => c.id).join(",") ?? ""],
+    queryKey: [
+      "records",
+      "feed",
+      activeVehicleId || "all",
+      cases.data?.map((c) => c.id).join(",") ?? "",
+    ],
     enabled: !cases.isPending,
     queryFn: () => {
-      const sorted = [...(cases.data ?? [])].sort((a, b) =>
+      const scoped = activeVehicleId
+        ? (cases.data ?? []).filter((c) => c.vehicle_id === activeVehicleId)
+        : (cases.data ?? []);
+      const sorted = [...scoped].sort((a, b) =>
         b.updated_at.localeCompare(a.updated_at),
       );
       const items = sorted.map(toRecordItem);
