@@ -13,12 +13,18 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "icon": "./assets/app-icons/appstore.png",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.naro.service"
+      "bundleIdentifier": "com.naro.service",
+      "icon": {
+        "light": "./assets/app-icons/light/appstore.png",
+        "dark": "./assets/app-icons/appstore.png"
+      }
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icons/playstore.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.naro.service"

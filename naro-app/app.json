@@ -17,7 +17,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.naro.app",
-      "associatedDomains": ["applinks:naro.com.tr"]
+      "associatedDomains": ["applinks:naro.com.tr"],
+      "icon": {
+        "light": "./assets/app-icons/light/appstore.png",
+        "dark": "./assets/app-icons/appstore.png"
+      }
     },
     "android": {
       "adaptiveIcon": {
