@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
@@ -109,7 +109,9 @@ const totals = Object.fromEntries(
 const failures = [];
 
 for (const file of rawFiles) {
-  const source = readFileSync(path.join(ROOT, file), "utf8");
+  const absolutePath = path.join(ROOT, file);
+  if (!existsSync(absolutePath)) continue;
+  const source = readFileSync(absolutePath, "utf8");
 
   for (const [key, pattern] of Object.entries(patterns)) {
     const matches = source.match(pattern) ?? [];

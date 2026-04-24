@@ -87,10 +87,17 @@ export {
 export { Surface, type SurfaceProps, type SurfaceVariant } from "./Surface";
 export { GlassSurface, type GlassSurfaceProps } from "./GlassSurface";
 export {
+  GlassIconBadge,
+  type GlassIconBadgeProps,
+  type GlassIconBadgeSize,
+} from "./GlassIconBadge";
+export { NARO_LOGO, NARO_WORDMARK } from "./brandAssets";
+export {
   PressableCard,
   type PressableCardProps,
   type PressableCardVariant,
 } from "./PressableCard";
+export { withAlphaHex } from "./color";
 export { TrustBadge, type TrustBadgeProps } from "./TrustBadge";
 export {
   VehicleContextBar,
