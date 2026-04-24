@@ -18,11 +18,17 @@ export const VEHICLE_ADD_COPY = {
     identity: {
       title: "Aracını tanıt",
       helper: "Plaka formatı: 34 ABC 42",
+      plateLabel: "Plaka",
+      makeLabel: "Marka",
+      otherMake: "Diğer",
+      otherMakePlaceholder: "Marka yaz",
+      modelLabel: "Model",
+      yearLabel: "Yıl",
       placeholders: {
         plate: "34 ABC 42",
         make: "Marka",
-        model: "Model",
-        year: "Yıl",
+        model: "Model — örn: 3 Serisi",
+        year: "Yıl — örn: 2020",
       },
     },
     photo: {
@@ -37,16 +43,19 @@ export const VEHICLE_ADD_COPY = {
     basics: {
       title: "Teknik",
       fuelLabel: "Yakıt",
+      transmissionLabel: "Vites",
       placeholders: {
-        mileage: "Kilometre",
-        color: "Renk",
+        mileage: "Kilometre — örn: 85.000",
+        color: "Renk — örn: Koyu Gri",
       },
     },
     advanced: {
       title: "Detaylar",
       helper: "Sadece biz saklıyoruz; servislerle paylaşılmaz.",
-      transmissionLabel: "Vites",
+      drivetrainLabel: "Çekiş",
       placeholders: {
+        engineDisplacement: "Motor hacmi — örn: 1.6L",
+        enginePower: "Motor gücü (hp) — örn: 150",
         chassis: "Şase numarası",
         engine: "Motor numarası",
         note: "Kısa bir not (sadece sen görürsün)",

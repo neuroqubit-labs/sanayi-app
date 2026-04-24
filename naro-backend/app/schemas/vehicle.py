@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.vehicle import (
     UserVehicleRole,
+    VehicleDrivetrain,
     VehicleFuelType,
     VehicleKind,
     VehicleTransmission,
@@ -29,6 +30,9 @@ class VehicleCreate(BaseModel):
     color: str | None = Field(default=None, max_length=64)
     fuel_type: VehicleFuelType | None = None
     transmission: VehicleTransmission | None = None
+    drivetrain: VehicleDrivetrain | None = None
+    engine_displacement: str | None = Field(default=None, max_length=16)
+    engine_power_hp: int | None = Field(default=None, ge=0, le=2000)
     chassis_no: str | None = Field(default=None, max_length=32)
     engine_no: str | None = Field(default=None, max_length=32)
     photo_url: str | None = Field(default=None, max_length=500)
@@ -57,6 +61,9 @@ class VehicleUpdate(BaseModel):
     color: str | None = Field(default=None, max_length=64)
     fuel_type: VehicleFuelType | None = None
     transmission: VehicleTransmission | None = None
+    drivetrain: VehicleDrivetrain | None = None
+    engine_displacement: str | None = Field(default=None, max_length=16)
+    engine_power_hp: int | None = Field(default=None, ge=0, le=2000)
     chassis_no: str | None = Field(default=None, max_length=32)
     engine_no: str | None = Field(default=None, max_length=32)
     photo_url: str | None = Field(default=None, max_length=500)
@@ -85,6 +92,9 @@ class VehicleResponse(BaseModel):
     color: str | None
     fuel_type: VehicleFuelType | None
     transmission: VehicleTransmission | None
+    drivetrain: VehicleDrivetrain | None
+    engine_displacement: str | None
+    engine_power_hp: int | None
     chassis_no: str | None
     engine_no: str | None
     photo_url: str | None

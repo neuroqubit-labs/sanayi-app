@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 import {
+  VehicleDrivetrainSchema,
+  VehicleFuelTypeSchema,
   VehicleKindSchema,
   VehicleTransmissionSchema,
-  VehicleFuelTypeSchema,
 } from "./schema";
 
 export const VehicleMemoryEventKindSchema = z.enum([
@@ -59,6 +60,9 @@ export const VehicleSchema = z.object({
   color: z.string().optional(),
   fuel: VehicleFuelTypeSchema.optional(),
   transmission: VehicleTransmissionSchema.optional(),
+  drivetrain: VehicleDrivetrainSchema.optional(),
+  engineDisplacement: z.string().optional(),
+  enginePowerHp: z.number().int().optional(),
   chassisNo: z.string().optional(),
   engineNo: z.string().optional(),
   mileageKm: z.number().int(),
@@ -89,6 +93,9 @@ export type VehicleDraft = {
   color?: string;
   fuel?: z.infer<typeof VehicleFuelTypeSchema>;
   transmission?: z.infer<typeof VehicleTransmissionSchema>;
+  drivetrain?: z.infer<typeof VehicleDrivetrainSchema>;
+  engineDisplacement?: string;
+  enginePowerHp?: number;
   chassisNo?: string;
   engineNo?: string;
   mileageKm?: number;

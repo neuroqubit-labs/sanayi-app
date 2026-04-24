@@ -27,6 +27,7 @@ import { useActiveCase } from "@/features/cases";
 
 import { useVehicle } from "../api";
 import {
+  VEHICLE_DRIVETRAIN_LABELS,
   VEHICLE_FUEL_OPTIONS,
   VEHICLE_KIND_LABELS,
   VEHICLE_TRANSMISSION_LABELS,
@@ -215,6 +216,24 @@ export function VehicleDetailScreen() {
           }
         />
         <FlowSummaryRow label="Renk" value={vehicle.color ?? "—"} />
+        {vehicle.drivetrain ? (
+          <FlowSummaryRow
+            label="Çekiş"
+            value={VEHICLE_DRIVETRAIN_LABELS[vehicle.drivetrain]}
+          />
+        ) : null}
+        {vehicle.engineDisplacement ? (
+          <FlowSummaryRow
+            label="Motor hacmi"
+            value={vehicle.engineDisplacement}
+          />
+        ) : null}
+        {typeof vehicle.enginePowerHp === "number" ? (
+          <FlowSummaryRow
+            label="Motor gücü"
+            value={`${vehicle.enginePowerHp} hp`}
+          />
+        ) : null}
         {vehicle.chassisNo ? (
           <FlowSummaryRow label="Şase no" value={vehicle.chassisNo} />
         ) : null}

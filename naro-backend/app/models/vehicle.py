@@ -47,6 +47,13 @@ class VehicleTransmission(StrEnum):
     YARI_OTOMATIK = "yari_otomatik"
 
 
+class VehicleDrivetrain(StrEnum):
+    FWD = "fwd"
+    RWD = "rwd"
+    AWD = "awd"
+    FOURWD = "fourwd"
+
+
 class UserVehicleRole(StrEnum):
     """App-level; DB'de CHECK constraint ile enforce."""
 
@@ -79,6 +86,12 @@ class Vehicle(UUIDPkMixin, TimestampMixin, Base):
         pg_enum(VehicleTransmission, name="vehicle_transmission"),
         nullable=True,
     )
+    drivetrain: Mapped[VehicleDrivetrain | None] = mapped_column(
+        pg_enum(VehicleDrivetrain, name="vehicle_drivetrain"),
+        nullable=True,
+    )
+    engine_displacement: Mapped[str | None] = mapped_column(String(16))
+    engine_power_hp: Mapped[int | None] = mapped_column(SmallInteger)
     chassis_no: Mapped[str | None] = mapped_column(String(32))
     engine_no: Mapped[str | None] = mapped_column(String(32))
     # Görsel — media_assets.download_url cached kopyası (pilot basitlik).

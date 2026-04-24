@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from app.models.auth_event import AuthEventType
 from app.models.vehicle import (
     UserVehicleRole,
+    VehicleDrivetrain,
     VehicleFuelType,
     VehicleKind,
     VehicleTransmission,
@@ -114,6 +115,32 @@ def test_vehicle_transmission_enum_values() -> None:
     }
 
 
+def test_vehicle_drivetrain_enum_values() -> None:
+    assert {d.value for d in VehicleDrivetrain} == {"fwd", "rwd", "awd", "fourwd"}
+
+
+def test_vehicle_create_accepts_drivetrain_and_engine_details() -> None:
+    v = VehicleCreate(
+        plate="34XYZ99",
+        vehicle_kind=VehicleKind.SUV,
+        drivetrain=VehicleDrivetrain.AWD,
+        engine_displacement="2.0L",
+        engine_power_hp=190,
+    )
+    assert v.drivetrain == VehicleDrivetrain.AWD
+    assert v.engine_displacement == "2.0L"
+    assert v.engine_power_hp == 190
+
+
+def test_vehicle_create_rejects_engine_power_out_of_range() -> None:
+    with pytest.raises(ValidationError):
+        VehicleCreate(
+            plate="34XYZ99",
+            vehicle_kind=VehicleKind.OTOMOBIL,
+            engine_power_hp=5000,
+        )
+
+
 # ─── VehicleUpdate — partial update ────────────────────────────────────────
 
 
@@ -173,6 +200,9 @@ def _sample_vehicle_response_kwargs() -> dict[str, object]:
         "color": None,
         "fuel_type": None,
         "transmission": None,
+        "drivetrain": None,
+        "engine_displacement": None,
+        "engine_power_hp": None,
         "chassis_no": None,
         "engine_no": None,
         "photo_url": None,

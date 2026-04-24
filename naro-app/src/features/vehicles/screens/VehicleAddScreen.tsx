@@ -17,35 +17,42 @@ import {
   Eye,
   EyeOff,
   Image as ImageIcon,
+  Plus,
   Truck,
   X,
   type LucideIcon,
 } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Image,
   Pressable,
+  ScrollView,
   TextInput,
   View,
 } from "react-native";
 
 import { useAttachmentPicker } from "@/shared/attachments";
-import { useDraftGuard } from "@/shared/navigation/useDraftGuard";
 
 import { useAddVehicle } from "../api";
 import {
   VEHICLE_CHASSIS_MAX_LENGTH,
+  VEHICLE_DRIVETRAINS,
+  VEHICLE_DRIVETRAIN_LABELS,
   VEHICLE_ENGINE_MAX_LENGTH,
   VEHICLE_FUEL_OPTIONS,
   VEHICLE_KINDS,
   VEHICLE_KIND_LABELS,
   VEHICLE_PLATE_REGEX,
+  VEHICLE_POPULAR_MAKES,
   VEHICLE_TRANSMISSIONS,
   VEHICLE_TRANSMISSION_LABELS,
   VEHICLE_YEAR_MIN,
+  getMakeLogoUrl,
+  type VehicleDrivetrain,
   type VehicleFuelKey,
   type VehicleKind,
+  type VehicleMakeOption,
   type VehicleTransmission,
 } from "../constants";
 import { VEHICLE_ADD_COPY } from "../copy";
@@ -89,6 +96,9 @@ type FormState = {
   vehicleKind: VehicleKind | null;
   plate: string;
   make: string;
+  // Custom ("Diğer") seçilirse marka kullanıcının yazdığı free-text olarak tutulur;
+  // popüler listeden seçilirse bu flag false kalır.
+  makeIsCustom: boolean;
   model: string;
   year: string;
   photoUri?: string;
@@ -96,6 +106,9 @@ type FormState = {
   mileage: string;
   color: string;
   transmission?: VehicleTransmission;
+  drivetrain?: VehicleDrivetrain;
+  engineDisplacement: string;
+  enginePowerHp: string;
   chassisNo: string;
   engineNo: string;
   note: string;
@@ -106,6 +119,7 @@ const INITIAL_STATE: FormState = {
   vehicleKind: null,
   plate: "",
   make: "",
+  makeIsCustom: false,
   model: "",
   year: "",
   photoUri: undefined,
@@ -113,6 +127,9 @@ const INITIAL_STATE: FormState = {
   mileage: "",
   color: "",
   transmission: undefined,
+  drivetrain: undefined,
+  engineDisplacement: "",
+  enginePowerHp: "",
   chassisNo: "",
   engineNo: "",
   note: "",
@@ -126,7 +143,14 @@ export function VehicleAddScreen() {
   const addVehicle = useAddVehicle();
   const [stepIndex, setStepIndex] = useState(0);
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
+  // Validation mesajlarını yazarken değil, "İleri"ye basılınca göster — "touched" pattern.
+  const [attemptedAdvance, setAttemptedAdvance] = useState(false);
   const stepKey = STEP_ORDER[stepIndex]!;
+
+  // Adım değiştikçe attempted state'i sıfırla.
+  useEffect(() => {
+    setAttemptedAdvance(false);
+  }, [stepIndex]);
 
   const plateNormalized = form.plate.trim().toUpperCase();
   const plateValid = VEHICLE_PLATE_REGEX.test(plateNormalized);
@@ -137,28 +161,6 @@ export function VehicleAddScreen() {
     Number.isInteger(yearInt) &&
     yearInt >= VEHICLE_YEAR_MIN &&
     yearInt <= yearCurrent + 1;
-
-  const hasContent = Boolean(
-    form.vehicleKind ||
-      form.plate.trim() ||
-      form.make.trim() ||
-      form.model.trim() ||
-      form.year.trim() ||
-      form.photoUri ||
-      form.color.trim() ||
-      form.mileage.trim() ||
-      form.note.trim() ||
-      form.chassisNo.trim() ||
-      form.engineNo.trim(),
-  );
-
-  useDraftGuard({
-    enabled: hasContent && !addVehicle.isSuccess,
-    title: "Aracı kaydet veya çık",
-    message:
-      "Girdiğin bilgiler kaybolabilir — devam etmek istediğine emin misin?",
-    onDiscard: () => {},
-  });
 
   const validationMessage = useMemo((): string | null => {
     if (stepKey === "kind") {
@@ -196,7 +198,10 @@ export function VehicleAddScreen() {
   }
 
   function goNext() {
-    if (validationMessage) return;
+    if (validationMessage) {
+      setAttemptedAdvance(true);
+      return;
+    }
     if (!isLast) {
       setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1));
       return;
@@ -216,6 +221,8 @@ export function VehicleAddScreen() {
     if (!form.vehicleKind) return;
     const digits = form.mileage.replace(/\./g, "");
     const mileageNum = digits ? Number(digits) : undefined;
+    const engineHpDigits = form.enginePowerHp.trim();
+    const enginePowerNum = engineHpDigits ? Number(engineHpDigits) : undefined;
     const draft: VehicleDraft = {
       vehicleKind: form.vehicleKind,
       plate: plateNormalized,
@@ -225,6 +232,12 @@ export function VehicleAddScreen() {
       photoUri: form.photoUri,
       fuel: form.fuel,
       transmission: form.transmission,
+      drivetrain: form.drivetrain,
+      engineDisplacement: form.engineDisplacement.trim() || undefined,
+      enginePowerHp:
+        typeof enginePowerNum === "number" && !Number.isNaN(enginePowerNum)
+          ? enginePowerNum
+          : undefined,
       chassisNo: form.chassisNo.trim() || undefined,
       engineNo: form.engineNo.trim() || undefined,
       mileageKm:
@@ -239,11 +252,18 @@ export function VehicleAddScreen() {
       const vehicle = await addVehicle.mutateAsync(draft);
       router.replace(`/arac/${vehicle.id}`);
     } catch (reason) {
-      const message =
-        reason instanceof Error
-          ? reason.message
-          : "Araç eklenemedi. Tekrar dene.";
-      Alert.alert("Araç eklenemedi", message);
+      const raw = reason instanceof Error ? reason.message : "";
+      // Backend 409 `vehicle_plate_conflict` → kullanıcıya sade mesaj.
+      const isPlateConflict =
+        raw.includes("vehicle_plate_conflict") || raw.includes("409");
+      const friendly = isPlateConflict
+        ? "Bu plaka zaten kayıtlı. Plakayı kontrol edip tekrar dene."
+        : raw || "Araç eklenemedi. Tekrar dene.";
+      Alert.alert("Araç eklenemedi", friendly);
+      // Plaka çakışmasında kullanıcıyı kimlik adımına geri götür.
+      if (isPlateConflict) {
+        setStepIndex(STEP_ORDER.indexOf("identity"));
+      }
     }
   }
 
@@ -263,20 +283,20 @@ export function VehicleAddScreen() {
       onBack={goBack}
       backVariant={stepIndex === 0 ? "close" : "back"}
       trailingAction={
-        stepKey === "advanced" ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={VEHICLE_ADD_COPY.steps.advanced.skipLabel}
-            onPress={() =>
-              setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1))
-            }
-            hitSlop={8}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={VEHICLE_ADD_COPY.chrome.closeLabel}
+          onPress={() => router.back()}
+          hitSlop={10}
+        >
+          <Text
+            variant="label"
+            tone="muted"
+            className="text-app-text-muted"
           >
-            <Text variant="label" tone="accent">
-              {VEHICLE_ADD_COPY.steps.advanced.skipLabel}
-            </Text>
-          </Pressable>
-        ) : undefined
+            {VEHICLE_ADD_COPY.chrome.closeLabel}
+          </Text>
+        </Pressable>
       }
       progress={
         <FlowProgress
@@ -286,16 +306,36 @@ export function VehicleAddScreen() {
         />
       }
       footer={
-        <StackedActions
-          floating
-          integrated
-          primaryLabel={primaryLabel}
-          onPrimary={goNext}
-          primaryLoading={addVehicle.isPending}
-          primaryDisabled={Boolean(validationMessage)}
-          helperText={validationMessage ?? undefined}
-          helperTone={validationMessage ? "warning" : "subtle"}
-        />
+        stepKey === "kind" ? undefined : (
+          <StackedActions
+            floating
+            integrated
+            primaryLabel={primaryLabel}
+            onPrimary={goNext}
+            primaryLoading={addVehicle.isPending}
+            secondaryLabel={
+              stepKey === "advanced"
+                ? VEHICLE_ADD_COPY.steps.advanced.skipLabel
+                : undefined
+            }
+            onSecondary={
+              stepKey === "advanced"
+                ? () =>
+                    setStepIndex((i) =>
+                      Math.min(i + 1, STEP_ORDER.length - 1),
+                    )
+                : undefined
+            }
+            helperText={
+              attemptedAdvance && validationMessage
+                ? validationMessage
+                : undefined
+            }
+            helperTone={
+              attemptedAdvance && validationMessage ? "warning" : "subtle"
+            }
+          />
+        )
       }
     >
       {stepKey === "kind" ? (
@@ -403,7 +443,7 @@ function KindStep({
   );
 }
 
-// ─── Step: Identity (plate, make, model, year) ─────────────────────────────
+// ─── Step: Identity (plate, make picker+logo slider, model, year) ──────────
 
 function IdentityStep({
   form,
@@ -413,6 +453,20 @@ function IdentityStep({
   onChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
 }) {
   const { colors } = useNaroTheme();
+  const popularMatch = VEHICLE_POPULAR_MAKES.find(
+    (opt) => opt.name.toLowerCase() === form.make.trim().toLowerCase(),
+  );
+  const selectedMake = !form.makeIsCustom ? popularMatch : null;
+
+  function selectPopular(opt: VehicleMakeOption) {
+    onChange("make", opt.name);
+    onChange("makeIsCustom", false);
+  }
+  function selectOther() {
+    onChange("make", "");
+    onChange("makeIsCustom", true);
+  }
+
   return (
     <View className="gap-5">
       <View className="gap-1">
@@ -424,7 +478,10 @@ function IdentityStep({
         </Text>
       </View>
 
-      <View className="gap-3">
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          {VEHICLE_ADD_COPY.steps.identity.plateLabel}
+        </Text>
         <TextField
           value={form.plate}
           onChangeText={(v) => onChange("plate", v)}
@@ -432,18 +489,60 @@ function IdentityStep({
           autoCapitalize="characters"
           placeholderColor={colors.textSubtle}
         />
-        <TextField
-          value={form.make}
-          onChangeText={(v) => onChange("make", v)}
-          placeholder={VEHICLE_ADD_COPY.steps.identity.placeholders.make}
-          placeholderColor={colors.textSubtle}
-        />
+      </View>
+
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          {VEHICLE_ADD_COPY.steps.identity.makeLabel}
+        </Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 10, paddingRight: 8 }}
+        >
+          {VEHICLE_POPULAR_MAKES.map((opt) => (
+            <MakeTile
+              key={opt.domain}
+              option={opt}
+              selected={selectedMake?.domain === opt.domain}
+              onPress={() => selectPopular(opt)}
+            />
+          ))}
+          <OtherMakeTile
+            selected={form.makeIsCustom}
+            onPress={selectOther}
+          />
+        </ScrollView>
+
+        {form.makeIsCustom ? (
+          <TextField
+            value={form.make}
+            onChangeText={(v) => onChange("make", v)}
+            placeholder={VEHICLE_ADD_COPY.steps.identity.otherMakePlaceholder}
+            placeholderColor={colors.textSubtle}
+            autoCapitalize="words"
+            maxLength={64}
+          />
+        ) : null}
+      </View>
+
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          {VEHICLE_ADD_COPY.steps.identity.modelLabel}
+        </Text>
         <TextField
           value={form.model}
           onChangeText={(v) => onChange("model", v)}
           placeholder={VEHICLE_ADD_COPY.steps.identity.placeholders.model}
           placeholderColor={colors.textSubtle}
+          maxLength={128}
         />
+      </View>
+
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          {VEHICLE_ADD_COPY.steps.identity.yearLabel}
+        </Text>
         <TextField
           value={form.year}
           onChangeText={(v) => onChange("year", v.replace(/[^0-9]/g, ""))}
@@ -454,6 +553,101 @@ function IdentityStep({
         />
       </View>
     </View>
+  );
+}
+
+// ─── Brand logo tile ───────────────────────────────────────────────────────
+
+function MakeTile({
+  option,
+  selected,
+  onPress,
+}: {
+  option: VehicleMakeOption;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  const initials = option.name.slice(0, 2).toUpperCase();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={option.name}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      className="items-center gap-1.5"
+      style={{ width: 80 }}
+    >
+      <View
+        className={[
+          "items-center justify-center rounded-2xl border bg-app-surface",
+          selected
+            ? "border-brand-500"
+            : "border-app-outline",
+        ].join(" ")}
+        style={{ width: 72, height: 72 }}
+      >
+        {!logoFailed ? (
+          <Image
+            source={{ uri: getMakeLogoUrl(option.domain) }}
+            resizeMode="contain"
+            style={{ width: 48, height: 48 }}
+            onError={() => setLogoFailed(true)}
+          />
+        ) : (
+          <Text variant="label" tone="inverse">
+            {initials}
+          </Text>
+        )}
+      </View>
+      <Text
+        variant="caption"
+        tone={selected ? "accent" : "muted"}
+        className="text-center text-[11px]"
+        numberOfLines={1}
+      >
+        {option.name}
+      </Text>
+    </Pressable>
+  );
+}
+
+function OtherMakeTile({
+  selected,
+  onPress,
+}: {
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useNaroTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={VEHICLE_ADD_COPY.steps.identity.otherMake}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      className="items-center gap-1.5"
+      style={{ width: 80 }}
+    >
+      <View
+        className={[
+          "items-center justify-center rounded-2xl border bg-app-surface",
+          selected ? "border-brand-500" : "border-app-outline",
+        ].join(" ")}
+        style={{ width: 72, height: 72 }}
+      >
+        <Icon icon={Plus} size={24} color={colors.textMuted} strokeWidth={1.6} />
+      </View>
+      <Text
+        variant="caption"
+        tone={selected ? "accent" : "muted"}
+        className="text-center text-[11px]"
+        numberOfLines={1}
+      >
+        {VEHICLE_ADD_COPY.steps.identity.otherMake}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -563,7 +757,7 @@ function PhotoStep({
   );
 }
 
-// ─── Step: Basics (fuel + mileage + color) ─────────────────────────────────
+// ─── Step: Basics (fuel + transmission + mileage + color) ──────────────────
 
 function BasicsStep({
   form,
@@ -599,6 +793,27 @@ function BasicsStep({
         </View>
       </View>
 
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          {VEHICLE_ADD_COPY.steps.basics.transmissionLabel}
+        </Text>
+        <View className="flex-row flex-wrap gap-2">
+          {VEHICLE_TRANSMISSIONS.map((t) => (
+            <ToggleChip
+              key={t}
+              label={VEHICLE_TRANSMISSION_LABELS[t]}
+              selected={form.transmission === t}
+              onPress={() =>
+                onChange(
+                  "transmission",
+                  form.transmission === t ? undefined : t,
+                )
+              }
+            />
+          ))}
+        </View>
+      </View>
+
       <View className="gap-3">
         <TextField
           value={form.mileage}
@@ -620,7 +835,7 @@ function BasicsStep({
   );
 }
 
-// ─── Step: Advanced (transmission + chassis + engine + note) ───────────────
+// ─── Step: Advanced (engine + drivetrain + chassis + engine_no + note) ─────
 
 function AdvancedStep({
   form,
@@ -643,18 +858,18 @@ function AdvancedStep({
 
       <View className="gap-2">
         <Text variant="eyebrow" tone="subtle">
-          {VEHICLE_ADD_COPY.steps.advanced.transmissionLabel}
+          {VEHICLE_ADD_COPY.steps.advanced.drivetrainLabel}
         </Text>
         <View className="flex-row flex-wrap gap-2">
-          {VEHICLE_TRANSMISSIONS.map((t) => (
+          {VEHICLE_DRIVETRAINS.map((d) => (
             <ToggleChip
-              key={t}
-              label={VEHICLE_TRANSMISSION_LABELS[t]}
-              selected={form.transmission === t}
+              key={d}
+              label={VEHICLE_DRIVETRAIN_LABELS[d]}
+              selected={form.drivetrain === d}
               onPress={() =>
                 onChange(
-                  "transmission",
-                  form.transmission === t ? undefined : t,
+                  "drivetrain",
+                  form.drivetrain === d ? undefined : d,
                 )
               }
             />
@@ -663,6 +878,25 @@ function AdvancedStep({
       </View>
 
       <View className="gap-3">
+        <TextField
+          value={form.engineDisplacement}
+          onChangeText={(v) => onChange("engineDisplacement", v)}
+          placeholder={
+            VEHICLE_ADD_COPY.steps.advanced.placeholders.engineDisplacement
+          }
+          placeholderColor={colors.textSubtle}
+          maxLength={16}
+        />
+        <TextField
+          value={form.enginePowerHp}
+          onChangeText={(v) =>
+            onChange("enginePowerHp", v.replace(/[^0-9]/g, ""))
+          }
+          placeholder={VEHICLE_ADD_COPY.steps.advanced.placeholders.enginePower}
+          placeholderColor={colors.textSubtle}
+          keyboardType="number-pad"
+          maxLength={4}
+        />
         <TextField
           value={form.chassisNo}
           onChangeText={(v) => onChange("chassisNo", v.toUpperCase())}

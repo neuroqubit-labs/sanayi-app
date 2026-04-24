@@ -34,6 +34,9 @@ export const VehicleTransmissionSchema = z.enum([
 ]);
 export type VehicleTransmission = z.infer<typeof VehicleTransmissionSchema>;
 
+export const VehicleDrivetrainSchema = z.enum(["fwd", "rwd", "awd", "fourwd"]);
+export type VehicleDrivetrain = z.infer<typeof VehicleDrivetrainSchema>;
+
 /**
  * BE canonical — DB CHECK constraint ile enforce edilir (owner/driver/family).
  * Parity audit P0-3 (2026-04-23): FE önceki `partner` + `observer` değerleri
@@ -53,6 +56,9 @@ export const VehicleCreatePayloadSchema = z.object({
   color: z.string().max(64).nullable().optional(),
   fuel_type: VehicleFuelTypeSchema.nullable().optional(),
   transmission: VehicleTransmissionSchema.nullable().optional(),
+  drivetrain: VehicleDrivetrainSchema.nullable().optional(),
+  engine_displacement: z.string().max(16).nullable().optional(),
+  engine_power_hp: z.number().int().min(0).max(2000).nullable().optional(),
   chassis_no: z.string().max(32).nullable().optional(),
   engine_no: z.string().max(32).nullable().optional(),
   photo_url: z.string().max(500).nullable().optional(),
@@ -88,6 +94,9 @@ export const VehicleResponseSchema = z.object({
   color: z.string().nullable(),
   fuel_type: VehicleFuelTypeSchema.nullable(),
   transmission: VehicleTransmissionSchema.nullable(),
+  drivetrain: VehicleDrivetrainSchema.nullable(),
+  engine_displacement: z.string().nullable(),
+  engine_power_hp: z.number().int().nullable(),
   chassis_no: z.string().nullable(),
   engine_no: z.string().nullable(),
   photo_url: z.string().nullable(),

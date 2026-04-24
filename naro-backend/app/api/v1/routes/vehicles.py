@@ -121,6 +121,11 @@ async def create_vehicle_endpoint(
             transmission=(
                 payload.transmission.value if payload.transmission else None
             ),
+            drivetrain=(
+                payload.drivetrain.value if payload.drivetrain else None
+            ),
+            engine_displacement=payload.engine_displacement,
+            engine_power_hp=payload.engine_power_hp,
             chassis_no=payload.chassis_no,
             engine_no=payload.engine_no,
             photo_url=payload.photo_url,
@@ -238,7 +243,12 @@ async def patch_vehicle_endpoint(
 ) -> VehicleResponse:
     await _load_owner_vehicle(db, vehicle_id, user.id)
     fields = payload.model_dump(exclude_unset=True)
-    for enum_field in ("fuel_type", "vehicle_kind", "transmission"):
+    for enum_field in (
+        "fuel_type",
+        "vehicle_kind",
+        "transmission",
+        "drivetrain",
+    ):
         if enum_field in fields and fields[enum_field] is not None:
             fields[enum_field] = fields[enum_field].value
     try:
