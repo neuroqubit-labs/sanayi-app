@@ -24,6 +24,7 @@ import {
 import { useMemo } from "react";
 import { Alert, Pressable, ScrollView, View } from "react-native";
 
+import { useMyCasesLive } from "@/features/cases/api";
 import { useUnreadNotificationCount } from "@/features/notifications";
 import { useMe } from "@/features/user";
 import { useVehicles, useVehicleStore } from "@/features/vehicles";
@@ -73,7 +74,16 @@ export function ProfileScreen() {
     [vehicles],
   );
 
-  const totalCompletedCases = INVOICES.length;
+  // Canlı "tamamlanan iş" sayısı — /cases/me listesinde kapanmış statuslar.
+  // Backend enum: completed, archived (models/case.py:88-89).
+  const { data: myCases } = useMyCasesLive();
+  const totalCompletedCases = useMemo(
+    () =>
+      (myCases ?? []).filter(
+        (c) => c.status === "completed" || c.status === "archived",
+      ).length,
+    [myCases],
+  );
 
   function onLogout() {
     Alert.alert(
