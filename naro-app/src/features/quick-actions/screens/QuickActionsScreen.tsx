@@ -5,6 +5,8 @@ import {
   shellMotion,
   shellRadius,
   Text,
+  useNaroTheme,
+  type NaroThemePalette,
 } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import {
@@ -16,7 +18,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react-native";
-import { Dimensions, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -26,6 +28,7 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type ActionKey = "bakim" | "hasar" | "ariza" | "cekici";
+type ActionTone = "success" | "critical" | "warning" | "info";
 
 type ActionTile = {
   key: ActionKey;
@@ -33,8 +36,7 @@ type ActionTile = {
   hint: string;
   icon: LucideIcon;
   route: Href;
-  gradient: [string, string];
-  iconColor: string;
+  tone: ActionTone;
 };
 
 const PRIMARY_ACTIONS: ActionTile[] = [
@@ -44,8 +46,7 @@ const PRIMARY_ACTIONS: ActionTile[] = [
     hint: "Periyodik bakım, paket veya hatırlatıcı",
     icon: Heart,
     route: "/(modal)/talep/maintenance" as Href,
-    gradient: ["rgba(45,210,141,0.18)", "rgba(45,210,141,0.05)"],
-    iconColor: "#2dd28d",
+    tone: "success",
   },
   {
     key: "hasar",
@@ -53,8 +54,7 @@ const PRIMARY_ACTIONS: ActionTile[] = [
     hint: "Kaza, darbe, cam veya kasko dosyası",
     icon: AlertTriangle,
     route: "/(modal)/talep/accident" as Href,
-    gradient: ["rgba(255,107,107,0.18)", "rgba(255,107,107,0.05)"],
-    iconColor: "#ff6b6b",
+    tone: "critical",
   },
   {
     key: "ariza",
@@ -62,8 +62,7 @@ const PRIMARY_ACTIONS: ActionTile[] = [
     hint: "Ses, titreşim, sızıntı veya uyarı ışığı",
     icon: Wrench,
     route: "/(modal)/talep/breakdown" as Href,
-    gradient: ["rgba(245,179,63,0.18)", "rgba(245,179,63,0.05)"],
-    iconColor: "#f5b33f",
+    tone: "warning",
   },
   {
     key: "cekici",
@@ -71,8 +70,7 @@ const PRIMARY_ACTIONS: ActionTile[] = [
     hint: "Anında veya randevulu kurtarma",
     icon: Truck,
     route: "/(modal)/talep/towing" as Href,
-    gradient: ["rgba(14,165,233,0.18)", "rgba(14,165,233,0.05)"],
-    iconColor: "#0ea5e9",
+    tone: "info",
   },
 ];
 
@@ -94,8 +92,11 @@ const DISCOVERY_ITEMS: {
 
 export function QuickActionsScreen() {
   const router = useRouter();
-  const { height } = Dimensions.get("window");
-  const sheetMaxHeight = Math.round(height * 0.78);
+  const { colors } = useNaroTheme();
+  const { height } = useWindowDimensions();
+  const sheetMaxHeight = Math.round(
+    Math.min(height - 48, Math.max(420, height * 0.78)),
+  );
 
   const goTo = (route: Href) => {
     router.replace(route);
@@ -106,7 +107,8 @@ export function QuickActionsScreen() {
       <Animated.View
         entering={FadeIn.duration(shellMotion.base)}
         exiting={FadeOut.duration(shellMotion.fast)}
-        className="absolute inset-0 bg-black/35"
+        className="absolute inset-0"
+        style={{ backgroundColor: colors.overlay }}
       >
         <Pressable
           accessibilityRole="button"
@@ -162,7 +164,11 @@ export function QuickActionsScreen() {
                 </Text>
               </View>
 
-              <PrimaryActionsGrid actions={PRIMARY_ACTIONS} onSelect={goTo} />
+              <PrimaryActionsGrid
+                actions={PRIMARY_ACTIONS}
+                colors={colors}
+                onSelect={goTo}
+              />
 
               <View className="gap-3">
                 <View className="flex-row items-center justify-between">
@@ -189,7 +195,7 @@ export function QuickActionsScreen() {
                       className="flex-row items-center gap-3 px-4 py-3.5"
                     >
                       <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-                        <Icon icon={item.icon} size={16} color="#0ea5e9" />
+                        <Icon icon={item.icon} size={16} color={colors.info} />
                       </View>
                       <View className="flex-1 gap-0.5">
                         <Text
@@ -207,7 +213,7 @@ export function QuickActionsScreen() {
                           {item.hint}
                         </Text>
                       </View>
-                      <Icon icon={ArrowRight} size={13} color="#83a7ff" />
+                      <Icon icon={ArrowRight} size={13} color={colors.info} />
                     </PressableCard>
                   ))}
                 </View>
@@ -222,9 +228,11 @@ export function QuickActionsScreen() {
 
 function PrimaryActionsGrid({
   actions,
+  colors,
   onSelect,
 }: {
   actions: ActionTile[];
+  colors: NaroThemePalette;
   onSelect: (route: Href) => void;
 }) {
   const rows: ActionTile[][] = [];
@@ -240,6 +248,7 @@ function PrimaryActionsGrid({
             <ActionTileCard
               key={action.key}
               action={action}
+              colors={colors}
               onPress={() => onSelect(action.route)}
             />
           ))}
@@ -252,11 +261,15 @@ function PrimaryActionsGrid({
 
 function ActionTileCard({
   action,
+  colors,
   onPress,
 }: {
   action: ActionTile;
+  colors: NaroThemePalette;
   onPress: () => void;
 }) {
+  const tone = getActionToneVisual(action.tone, colors);
+
   return (
     <PressableCard
       variant="elevated"
@@ -268,13 +281,13 @@ function ActionTileCard({
     >
       <View
         className="gap-3 px-4 py-4"
-        style={{ backgroundColor: action.gradient[0] }}
+        style={{ backgroundColor: tone.surface }}
       >
         <View
           className="h-12 w-12 items-center justify-center rounded-2xl"
-          style={{ backgroundColor: `${action.iconColor}26` }}
+          style={{ backgroundColor: colors.surface }}
         >
-          <Icon icon={action.icon} size={22} color={action.iconColor} />
+          <Icon icon={action.icon} size={22} color={tone.icon} />
         </View>
         <View className="gap-1">
           <Text
@@ -296,4 +309,17 @@ function ActionTileCard({
       </View>
     </PressableCard>
   );
+}
+
+function getActionToneVisual(tone: ActionTone, colors: NaroThemePalette) {
+  switch (tone) {
+    case "success":
+      return { icon: colors.success, surface: colors.successSoft };
+    case "critical":
+      return { icon: colors.critical, surface: colors.criticalSoft };
+    case "warning":
+      return { icon: colors.warning, surface: colors.warningSoft };
+    case "info":
+      return { icon: colors.info, surface: colors.infoSoft };
+  }
 }

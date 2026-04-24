@@ -10,6 +10,8 @@ import {
   Surface,
   Text,
   TrustBadge,
+  useNaroTheme,
+  type NaroThemePalette,
 } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import {
@@ -29,7 +31,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react-native";
-import { Dimensions, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -74,32 +76,19 @@ const TONE_BY_ID: Record<string, ActionTone> = {
   profile: "neutral",
 };
 
-const TILE_GRADIENT: Record<ActionTone, string> = {
-  accent: "rgba(14,165,233,0.18)",
-  success: "rgba(45,210,141,0.18)",
-  warning: "rgba(245,179,63,0.18)",
-  info: "rgba(74,168,255,0.18)",
-  neutral: "rgba(131,167,255,0.12)",
-};
-
-const TILE_ICON_COLOR: Record<ActionTone, string> = {
-  accent: "#0ea5e9",
-  success: "#2dd28d",
-  warning: "#f5b33f",
-  info: "#4aa8ff",
-  neutral: "#aab6cf",
-};
-
 export function QuickActionsScreen() {
   const router = useRouter();
   const shellConfig = useShellConfig();
   const profile = useTechnicianProfileStore();
+  const { colors } = useNaroTheme();
+  const { height } = useWindowDimensions();
   const openHasarSheet = useClaimSourceSheetStore((s) => s.show);
   const setAvailability = useTechnicianProfileStore(
     (state) => state.setAvailability,
   );
-  const { height } = Dimensions.get("window");
-  const sheetMaxHeight = Math.round(height * 0.82);
+  const sheetMaxHeight = Math.round(
+    Math.min(height - 48, Math.max(420, height * 0.82)),
+  );
 
   const availabilityTone =
     profile.availability === "available"
@@ -167,7 +156,8 @@ export function QuickActionsScreen() {
       <Animated.View
         entering={FadeIn.duration(shellMotion.base)}
         exiting={FadeOut.duration(shellMotion.fast)}
-        className="absolute inset-0 bg-black/35"
+        className="absolute inset-0"
+        style={{ backgroundColor: colors.overlay }}
       >
         <Pressable
           accessibilityRole="button"
@@ -259,6 +249,7 @@ export function QuickActionsScreen() {
               {primaryActions.length > 0 ? (
                 <PrimaryActionsGrid
                   actions={primaryActions}
+                  colors={colors}
                   onSelect={handlePress}
                 />
               ) : null}
@@ -273,6 +264,7 @@ export function QuickActionsScreen() {
                       <SecondaryActionRow
                         key={action.id}
                         action={action}
+                        colors={colors}
                         onPress={() => handlePress(action)}
                       />
                     ))}
@@ -295,9 +287,11 @@ type ResolvedAction = Omit<QuickAction, "icon"> & {
 
 function PrimaryActionsGrid({
   actions,
+  colors,
   onSelect,
 }: {
   actions: ResolvedAction[];
+  colors: NaroThemePalette;
   onSelect: (action: ResolvedAction) => void;
 }) {
   const rows: ResolvedAction[][] = [];
@@ -312,6 +306,7 @@ function PrimaryActionsGrid({
             <PrimaryActionTile
               key={action.id}
               action={action}
+              colors={colors}
               onPress={() => onSelect(action)}
             />
           ))}
@@ -324,13 +319,15 @@ function PrimaryActionsGrid({
 
 function PrimaryActionTile({
   action,
+  colors,
   onPress,
 }: {
   action: ResolvedAction;
+  colors: NaroThemePalette;
   onPress: () => void;
 }) {
-  const gradient = TILE_GRADIENT[action.tone];
-  const iconColor = TILE_ICON_COLOR[action.tone];
+  const tone = getActionToneVisual(action.tone, colors);
+
   return (
     <PressableCard
       variant="elevated"
@@ -340,22 +337,19 @@ function PrimaryActionTile({
       accessibilityState={{ disabled: action.disabled }}
       disabled={action.disabled}
       onPress={onPress}
-      className={[
-        "flex-1 overflow-hidden",
-        action.disabled ? "opacity-50" : "",
-      ]
+      className={["flex-1 overflow-hidden", action.disabled ? "opacity-50" : ""]
         .filter(Boolean)
         .join(" ")}
     >
       <View
         className="gap-3 px-4 py-4"
-        style={{ backgroundColor: gradient, minHeight: 118 }}
+        style={{ backgroundColor: tone.surface, minHeight: 118 }}
       >
         <View
           className="h-11 w-11 items-center justify-center rounded-2xl"
-          style={{ backgroundColor: `${iconColor}26` }}
+          style={{ backgroundColor: colors.surface }}
         >
-          <Icon icon={action.icon} size={20} color={iconColor} />
+          <Icon icon={action.icon} size={20} color={tone.icon} />
         </View>
         <Text
           variant="h3"
@@ -379,12 +373,15 @@ function PrimaryActionTile({
 
 function SecondaryActionRow({
   action,
+  colors,
   onPress,
 }: {
   action: ResolvedAction;
+  colors: NaroThemePalette;
   onPress: () => void;
 }) {
-  const iconColor = TILE_ICON_COLOR[action.tone];
+  const tone = getActionToneVisual(action.tone, colors);
+
   return (
     <PressableCard
       variant="flat"
@@ -403,9 +400,9 @@ function SecondaryActionRow({
     >
       <View
         className="h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: `${iconColor}22` }}
+        style={{ backgroundColor: tone.surface }}
       >
-        <Icon icon={action.icon} size={16} color={iconColor} />
+        <Icon icon={action.icon} size={16} color={tone.icon} />
       </View>
       <View className="flex-1 gap-0.5">
         <Text variant="label" tone="inverse" className="text-[13px]">
@@ -421,7 +418,22 @@ function SecondaryActionRow({
           </Text>
         ) : null}
       </View>
-      <Icon icon={ChevronRight} size={13} color="#83a7ff" />
+      <Icon icon={ChevronRight} size={13} color={colors.info} />
     </PressableCard>
   );
+}
+
+function getActionToneVisual(tone: ActionTone, colors: NaroThemePalette) {
+  switch (tone) {
+    case "accent":
+      return { icon: colors.info, surface: colors.infoSoft };
+    case "success":
+      return { icon: colors.success, surface: colors.successSoft };
+    case "warning":
+      return { icon: colors.warning, surface: colors.warningSoft };
+    case "info":
+      return { icon: colors.info, surface: colors.infoSoft };
+    case "neutral":
+      return { icon: colors.textSubtle, surface: colors.surface2 };
+  }
 }

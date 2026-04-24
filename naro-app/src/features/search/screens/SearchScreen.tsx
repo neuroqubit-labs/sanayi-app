@@ -1,19 +1,25 @@
-import { Icon, Screen, Text } from "@naro/ui";
+import {
+  BackButton,
+  FilterRail,
+  Icon,
+  Screen,
+  SearchPillInput,
+  Text,
+  useNaroTheme,
+} from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import {
   ArrowRight,
   BookOpen,
   MapPin,
-  Search,
   Sparkles,
   Star,
   Tag,
   Wrench,
-  X,
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 
 import { useActiveVehicle } from "@/features/vehicles";
 
@@ -66,71 +72,32 @@ export function SearchScreen() {
     <Screen padded={false} className="flex-1" backgroundClassName="bg-app-bg">
       <View className="gap-4 px-5 pb-2 pt-2">
         <View className="flex-row items-center gap-3">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Kapat"
-            onPress={() => router.back()}
-            className="h-11 w-11 items-center justify-center rounded-full border border-app-outline bg-app-surface active:bg-app-surface-2"
-          >
-            <Icon icon={X} size={18} color="#f5f7ff" />
-          </Pressable>
-          <View className="flex-1 flex-row items-center gap-2 rounded-[20px] border border-app-outline-strong bg-app-surface px-3.5 py-2.5">
-            <Icon icon={Search} size={18} color="#0ea5e9" />
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              autoFocus
-              placeholder="Usta, bakım, kampanya ara..."
-              placeholderTextColor="#6f7b97"
-              returnKeyType="search"
-              onSubmitEditing={() => {
-                if (trimmed) pushRecent(trimmed);
-              }}
-              className="flex-1 text-base text-app-text"
-            />
-            {query.length > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Aramayı temizle"
-                hitSlop={8}
-                onPress={() => setQuery("")}
-              >
-                <Icon icon={X} size={16} color="#6f7b97" />
-              </Pressable>
-            ) : null}
-          </View>
+          <BackButton variant="close" onPress={() => router.back()} />
+          <SearchPillInput
+            value={query}
+            onChangeText={setQuery}
+            autoFocus
+            placeholder="Usta, bakım, kampanya ara..."
+            onSubmitEditing={() => {
+              if (trimmed) pushRecent(trimmed);
+            }}
+          />
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8 }}
-        >
-          {CATEGORIES.map((c) => {
-            const active = category === c.id;
-            return (
-              <Pressable
-                key={c.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${c.label} kategorisi`}
-                onPress={() => setCategory(c.id)}
-                className={[
-                  "rounded-full border px-4 py-2 active:opacity-90",
-                  active
-                    ? "border-brand-500 bg-brand-500"
-                    : "border-app-outline bg-app-surface",
-                ].join(" ")}
-              >
-                <Text
-                  variant="label"
-                  className={active ? "text-white" : "text-app-text"}
-                >
-                  {c.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <FilterRail
+          rows={[
+            {
+              key: "category",
+              options: CATEGORIES.map((c) => ({
+                key: c.id,
+                label: c.label,
+                selected: category === c.id,
+                accessibilityLabel: `${c.label} kategorisi`,
+                onPress: () => setCategory(c.id),
+              })),
+            },
+          ]}
+        />
       </View>
 
       <ScrollView
@@ -217,6 +184,8 @@ type PromptsSectionProps = {
 };
 
 function PromptsSection({ prompts, onPress }: PromptsSectionProps) {
+  const { colors } = useNaroTheme();
+
   return (
     <View className="gap-3">
       <SectionEyebrow title="Ne arıyorsun?" />
@@ -232,12 +201,12 @@ function PromptsSection({ prompts, onPress }: PromptsSectionProps) {
               className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
             >
               <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-                <Icon icon={IconComponent} size={18} color="#0ea5e9" />
+                <Icon icon={IconComponent} size={18} color={colors.info} />
               </View>
               <Text tone="muted" className="flex-1 text-app-text leading-5">
                 {prompt.body}
               </Text>
-              <Icon icon={ArrowRight} size={16} color="#83a7ff" />
+              <Icon icon={ArrowRight} size={16} color={colors.info} />
             </Pressable>
           );
         })}
@@ -348,6 +317,8 @@ type ResultCardProps = {
 };
 
 function ResultCard({ result, onOpen }: ResultCardProps) {
+  const { colors } = useNaroTheme();
+
   switch (result.kind) {
     case "tip": {
       const tip = result.item;
@@ -358,7 +329,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
           className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
         >
           <View className="h-10 w-10 items-center justify-center rounded-full bg-app-info-soft">
-            <Icon icon={BookOpen} size={18} color="#83a7ff" />
+            <Icon icon={BookOpen} size={18} color={colors.info} />
           </View>
           <View className="flex-1 gap-1">
             <Text variant="label" tone="inverse">
@@ -373,7 +344,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
             </Text>
           </View>
           {tip.route ? (
-            <Icon icon={ArrowRight} size={16} color="#83a7ff" />
+            <Icon icon={ArrowRight} size={16} color={colors.info} />
           ) : null}
         </Pressable>
       );
@@ -388,7 +359,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
           className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
         >
           <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-            <Icon icon={Wrench} size={18} color="#0ea5e9" />
+            <Icon icon={Wrench} size={18} color={colors.info} />
           </View>
           <View className="flex-1 gap-1">
             <View className="flex-row items-center gap-2">
@@ -396,7 +367,12 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
                 {tech.name}
               </Text>
               <View className="flex-row items-center gap-0.5">
-                <Icon icon={Star} size={12} color="#f5b33f" strokeWidth={2.5} />
+                <Icon
+                  icon={Star}
+                  size={12}
+                  color={colors.warning}
+                  strokeWidth={2.5}
+                />
                 <Text variant="caption" tone="warning">
                   {tech.rating.toFixed(1)}
                 </Text>
@@ -410,7 +386,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
               Usta · {tech.tagline}
             </Text>
           </View>
-          <Icon icon={ArrowRight} size={16} color="#83a7ff" />
+          <Icon icon={ArrowRight} size={16} color={colors.info} />
         </Pressable>
       );
     }
@@ -424,7 +400,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
           className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
         >
           <View className="h-10 w-10 items-center justify-center rounded-full bg-app-success-soft">
-            <Icon icon={MapPin} size={18} color="#2dd28d" />
+            <Icon icon={MapPin} size={18} color={colors.success} />
           </View>
           <View className="flex-1 gap-1">
             <Text variant="label" tone="inverse">
@@ -438,7 +414,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
               Servis · {service.distanceLabel} · {service.ratingLabel}
             </Text>
           </View>
-          <Icon icon={ArrowRight} size={16} color="#83a7ff" />
+          <Icon icon={ArrowRight} size={16} color={colors.info} />
         </Pressable>
       );
     }
@@ -452,7 +428,7 @@ function ResultCard({ result, onOpen }: ResultCardProps) {
           className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/30 bg-app-surface-2 px-4 py-3.5 active:opacity-95"
         >
           <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/20">
-            <Icon icon={Sparkles} size={18} color="#0ea5e9" />
+            <Icon icon={Sparkles} size={18} color={colors.info} />
           </View>
           <View className="flex-1 gap-1">
             <View className="flex-row items-center gap-2">

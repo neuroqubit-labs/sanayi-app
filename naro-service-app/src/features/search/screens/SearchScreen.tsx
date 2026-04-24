@@ -1,9 +1,14 @@
 import type { ServiceCase } from "@naro/domain";
-import { BackButton, Icon, StatusChip, Text } from "@naro/ui";
+import {
+  BackButton,
+  FilterRail,
+  SearchPillInput,
+  StatusChip,
+  Text,
+} from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
-import { Search, X } from "lucide-react-native";
 import { useDeferredValue, useMemo, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeCaseRow } from "@/features/home/components/HomeCaseRow";
@@ -70,55 +75,29 @@ export function SearchScreen() {
     <SafeAreaView edges={["top"]} className="flex-1 bg-app-bg">
       <View className="flex-row items-center gap-2 px-4 pb-3 pt-2">
         <BackButton variant="close" onPress={() => router.back()} />
-        <View className="flex-1 flex-row items-center gap-2 rounded-[18px] border border-app-outline bg-app-surface px-3.5 py-2.5">
-          <Icon icon={Search} size={16} color="#d94a1f" />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Plaka, vaka, müşteri ara…"
-            placeholderTextColor="#6f7b97"
-            autoFocus
-            autoCorrect={false}
-            autoCapitalize="none"
-            returnKeyType="search"
-            className="flex-1 text-base text-app-text"
-          />
-          {query.length > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Aramayı temizle"
-              hitSlop={8}
-              onPress={() => setQuery("")}
-            >
-              <Icon icon={X} size={14} color="#6f7b97" />
-            </Pressable>
-          ) : null}
-        </View>
+        <SearchPillInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Plaka, vaka, müşteri ara..."
+          autoFocus
+        />
       </View>
 
-      <View className="flex-row flex-wrap gap-2 px-4 pb-3">
-        {CATEGORIES.map((cat) => (
-          <Pressable
-            key={cat.id}
-            accessibilityRole="button"
-            accessibilityState={{ selected: category === cat.id }}
-            onPress={() => setCategory(cat.id)}
-            className={`rounded-full border px-3 py-1.5 active:opacity-85 ${
-              category === cat.id
-                ? "border-brand-500/40 bg-brand-500/15"
-                : "border-app-outline bg-app-surface"
-            }`}
-          >
-            <Text
-              variant="caption"
-              tone={category === cat.id ? "inverse" : "muted"}
-              className="text-[12px]"
-            >
-              {cat.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <FilterRail
+        className="px-4 pb-3"
+        rows={[
+          {
+            key: "category",
+            options: CATEGORIES.map((cat) => ({
+              key: cat.id,
+              label: cat.label,
+              selected: category === cat.id,
+              accessibilityLabel: `${cat.label} kategorisi`,
+              onPress: () => setCategory(cat.id),
+            })),
+          },
+        ]}
+      />
 
       <ScrollView
         contentContainerClassName="gap-5 px-4 pb-10 pt-2"
@@ -150,7 +129,11 @@ export function SearchScreen() {
                       onPress={() => setQuery(q)}
                       className="rounded-full border border-app-outline bg-app-surface px-3 py-1.5 active:opacity-80"
                     >
-                      <Text variant="caption" tone="muted" className="text-[12px]">
+                      <Text
+                        variant="caption"
+                        tone="muted"
+                        className="text-[12px]"
+                      >
                         {q}
                       </Text>
                     </Pressable>
@@ -171,7 +154,11 @@ export function SearchScreen() {
                     onPress={() => setQuery(s)}
                     className="rounded-full border border-app-outline bg-app-surface-2 px-3 py-1.5 active:opacity-80"
                   >
-                    <Text variant="caption" tone="muted" className="text-[12px]">
+                    <Text
+                      variant="caption"
+                      tone="muted"
+                      className="text-[12px]"
+                    >
                       {s}
                     </Text>
                   </Pressable>
@@ -183,8 +170,13 @@ export function SearchScreen() {
               <Text variant="label" tone="inverse" className="text-[13px]">
                 Neler arayabilirsin?
               </Text>
-              <Text variant="caption" tone="muted" className="text-app-text-muted text-[12px]">
-                Plaka (34 ABC 42 · 34abc42), müşteri adı, vaka başlığı, kaza/arıza kategorisi, sigorta şirketi veya poliçe numarası.
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px]"
+              >
+                Plaka (34 ABC 42 · 34abc42), müşteri adı, vaka başlığı,
+                kaza/arıza kategorisi, sigorta şirketi veya poliçe numarası.
               </Text>
             </View>
           </View>
@@ -240,8 +232,12 @@ export function SearchScreen() {
                 <Text variant="label" tone="inverse">
                   "{trimmed}" için eşleşme yok
                 </Text>
-                <Text tone="muted" className="text-center text-app-text-muted text-[12px]">
-                  Farklı bir kelime veya kısım dene — örn. sadece "BMW" veya plaka ortası "ABC".
+                <Text
+                  tone="muted"
+                  className="text-center text-app-text-muted text-[12px]"
+                >
+                  Farklı bir kelime veya kısım dene — örn. sadece "BMW" veya
+                  plaka ortası "ABC".
                 </Text>
               </View>
             ) : null}
