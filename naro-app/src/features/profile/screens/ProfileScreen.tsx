@@ -14,7 +14,7 @@ import {
 import { Href, useRouter } from "expo-router";
 import {
   Bell,
-  CarFront,
+  Check,
   ChevronRight,
   Plus,
   Receipt,
@@ -25,11 +25,9 @@ import { useMemo } from "react";
 import { Alert, Pressable, ScrollView, View } from "react-native";
 
 import { useUnreadNotificationCount } from "@/features/notifications";
-import {
-  useActiveVehicle,
-  useVehicleSwitcherStore,
-  useVehicles,
-} from "@/features/vehicles";
+import { useMe } from "@/features/user";
+import { useVehicles, useVehicleStore } from "@/features/vehicles";
+import { formatPhoneDisplay } from "@naro/mobile-core";
 import { telemetry } from "@/runtime";
 import { useAuthStore } from "@/services/auth/store";
 
@@ -44,12 +42,17 @@ import { useUserProfileStore } from "../user-store";
 export function ProfileScreen() {
   const router = useRouter();
   const clear = useAuthStore((state) => state.clear);
+  // /users/me hydrate — auth ready olduğunda store'u doldurur.
+  useMe();
   const { data: vehicles } = useVehicles();
-  const { data: activeVehicle } = useActiveVehicle();
-  const openVehicleSwitcher = useVehicleSwitcherStore((state) => state.open);
+  const setActiveVehicle = useVehicleStore((state) => state.setActiveVehicle);
   const unreadNotifications = useUnreadNotificationCount();
-  const userName = useUserProfileStore((state) => state.name);
+  const userName = useUserProfileStore((state) => state.fullName);
   const userPhone = useUserProfileStore((state) => state.phone);
+  const userPhoneDisplay = useMemo(
+    () => (userPhone ? formatPhoneDisplay(userPhone) : ""),
+    [userPhone],
+  );
 
   const maintenanceReminders = useMemo(() => {
     return (vehicles ?? []).flatMap((vehicle) =>
@@ -95,7 +98,7 @@ export function ProfileScreen() {
     <Screen scroll backgroundClassName="bg-app-bg" className="gap-5 pb-28">
       <ProfileSummaryCard
         name={userName}
-        subtitle={userPhone}
+        subtitle={userPhoneDisplay}
         badgeLabel="Premium üye"
         stats={[
           { label: "Tamamlanan iş", value: `${totalCompletedCases}` },
@@ -104,39 +107,10 @@ export function ProfileScreen() {
         ]}
       />
 
-      {/* Aktif araç chip */}
-      {activeVehicle ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Aktif aracı değiştir"
-          onPress={openVehicleSwitcher}
-          className="flex-row items-center gap-3 rounded-[18px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
-        >
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-            <Icon icon={CarFront} size={16} color="#83a7ff" />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text variant="eyebrow" tone="subtle">
-              Şu anki aracın
-            </Text>
-            <Text variant="label" tone="inverse">
-              {activeVehicle.plate} · {activeVehicle.make} {activeVehicle.model}
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-1">
-            <Text variant="caption" tone="accent">
-              Değiştir
-            </Text>
-            <Icon icon={ChevronRight} size={14} color="#83a7ff" />
-          </View>
-        </Pressable>
-      ) : null}
-
       {/* Araç carousel */}
       <View className="gap-4">
         <SectionHeader
-          eyebrow="Araçlarım"
-          title="Garajın"
+          title="Garaj"
           description="Her aracın ayrı bir hikayesi var — kayıtları, garantileri ve aktif durumu birlikte."
         />
         <ScrollView
@@ -176,9 +150,6 @@ export function ProfileScreen() {
               </View>
 
               <View className="flex-row flex-wrap gap-2">
-                {vehicle.isActive ? (
-                  <TrustBadge label="Aktif" tone="success" />
-                ) : null}
                 {vehicle.warranties.length > 0 ? (
                   <TrustBadge
                     label={`${vehicle.warranties.length} garanti`}
@@ -193,10 +164,41 @@ export function ProfileScreen() {
                 ) : null}
               </View>
 
-              <Text variant="caption" tone="muted" className="text-app-text-muted">
-                {vehicle.mileageKm.toLocaleString("tr-TR")} km ·{" "}
-                {vehicle.healthLabel ?? "Hazır"}
-              </Text>
+              <View className="flex-row items-end justify-between gap-3">
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted flex-1"
+                >
+                  {vehicle.mileageKm.toLocaleString("tr-TR")} km ·{" "}
+                  {vehicle.healthLabel ?? "Hazır"}
+                </Text>
+
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: vehicle.isActive }}
+                  accessibilityLabel={
+                    vehicle.isActive
+                      ? "Aktif araç"
+                      : `${vehicle.plate} aracını aktif yap`
+                  }
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    if (!vehicle.isActive) setActiveVehicle(vehicle.id);
+                  }}
+                  hitSlop={8}
+                  className={[
+                    "h-8 w-8 items-center justify-center rounded-full border",
+                    vehicle.isActive
+                      ? "border-app-success bg-app-success"
+                      : "border-app-outline bg-app-surface",
+                  ].join(" ")}
+                >
+                  {vehicle.isActive ? (
+                    <Icon icon={Check} size={16} color="#ffffff" strokeWidth={3} />
+                  ) : null}
+                </Pressable>
+              </View>
             </Pressable>
           ))}
 

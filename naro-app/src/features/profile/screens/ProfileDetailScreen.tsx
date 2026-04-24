@@ -28,6 +28,8 @@ import { useState } from "react";
 import { Alert, Pressable, Switch, View } from "react-native";
 
 import { useNotificationPreferencesStore } from "@/features/notifications";
+import { useMe, useUpdateMe } from "@/features/user";
+import { formatPhoneDisplay } from "@naro/mobile-core";
 
 import { EditFieldSheet } from "../components/EditFieldSheet";
 import {
@@ -53,8 +55,8 @@ type EditTarget = {
 };
 
 const EDIT_TARGETS: Record<UserProfileField, EditTarget> = {
-  name: {
-    field: "name",
+  fullName: {
+    field: "fullName",
     title: "Ad soyad",
     label: "Ad soyad",
     description: "Fatura ve servis kayıtlarında bu ad görünür.",
@@ -64,7 +66,8 @@ const EDIT_TARGETS: Record<UserProfileField, EditTarget> = {
     field: "phone",
     title: "Telefon numarası",
     label: "Telefon",
-    description: "OTP bu numaraya gönderilir — değiştirirsen doğrulama istenebilir.",
+    description:
+      "Telefon değişikliği OTP ile yapılır — yakında ayrı bir akış gelir.",
     keyboardType: "phone-pad",
     autoCapitalize: "none",
   },
@@ -80,13 +83,16 @@ const EDIT_TARGETS: Record<UserProfileField, EditTarget> = {
 
 function KisiselBilgilerSection() {
   const router = useRouter();
-  const name = useUserProfileStore((state) => state.name);
+  const fullName = useUserProfileStore((state) => state.fullName);
   const phone = useUserProfileStore((state) => state.phone);
   const email = useUserProfileStore((state) => state.email);
-  const setField = useUserProfileStore((state) => state.setField);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const updateMe = useUpdateMe();
+  // Sayfa açılırken /users/me'yi tetikle — store güncel kalsın.
+  useMe();
 
-  const values: Record<UserProfileField, string> = { name, phone, email };
+  const values: Record<UserProfileField, string> = { fullName, phone, email };
+  const phoneDisplay = phone ? formatPhoneDisplay(phone) : "";
 
   return (
     <View className="gap-4">
@@ -96,14 +102,13 @@ function KisiselBilgilerSection() {
         </Text>
         <FlowSummaryRow
           label="Ad soyad"
-          value={name}
-          onEdit={() => setEditTarget(EDIT_TARGETS.name)}
+          value={fullName}
+          onEdit={() => setEditTarget(EDIT_TARGETS.fullName)}
         />
         <FlowSummaryRow
           label="Telefon"
-          value={phone}
+          value={phoneDisplay}
           helperText="Giriş yaparken bu numaraya OTP gönderilir."
-          onEdit={() => setEditTarget(EDIT_TARGETS.phone)}
         />
         <FlowSummaryRow
           label="E-posta"
@@ -140,9 +145,19 @@ function KisiselBilgilerSection() {
         keyboardType={editTarget?.keyboardType}
         autoCapitalize={editTarget?.autoCapitalize}
         onClose={() => setEditTarget(null)}
-        onSubmit={(next) => {
-          if (editTarget) {
-            setField(editTarget.field, next);
+        onSubmit={async (next) => {
+          if (!editTarget) return;
+          const trimmed = next.trim();
+          try {
+            if (editTarget.field === "fullName") {
+              await updateMe.mutateAsync({ full_name: trimmed });
+            } else if (editTarget.field === "email") {
+              await updateMe.mutateAsync({ email: trimmed });
+            }
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Güncellenemedi.";
+            Alert.alert("Güncellenemedi", message);
           }
         }}
       />
@@ -413,7 +428,7 @@ function GuvenSection() {
         />
         <PremiumListRow
           title="Anlaşmazlık süreci"
-          subtitle="Arabuluculuk adımları ve süreler"
+          subtitle="Kayıtlar + destek ekibi iletişimi; taraflar kendi kayıtlarına erişir"
           leading={<RoundIcon icon={FileText} color="#f5f7ff" />}
         />
       </View>
