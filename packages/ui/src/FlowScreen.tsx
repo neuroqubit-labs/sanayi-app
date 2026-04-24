@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -9,6 +10,32 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton, type BackButtonVariant } from "./BackButton";
 import { Text } from "./Text";
+
+/**
+ * Klavye açıldığında ScrollView'a dinamik paddingBottom ekler; adjustResize'ın
+ * yetmediği senaryolarda (odaklanan input'un hemen altında footer varsa, veya
+ * input horizontal slider'ların altında kalıyorsa) form alanı ulaşılabilir
+ * kalır. iOS'ta KAV `padding` + bu padding; Android'de sadece bu padding
+ * (adjustResize zaten window'u shrink ediyor, KAV=undefined no-op).
+ */
+function useKeyboardHeight() {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setHeight(event.endCoordinates?.height ?? 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+  return height;
+}
 
 export type FlowScreenProps = {
   title: string;
@@ -47,6 +74,8 @@ export function FlowScreen({
   ]
     .filter(Boolean)
     .join(" ");
+
+  const keyboardHeight = useKeyboardHeight();
 
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-app-bg">
@@ -93,7 +122,15 @@ export function FlowScreen({
         {scroll ? (
           <ScrollView
             contentContainerClassName={bodyClass}
+            contentContainerStyle={{
+              // Klavye açıkken son input'un altında scroll alanı bırakıyoruz ki
+              // odaklanan alan keyboard'un üstünde kalsın. Android'de footer
+              // adjustResize ile yukarı kayarken bu extra padding alanı kritik.
+              paddingBottom: keyboardHeight > 0 ? keyboardHeight + 24 : undefined,
+            }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
             {children}
           </ScrollView>
