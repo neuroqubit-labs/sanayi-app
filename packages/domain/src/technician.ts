@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { ProviderModeSchema } from "./shell-config";
 import {
   BrandCoverageSchema,
   DistrictRefSchema,
@@ -7,6 +8,13 @@ import {
   ProcedureBindingSchema,
   ServiceDomainSchema,
 } from "./taxonomy";
+import {
+  ProviderTypeSchema,
+  TechnicianCapabilitySchema,
+  TechnicianCertificateKindSchema,
+  TechnicianCertificateStatusSchema,
+  TechnicianVerifiedLevelSchema,
+} from "./user";
 
 /** Coğrafi koordinat. */
 export const LatLngSchema = z.object({
@@ -120,3 +128,62 @@ export const DEFAULT_CAPACITY: StaffCapacity = {
   emergency_service: false,
   current_queue_depth: 0,
 };
+
+// ─── /technicians/me HTTP shape'ler (BE Pydantic parity) ────────────────────
+//
+// Mobile profile-store'u bu schema'larla hydrate olur — login sonrası
+// backend'den gelen gerçek teknisyen verisi store'a yazılır, fixture
+// INITIAL_TECHNICIAN_PROFILE yalnızca seed default'ları olur.
+
+export const TechnicianAvailabilitySchema = z.enum([
+  "available",
+  "busy",
+  "offline",
+]);
+export type TechnicianAvailability = z.infer<typeof TechnicianAvailabilitySchema>;
+
+/**
+ * GET /technicians/me/profile response.
+ * Backend: `TechnicianProfileResponse` (routes/technicians.py:85).
+ */
+export const MyTechnicianProfileSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  display_name: z.string(),
+  tagline: z.string().nullable(),
+  biography: z.string().nullable(),
+  availability: TechnicianAvailabilitySchema,
+  verified_level: TechnicianVerifiedLevelSchema,
+  provider_type: ProviderTypeSchema,
+  secondary_provider_types: z.array(ProviderTypeSchema).default([]),
+  provider_mode: ProviderModeSchema,
+  active_provider_type: ProviderTypeSchema.nullable(),
+  role_config_version: z.number().int(),
+  business_info: z.record(z.string(), z.unknown()).default({}),
+  avatar_asset_id: z.string().uuid().nullable(),
+  promo_video_asset_id: z.string().uuid().nullable(),
+  capability: TechnicianCapabilitySchema.nullable(),
+});
+export type MyTechnicianProfile = z.infer<typeof MyTechnicianProfileSchema>;
+
+/**
+ * GET /technicians/me/certificates response (liste elemanı).
+ * Backend: `TechnicianCertificateResponse` (routes/technicians.py:106).
+ *
+ * Not: Bu shape fixture'daki `TechnicianCertificateSchema`'dan (user.ts)
+ * farklıdır — fixture UI-local shape (technician_id, file_url zorunlu),
+ * bu ise BE response shape (profile_id, media_asset_id opsiyonel).
+ */
+export const MyTechnicianCertificateSchema = z.object({
+  id: z.string().uuid(),
+  profile_id: z.string().uuid(),
+  kind: TechnicianCertificateKindSchema,
+  title: z.string(),
+  status: TechnicianCertificateStatusSchema,
+  media_asset_id: z.string().uuid().nullable(),
+  uploaded_at: z.string(),
+  verified_at: z.string().nullable(),
+  expires_at: z.string().nullable(),
+  reviewer_note: z.string().nullable(),
+});
+export type MyTechnicianCertificate = z.infer<typeof MyTechnicianCertificateSchema>;

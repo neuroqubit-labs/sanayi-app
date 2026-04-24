@@ -1,6 +1,8 @@
 import type {
   BrandCoverage,
   Drivetrain,
+  MyTechnicianCertificate,
+  MyTechnicianProfile,
   ProcedureBinding,
   ProviderMode,
   ProviderType,
@@ -69,7 +71,38 @@ type TechnicianProfileStore = TechnicianProfileState & {
   setProviderMode: (mode: ProviderMode) => void;
   setActiveProviderType: (type: ProviderType) => void;
   bumpRoleConfigVersion: () => void;
+
+  // Backend hydrate / reset
+  hydrate: (
+    profile: MyTechnicianProfile,
+    certs: MyTechnicianCertificate[],
+  ) => void;
+  reset: () => void;
 };
+
+/**
+ * Backend `MyTechnicianCertificate` (HTTP shape) → UI `TechnicianCertificate`
+ * (fixture shape) adapter. UI render'ı `file_url` + `mime_type` bekliyor ama
+ * BE cert'lerde bu alanlar yok (media_asset_id var); şimdilik boş string/undefined
+ * ile doldururuz — UI cert listesinde gerçek file preview gerektiği anda
+ * ayrı media asset fetch gerekir (post-pilot).
+ */
+function adaptCertificate(cert: MyTechnicianCertificate): TechnicianCertificate {
+  return {
+    id: cert.id,
+    technician_id: cert.profile_id,
+    kind: cert.kind,
+    title: cert.title,
+    file_url: "",
+    mime_type: undefined,
+    asset: null,
+    uploaded_at: cert.uploaded_at,
+    verified_at: cert.verified_at,
+    expires_at: cert.expires_at,
+    status: cert.status,
+    reviewer_note: cert.reviewer_note,
+  };
+}
 
 export const useTechnicianProfileStore = create<TechnicianProfileStore>(
   (set) => ({
@@ -214,6 +247,33 @@ export const useTechnicianProfileStore = create<TechnicianProfileStore>(
       })),
     bumpRoleConfigVersion: () =>
       set((state) => ({ role_config_version: state.role_config_version + 1 })),
+
+    // Backend /technicians/me/profile + /me/certificates hydrate.
+    // Fixture alanları (coverage, service_area, schedule, capacity, gallery)
+    // ayrı endpoint scope'unda — bu hydrate'te dokunulmaz; login öncesi seed
+    // olarak kalır. Post-pilot: ayrı PUT endpoint'leri için ek hook.
+    hydrate: (profile, certs) =>
+      set((state) => ({
+        name: profile.display_name,
+        tagline: profile.tagline ?? state.tagline,
+        biography: profile.biography ?? state.biography,
+        availability: profile.availability,
+        verified_level: profile.verified_level,
+        provider_type: profile.provider_type,
+        secondary_provider_types: profile.secondary_provider_types,
+        provider_mode: profile.provider_mode,
+        active_provider_type: profile.active_provider_type,
+        role_config_version: profile.role_config_version,
+        capabilities: profile.capability ?? state.capabilities,
+        business: {
+          ...state.business,
+          ...(profile.business_info as Partial<BusinessInfo>),
+        },
+        certificates: certs.map(adaptCertificate),
+        hydrated: true,
+      })),
+
+    reset: () => set({ ...INITIAL_TECHNICIAN_PROFILE }),
   }),
 );
 

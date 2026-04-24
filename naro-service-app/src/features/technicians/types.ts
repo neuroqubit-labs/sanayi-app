@@ -74,4 +74,8 @@ export type TechnicianProfileState = {
   working_schedule: WeeklySchedule;
   capacity: StaffCapacity;
   latest_performance: PerformanceSnapshot | null;
+
+  /** /technicians/me/profile + /me/certificates hydrate edildi mi?
+   * `false` ise fixture INITIAL seed, `true` ise backend verisi. */
+  hydrated: boolean;
 };

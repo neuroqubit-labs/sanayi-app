@@ -187,6 +187,8 @@ export const INITIAL_TECHNICIAN_PROFILE: TechnicianProfileState = {
     hidden_cost_rate: 0.04,
     market_band_percentile: 58,
   },
+
+  hydrated: false,
 };
 
 export const VERIFIED_BADGES: {

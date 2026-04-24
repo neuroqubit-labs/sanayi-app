@@ -12,6 +12,7 @@ import "../global.css";
 import { HasarSourceSheet } from "@/features/insurance-claim";
 import { TechnicianEvidenceUploadSheet } from "@/features/jobs/components/TechnicianEvidenceUploadSheet";
 import { OfferSubmissionSheet } from "@/features/pool";
+import { useTechnicianProfileHydrator } from "@/features/technicians/api.live";
 import { useDispatchTakeover } from "@/features/tow";
 import { useAuthStore, useInitializeRuntime } from "@/runtime";
 import { queryClient } from "@/shared/lib/query";
@@ -40,6 +41,11 @@ function AuthGuard() {
 function RootShellContent() {
   useInitializeRuntime();
   useDispatchTakeover();
+  // /technicians/me/profile + /me/certificates hydrate — auth hazır
+  // olduğunda TechnicianProfileStore backend verisiyle doldurulur.
+  // KYC admission gate cert listesinin DB'deki gerçek status'üne göre
+  // hesaplanır; fixture INITIAL yalnızca login öncesi fallback.
+  useTechnicianProfileHydrator();
   const { colors } = useNaroTheme();
 
   useEffect(() => {

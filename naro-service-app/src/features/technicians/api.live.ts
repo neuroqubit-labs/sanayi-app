@@ -1,7 +1,16 @@
+import {
+  MyTechnicianCertificateSchema,
+  MyTechnicianProfileSchema as MyTechnicianProfileFullSchema,
+  type MyTechnicianCertificate,
+  type MyTechnicianProfile as MyTechnicianProfileFull,
+} from "@naro/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { z } from "zod";
 
-import { apiClient } from "@/runtime";
+import { apiClient, useAuthStore } from "@/runtime";
+
+import { useTechnicianProfileStore } from "./profile-store";
 
 /**
  * Canonical /technicians/me/profile minimal parse — P1-4 launch migration.
@@ -80,4 +89,72 @@ export function useRevokeTechnicianShowcase() {
       });
     },
   });
+}
+
+// ─── Profile store hydrate (/me/profile + /me/certificates) ─────────────────
+//
+// Customer-app `useMe` pattern'in teknisyen ikizi:
+// naro-app/src/features/user/api.ts::useMe().
+//
+// Root shell'de bir kez `useTechnicianProfileHydrator()` çağrılır; auth
+// hazır olduğunda iki endpoint'i fetch eder, sonucu Zustand store'a yazar.
+// Fixture INITIAL_TECHNICIAN_PROFILE yalnızca login öncesi/seed fallback.
+//
+// Eski `useMyTechnicianProfile` küçük scope (id + user_id + display_name)
+// offer wire-up için dependency olduğundan break etmiyoruz; full shape bu
+// yeni query'lerde.
+
+const PROFILE_FULL_KEY = ["technicians", "me", "profile", "full"] as const;
+const CERTS_KEY = ["technicians", "me", "certificates"] as const;
+
+function useAuthReady() {
+  return useAuthStore((s) => s.hydrated && Boolean(s.accessToken));
+}
+
+async function fetchMyTechnicianProfileFull(): Promise<MyTechnicianProfileFull> {
+  const raw = await apiClient(`/technicians/me/profile`);
+  return MyTechnicianProfileFullSchema.parse(raw);
+}
+
+async function fetchMyTechnicianCertificates(): Promise<MyTechnicianCertificate[]> {
+  const raw = await apiClient(`/technicians/me/certificates`);
+  return MyTechnicianCertificateSchema.array().parse(raw);
+}
+
+export function useMyTechnicianProfileFull() {
+  const authReady = useAuthReady();
+  return useQuery<MyTechnicianProfileFull>({
+    queryKey: PROFILE_FULL_KEY,
+    enabled: authReady,
+    queryFn: fetchMyTechnicianProfileFull,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useMyTechnicianCertificates() {
+  const authReady = useAuthReady();
+  return useQuery<MyTechnicianCertificate[]>({
+    queryKey: CERTS_KEY,
+    enabled: authReady,
+    queryFn: fetchMyTechnicianCertificates,
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * Root shell'de bir kez çağrılır; iki query + store hydrate wiring tek yerde.
+ * Profile ve certs birlikte hazır olduğunda store'a yazılır — KYC gate (shell
+ * config `required_onboarding_steps`) DB'deki gerçek cert status'lerine göre
+ * hesaplanır.
+ */
+export function useTechnicianProfileHydrator(): void {
+  const profileQuery = useMyTechnicianProfileFull();
+  const certsQuery = useMyTechnicianCertificates();
+  const hydrate = useTechnicianProfileStore((s) => s.hydrate);
+
+  useEffect(() => {
+    if (profileQuery.data && certsQuery.data) {
+      hydrate(profileQuery.data, certsQuery.data);
+    }
+  }, [profileQuery.data, certsQuery.data, hydrate]);
 }
