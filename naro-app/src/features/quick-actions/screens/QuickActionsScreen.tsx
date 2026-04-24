@@ -1,12 +1,14 @@
 import {
+  GlassIconBadge,
   GlassSurface,
-  Icon,
   PressableCard,
   shellMotion,
   shellRadius,
   Text,
   useNaroTheme,
+  withAlphaHex,
   type NaroThemePalette,
+  type ThemeScheme,
 } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import {
@@ -88,8 +90,26 @@ export function QuickActionsScreen() {
   const router = useRouter();
   const { colors, scheme } = useNaroTheme();
   const { height } = useWindowDimensions();
+  const glassBase = scheme === "dark" ? colors.bgMuted : colors.text;
+  const glassTextColor = scheme === "dark" ? colors.text : colors.surface;
+  const glassMutedTextColor = withAlphaHex(glassTextColor, 0.72);
+  const glassBorderColor = withAlphaHex(colors.info, 0.34);
+  const sheetBackground = withAlphaHex(
+    glassBase,
+    scheme === "dark" ? 0.76 : 0.74,
+  );
+  const blueFilmColor = withAlphaHex(
+    colors.info,
+    scheme === "dark" ? 0.14 : 0.16,
+  );
+  const glassHighlightColor = withAlphaHex(
+    colors.infoSoft,
+    scheme === "dark" ? 0.1 : 0.18,
+  );
+  const backdropOpacity = scheme === "dark" ? 0.1 : 0.028;
+  const sheetShadowOpacity = scheme === "dark" ? 0.34 : 0.2;
   const sheetMaxHeight = Math.round(
-    Math.min(height - 48, Math.max(420, height * 0.78)),
+    Math.min(height - 48, Math.max(360, height * 0.72)),
   );
 
   const goTo = (route: Href) => {
@@ -107,6 +127,7 @@ export function QuickActionsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Kapat"
           className="flex-1"
+          style={{ backgroundColor: colors.overlay, opacity: backdropOpacity }}
           onPress={() => router.back()}
         />
       </Animated.View>
@@ -114,46 +135,75 @@ export function QuickActionsScreen() {
       <Animated.View
         entering={FadeInDown.springify().damping(18).mass(0.8)}
         exiting={FadeOutDown.duration(shellMotion.base)}
-        style={{ maxHeight: sheetMaxHeight }}
+        style={{
+          maxHeight: sheetMaxHeight,
+          shadowColor: colors.shadow,
+          shadowOffset: { width: 0, height: -8 },
+          shadowOpacity: sheetShadowOpacity,
+          shadowRadius: 24,
+          elevation: 24,
+        }}
       >
         <GlassSurface
-          variant="chrome"
+          variant="thin"
           tint={scheme === "dark" ? "dark" : "light"}
-          className="border-t border-app-outline-strong"
           style={{
             borderTopLeftRadius: shellRadius.sheet,
             borderTopRightRadius: shellRadius.sheet,
             borderBottomLeftRadius: 0,
             borderBottomRightRadius: 0,
-            backgroundColor: colors.surface,
+            borderColor: glassBorderColor,
+            borderTopWidth: 1,
+            backgroundColor: sheetBackground,
           }}
         >
+          <View
+            pointerEvents="none"
+            className="absolute inset-0"
+            style={{ backgroundColor: blueFilmColor }}
+          />
+          <View
+            pointerEvents="none"
+            className="absolute inset-x-0 top-0 h-24"
+            style={{ backgroundColor: glassHighlightColor }}
+          />
           <SafeAreaView edges={["bottom"]}>
             <View className="items-center pt-3">
-              <View className="h-1 w-12 rounded-full bg-app-outline-strong" />
+              <View
+                className="h-1 w-12 rounded-full"
+                style={{
+                  backgroundColor: withAlphaHex(colors.info, 0.52),
+                }}
+              />
             </View>
 
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{
                 paddingHorizontal: 18,
-                paddingTop: 18,
-                paddingBottom: 22,
-                gap: 16,
+                paddingTop: 14,
+                paddingBottom: 18,
+                gap: 12,
               }}
             >
               <View className="flex-row items-center justify-between gap-3">
                 <Text
                   variant="h2"
                   tone="inverse"
-                  className="text-[20px] leading-[24px]"
+                  className="text-[19px] leading-[23px]"
+                  style={{ color: glassTextColor }}
                 >
                   Hızlı erişim
                 </Text>
                 <Text
                   variant="caption"
                   tone="subtle"
-                  className="rounded-full border border-app-outline bg-app-surface-2 px-3 py-1 text-[11px]"
+                  className="rounded-full border px-3 py-1 text-[11px]"
+                  style={{
+                    backgroundColor: withAlphaHex(glassTextColor, 0.12),
+                    borderColor: glassBorderColor,
+                    color: glassMutedTextColor,
+                  }}
                 >
                   4 işlem
                 </Text>
@@ -162,6 +212,7 @@ export function QuickActionsScreen() {
               <PrimaryActionsGrid
                 actions={PRIMARY_ACTIONS}
                 colors={colors}
+                scheme={scheme}
                 onSelect={goTo}
               />
 
@@ -170,30 +221,40 @@ export function QuickActionsScreen() {
                   {DISCOVERY_ITEMS.map((item) => (
                     <PressableCard
                       key={item.key}
-                      variant="flat"
+                      variant="elevated"
                       radius="lg"
                       accessibilityRole="button"
                       accessibilityLabel={item.label}
                       onPress={() => goTo(item.route)}
-                      className="flex-row items-center gap-3 px-4 py-3.5"
+                      className="flex-row items-center gap-3 bg-app-surface px-4 py-3"
+                      style={{
+                        backgroundColor: withAlphaHex(
+                          colors.infoSoft,
+                          scheme === "dark" ? 0.64 : 0.98,
+                        ),
+                        borderColor: withAlphaHex(
+                          colors.info,
+                          scheme === "dark" ? 0.32 : 0.22,
+                        ),
+                      }}
                     >
-                      <View
-                        className="h-10 w-10 items-center justify-center rounded-full"
-                        style={{ backgroundColor: colors.infoSoft }}
-                      >
-                        <Icon icon={item.icon} size={16} color={colors.info} />
-                      </View>
+                      <GlassIconBadge
+                        icon={item.icon}
+                        color={colors.info}
+                        surfaceColor={colors.infoSoft}
+                        size="sm"
+                      />
                       <Text
                         variant="label"
                         tone="inverse"
-                        className="flex-1 text-[14px]"
+                        className="flex-1 text-[13px]"
                       >
                         {item.label}
                       </Text>
                       <Text
                         variant="caption"
                         tone="subtle"
-                        className="rounded-full border border-app-outline bg-app-surface-2 px-2.5 py-1 text-[11px]"
+                        className="rounded-full border border-app-outline bg-app-surface-2 px-2.5 py-0.5 text-[11px]"
                       >
                         {item.badge}
                       </Text>
@@ -212,10 +273,12 @@ export function QuickActionsScreen() {
 function PrimaryActionsGrid({
   actions,
   colors,
+  scheme,
   onSelect,
 }: {
   actions: ActionTile[];
   colors: NaroThemePalette;
+  scheme: ThemeScheme;
   onSelect: (route: Href) => void;
 }) {
   const rows: ActionTile[][] = [];
@@ -232,6 +295,7 @@ function PrimaryActionsGrid({
               key={action.key}
               action={action}
               colors={colors}
+              scheme={scheme}
               onPress={() => onSelect(action.route)}
             />
           ))}
@@ -245,37 +309,50 @@ function PrimaryActionsGrid({
 function ActionTileCard({
   action,
   colors,
+  scheme,
   onPress,
 }: {
   action: ActionTile;
   colors: NaroThemePalette;
+  scheme: ThemeScheme;
   onPress: () => void;
 }) {
   const tone = getActionToneVisual(action.tone, colors);
 
   return (
     <PressableCard
-      variant="flat"
+      variant="elevated"
       radius="lg"
       accessibilityRole="button"
       accessibilityLabel={action.label}
       onPress={onPress}
       className="flex-1 bg-app-surface active:bg-app-surface-2"
+      style={{
+        backgroundColor: withAlphaHex(
+          tone.surface,
+          scheme === "dark" ? 0.68 : 0.98,
+        ),
+        borderColor: withAlphaHex(tone.icon, scheme === "dark" ? 0.34 : 0.24),
+        shadowColor: tone.icon,
+        shadowOffset: { width: 0, height: 7 },
+        shadowOpacity: scheme === "dark" ? 0.2 : 0.12,
+        shadowRadius: 14,
+        elevation: 4,
+      }}
     >
       <View
-        className="min-h-[106px] justify-between gap-3 px-4 py-4"
+        className="min-h-[94px] justify-between gap-2.5 px-4 py-3.5"
         style={{ borderTopColor: tone.icon, borderTopWidth: 2 }}
       >
-        <View
-          className="h-11 w-11 items-center justify-center rounded-2xl"
-          style={{ backgroundColor: tone.surface }}
-        >
-          <Icon icon={action.icon} size={20} color={tone.icon} />
-        </View>
+        <GlassIconBadge
+          icon={action.icon}
+          color={tone.icon}
+          surfaceColor={tone.surface}
+        />
         <Text
           variant="label"
           tone="inverse"
-          className="text-[15px] leading-[19px]"
+          className="text-[14px] leading-[18px]"
           numberOfLines={2}
         >
           {action.label}
