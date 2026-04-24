@@ -4,9 +4,8 @@ import { z } from "zod";
  * Service app jobs canonical schemas — BE parity (app/schemas/pool.py +
  * offer.py + appointment.py). P1-4 launch migration 2026-04-23.
  *
- * Eski features/jobs/{api,store}.ts mock paralel kalıyor (Cleaner Hat B
- * consumer migration sonrası söküm). Yeni tüketiciler bu dosya + api.live.ts
- * kullanır.
+ * Mock jobs API/store `*.mock.ts` altında karantinadadır. Yeni tüketiciler
+ * bu dosya + api.live.ts facade'ını kullanır.
  */
 
 export const ServiceRequestKindSchema = z.enum([

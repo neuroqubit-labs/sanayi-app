@@ -15,7 +15,7 @@ import {
   useJobDetail,
   useJobThread,
   useSendJobMessage,
-} from "../api.case-live";
+} from "../api.live";
 import { MessageBubble } from "../components/MessageBubble";
 
 export function JobThreadScreen() {

@@ -12,7 +12,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Clock, Lock, PackageCheck, ShieldCheck, Users } from "lucide-react-native";
 import { View } from "react-native";
 
-import { useJobDetail } from "../api.case-live";
+import { useJobDetail } from "../api.live";
 
 const STATUS_TONE_MAP: Record<
   string,

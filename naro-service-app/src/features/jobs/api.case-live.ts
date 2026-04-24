@@ -857,7 +857,9 @@ function buildCaseFromSummary(summary: TechnicianCaseSummary): ServiceCase {
   });
 }
 
-function buildCaseFromPoolDetail(detail: PoolCaseDetail): ServiceCase {
+export function buildServiceCaseFromPoolDetail(
+  detail: PoolCaseDetail,
+): ServiceCase {
   const now = detail.updated_at ?? detail.created_at;
   return buildCaseFromBundle({
     detail: {
@@ -937,10 +939,12 @@ async function fetchCanonicalJobCase(caseId: string): Promise<ServiceCase> {
   });
 }
 
-async function fetchPoolOrCanonicalCase(caseId: string): Promise<ServiceCase> {
+export async function fetchPoolOrCanonicalCase(
+  caseId: string,
+): Promise<ServiceCase> {
   try {
     const raw = await apiClient(`/pool/case/${caseId}`);
-    return buildCaseFromPoolDetail(PoolCaseDetailSchema.parse(raw));
+    return buildServiceCaseFromPoolDetail(PoolCaseDetailSchema.parse(raw));
   } catch {
     return fetchCanonicalJobCase(caseId);
   }

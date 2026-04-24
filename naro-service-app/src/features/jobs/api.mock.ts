@@ -11,7 +11,11 @@ import { useTechnicianProfileStore } from "@/features/technicians";
 import { mockDelay } from "@/shared/lib/mock";
 import { queryClient } from "@/shared/lib/query";
 
-import { isAvailableInPool, isRelevantToTechnician, useJobsStore } from "./store";
+import {
+  isAvailableInPool,
+  isRelevantToTechnician,
+  useJobsStore,
+} from "./store.mock";
 
 function sortCases(cases: ServiceCase[]) {
   return [...cases].sort((left, right) =>

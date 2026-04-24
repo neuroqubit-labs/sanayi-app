@@ -1,3 +1,4 @@
+import type { ServiceCase } from "@naro/domain";
 import {
   useInfiniteQuery,
   useMutation,
@@ -7,6 +8,25 @@ import {
 
 import { apiClient } from "@/runtime";
 
+import {
+  fetchPoolOrCanonicalCase,
+  useAddJobEvidence,
+  useApproveIncomingAppointment,
+  useDeclineIncomingAppointment,
+  useIncomingAppointments,
+  useJobDetail,
+  useJobTask,
+  useJobThread,
+  useJobsFeed,
+  useMarkJobSeen,
+  useMarkReadyForDelivery,
+  usePoolCaseDetail,
+  useRequestJobPartsApproval,
+  useSendJobMessage,
+  useShareJobInvoice,
+  useShareJobStatusUpdate,
+  useTechnicianTrackingJob,
+} from "./api.case-live";
 import {
   AppointmentDeclineRequestSchema,
   OfferResponseSchema,
@@ -21,14 +41,29 @@ import {
 } from "./schemas";
 
 /**
- * Service app jobs/offers/appointments canonical hooks — P1-4 launch
- * migration 2026-04-23. Eski features/jobs/api.ts mock paralel kalıyor
- * (Cleaner Hat B consumer migration + söküm); yeni tüketiciler buraya.
- *
- * Approval create (parts_request / invoice / completion) feature/approvals
- * altında `useCreateCaseApproval` olarak yazılacak — bu dosya offer +
- * appointment scope'unda.
+ * Service app jobs/offers/appointments live facade.
+ * Yeni tüketiciler yalnız bu dosyadan veya `@/features/jobs` barrel'ından
+ * import eder; mock API/store `*.mock.ts` altında karantinadadır.
  */
+
+export {
+  useAddJobEvidence,
+  useApproveIncomingAppointment,
+  useDeclineIncomingAppointment,
+  useIncomingAppointments,
+  useJobDetail,
+  useJobTask,
+  useJobThread,
+  useJobsFeed,
+  useMarkJobSeen,
+  useMarkReadyForDelivery,
+  usePoolCaseDetail,
+  useRequestJobPartsApproval,
+  useSendJobMessage,
+  useShareJobInvoice,
+  useShareJobStatusUpdate,
+  useTechnicianTrackingJob,
+};
 
 // ─── Pool feed + detail (cursor paginated) ─────────────────────────────────
 
@@ -57,6 +92,29 @@ export function useCasePoolLive(limit: number = 20) {
     },
     getNextPageParam: (lastPage: PaginatedPool): string | null =>
       lastPage.next_cursor,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useCasePool(limit: number = 20) {
+  return useQuery<ServiceCase[]>({
+    queryKey: ["pool", "feed", "service-case", "live", limit] as const,
+    queryFn: async () => {
+      const raw = await apiClient(buildPoolFeedPath({ limit }));
+      const page = PaginatedPoolSchema.parse(raw);
+      const items = await Promise.all(
+        page.items.map(async (item) => {
+          try {
+            return await fetchPoolOrCanonicalCase(item.id);
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return items
+        .filter((item): item is ServiceCase => item !== null)
+        .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+    },
     staleTime: 30 * 1000,
   });
 }
@@ -92,6 +150,10 @@ export function useSubmitOfferLive() {
       queryClient.invalidateQueries({ queryKey: ["offers"] });
     },
   });
+}
+
+export function useSubmitOffer() {
+  return useSubmitOfferLive();
 }
 
 // ─── Appointment approve/decline (teknisyen) ───────────────────────────────
