@@ -102,7 +102,6 @@ export function QuickActionsScreen() {
         entering={FadeIn.duration(shellMotion.base)}
         exiting={FadeOut.duration(shellMotion.fast)}
         className="absolute inset-0"
-        style={{ backgroundColor: colors.overlay }}
       >
         <Pressable
           accessibilityRole="button"
@@ -263,7 +262,10 @@ function ActionTileCard({
       onPress={onPress}
       className="flex-1 bg-app-surface active:bg-app-surface-2"
     >
-      <View className="min-h-[106px] justify-between gap-3 px-4 py-4">
+      <View
+        className="min-h-[106px] justify-between gap-3 px-4 py-4"
+        style={{ borderTopColor: tone.icon, borderTopWidth: 2 }}
+      >
         <View
           className="h-11 w-11 items-center justify-center rounded-2xl"
           style={{ backgroundColor: tone.surface }}

@@ -148,7 +148,6 @@ export function QuickActionsScreen() {
         entering={FadeIn.duration(shellMotion.base)}
         exiting={FadeOut.duration(shellMotion.fast)}
         className="absolute inset-0"
-        style={{ backgroundColor: colors.overlay }}
       >
         <Pressable
           accessibilityRole="button"
@@ -309,7 +308,10 @@ function PrimaryActionTile({
         .filter(Boolean)
         .join(" ")}
     >
-      <View className="min-h-[106px] justify-between gap-3 px-4 py-4">
+      <View
+        className="min-h-[106px] justify-between gap-3 px-4 py-4"
+        style={{ borderTopColor: tone.icon, borderTopWidth: 2 }}
+      >
         <View className="flex-row items-start justify-between gap-2">
           <View
             className="h-11 w-11 items-center justify-center rounded-2xl"
