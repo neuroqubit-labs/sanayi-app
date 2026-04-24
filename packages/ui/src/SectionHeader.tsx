@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react-native";
 
 import { Icon } from "./Icon";
 import { Text } from "./Text";
+import { useNaroTheme } from "./theme";
 
 export type SectionHeaderProps = {
   eyebrow?: string;
@@ -19,6 +20,8 @@ export function SectionHeader({
   actionLabel,
   onActionPress,
 }: SectionHeaderProps) {
+  const { colors } = useNaroTheme();
+
   return (
     <View className="flex-row items-end justify-between gap-4">
       <View className="flex-1 gap-1.5">
@@ -46,7 +49,7 @@ export function SectionHeader({
           <Text variant="label" tone="accent">
             {actionLabel}
           </Text>
-          <Icon icon={ChevronRight} size={16} color="#0ea5e9" />
+          <Icon icon={ChevronRight} size={16} color={colors.info} />
         </Pressable>
       ) : null}
     </View>

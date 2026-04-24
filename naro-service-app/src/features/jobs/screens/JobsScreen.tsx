@@ -1,16 +1,16 @@
 import type { ServiceCase } from "@naro/domain";
 import { buildTechnicianTrackingView } from "@naro/mobile-core";
-import { Icon, Text, ToggleChip, TrustBadge } from "@naro/ui";
-import { type Href, useRouter } from "expo-router";
 import {
-  ArrowRight,
-  CalendarClock,
-  Search,
-  ShieldCheck,
-  X,
-} from "lucide-react-native";
+  FilterRail,
+  SearchPillInput,
+  Text,
+  TrustBadge,
+  useNaroTheme,
+} from "@naro/ui";
+import { type Href, useRouter } from "expo-router";
+import { ArrowRight, CalendarClock, ShieldCheck } from "lucide-react-native";
 import { useDeferredValue, useMemo, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useInsuranceCapability } from "@/features/technicians";
@@ -49,6 +49,7 @@ function classifySection(
 
 export function JobsScreen() {
   const router = useRouter();
+  const { colors } = useNaroTheme();
   const { data: cases = [] } = useJobsFeed();
   const { data: incomingAppointments = [] } = useIncomingAppointments();
   const hasInsuranceCapability = useInsuranceCapability();
@@ -93,7 +94,8 @@ export function JobsScreen() {
       } else if (filter === "waiting_customer") {
         items = items.filter(
           (caseItem) =>
-            buildTechnicianTrackingView(caseItem).waitState.actor === "customer",
+            buildTechnicianTrackingView(caseItem).waitState.actor ===
+            "customer",
         );
       } else if (filter === "urgent") {
         items = items.filter((caseItem) => {
@@ -154,7 +156,8 @@ export function JobsScreen() {
   ];
 
   const activeJobs = cases.filter(
-    (caseItem) => caseItem.status !== "completed" && caseItem.origin !== "technician",
+    (caseItem) =>
+      caseItem.status !== "completed" && caseItem.origin !== "technician",
   ).length;
   const waitingCustomer = cases.filter(
     (caseItem) =>
@@ -186,7 +189,11 @@ export function JobsScreen() {
           },
         ]
       : []),
-    { key: "completed", label: "Tamamlandı", badge: completedCount || undefined },
+    {
+      key: "completed",
+      label: "Tamamlandı",
+      badge: completedCount || undefined,
+    },
   ];
 
   const isCompletedFilter = filter === "completed";
@@ -194,30 +201,13 @@ export function JobsScreen() {
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-app-bg">
       {/* Sticky search bar */}
-      <View className="gap-2 border-b border-app-outline/40 bg-app-bg px-6 pb-3 pt-3">
-        <View className="flex-row items-center gap-2 rounded-[18px] border border-app-outline bg-app-surface px-3.5 py-2.5">
-          <Icon icon={Search} size={16} color="#d94a1f" />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Plaka, vaka, müşteri ara..."
-            placeholderTextColor="#6f7b97"
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="none"
-            className="flex-1 text-base text-app-text"
-          />
-          {query.length > 0 ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Aramayı temizle"
-              hitSlop={8}
-              onPress={() => setQuery("")}
-            >
-              <Icon icon={X} size={14} color="#6f7b97" />
-            </Pressable>
-          ) : null}
-        </View>
+      <View className="border-b border-app-outline/40 bg-app-bg px-6 pb-3 pt-3">
+        <SearchPillInput
+          value={query}
+          onChangeText={setQuery}
+          onClear={() => setQuery("")}
+          placeholder="Plaka, vaka, müşteri ara..."
+        />
       </View>
 
       <ScrollView
@@ -236,28 +226,30 @@ export function JobsScreen() {
             >
               Kayıtlar
             </Text>
-            <Text variant="caption" tone="muted" className="text-app-text-muted">
+            <Text
+              variant="caption"
+              tone="muted"
+              className="text-app-text-muted"
+            >
               {activeJobs} aktif · {waitingCustomer} müşteri bekliyor ·{" "}
               {finishingSoon} teslime yakın
             </Text>
           </View>
 
-          <View className="flex-row flex-wrap gap-2">
-            {filterOptions.map((option) => (
-              <View key={option.key} className="flex-row items-center gap-1">
-                <ToggleChip
-                  label={
-                    option.badge
-                      ? `${option.label} · ${option.badge}`
-                      : option.label
-                  }
-                  selected={filter === option.key}
-                  size="sm"
-                  onPress={() => setFilter(option.key)}
-                />
-              </View>
-            ))}
-          </View>
+          <FilterRail
+            rows={[
+              {
+                key: "job-filters",
+                options: filterOptions.map((option) => ({
+                  key: option.key,
+                  label: option.label,
+                  badge: option.badge,
+                  selected: filter === option.key,
+                  onPress: () => setFilter(option.key),
+                })),
+              },
+            ]}
+          />
         </View>
 
         {/* Urgent: pending appointments */}
@@ -266,7 +258,7 @@ export function JobsScreen() {
         !isCompletedFilter ? (
           <View className="gap-3 rounded-[22px] border border-app-warning/40 bg-app-warning/10 px-4 py-4">
             <View className="flex-row items-center gap-2">
-              <CalendarClock size={16} color="#f5b33f" />
+              <CalendarClock size={16} color={colors.warning} />
               <Text variant="label" tone="warning" className="text-[14px]">
                 Randevu onayı bekleniyor
               </Text>
@@ -283,9 +275,7 @@ export function JobsScreen() {
                 <Pressable
                   key={caseItem.id}
                   accessibilityRole="button"
-                  onPress={() =>
-                    router.push(`/randevu/${caseItem.id}` as Href)
-                  }
+                  onPress={() => router.push(`/randevu/${caseItem.id}` as Href)}
                   className="flex-row items-center gap-3 rounded-[14px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-2"
                 >
                   <View className="flex-1 gap-0.5">
@@ -323,7 +313,7 @@ export function JobsScreen() {
           <View className="gap-3">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
-                <ShieldCheck size={16} color="#83a7ff" />
+                <ShieldCheck size={16} color={colors.info} />
                 <Text variant="h3" tone="inverse" className="text-[15px]">
                   Sigorta dosyalarım
                 </Text>
@@ -473,7 +463,7 @@ export function JobsScreen() {
                       {caseItem.total_label ? ` · ${caseItem.total_label}` : ""}
                     </Text>
                   </View>
-                  <ArrowRight size={14} color="#6f7b97" />
+                  <ArrowRight size={14} color={colors.textSubtle} />
                 </Pressable>
               ))}
             </View>

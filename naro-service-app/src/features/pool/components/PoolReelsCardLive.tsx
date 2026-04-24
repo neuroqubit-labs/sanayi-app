@@ -1,4 +1,4 @@
-import { Avatar, Button, Icon, Text, TrustBadge } from "@naro/ui";
+import { Avatar, Button, Icon, Text, TrustBadge, useNaroTheme } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import { MapPin, Tag, Timer } from "lucide-react-native";
 import { Pressable, View, type ViewStyle } from "react-native";
@@ -22,7 +22,6 @@ import { useOfferSheetStore } from "../offer-sheet-store";
  */
 
 const CARD_SHADOW_STYLE: ViewStyle = {
-  shadowColor: "#020617",
   shadowOffset: { width: 0, height: 20 },
   shadowOpacity: 0.34,
   shadowRadius: 30,
@@ -31,12 +30,12 @@ const CARD_SHADOW_STYLE: ViewStyle = {
 
 const KIND_META: Record<
   ServiceRequestKind,
-  { label: string; tone: "critical" | "warning" | "info" | "accent"; accent: string }
+  { label: string; tone: "critical" | "warning" | "info" | "accent" }
 > = {
-  accident: { label: "Kaza", tone: "critical", accent: "#ff6b6b" },
-  towing: { label: "Çekici", tone: "warning", accent: "#f5b33f" },
-  breakdown: { label: "Arıza", tone: "warning", accent: "#f5b33f" },
-  maintenance: { label: "Bakım", tone: "info", accent: "#83a7ff" },
+  accident: { label: "Kaza", tone: "critical" },
+  towing: { label: "Çekici", tone: "warning" },
+  breakdown: { label: "Arıza", tone: "warning" },
+  maintenance: { label: "Bakım", tone: "info" },
 };
 
 const URGENCY_META: Record<
@@ -85,9 +84,16 @@ export function PoolReelsCardLive({
   cardHeight,
 }: PoolReelsCardLiveProps) {
   const router = useRouter();
+  const { colors } = useNaroTheme();
   const openOfferSheet = useOfferSheetStore((state) => state.open);
   const kindMeta = KIND_META[caseItem.kind];
   const urgencyMeta = URGENCY_META[caseItem.urgency];
+  const kindBackground =
+    caseItem.kind === "accident"
+      ? colors.criticalSoft
+      : caseItem.kind === "maintenance"
+        ? colors.infoSoft
+        : colors.warningSoft;
 
   const createdLabel = formatCreatedAt(caseItem.created_at);
   const estimateLabel = formatMoney(caseItem.estimate_amount);
@@ -104,17 +110,17 @@ export function PoolReelsCardLive({
         accessibilityRole="button"
         accessibilityLabel={`${caseItem.title} detayını aç`}
         onPress={openDetail}
-        style={CARD_SHADOW_STYLE}
+        style={[CARD_SHADOW_STYLE, { shadowColor: colors.shadow }]}
         className="flex-1 overflow-hidden rounded-[32px] border border-white/10 bg-app-surface active:opacity-95"
       >
         <View
           className="relative h-40 overflow-hidden border-b border-white/10"
-          style={{ backgroundColor: `${kindMeta.accent}15` }}
+          style={{ backgroundColor: kindBackground }}
         >
           <View className="absolute inset-x-0 top-0 h-px bg-white/20" />
           <View
             className="absolute -right-10 -top-12 h-48 w-48 rounded-full"
-            style={{ backgroundColor: `${kindMeta.accent}25` }}
+            style={{ backgroundColor: colors.surface }}
           />
           <View className="absolute -left-10 bottom-[-24px] h-36 w-36 rounded-full bg-white/5" />
 
@@ -152,14 +158,14 @@ export function PoolReelsCardLive({
 
           <View className="flex-row flex-wrap justify-center gap-2">
             <View className="flex-row items-center gap-1.5 rounded-full border border-app-outline bg-app-surface-2 px-2.5 py-1">
-              <Icon icon={Timer} size={11} color="#83a7ff" />
+              <Icon icon={Timer} size={11} color={colors.info} />
               <Text variant="caption" tone="muted" className="text-[11px]">
                 {createdLabel}
               </Text>
             </View>
             {caseItem.location_label ? (
               <View className="flex-row items-center gap-1.5 rounded-full border border-app-outline bg-app-surface-2 px-2.5 py-1">
-                <Icon icon={MapPin} size={11} color="#2dd28d" />
+                <Icon icon={MapPin} size={11} color={colors.success} />
                 <Text variant="caption" tone="muted" className="text-[11px]">
                   {caseItem.location_label}
                 </Text>
@@ -167,7 +173,7 @@ export function PoolReelsCardLive({
             ) : null}
             {estimateLabel ? (
               <View className="flex-row items-center gap-1.5 rounded-full border border-app-outline bg-app-surface-2 px-2.5 py-1">
-                <Icon icon={Tag} size={11} color="#f5b33f" />
+                <Icon icon={Tag} size={11} color={colors.warning} />
                 <Text variant="caption" tone="muted" className="text-[11px]">
                   Tahmini {estimateLabel}
                 </Text>

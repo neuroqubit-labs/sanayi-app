@@ -39,10 +39,10 @@ const VARIANT_CLASS: Record<TextVariant, string> = {
 };
 
 const TONE_CLASS: Record<TextTone, string> = {
-  panic: "text-red-700 font-semibold",
-  calm: "text-neutral-700",
-  neutral: "text-neutral-900",
-  muted: "text-neutral-500",
+  panic: "text-app-critical font-semibold",
+  calm: "text-app-text-muted",
+  neutral: "text-app-text",
+  muted: "text-app-text-muted",
   inverse: "text-app-text",
   accent: "text-brand-500",
   success: "text-app-success",

@@ -29,9 +29,10 @@ export function ToggleChip({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected, disabled }}
+      hitSlop={8}
       onPress={disabled ? undefined : onPress}
       className={[
-        "rounded-full border",
+        "min-h-[36px] rounded-full border",
         SIZE_CLASS[size],
         selected
           ? "border-brand-500 bg-brand-500"

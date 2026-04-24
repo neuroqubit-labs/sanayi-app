@@ -10,8 +10,9 @@
     "test": "pnpm -r --parallel --if-present test",
     "typecheck": "pnpm -r --parallel --if-present typecheck",
     "lint": "pnpm -r --parallel --if-present lint",
-    "doctor": "pnpm --filter naro-app doctor && pnpm --filter naro-service-app doctor",
-    "ci:mobile": "pnpm lint && pnpm typecheck && pnpm test && pnpm doctor",
+    "doctor": "pnpm --filter naro-app run doctor && pnpm --filter naro-service-app run doctor",
+    "ui:audit": "node scripts/ui-audit.mjs",
+    "ci:mobile": "pnpm lint && pnpm typecheck && pnpm test && pnpm ui:audit && pnpm run doctor",
     "format": "pnpm -r --parallel --if-present format"
   },
   "devDependencies": {

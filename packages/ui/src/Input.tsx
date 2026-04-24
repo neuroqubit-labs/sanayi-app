@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import { TextInput, View, type TextInputProps } from "react-native";
 
 import { Text } from "./Text";
+import { useNaroTheme } from "./theme";
 
 export type InputProps = Omit<TextInputProps, "className"> & {
   label?: string;
@@ -23,20 +24,25 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
   },
   ref,
 ) {
+  const { colors } = useNaroTheme();
   const hasError = Boolean(error);
-  const borderClass = hasError ? "border-red-500" : "border-neutral-300";
+  const borderClass = hasError ? "border-app-critical" : "border-app-outline";
 
   const inputClass = [
-    "border rounded-xl px-4 py-3 text-base",
+    "min-h-[48px] rounded-xl border px-4 py-3 text-base",
     borderClass,
-    editable ? "text-neutral-900" : "text-neutral-500 bg-neutral-100",
+    editable
+      ? "bg-app-surface text-app-text"
+      : "bg-app-surface-2 text-app-text-muted",
     inputClassName ?? "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <View className={["gap-2", containerClassName ?? ""].filter(Boolean).join(" ")}>
+    <View
+      className={["gap-2", containerClassName ?? ""].filter(Boolean).join(" ")}
+    >
       {label ? (
         <Text variant="caption" tone="calm" className="font-medium">
           {label}
@@ -45,7 +51,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
       <TextInput
         ref={ref}
         editable={editable}
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={colors.textSubtle}
         className={inputClass}
         {...rest}
       />
