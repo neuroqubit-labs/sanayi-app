@@ -28,6 +28,7 @@ class UserResponse(BaseModel):
     approval_status: UserApprovalStatus | None
     locale: str
     avatar_asset_id: UUID | None
+    kvkk_consented_at: datetime | None
     last_login_at: datetime | None
     created_at: datetime
 
@@ -38,6 +39,8 @@ class UserUpdate(BaseModel):
     Phone değişikliği ayrı bir OTP-reverify akışıyla yapılır (burada kabul
     edilmez). Role + status backend yönetimindedir. Avatar upload sonrası
     asset_id buradan set edilir (null gönderilirse avatar temizlenir).
+    KVKK consent profile-setup submit anında client tarafından gönderilir
+    (industry-standard pasif kabul + audit timestamp).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -46,6 +49,7 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     locale: str | None = Field(default=None, min_length=2, max_length=10)
     avatar_asset_id: UUID | None = None
+    kvkk_consented_at: datetime | None = None
 
     @field_validator("full_name")
     @classmethod

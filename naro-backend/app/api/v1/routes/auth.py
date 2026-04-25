@@ -137,10 +137,9 @@ async def verify_otp(
         else:
             user = await users_repo.create(role=role, email=target_value)
 
-    # Profile_completed: technician için TechnicianProfile satırı var mı —
-    # mobile routing matrisi onboarding/pending/tabs kararı verirken bu
-    # flag'i kullanır. Customer her zaman True (basit user yeterli).
-    profile_completed = True
+    # Profile_completed: mobile routing matrisi onboarding/tabs kararı için.
+    # - Technician: TechnicianProfile satırı var mı
+    # - Customer: User.full_name dolu mu (boş → kısa profil ekranı gerekli)
     if user.role == UserRole.TECHNICIAN:
         profile_exists = (
             await db.execute(
@@ -151,6 +150,8 @@ async def verify_otp(
             )
         ).scalar_one_or_none()
         profile_completed = profile_exists is not None
+    else:
+        profile_completed = bool(user.full_name and user.full_name.strip())
 
     # Session persist + token pair (Faz 9a FIX)
     pair = await issue_initial_session(
