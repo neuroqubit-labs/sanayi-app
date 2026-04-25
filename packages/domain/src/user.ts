@@ -30,6 +30,7 @@ export const UserSchema = z.object({
   approval_status: UserApprovalStatusSchema.nullable().default(null),
   locale: z.string().default("tr-TR"),
   avatar_asset_id: z.string().uuid().nullable().default(null),
+  kvkk_consented_at: z.string().nullable().default(null),
   last_login_at: z.string().nullable().default(null),
   created_at: z.string(),
 });
@@ -39,12 +40,15 @@ export type User = z.infer<typeof UserSchema>;
  * PATCH /users/me body — partial update.
  * Phone değişikliği bu endpoint'te yapılmaz (OTP-reverify ayrı akış).
  * `avatar_asset_id: null` gönderilirse mevcut avatar temizlenir.
+ * `kvkk_consented_at` profile-setup submit anında ISO timestamp ile
+ * yazılır (industry-standard pasif kabul).
  */
 export const UserUpdatePayloadSchema = z.object({
   full_name: z.string().trim().min(2).max(255).optional(),
   email: z.string().email().optional(),
   locale: z.string().min(2).max(10).optional(),
   avatar_asset_id: z.string().uuid().nullable().optional(),
+  kvkk_consented_at: z.string().datetime().optional(),
 });
 export type UserUpdatePayload = z.infer<typeof UserUpdatePayloadSchema>;
 
