@@ -17,6 +17,7 @@ from app.schemas.auth import (
     OtpRequest,
     OtpRequestResponse,
     OtpVerify,
+    OtpVerifyResponse,
     RefreshRequest,
     TokenPair,
 )
@@ -89,13 +90,13 @@ async def request_otp(
     )
 
 
-@router.post("/otp/verify", response_model=TokenPair)
+@router.post("/otp/verify", response_model=OtpVerifyResponse)
 async def verify_otp(
     payload: OtpVerify,
     otp: OtpDep,
     db: DbDep,
     request: Request,
-) -> TokenPair:
+) -> OtpVerifyResponse:
     result = await otp.verify(delivery_id=payload.delivery_id, code=payload.code)
     ip, ua, device = _extract_client(request)
 
@@ -113,6 +114,9 @@ async def verify_otp(
             detail="kod geçersiz veya süresi doldu",
         )
 
+    from sqlalchemy import select
+
+    from app.models.technician import TechnicianProfile
     from app.models.user import UserRole
 
     role = UserRole(result["role"])
@@ -126,11 +130,27 @@ async def verify_otp(
         user = await users_repo.get_by_email(target_value)
         issued_via = AuthIdentityProvider.OTP_EMAIL
 
+    is_new_user = user is None
     if user is None:
         if result["channel"] == "sms":
             user = await users_repo.create(role=role, phone=target_value)
         else:
             user = await users_repo.create(role=role, email=target_value)
+
+    # Profile_completed: technician için TechnicianProfile satırı var mı —
+    # mobile routing matrisi onboarding/pending/tabs kararı verirken bu
+    # flag'i kullanır. Customer her zaman True (basit user yeterli).
+    profile_completed = True
+    if user.role == UserRole.TECHNICIAN:
+        profile_exists = (
+            await db.execute(
+                select(TechnicianProfile.id).where(
+                    TechnicianProfile.user_id == user.id,
+                    TechnicianProfile.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        profile_completed = profile_exists is not None
 
     # Session persist + token pair (Faz 9a FIX)
     pair = await issue_initial_session(
@@ -162,9 +182,14 @@ async def verify_otp(
 
     await db.commit()
 
-    return TokenPair(
+    return OtpVerifyResponse(
         access_token=pair.access_token,
         refresh_token=pair.refresh_token,
+        user_id=user.id,
+        role=user.role,
+        approval_status=user.approval_status,
+        is_new_user=is_new_user,
+        profile_completed=profile_completed,
     )
 
 

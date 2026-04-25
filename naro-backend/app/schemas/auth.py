@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.models.user import UserApprovalStatus, UserRole
 from app.schemas.user import is_e164
 
 
@@ -47,6 +48,22 @@ class TokenPair(BaseModel):
     access_token: str
     refresh_token: str
     token_type: Literal["bearer"] = "bearer"
+
+
+class OtpVerifyResponse(TokenPair):
+    """OTP verify zenginleştirilmiş response — mobile routing matrisi tek
+    round-trip ile karar versin diye user + profile durumu eklenmiştir.
+
+    `is_new_user`: bu verify sırasında user create edildi mi (welcome flow için).
+    `profile_completed`: technician için TechnicianProfile var mı (onboarding'e
+    yönlenip yönlenmeyeceği). Customer için her zaman True.
+    """
+
+    user_id: UUID
+    role: UserRole
+    approval_status: UserApprovalStatus | None = None
+    is_new_user: bool = False
+    profile_completed: bool = True
 
 
 class RefreshRequest(BaseModel):
