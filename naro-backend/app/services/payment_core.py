@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from enum import Enum
 from uuid import UUID, uuid4
 
 from redis.asyncio import Redis
@@ -82,6 +83,12 @@ class PaymentAmountMissingError(PaymentCoreError):
 def provider_from_settings(settings: Settings | None = None) -> PaymentProvider:
     active = settings or get_settings()
     return PaymentProvider.IYZICO if active.psp_provider == "iyzico" else PaymentProvider.MOCK
+
+
+def _enum_value(value: object) -> str:
+    if isinstance(value, Enum):
+        return str(value.value)
+    return str(value)
 
 
 async def ensure_tow_payment_required(
@@ -169,7 +176,7 @@ async def initiate_tow_preauth(
                 amount=order.amount,
                 currency=order.currency,
                 expires_at=order.expires_at,
-                payment_mode=PaymentModeSchema(order.payment_mode.value),
+                payment_mode=PaymentModeSchema(_enum_value(order.payment_mode)),
             )
 
     attempt_id = uuid4()
@@ -182,11 +189,11 @@ async def initiate_tow_preauth(
         currency=order.currency,
         state=PaymentState.PREAUTH_REQUESTED,
         raw_request={
-            "subject_type": order.subject_type.value,
+            "subject_type": _enum_value(order.subject_type),
             "subject_id": str(order.subject_id),
             "amount": str(order.amount),
             "currency": order.currency,
-            "payment_mode": order.payment_mode.value,
+            "payment_mode": _enum_value(order.payment_mode),
         },
     )
     session.add(attempt)
@@ -242,7 +249,7 @@ async def initiate_tow_preauth(
         amount=order.amount,
         currency=order.currency,
         expires_at=order.expires_at,
-        payment_mode=PaymentModeSchema(order.payment_mode.value),
+        payment_mode=PaymentModeSchema(_enum_value(order.payment_mode)),
     )
 
 
@@ -308,7 +315,7 @@ async def initiate_case_approval_capture(
                 amount=order.amount,
                 currency=order.currency,
                 expires_at=order.expires_at,
-                payment_mode=PaymentModeSchema(order.payment_mode.value),
+                payment_mode=PaymentModeSchema(_enum_value(order.payment_mode)),
             )
     else:
         order.amount = approval.amount
@@ -327,12 +334,12 @@ async def initiate_case_approval_capture(
         currency=order.currency,
         state=PaymentState.CAPTURE_REQUESTED,
         raw_request={
-            "subject_type": order.subject_type.value,
+            "subject_type": _enum_value(order.subject_type),
             "subject_id": str(order.subject_id),
             "case_id": str(case.id),
             "amount": str(order.amount),
             "currency": order.currency,
-            "payment_mode": order.payment_mode.value,
+            "payment_mode": _enum_value(order.payment_mode),
         },
     )
     session.add(attempt)
@@ -391,7 +398,7 @@ async def initiate_case_approval_capture(
         amount=order.amount,
         currency=order.currency,
         expires_at=order.expires_at,
-        payment_mode=PaymentModeSchema(order.payment_mode.value),
+        payment_mode=PaymentModeSchema(_enum_value(order.payment_mode)),
     )
 
 
@@ -439,13 +446,13 @@ async def process_payment_callback(
         attempt.failure_code = result.error_code
         attempt.failure_message = result.message
         order.state = PaymentState.PREAUTH_FAILED
-        if order.subject_type == PaymentSubjectType.CASE_APPROVAL:
+        if _enum_value(order.subject_type) == PaymentSubjectType.CASE_APPROVAL.value:
             await _mark_case_approval_payment_failed(session, order, result.message)
         else:
             await _mark_tow_payment_failed(session, order, result.message)
         return True
 
-    if order.subject_type == PaymentSubjectType.CASE_APPROVAL:
+    if _enum_value(order.subject_type) == PaymentSubjectType.CASE_APPROVAL.value:
         attempt.state = PaymentState.CAPTURED
         order.state = PaymentState.CAPTURED
         await _mark_case_approval_capture_paid(session, order, provider_ref=result.provider_ref or payment_id)
@@ -473,15 +480,16 @@ async def payment_snapshot_for_case(
     )
     if order is None:
         return None
-    state = PaymentStateSchema(order.state.value)
+    state_value = _enum_value(order.state)
+    state = PaymentStateSchema(state_value)
     retryable = order.state in (
         PaymentState.PAYMENT_REQUIRED,
         PaymentState.PREAUTH_FAILED,
     )
     next_action = None
-    if order.state == PaymentState.PAYMENT_REQUIRED:
+    if state_value == PaymentState.PAYMENT_REQUIRED.value:
         next_action = "initiate_payment"
-    elif order.state == PaymentState.PREAUTH_FAILED:
+    elif state_value == PaymentState.PREAUTH_FAILED.value:
         next_action = "retry_payment"
     return PaymentSnapshot(
         state=state,
@@ -569,7 +577,7 @@ def _build_case_approval_payment_snapshot(
 ) -> dict[str, object]:
     return {
         "approval_id": str(approval.id),
-        "approval_kind": approval.kind.value,
+        "approval_kind": _enum_value(approval.kind),
         "amount": str(approval.amount),
         "currency": approval.currency,
         "title": approval.title,
@@ -581,7 +589,7 @@ async def _mark_case_approval_payment_failed(
     order: PaymentOrder,
     message: str | None,
 ) -> None:
-    if order.subject_type != PaymentSubjectType.CASE_APPROVAL:
+    if _enum_value(order.subject_type) != PaymentSubjectType.CASE_APPROVAL.value:
         return
     approval = await session.get(CaseApproval, order.subject_id)
     if approval is None:
@@ -609,7 +617,7 @@ async def _mark_case_approval_capture_paid(
     *,
     provider_ref: str,
 ) -> None:
-    if order.subject_type != PaymentSubjectType.CASE_APPROVAL:
+    if _enum_value(order.subject_type) != PaymentSubjectType.CASE_APPROVAL.value:
         return
     approval = await session.get(CaseApproval, order.subject_id)
     if approval is None:
@@ -655,7 +663,7 @@ async def _mark_tow_payment_failed(
     order: PaymentOrder,
     message: str | None,
 ) -> None:
-    if order.subject_type != PaymentSubjectType.TOW_CASE:
+    if _enum_value(order.subject_type) != PaymentSubjectType.TOW_CASE.value:
         return
     tow_case = await session.get(TowCase, order.subject_id)
     case = await session.get(ServiceCase, order.subject_id)
@@ -681,7 +689,7 @@ async def _mark_tow_preauth_held(
     psp_response: dict[str, object] | None,
     redis: Redis | None,
 ) -> None:
-    if order.subject_type != PaymentSubjectType.TOW_CASE:
+    if _enum_value(order.subject_type) != PaymentSubjectType.TOW_CASE.value:
         return
     case = await session.get(ServiceCase, order.subject_id)
     tow_case = await session.get(TowCase, order.subject_id)

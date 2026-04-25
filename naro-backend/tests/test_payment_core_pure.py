@@ -61,6 +61,45 @@ def test_payment_model_and_schema_do_not_define_raw_card_fields() -> None:
             assert token not in content, f"{token} leaked into {path}"
 
 
+def test_payment_core_normalizes_enum_and_string_values() -> None:
+    from app.services import payment_core
+
+    assert payment_core._enum_value(PaymentSubjectType.TOW_CASE) == "tow_case"
+    assert payment_core._enum_value("tow_case") == "tow_case"
+    assert payment_core._enum_value(PaymentMode.PREAUTH_CAPTURE) == "preauth_capture"
+    assert payment_core._enum_value("payment_required") == "payment_required"
+
+
+@pytest.mark.asyncio
+async def test_payment_snapshot_accepts_string_backed_model_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import payment_core
+
+    order = SimpleNamespace(
+        id=uuid4(),
+        state="payment_required",
+        amount=Decimal("1311.00"),
+        currency="TRY",
+    )
+    monkeypatch.setattr(
+        payment_core,
+        "get_payment_order",
+        AsyncMock(return_value=order),
+    )
+
+    snapshot = await payment_core.payment_snapshot_for_case(
+        SimpleNamespace(),  # type: ignore[arg-type]
+        uuid4(),
+    )
+
+    assert snapshot is not None
+    assert snapshot.state == "payment_required"
+    assert snapshot.amount_label == "En fazla ₺1.311"
+    assert snapshot.retryable is True
+    assert snapshot.next_action == "initiate_payment"
+
+
 def test_production_rejects_mock_psp(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core import config as config_mod
 
