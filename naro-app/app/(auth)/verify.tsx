@@ -39,9 +39,18 @@ export default function VerifyScreen() {
     if (!deliveryId) return;
     setSubmitError(null);
     try {
-      const tokens = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
-      await setTokens(tokens.access_token, tokens.refresh_token);
-      telemetry.track("auth_verified", { app: "customer" });
+      // BE OtpVerifyResponse zenginleştirilmiş — is_new_user telemetry'e
+      // log; routing customer için sade (kısa profil ekranı V1.1 backlog).
+      const res = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
+      await setTokens(res.access_token, res.refresh_token);
+      telemetry.track("auth_verified", {
+        app: "customer",
+        is_new_user: res.is_new_user,
+      });
+      // Customer her zaman tabs'e — yeni kullanıcı ise profil sekmesi
+      // boş display_name ile başlar; ProfileDetailScreen'de Ad-Soyad
+      // edit ile tamamlar (PATCH /users/me — useUpdateMe hook devrede).
+      // V1.1: yeni user için kısa profil ekranı (`onboarding/profile-setup`).
       router.replace("/(tabs)");
     } catch (error) {
       telemetry.captureError(error, { app: "customer", stage: "verify_otp" });
