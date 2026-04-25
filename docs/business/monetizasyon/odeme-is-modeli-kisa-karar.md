@@ -46,10 +46,12 @@ Online ödeme alabilir. Ödeme hesabı tamamlandığında:
 Online ödeme alamaz. Platformda şu şekilde kalabilir:
 
 - Profil ve portföy gösterebilir.
-- Uygunsa teklif/randevu alabilir.
 - Ödeme iş yerinde veya platform dışı gerçekleşir.
 
-Bu tip kullanıcı çekici veya kampanya gibi online ödeme gerektiren ürünü açmak isterse ödeme hesabı ve gerekli ticari bilgiler istenir.
+Bu tip kullanıcı teklif/randevu, çekici veya kampanya gibi aktif iş kapılarına
+geçmek isterse ödeme hesabı ve gerekli ticari bilgiler istenir. Müşteri daha
+sonra serviste kart/nakit seçebilir; bu seçim ödeme hesabı gerekliliğini
+kaldırmaz.
 
 ### Çekici
 
@@ -70,6 +72,10 @@ Akış:
 5. İş teslim edilince final tutar kesilir veya sabit tutar kapatılır.
 
 Not: Preauth + capture uzun vadede ideal. Eğer PSP marketplace ile preauth/split kısıtlıysa ilk fazda sabit fiyat/direct capture düşünülebilir.
+
+Planlı çekicide online ödeme yine zorunludur, ancak ön provizyon randevu
+saatine yakın açılır. Varsayılan ürün kuralı: ödeme penceresi randevudan 60
+dakika önce açılır; ödeme alınmadan dispatch başlamaz.
 
 ### Kampanya / Paket
 
@@ -147,7 +153,14 @@ UI davranışı:
 - Çekici online olmak isterse ve ödeme hesabı yoksa “Ödeme hesabını tamamla” engeli çıkar.
 - Kampanya oluşturmak isterse ve ödeme hesabı yoksa kampanya ödeme alacak şekilde yayınlanamaz.
 - Bakım/tamir için online ödeme açmak isterse ödeme hesabı zorunlu olur.
-- Offline ödeme/randevu/profil akışları ödeme hesabı olmadan devam edebilir.
+- Profil ve portföy düzenleme ödeme hesabı olmadan devam eder.
+- Serviste kart/nakit seçimi müşteriye açık kalır; bu offline ödeme seçimi servis tarafındaki aktif iş ödeme hesabı kapısını kaldırmaz.
+
+Backend davranışı:
+
+- Development ortamında `standard_sandbox` ve mock alt üye işyeri kabul edilir.
+- Staging/production ortamında `PAYMENT_PLATFORM_MODEL=marketplace` zorunludur.
+- Production’da gerçek `sub_merchant_key` olmadan ödeme hesabı `approved` sayılsa bile aktif ödeme kapıları açılmaz.
 
 ## 7. Ürün İlkesi
 

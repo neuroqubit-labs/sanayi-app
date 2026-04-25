@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -13,6 +13,7 @@ from app.models.technician import TechnicianAvailability, TechnicianProfile
 from app.models.tow import TowDispatchAttempt
 from app.models.user import User
 from app.repositories import tow as tow_repo
+from app.schemas.payment import PaymentSnapshot, PaymentStateSchema
 from app.schemas.tow import (
     LatLng,
     TowAvailabilityOutput,
@@ -100,6 +101,27 @@ async def _build_snapshot(db: AsyncSession, case: ServiceCase) -> TowCaseSnapsho
         raise HTTPException(status_code=404, detail="tow subtype not found")
     settlement = await tow_repo.get_settlement_by_case(db, case.id)
     stage_schema = TowDispatchStageSchema(tow_case.tow_stage.value)
+    payment_window_opens_at = None
+    if tow_case.tow_mode.value == "scheduled" and tow_case.scheduled_at is not None:
+        payment_window_opens_at = tow_case.scheduled_at - timedelta(
+            minutes=get_settings().tow_scheduled_payment_lead_minutes
+        )
+    payment = await payment_core.payment_snapshot_for_case(db, case.id)
+    if (
+        payment is None
+        and stage_schema == TowDispatchStageSchema.SCHEDULED_WAITING
+        and payment_window_opens_at is not None
+        and payment_window_opens_at > datetime.now(UTC)
+    ):
+        quote = tow_case.tow_fare_quote or {}
+        cap_amount = Decimal(str(quote.get("cap_amount") or "0"))
+        payment = PaymentSnapshot(
+            state=PaymentStateSchema.PAYMENT_REQUIRED,
+            amount_label=f"En fazla ₺{int(cap_amount):,}".replace(",", "."),
+            retryable=False,
+            next_action="wait_until_payment_window",
+            amount=cap_amount,
+        )
     return TowCaseSnapshot(
         id=case.id,
         created_at=case.created_at,
@@ -125,6 +147,7 @@ async def _build_snapshot(db: AsyncSession, case: ServiceCase) -> TowCaseSnapsho
         incident_reason=tow_case.incident_reason,
         required_equipment=tow_case.tow_required_equipment or [],
         scheduled_at=tow_case.scheduled_at,
+        payment_window_opens_at=payment_window_opens_at,
         fare_quote=(
             TowFareQuote(**tow_case.tow_fare_quote)
             if tow_case.tow_fare_quote
@@ -138,5 +161,5 @@ async def _build_snapshot(db: AsyncSession, case: ServiceCase) -> TowCaseSnapsho
         ),
         final_amount=settlement.final_amount if settlement else None,
         cancellation_fee=None,
-        payment=await payment_core.payment_snapshot_for_case(db, case.id),
+        payment=payment,
     )

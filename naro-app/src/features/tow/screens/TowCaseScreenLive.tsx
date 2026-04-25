@@ -157,6 +157,9 @@ export function TowCaseScreenLive() {
     snapshot.stage === "payment_required" ||
     snapshot.stage === "preauth_failed" ||
     snapshot.stage === "preauth_stale";
+  const waitsForPaymentWindow =
+    snapshot.stage === "scheduled_waiting" &&
+    snapshot.payment?.next_action === "wait_until_payment_window";
   const isTerminal =
     snapshot.stage === "delivered" || snapshot.stage === "cancelled";
 
@@ -250,6 +253,13 @@ export function TowCaseScreenLive() {
             />
           ) : null}
 
+          {waitsForPaymentWindow ? (
+            <ScheduledPaymentWindowCard
+              opensAt={snapshot.payment_window_opens_at ?? null}
+              amountLabel={snapshot.payment?.amount_label ?? null}
+            />
+          ) : null}
+
           {isSearching ? (
             <SearchingTowCard
               noImmediateCandidate={snapshot.stage === "timeout_converted_to_pool"}
@@ -321,6 +331,41 @@ export function TowCaseScreenLive() {
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+function ScheduledPaymentWindowCard({
+  opensAt,
+  amountLabel,
+}: {
+  opensAt: string | null;
+  amountLabel: string | null;
+}) {
+  const label = opensAt
+    ? new Date(opensAt).toLocaleString("tr-TR", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "Randevuya yakın";
+  return (
+    <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+      <View className="flex-row items-center gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-app-info-soft">
+          <Icon icon={ShieldCheck} size={17} color="#0ea5e9" />
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text variant="label" tone="inverse" className="text-[14px]">
+            Ödeme zamanı yaklaşınca açılacak
+          </Text>
+          <Text variant="caption" tone="muted" className="text-[12px] leading-[17px]">
+            {label} civarında bildirim göndeririz. {amountLabel ?? "Tavan ücret"} bu
+            adımda yeniden doğrulanır.
+          </Text>
+        </View>
+      </View>
+    </View>
   );
 }
 

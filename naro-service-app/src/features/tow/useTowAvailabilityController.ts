@@ -6,6 +6,10 @@ import {
   useTowAvailability,
 } from "./api";
 import type { TowEquipment } from "./schemas";
+import {
+  isPaymentAccountRequiredError,
+  paymentAccountRequiredMessage,
+} from "@/features/technicians/paymentAccountErrors";
 
 const DEFAULT_EQUIPMENT: TowEquipment[] = ["flatbed"];
 const IDLE_HEARTBEAT_MS = 10 * 60 * 1000;
@@ -32,6 +36,7 @@ export function useTowAvailabilityController(enabled: boolean = true) {
   const availability = useTowAvailability(enabled);
   const mutation = useSetTowAvailability();
   const [error, setError] = useState<string | null>(null);
+  const [requiresPaymentAccount, setRequiresPaymentAccount] = useState(false);
 
   const equipment =
     availability.data?.equipment && availability.data.equipment.length > 0
@@ -49,8 +54,15 @@ export function useTowAvailabilityController(enabled: boolean = true) {
         equipment,
       });
       setError(null);
+      setRequiresPaymentAccount(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Konum alınamadı.");
+      if (isPaymentAccountRequiredError(err)) {
+        setRequiresPaymentAccount(true);
+        setError(paymentAccountRequiredMessage("Çekici modunu açmak"));
+      } else {
+        setRequiresPaymentAccount(false);
+        setError(err instanceof Error ? err.message : "Konum alınamadı.");
+      }
     }
   }, [equipment, mutation]);
 
@@ -60,6 +72,7 @@ export function useTowAvailabilityController(enabled: boolean = true) {
       equipment,
     });
     setError(null);
+    setRequiresPaymentAccount(false);
   }, [equipment, mutation]);
 
   const heartbeat = useCallback(async () => {
@@ -73,8 +86,15 @@ export function useTowAvailabilityController(enabled: boolean = true) {
         equipment,
       });
       setError(null);
+      setRequiresPaymentAccount(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Konum yenilenemedi.");
+      if (isPaymentAccountRequiredError(err)) {
+        setRequiresPaymentAccount(true);
+        setError(paymentAccountRequiredMessage("Çekici modunu açık tutmak"));
+      } else {
+        setRequiresPaymentAccount(false);
+        setError(err instanceof Error ? err.message : "Konum yenilenemedi.");
+      }
       await mutation.mutateAsync({
         available: false,
         equipment,
@@ -95,6 +115,7 @@ export function useTowAvailabilityController(enabled: boolean = true) {
     isOnline: availability.data?.available ?? false,
     isPending: mutation.isPending || availability.isLoading,
     error,
+    requiresPaymentAccount,
     setOnline,
     setOffline,
   };

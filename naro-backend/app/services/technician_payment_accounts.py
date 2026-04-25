@@ -81,11 +81,12 @@ async def submit_payment_account(
     session: AsyncSession, technician_user_id: UUID
 ) -> TechnicianPaymentAccount:
     account = await get_or_create_payment_account(session, technician_user_id)
+    settings = get_settings()
     now = datetime.now(UTC)
-    account.provider = get_settings().psp_provider
+    account.provider = settings.psp_provider
     account.submitted_at = now
     # Mock provider simulates PSP sub-merchant approval so local flows remain usable.
-    if account.provider == "mock":
+    if account.provider == "mock" and settings.environment == "development":
         account.status = TechnicianPaymentAccountStatus.APPROVED
         account.can_receive_online_payments = True
         account.sub_merchant_key = account.sub_merchant_key or f"mock_sub_{technician_user_id.hex[:16]}"
@@ -100,6 +101,7 @@ async def submit_payment_account(
 async def require_can_receive_online_payments(
     session: AsyncSession, technician_user_id: UUID
 ) -> TechnicianPaymentAccount:
+    settings = get_settings()
     account = await get_payment_account(session, technician_user_id)
     if (
         account is None
@@ -107,4 +109,8 @@ async def require_can_receive_online_payments(
         or not account.can_receive_online_payments
     ):
         raise PaymentAccountRequiredError(technician_user_id)
+    if settings.environment in ("staging", "production"):
+        key = account.sub_merchant_key or ""
+        if settings.payment_platform_model != "marketplace" or not key or key.startswith("mock_"):
+            raise PaymentAccountRequiredError(technician_user_id)
     return account

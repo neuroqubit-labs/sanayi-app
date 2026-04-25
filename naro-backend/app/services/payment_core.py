@@ -21,7 +21,7 @@ from app.core.config import Settings, get_settings
 from app.integrations.maps import get_maps
 from app.integrations.psp import Psp
 from app.models.billing import PaymentProvider
-from app.models.case import ServiceCase, ServiceRequestKind, TowDispatchStage
+from app.models.case import ServiceCase, ServiceRequestKind, TowDispatchStage, TowMode
 from app.models.case_audit import CaseEventType, CaseTone
 from app.models.case_process import (
     CaseApproval,
@@ -78,6 +78,11 @@ class PaymentCheckoutUnavailableError(PaymentCoreError):
 class PaymentAmountMissingError(PaymentCoreError):
     error_type = "payment_amount_missing"
     http_status = 422
+
+
+class PaymentAttemptNotFoundError(PaymentCoreError):
+    error_type = "payment_attempt_not_found"
+    http_status = 404
 
 
 def provider_from_settings(settings: Settings | None = None) -> PaymentProvider:
@@ -253,6 +258,68 @@ async def initiate_tow_preauth(
     )
 
 
+async def abandon_tow_payment(
+    session: AsyncSession,
+    *,
+    case: ServiceCase,
+    tow_case: TowCase,
+) -> PaymentOrder:
+    if case.kind != ServiceRequestKind.TOWING:
+        raise PaymentSubjectNotFoundError("case is not a towing case")
+    if tow_case.tow_stage not in (
+        TowDispatchStage.PAYMENT_REQUIRED,
+        TowDispatchStage.PREAUTH_FAILED,
+        TowDispatchStage.PREAUTH_STALE,
+    ):
+        raise PaymentNotAllowedError(
+            f"payment cannot be abandoned from stage={tow_case.tow_stage.value}"
+        )
+    await _lock_payment_subject(
+        session,
+        subject_type=PaymentSubjectType.TOW_CASE,
+        subject_id=case.id,
+        mode=PaymentMode.PREAUTH_CAPTURE,
+    )
+    order = await get_payment_order(
+        session,
+        subject_type=PaymentSubjectType.TOW_CASE,
+        subject_id=case.id,
+        mode=PaymentMode.PREAUTH_CAPTURE,
+    )
+    if order is None:
+        raise PaymentSubjectNotFoundError("payment order not found")
+    if _enum_value(order.state) == PaymentState.PREAUTH_HELD.value:
+        raise PaymentNotAllowedError("preauth already held")
+    attempt = (
+        await session.get(PaymentAttempt, order.latest_attempt_id)
+        if order.latest_attempt_id
+        else None
+    )
+    if attempt is None:
+        raise PaymentAttemptNotFoundError("payment attempt not found")
+    if _enum_value(attempt.state) == PaymentState.PREAUTH_REQUESTED.value:
+        attempt.state = PaymentState.CANCELLED
+        attempt.completed_at = datetime.now(UTC)
+        attempt.failure_code = "CUSTOMER_ABANDONED"
+        attempt.failure_message = "Customer closed the 3DS payment step"
+    order.state = PaymentState.PAYMENT_REQUIRED
+    await append_event(
+        session,
+        case_id=case.id,
+        event_type=CaseEventType.PAYMENT_INITIATED,
+        title="Çekici ödeme adımı kapatıldı",
+        tone=CaseTone.WARNING,
+        actor_user_id=case.customer_user_id,
+        context={
+            "payment_order_id": str(order.id),
+            "payment_attempt_id": str(attempt.id),
+            "reason": "customer_abandoned",
+        },
+    )
+    await session.flush()
+    return order
+
+
 async def initiate_case_approval_capture(
     session: AsyncSession,
     *,
@@ -424,6 +491,41 @@ async def process_payment_callback(
     order = (await session.execute(order_stmt)).scalar_one_or_none()
     if order is None:
         return False
+    if _enum_value(attempt.state) == PaymentState.CANCELLED.value:
+        result = await psp.get_payment_detail(payment_id=payment_id)
+        attempt.provider_payment_id = payment_id
+        attempt.completed_at = attempt.completed_at or datetime.now(UTC)
+        attempt.raw_response = {
+            "abandoned_callback": True,
+            "payment_detail": result.raw,
+        }
+        if result.success:
+            void_result = await psp.void_preauth(
+                idempotency_key=f"void_abandoned:{attempt.id}",
+                preauth_id=result.provider_ref or payment_id,
+            )
+            attempt.raw_response = {
+                "abandoned_callback": True,
+                "payment_detail": result.raw,
+                "void_result": void_result.raw,
+            }
+            if _enum_value(order.state) not in (
+                PaymentState.PREAUTH_HELD.value,
+                PaymentState.CAPTURED.value,
+            ):
+                order.state = PaymentState.PAYMENT_REQUIRED
+            await append_event(
+                session,
+                case_id=order.case_id or order.subject_id,
+                event_type=CaseEventType.PAYMENT_REFUNDED,
+                title="Kapatılan ödeme için ön provizyon serbest bırakıldı",
+                tone=CaseTone.INFO,
+                context={
+                    "payment_order_id": str(order.id),
+                    "payment_attempt_id": str(attempt.id),
+                },
+            )
+        return True
     if order.state in (
         PaymentState.PREAUTH_HELD,
         PaymentState.CAPTURED,
@@ -716,6 +818,12 @@ async def _mark_tow_preauth_held(
         quoted_amount=order.amount,
         psp_response=psp_response,
     )
+    now_due = tow_case.scheduled_at is None or tow_case.scheduled_at <= now
+    target_stage = (
+        TowDispatchStage.SEARCHING
+        if tow_case.tow_mode != TowMode.SCHEDULED or now_due
+        else TowDispatchStage.SCHEDULED_WAITING
+    )
     moved = False
     for from_stage in (
         TowDispatchStage.PAYMENT_REQUIRED,
@@ -726,12 +834,15 @@ async def _mark_tow_preauth_held(
             session,
             case.id,
             from_stage=from_stage,
-            to_stage=TowDispatchStage.SEARCHING,
+            to_stage=target_stage,
         )
         if moved:
             break
     if moved:
-        tow_case.tow_stage = TowDispatchStage.SEARCHING
+        tow_case.tow_stage = target_stage
+        from app.services import tow_lifecycle
+
+        tow_lifecycle.sync_case_status(case, target_stage)
     else:
         return
     await append_event(
@@ -745,8 +856,11 @@ async def _mark_tow_preauth_held(
             "payment_order_id": str(order.id),
             "preauth_id": provider_ref,
             "amount": str(order.amount),
+            "tow_stage": target_stage.value,
         },
     )
+    if target_stage == TowDispatchStage.SCHEDULED_WAITING:
+        return
     try:
         await tow_dispatch.initiate_dispatch(session, case, tow_case, redis=redis)
     except tow_dispatch.NoCandidateFoundError:

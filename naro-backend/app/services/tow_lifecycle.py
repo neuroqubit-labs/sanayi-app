@@ -35,6 +35,7 @@ from app.services.tow_dispatch import compute_cancellation_fee
 _ALLOWED: dict[TowDispatchStage, frozenset[TowDispatchStage]] = {
     TowDispatchStage.PAYMENT_REQUIRED: frozenset({
         TowDispatchStage.SEARCHING,
+        TowDispatchStage.SCHEDULED_WAITING,
         TowDispatchStage.PREAUTH_FAILED,
         TowDispatchStage.CANCELLED,
     }),
@@ -69,6 +70,7 @@ _ALLOWED: dict[TowDispatchStage, frozenset[TowDispatchStage]] = {
         TowDispatchStage.DELIVERED,
     }),
     TowDispatchStage.SCHEDULED_WAITING: frozenset({
+        TowDispatchStage.PAYMENT_REQUIRED,
         TowDispatchStage.BIDDING_OPEN,
         TowDispatchStage.CANCELLED,
     }),
@@ -300,6 +302,7 @@ def sync_case_status(case: ServiceCase, stage: TowDispatchStage) -> None:
 def _sync_case_status(case: ServiceCase, stage: TowDispatchStage) -> None:
     if stage in {
         TowDispatchStage.SEARCHING,
+        TowDispatchStage.PAYMENT_REQUIRED,
         TowDispatchStage.BIDDING_OPEN,
         TowDispatchStage.SCHEDULED_WAITING,
     }:

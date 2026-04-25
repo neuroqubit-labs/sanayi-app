@@ -28,7 +28,7 @@ from app.schemas.tow import (
     TowFareQuoteRequest,
     TowFareQuoteResponse,
 )
-from app.services import payment_core
+from app.services import payment_core, tow_lifecycle
 from app.services import tow_dispatch as dispatch_svc
 
 from ._guards import _ensure_participant
@@ -158,6 +158,7 @@ async def create_case(
     # Faz 1 canonical case architecture: TowCase subtype tek kaynak
     # (service_cases.tow_* migration 0032 ile DROP edildi).
     tow_case = await _insert_tow_subtype_row(db, case, payload)
+    tow_lifecycle.sync_case_status(case, tow_case.tow_stage)
 
     if tow_mode == TowMode.IMMEDIATE:
         try:
@@ -215,6 +216,36 @@ async def initiate_tow_payment(
         ) from exc
     await db.commit()
     return result
+
+
+@router.post(
+    "/cases/{case_id}/payment/abandon",
+    response_model=TowCaseSnapshot,
+    summary="Çekici ödeme WebView adımını kapat / retry açık bırak",
+)
+async def abandon_tow_payment(
+    case_id: UUID,
+    user: CustomerDep,
+    db: DbDep,
+) -> TowCaseSnapshot:
+    case = await db.get(ServiceCase, case_id)
+    if case is None or case.kind != ServiceRequestKind.TOWING:
+        raise HTTPException(status_code=404, detail={"type": "tow_case_not_found"})
+    if case.customer_user_id != user.id:
+        raise HTTPException(status_code=403, detail={"type": "not_case_owner"})
+    tow_case = await db.get(TowCase, case_id)
+    if tow_case is None:
+        raise HTTPException(status_code=404, detail={"type": "tow_subtype_not_found"})
+    try:
+        await payment_core.abandon_tow_payment(db, case=case, tow_case=tow_case)
+    except payment_core.PaymentCoreError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"type": exc.error_type, "message": str(exc)},
+        ) from exc
+    await db.commit()
+    return await _build_snapshot(db, case)
 
 
 # ─── 3. Snapshot ────────────────────────────────────────────────────────────

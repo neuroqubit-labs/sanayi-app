@@ -1,4 +1,5 @@
-import { Icon, Text } from "@naro/ui";
+import { Button, Icon, Text } from "@naro/ui";
+import { useRouter } from "expo-router";
 import { CheckCircle2, Power } from "lucide-react-native";
 import { Switch, View } from "react-native";
 
@@ -7,6 +8,7 @@ import { resolveTowCapability } from "@/features/tow";
 import { useTowAvailabilityController } from "@/features/tow/useTowAvailabilityController";
 
 export function AvailabilityToggleCard() {
+  const router = useRouter();
   const provider_type = useTechnicianProfileStore((s) => s.provider_type);
   const secondary_provider_types = useTechnicianProfileStore(
     (s) => s.secondary_provider_types,
@@ -61,6 +63,15 @@ export function AvailabilityToggleCard() {
         <Text variant="caption" tone="critical" className="text-[12px]">
           {towAvailability.error}
         </Text>
+      ) : null}
+      {towAvailability.requiresPaymentAccount ? (
+        <Button
+          label="Ödeme hesabını tamamla"
+          size="md"
+          variant="outline"
+          fullWidth
+          onPress={() => router.push("/(tabs)/profil")}
+        />
       ) : null}
     </View>
   );

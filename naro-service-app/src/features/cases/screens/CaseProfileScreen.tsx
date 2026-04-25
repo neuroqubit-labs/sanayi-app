@@ -9,6 +9,7 @@ import {
   TrustBadge,
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,6 +19,10 @@ import {
   usePoolCaseDetail,
 } from "@/features/jobs";
 import { useOfferSheetStore } from "@/features/pool";
+import {
+  isPaymentAccountRequiredError,
+  paymentAccountRequiredMessage,
+} from "@/features/technicians/paymentAccountErrors";
 
 type StickyVariant =
   | { kind: "offer" }
@@ -159,6 +164,7 @@ export function CaseProfileScreen() {
   const openOfferSheet = useOfferSheetStore((s) => s.open);
   const approve = useApproveIncomingAppointment();
   const decline = useDeclineIncomingAppointment();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   if (!caseItem) {
     return (
@@ -185,9 +191,15 @@ export function CaseProfileScreen() {
   const handleApprove = async () => {
     try {
       await approve.mutateAsync(caseItem.id);
+      setActionError(null);
       router.replace("/(tabs)/islerim");
     } catch (err) {
       console.warn("appointment approve failed", err);
+      setActionError(
+        isPaymentAccountRequiredError(err)
+          ? paymentAccountRequiredMessage("Randevu vermek")
+          : "Randevu onaylanamadı. Tekrar dene.",
+      );
     }
   };
 
@@ -197,9 +209,11 @@ export function CaseProfileScreen() {
         caseId: caseItem.id,
         reason: "Usta müsait değil",
       });
+      setActionError(null);
       router.back();
     } catch (err) {
       console.warn("appointment decline failed", err);
+      setActionError("Randevu reddedilemedi. Tekrar dene.");
     }
   };
 
@@ -242,6 +256,13 @@ export function CaseProfileScreen() {
           className="absolute inset-x-0 bottom-0 gap-2 border-t border-app-outline bg-app-bg px-6 pt-3"
           style={{ paddingBottom: insets.bottom + 12 }}
         >
+          {actionError ? (
+            <View className="rounded-[14px] border border-app-critical/40 bg-app-critical-soft px-3 py-2">
+              <Text variant="caption" tone="critical" className="text-[11px]">
+                {actionError}
+              </Text>
+            </View>
+          ) : null}
           {sticky.kind === "offer" ? (
             <Button
               label="Teklif Gönder"

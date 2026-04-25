@@ -150,13 +150,21 @@ async def iyzico_payment_webhook(
             psp=psp,  # type: ignore[arg-type]
             redis=redis,
         )
-        if not handled:
+        if not handled and settings.enable_legacy_billing_webhook_fallback:
             await case_billing.process_3ds_callback(
                 db,
                 conversation_id=conversation_id,
                 payment_id=payment_id,
                 psp=psp,  # type: ignore[arg-type]
             )
+        elif not handled:
+            logger.warning(
+                "iyzico webhook unhandled payment callback: conversation_id=%s keys=%s",
+                conversation_id,
+                sorted(payload.keys()),
+            )
+            await db.commit()
+            return {"status": "unhandled_payment_callback"}
         await db.commit()
     except Exception:
         await db.rollback()

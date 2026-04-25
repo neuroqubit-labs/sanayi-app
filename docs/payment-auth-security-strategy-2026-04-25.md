@@ -19,6 +19,12 @@ For towing, the correct product rule is:
 
 This preserves the user concept, “çekici çağırmak vaka oluşturur”, while preventing the risky version where dispatch starts before a real payment hold.
 
+Planlı çekicide aynı online ödeme kuralı geçerlidir, ancak ön provizyon vaka
+oluşturma anında değil randevuya yakın zamanda açılır. Varsayılan pencere
+`TOW_SCHEDULED_PAYMENT_LEAD_MINUTES=60`: vaka `scheduled_waiting` kalır,
+pencere açılınca `payment_required` olur, ödeme başarıyla tutulur ve saat
+geldiyse dispatch başlar.
+
 ## 2. Source Line
 
 The security baseline is based on:
@@ -95,6 +101,8 @@ Add or normalize these concepts:
 - `provider_token`, `provider_payment_id`, `provider_conversation_id`: backend only.
 - `amount_snapshot`: quote amount, cap amount, currency, distance source, expiry.
 - `risk_snapshot`: user, device, route, quote, and case metadata used at authorization time.
+- `PAYMENT_PLATFORM_MODEL`: `standard_sandbox` for development, `marketplace` for staging/production.
+- `ENABLE_LEGACY_BILLING_WEBHOOK_FALLBACK`: false by default; legacy billing callbacks only run when explicitly enabled during cleanup windows.
 
 The backend recomputes quote/amount at payment initiation. UI-submitted amount is only a hint.
 
@@ -115,6 +123,11 @@ The backend recomputes quote/amount at payment initiation. UI-submitted amount i
 
 If no tow candidate is available, the payment hold remains visible with a clear cancellation path. Cancel before assignment should void preauth.
 
+If the customer closes the hosted 3DS/WebView before completion, the active
+attempt is marked `cancelled` and the case returns to retryable
+`payment_required`. A late success callback for that abandoned attempt must
+void the preauth immediately and must not start dispatch.
+
 ### Generic Repair / Maintenance / Damage
 
 Generic case billing is approval-centered:
@@ -130,6 +143,8 @@ Product policy:
 - Tow: online payment required.
 - Campaign/package: online payment required.
 - Service approval/final invoice/extra charge: online recommended, service card/cash allowed.
+- Production/staging online payment target: marketplace/sub-merchant ready.
+  Standard merchant flow is only `standard_sandbox` development mode.
 
 ### Wallets
 

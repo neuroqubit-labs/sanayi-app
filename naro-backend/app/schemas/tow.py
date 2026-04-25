@@ -442,6 +442,7 @@ class TowCaseSnapshot(BaseModel):
     incident_reason: TowIncidentReasonSchema | None
     required_equipment: list[TowEquipmentSchema]
     scheduled_at: datetime | None
+    payment_window_opens_at: datetime | None = None
     fare_quote: TowFareQuote | None
     assigned_technician_id: UUID | None
     settlement_status: TowSettlementStatusSchema

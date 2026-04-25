@@ -2,6 +2,7 @@ import type { AppointmentSlot } from "@naro/domain";
 import { BackButton, Button, Icon, SectionHeader, Text, TrustBadge } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { CalendarClock, Lock, ShieldCheck, Timer } from "lucide-react-native";
+import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -11,6 +12,10 @@ import {
   useDeclineIncomingAppointment,
   usePoolCaseDetail,
 } from "@/features/jobs";
+import {
+  isPaymentAccountRequiredError,
+  paymentAccountRequiredMessage,
+} from "@/features/technicians/paymentAccountErrors";
 
 const SLOT_LABEL: Record<string, string> = {
   today: "Bugün",
@@ -26,6 +31,7 @@ export function AppointmentRequestDetailScreen() {
   const { data: caseItem } = usePoolCaseDetail(id ?? "");
   const approve = useApproveIncomingAppointment();
   const decline = useDeclineIncomingAppointment();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   if (!caseItem) {
     return (
@@ -50,9 +56,15 @@ export function AppointmentRequestDetailScreen() {
     if (!appointment) return;
     try {
       await approve.mutateAsync(caseItem.id);
+      setActionError(null);
       router.replace("/(tabs)/islerim");
     } catch (err) {
       console.warn("appointment approve failed", err);
+      setActionError(
+        isPaymentAccountRequiredError(err)
+          ? paymentAccountRequiredMessage("Randevu vermek")
+          : "Randevu onaylanamadı. Tekrar dene.",
+      );
     }
   };
 
@@ -63,9 +75,11 @@ export function AppointmentRequestDetailScreen() {
         caseId: caseItem.id,
         reason: "Usta müsait değil",
       });
+      setActionError(null);
       router.back();
     } catch (err) {
       console.warn("appointment decline failed", err);
+      setActionError("Randevu reddedilemedi. Tekrar dene.");
     }
   };
 
@@ -114,6 +128,13 @@ export function AppointmentRequestDetailScreen() {
         className="absolute inset-x-0 bottom-0 gap-2 border-t border-app-outline bg-app-bg px-6 pt-3"
         style={{ paddingBottom: insets.bottom + 12 }}
       >
+        {actionError ? (
+          <View className="rounded-[14px] border border-app-critical/40 bg-app-critical-soft px-3 py-2">
+            <Text variant="caption" tone="critical" className="text-[11px]">
+              {actionError}
+            </Text>
+          </View>
+        ) : null}
         {isPending ? (
           <View className="flex-row gap-2">
             <View className="flex-1">

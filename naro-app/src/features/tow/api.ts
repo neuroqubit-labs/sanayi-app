@@ -116,6 +116,24 @@ export function useInitiateTowPayment(caseId: string) {
   });
 }
 
+export function useAbandonTowPayment(caseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<TowCaseSnapshot, Error, void>({
+    mutationFn: async () => {
+      const raw = await apiClient(`/tow/cases/${caseId}/payment/abandon`, {
+        method: "POST",
+        body: {},
+      });
+      return TowCaseSnapshotSchema.parse(raw);
+    },
+    onSuccess: (snapshot) => {
+      queryClient.setQueryData(["tow", "case", caseId], snapshot);
+      queryClient.invalidateQueries({ queryKey: ["tow", "tracking", caseId] });
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+    },
+  });
+}
+
 export function useTowTracking(caseId: string, enabled: boolean = true) {
   return useQuery<TowTrackingSnapshot>({
     queryKey: ["tow", "tracking", caseId],

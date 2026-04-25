@@ -16,7 +16,11 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 
 import { useThreeDSFlow } from "@/features/billing/hooks";
 
-import { useInitiateTowPayment, useTowCaseSnapshot } from "../api";
+import {
+  useAbandonTowPayment,
+  useInitiateTowPayment,
+  useTowCaseSnapshot,
+} from "../api";
 
 type Phase =
   | { kind: "idle" }
@@ -72,6 +76,7 @@ export function TowPaymentScreen() {
 
   const snapshotQuery = useTowCaseSnapshot(caseId);
   const initiate = useInitiateTowPayment(caseId);
+  const abandonPayment = useAbandonTowPayment(caseId);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
 
   const goTracking = useCallback(() => {
@@ -102,10 +107,21 @@ export function TowPaymentScreen() {
       setPhase({ kind: "success" });
       goTracking();
     },
-    onFail: ({ message }) => {
+    onFail: ({ code, message }) => {
+      if (code === "abandoned") {
+        setPhase({ kind: "idle" });
+        return;
+      }
       setPhase({ kind: "failed", message });
     },
   });
+
+  const closePaymentStep = useCallback(() => {
+    void abandonPayment.mutateAsync().finally(() => {
+      flow.abandon();
+      void snapshotQuery.refetch();
+    });
+  }, [abandonPayment, flow, snapshotQuery]);
 
   const amountLabel =
     snapshotQuery.data?.payment?.amount_label ??
@@ -118,7 +134,7 @@ export function TowPaymentScreen() {
           variant="close"
           onPress={() => {
             if (phase.kind === "3ds") {
-              flow.abandon();
+              closePaymentStep();
               return;
             }
             router.back();
@@ -145,8 +161,7 @@ export function TowPaymentScreen() {
             accessibilityRole="button"
             accessibilityLabel="Ödeme adımını iptal et"
             onPress={() => {
-              flow.abandon();
-              setPhase({ kind: "idle" });
+              closePaymentStep();
             }}
             className="mt-3 min-h-11 items-center justify-center rounded-[16px] border border-app-outline bg-transparent px-4 py-2.5 active:bg-app-surface-2"
           >

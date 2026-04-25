@@ -18,6 +18,7 @@ from app.workers.tow.dispatch_timeouts import (
 from app.workers.tow.fare_reconcile import fare_reconcile
 from app.workers.tow.heartbeat import heartbeat_enforcer
 from app.workers.tow.retention import location_retention_purge
+from app.workers.tow.scheduled_payments import scheduled_payment_window
 
 
 def redis_settings() -> RedisSettings:
@@ -41,6 +42,11 @@ class WorkerSettings:
     ]
     cron_jobs: ClassVar[list[object]] = [
         cron(current_offer_expiry, second={0, 10, 20, 30, 40, 50}, unique=True),
+        cron(
+            scheduled_payment_window,
+            minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
+            unique=True,
+        ),
         cron(heartbeat_enforcer, second={0, 30}, unique=True),
         cron(fare_reconcile, minute={0}, unique=True),
         cron(location_retention_purge, hour={3}, minute={0}, unique=True),

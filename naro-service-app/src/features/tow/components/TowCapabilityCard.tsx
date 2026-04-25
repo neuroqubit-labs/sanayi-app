@@ -164,6 +164,15 @@ export function TowCapabilityCard() {
           {towAvailability.error}
         </Text>
       ) : null}
+      {towAvailability.requiresPaymentAccount ? (
+        <Button
+          label="Ödeme hesabını tamamla"
+          size="md"
+          variant="outline"
+          fullWidth
+          onPress={() => router.push("/(tabs)/profil")}
+        />
+      ) : null}
     </View>
   );
 }

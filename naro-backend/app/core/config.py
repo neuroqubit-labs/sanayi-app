@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     clamav_host: str = ""
 
     # Faz 10 — Tow dispatch
+    payment_platform_model: Literal["standard_sandbox", "marketplace"] = "standard_sandbox"
     psp_provider: Literal["mock", "iyzico"] = "mock"
     iyzico_base_url: str = "https://sandbox-api.iyzipay.com"
     iyzico_api_key: str = ""
@@ -76,6 +77,8 @@ class Settings(BaseSettings):
     tow_otp_max_attempts: int = 3
     tow_heartbeat_seconds: int = 600
     tow_heartbeat_grace_seconds: int = 120
+    tow_scheduled_payment_lead_minutes: int = 60
+    enable_legacy_billing_webhook_fallback: bool = False
 
     # QA tur 2 P1-4: offer expires_at default TTL (B-P1-6 cron filter için)
     offer_ttl_minutes: int = 15
@@ -104,6 +107,13 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     def model_post_init(self, __context: object) -> None:
+        if (
+            self.environment in ("staging", "production")
+            and self.payment_platform_model != "marketplace"
+        ):
+            raise ValueError(
+                "PAYMENT_PLATFORM_MODEL=marketplace is required outside development"
+            )
         if self.environment in ("staging", "production") and self.psp_provider == "mock":
             raise ValueError("PSP_PROVIDER=mock cannot run outside development")
         if self.environment in ("staging", "production") and self.psp_provider == "iyzico":

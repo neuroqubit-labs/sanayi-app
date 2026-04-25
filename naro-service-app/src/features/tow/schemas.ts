@@ -168,6 +168,7 @@ export const TowCaseSnapshotSchema = z.object({
   incident_reason: TowIncidentReasonSchema.nullable(),
   required_equipment: z.array(TowEquipmentSchema).default([]),
   scheduled_at: z.string().nullable(),
+  payment_window_opens_at: z.string().nullable().optional(),
   fare_quote: TowFareQuoteSchema.nullable(),
   assigned_technician_id: z.string().uuid().nullable(),
   settlement_status: TowSettlementStatusSchema,

@@ -17,6 +17,10 @@ import {
   useSubmitOfferLive,
 } from "@/features/jobs/api.live";
 import { useTechnicianProfileStore } from "@/features/technicians";
+import {
+  isPaymentAccountRequiredError,
+  paymentAccountRequiredMessage,
+} from "@/features/technicians/paymentAccountErrors";
 
 import { useOfferSheetStore } from "../offer-sheet-store";
 
@@ -114,6 +118,11 @@ export function OfferSubmissionSheet() {
   const amountNumeric = Number(amount.replace(/\./g, ""));
   const canSubmit =
     !Number.isNaN(amountNumeric) && amountNumeric > 0 && !submit.isPending;
+  const submitErrorMessage = submit.isError
+    ? isPaymentAccountRequiredError(submit.error)
+      ? paymentAccountRequiredMessage("Teklif vermek")
+      : "Teklif gönderilemedi. Tekrar dene."
+    : null;
 
   const handleSubmit = async () => {
     if (!caseId || !canSubmit) return;
@@ -233,10 +242,10 @@ export function OfferSubmissionSheet() {
             />
           </View>
 
-          {submit.isError ? (
+          {submitErrorMessage ? (
             <View className="rounded-[12px] border border-app-critical/40 bg-app-critical-soft px-3 py-2">
               <Text variant="caption" tone="critical" className="text-[11px]">
-                Teklif gönderilemedi. Tekrar dene.
+                {submitErrorMessage}
               </Text>
             </View>
           ) : null}
