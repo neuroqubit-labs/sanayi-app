@@ -2,19 +2,27 @@ import { Screen, Text } from "@naro/ui";
 import { useMemo } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
 
+import { useVehicles } from "@/features/vehicles";
+
 import { useHomeSummary } from "../api";
 import { FeedItemView } from "../components/FeedRenderer";
 import { HomeHeader } from "../components/HomeHeader";
+import { VehicleNudgeBanner } from "../components/VehicleNudgeBanner";
 import { useHomeFeed, type FeedItem } from "../feed";
 
 export function HomeScreen() {
   const summary = useHomeSummary();
   const feed = useHomeFeed();
+  const { data: vehicles } = useVehicles();
 
   const feedItems: FeedItem[] = useMemo(
     () => feed.data?.pages.flatMap((page) => page.items) ?? [],
     [feed.data],
   );
+
+  // PO vizyonu: yeni user için araç ekleme nudge'ı persistent banner —
+  // sert blok değil, güçlü yönlendirme. Aracı olan user'lar için banner yok.
+  const showVehicleNudge = (vehicles ?? []).length === 0;
 
   if (summary.isPending) {
     return (
@@ -40,8 +48,9 @@ export function HomeScreen() {
           paddingBottom: 140,
         }}
         ListHeaderComponent={
-          <View className="pb-5">
+          <View className="gap-4 pb-5">
             <HomeHeader />
+            {showVehicleNudge ? <VehicleNudgeBanner /> : null}
           </View>
         }
         ListFooterComponent={
