@@ -1,9 +1,9 @@
 import {
-  TokenPairSchema,
+  OtpVerifyResponseSchema,
   type OtpRequest,
   type OtpRequestResponse,
   type OtpVerify,
-  type TokenPair,
+  type OtpVerifyResponse,
 } from "@naro/domain";
 import { create } from "zustand";
 
@@ -35,7 +35,7 @@ type OtpAuthApiOptions = {
   role: OtpRequest["role"];
   isMockAuthEnabled?: boolean;
   mockOtpResponse: OtpRequestResponse;
-  mockTokens: TokenPair;
+  mockTokens: OtpVerifyResponse;
 };
 
 function getInitialSession<TStatus extends string>(): SessionSnapshot<TStatus> {
@@ -136,18 +136,18 @@ export function createOtpAuthApi(options: OtpAuthApiOptions) {
         auth: false,
       });
     },
-    verifyOtp: async (payload: OtpVerify) => {
+    verifyOtp: async (payload: OtpVerify): Promise<OtpVerifyResponse> => {
       if (isMockAuthEnabled) {
         return mockDelay(mockTokens);
       }
 
-      const body = await apiClient<TokenPair>("/auth/otp/verify", {
+      const body = await apiClient<OtpVerifyResponse>("/auth/otp/verify", {
         method: "POST",
         body: payload,
         auth: false,
       });
 
-      return TokenPairSchema.parse(body);
+      return OtpVerifyResponseSchema.parse(body);
     },
   };
 }

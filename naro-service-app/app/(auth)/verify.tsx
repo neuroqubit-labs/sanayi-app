@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ApiError } from "@naro/mobile-core";
 import { Button, FormField, Screen, Text } from "@naro/ui";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -7,36 +6,9 @@ import { useForm } from "react-hook-form";
 import { View } from "react-native";
 import { z } from "zod";
 
-import { apiClient, telemetry } from "@/runtime";
+import { telemetry } from "@/runtime";
 import { authApi } from "@/services/auth/api";
-import { useAuthStore, type ApprovalStatus } from "@/services/auth/store";
-
-/**
- * BE `/technicians/me/shell-config` minimal parse — admission_status alanı
- * kritik. Diğer alanlar useShellConfig içinde Zustand'tan türetiliyor; bu
- * sadece verify sonrası ilk admission status hydration için.
- */
-const AdmissionShellSchema = z.object({
-  admission_status: z.enum(["pending", "active", "suspended"]),
-});
-
-async function fetchLiveAdmissionStatus(): Promise<ApprovalStatus> {
-  try {
-    const raw = await apiClient("/technicians/me/shell-config");
-    const parsed = AdmissionShellSchema.parse(raw);
-    return parsed.admission_status;
-  } catch (err) {
-    // 404 = technician_profile yok → yeni kayıt, onboarding'e ihtiyaç var.
-    // Diğer hatalar telemetry'e log; pending fallback ile onboarding akışı çalışır.
-    if (!(err instanceof ApiError) || err.status !== 404) {
-      telemetry.captureError(err, {
-        app: "service",
-        stage: "shell_config_after_verify",
-      });
-    }
-    return "pending";
-  }
-}
+import { useAuthStore } from "@/services/auth/store";
 
 const VerifyFormSchema = z.object({
   code: z
@@ -67,14 +39,37 @@ export default function VerifyScreen() {
     if (!deliveryId) return;
     setSubmitError(null);
     try {
-      const tokens = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
-      await setTokens(tokens.access_token, tokens.refresh_token);
-      const approvalStatus = await fetchLiveAdmissionStatus();
-      await setApprovalStatus(approvalStatus);
-      telemetry.track("auth_verified", { app: "service", approvalStatus });
-      router.replace(
-        approvalStatus === "active" ? "/(tabs)" : "/(onboarding)/pending",
-      );
+      // BE OtpVerifyResponse zenginleştirilmiş — ek round-trip yok.
+      // is_new_user + profile_completed + approval_status ile routing matrisi.
+      const res = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
+      await setTokens(res.access_token, res.refresh_token);
+      // setApprovalStatus null kabul ediyor; UserApprovalStatus'tan
+      // ApprovalStatus type'ına cast — domain UserApprovalStatusSchema =
+      // pending/active/suspended/rejected; auth store ApprovalStatus =
+      // pending/active/suspended (rejected → pending UI'da). Şimdilik
+      // direkt pass — rejected olursa pending fall-back.
+      const approvalForStore =
+        res.approval_status === "rejected" ? "pending" : res.approval_status;
+      await setApprovalStatus(approvalForStore);
+
+      telemetry.track("auth_verified", {
+        app: "service",
+        is_new_user: res.is_new_user,
+        profile_completed: res.profile_completed,
+        approval_status: res.approval_status,
+      });
+
+      // Routing matrisi:
+      //   !profile_completed                                → onboarding/provider-type
+      //   profile_completed && approval_status !== "active" → onboarding/pending
+      //   profile_completed && approval_status === "active" → /(tabs)
+      if (!res.profile_completed) {
+        router.replace("/(onboarding)/provider-type");
+      } else if (res.approval_status !== "active") {
+        router.replace("/(onboarding)/pending");
+      } else {
+        router.replace("/(tabs)");
+      }
     } catch (error) {
       telemetry.captureError(error, { app: "service", stage: "verify_otp" });
       setSubmitError("Kod geçersiz veya süresi dolmuş");

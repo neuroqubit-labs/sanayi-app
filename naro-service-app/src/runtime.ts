@@ -39,6 +39,10 @@ const AppEnvSchema = z
 
 export const env = createExpoPublicEnv(AppEnvSchema);
 
+if (env.appEnv !== "development" && env.mockAuth) {
+  throw new Error("EXPO_PUBLIC_MOCK_AUTH cannot be true outside development.");
+}
+
 export const storage = createPlatformStorageAdapter({
   namespace: "naro.service",
   sessionKeys: ["access_token", "refresh_token", "approval_status"],
@@ -164,6 +168,11 @@ export const authApi = createOtpAuthApi({
     access_token: "mock-access-token-technician",
     refresh_token: "mock-refresh-token-technician",
     token_type: "bearer",
+    user_id: "00000000-0000-0000-0000-000000000002",
+    role: "technician",
+    approval_status: "active",
+    is_new_user: false,
+    profile_completed: true,
   },
 });
 

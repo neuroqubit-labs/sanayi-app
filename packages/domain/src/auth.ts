@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  UserApprovalStatusSchema,
+  UserRoleSchema,
+} from "./user";
+
 export const OtpChannelSchema = z.enum(["sms", "email"]);
 export type OtpChannel = z.infer<typeof OtpChannelSchema>;
 
@@ -36,6 +41,20 @@ export const TokenPairSchema = z.object({
   token_type: z.literal("bearer"),
 });
 export type TokenPair = z.infer<typeof TokenPairSchema>;
+
+/**
+ * /auth/otp/verify response (BE OtpVerifyResponse parity).
+ * Mobile routing matrisi tek round-trip ile karar versin diye user/profile
+ * durumu zenginleştirilmiş — ayrı /shell-config çağrısına gerek yok.
+ */
+export const OtpVerifyResponseSchema = TokenPairSchema.extend({
+  user_id: z.string().uuid(),
+  role: UserRoleSchema,
+  approval_status: UserApprovalStatusSchema.nullable().default(null),
+  is_new_user: z.boolean().default(false),
+  profile_completed: z.boolean().default(true),
+});
+export type OtpVerifyResponse = z.infer<typeof OtpVerifyResponseSchema>;
 
 export const RefreshRequestSchema = z.object({
   refresh_token: z.string(),
