@@ -39,19 +39,22 @@ export default function VerifyScreen() {
     if (!deliveryId) return;
     setSubmitError(null);
     try {
-      // BE OtpVerifyResponse zenginleştirilmiş — is_new_user telemetry'e
-      // log; routing customer için sade (kısa profil ekranı V1.1 backlog).
       const res = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
       await setTokens(res.access_token, res.refresh_token);
       telemetry.track("auth_verified", {
         app: "customer",
         is_new_user: res.is_new_user,
+        profile_completed: res.profile_completed,
       });
-      // Customer her zaman tabs'e — yeni kullanıcı ise profil sekmesi
-      // boş display_name ile başlar; ProfileDetailScreen'de Ad-Soyad
-      // edit ile tamamlar (PATCH /users/me — useUpdateMe hook devrede).
-      // V1.1: yeni user için kısa profil ekranı (`onboarding/profile-setup`).
-      router.replace("/(tabs)");
+      // Routing matrisi (customer):
+      //   !profile_completed (yeni user veya full_name boş)  → onboarding/profile-setup
+      //   profile_completed                                  → /(tabs)
+      // Backend profile_completed semantic: User.full_name dolu mu (auth.py).
+      if (!res.profile_completed) {
+        router.replace("/(onboarding)/profile-setup");
+      } else {
+        router.replace("/(tabs)");
+      }
     } catch (error) {
       telemetry.captureError(error, { app: "customer", stage: "verify_otp" });
       setSubmitError("Kod geçersiz veya süresi dolmuş");
