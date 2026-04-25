@@ -6,6 +6,11 @@ import { Alert, View } from "react-native";
 
 import { useOnboardingStore } from "@/features/onboarding";
 import { useUpdateCapacityMutation } from "@/features/onboarding/api/capacity";
+import {
+  useCreateProfileMutation,
+  useUpdateBusinessMutation,
+  useUpdateCapabilitiesMutation,
+} from "@/features/onboarding/api/profile";
 import { useUpdateScheduleMutation } from "@/features/onboarding/api/schedule";
 import { useUpdateServiceAreaMutation } from "@/features/onboarding/api/service-area";
 import {
@@ -25,6 +30,9 @@ export default function ReviewStep() {
     (s) => s.setActiveProviderType,
   );
   const reset = useOnboardingStore((s) => s.reset);
+  const createProfile = useCreateProfileMutation();
+  const updateBusinessApi = useUpdateBusinessMutation();
+  const updateCapabilitiesApi = useUpdateCapabilitiesMutation();
   const updateServiceArea = useUpdateServiceAreaMutation();
   const updateSchedule = useUpdateScheduleMutation();
   const updateCapacity = useUpdateCapacityMutation();
@@ -64,16 +72,40 @@ export default function ReviewStep() {
     });
     onboarding.certificates.forEach((cert) => addCertificate(cert));
 
-    // BE persist (api-validation-hotlist P1-3 service-area/schedule/capacity
-    // canlı). Matching v1 bu alanları henüz selection'a dahil etmiyor;
-    // persist ki V1.1'de matching v2 aktifleşince hazır olsun.
+    // BE submit zinciri:
+    //   1. POST /me/profile      (bootstrap; 409 ise mevcut profile, sessizce devam)
+    //   2. PATCH /me/business    (legal_name + tax + adres)
+    //   3. PATCH /me/capabilities (4 boolean flag)
+    //   4. PUT /me/service-area  (zorunlu; city_code + workshop_lat_lng yoksa skip)
+    //   5. PUT /me/schedule      (opsiyonel)
+    //   6. PUT /me/capacity      (opsiyonel)
     //
-    // Error policy: service-area yazması başarısız olursa flow'u durdur
-    // (city_code + workshop konumu zorunlu). schedule/capacity opsiyonel —
-    // fail durumunda log + pending'e geç, kullanıcı sonra profil üzerinden
-    // güncelleyebilir.
+    // Error policy:
+    //   1-3 (profile + business + capabilities): zorunlu — fail durumunda flow durdur.
+    //   4 (service-area): zorunlu eğer veri var (city_code + lat_lng).
+    //   5-6 (schedule/capacity): opsiyonel — fail durumunda log + pending'e geç,
+    //   kullanıcı sonra profil üzerinden güncelleyebilir.
     setSubmitting(true);
     try {
+      await createProfile.mutateAsync({
+        display_name: onboarding.business.legal_name?.trim() || meta?.label || "Naro Servis",
+        provider_type: onboarding.provider_type,
+        provider_mode: onboarding.provider_mode ?? "business",
+        active_provider_type: onboarding.provider_type,
+      });
+
+      const businessPayload = {
+        legal_name: onboarding.business.legal_name,
+        tax_number: onboarding.business.tax_number,
+        address: onboarding.business.address,
+        district_label: onboarding.business.city_district,
+      };
+      if (Object.values(businessPayload).some((v) => v !== undefined && v !== "")) {
+        await updateBusinessApi.mutateAsync(businessPayload);
+      }
+
+      await updateCapabilitiesApi.mutateAsync(onboarding.capabilities);
+
       if (onboarding.service_area.workshop_lat_lng && onboarding.service_area.city_code) {
         await updateServiceArea.mutateAsync(onboarding.service_area);
       }
@@ -92,10 +124,10 @@ export default function ReviewStep() {
       reset();
       router.replace("/(onboarding)/pending");
     } catch (err) {
-      console.warn("service-area persist failed", err);
+      console.warn("onboarding submit failed", err);
       Alert.alert(
         "Kaydedilemedi",
-        "Atölye bilgileri kaydedilemedi. Bağlantını kontrol edip tekrar dene.",
+        "Başvurun kaydedilemedi. Bağlantını kontrol edip tekrar dene.",
       );
     } finally {
       setSubmitting(false);

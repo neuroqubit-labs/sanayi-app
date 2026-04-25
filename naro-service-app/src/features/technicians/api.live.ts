@@ -4,6 +4,7 @@ import {
   type MyTechnicianCertificate,
   type MyTechnicianProfile as MyTechnicianProfileFull,
 } from "@naro/domain";
+import { ApiError } from "@naro/mobile-core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -128,6 +129,13 @@ export function useMyTechnicianProfileFull() {
     enabled: authReady,
     queryFn: fetchMyTechnicianProfileFull,
     staleTime: 60 * 1000,
+    // 404 = profile henüz yok (yeni başvuru, bootstrap edilmemiş). Retry
+    // gereksiz; routing matrisi `profile_completed=false` flag'i ile zaten
+    // onboarding ekranına yönlendirir. Diğer hatalar (5xx) default retry'de.
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 404) return false;
+      return failureCount < 3;
+    },
   });
 }
 
@@ -138,6 +146,10 @@ export function useMyTechnicianCertificates() {
     enabled: authReady,
     queryFn: fetchMyTechnicianCertificates,
     staleTime: 60 * 1000,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 404) return false;
+      return failureCount < 3;
+    },
   });
 }
 
