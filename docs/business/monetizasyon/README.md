@@ -1,5 +1,7 @@
 # Monetizasyon
 
+- [Ödeme İş Modeli — Kısa Karar Notu](odeme-is-modeli-kisa-karar.md)
+
 Gelir modeli, fiyatlandırma, unit economics.
 
 ## Tipik dosyalar

@@ -1,3 +1,5 @@
+import type { Href } from "expo-router";
+
 import type { FeedTip } from "@/features/home/feed";
 import type { CampaignOffer, NearbyService } from "@/features/home/types";
 import type { TechnicianMatch } from "@/features/ustalar/types";
@@ -14,7 +16,7 @@ export type SearchPrompt = {
   id: string;
   body: string;
   category: SearchCategory;
-  route: string;
+  route: Href;
 };
 
 export type SearchSuggestionChip = {

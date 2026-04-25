@@ -29,6 +29,16 @@ const STATUS_LABEL: Record<string, string> = {
   archived: "Arşivlendi",
 };
 
+const TOWING_STATUS_LABEL: Record<string, string> = {
+  matching: "Çekici aranıyor",
+  offers_ready: "Teklifler geliyor",
+  appointment_pending: "Randevu bekleniyor",
+  scheduled: "Çekici planlandı",
+  service_in_progress: "Çekici süreci sürüyor",
+  completed: "Tamamlandı",
+  cancelled: "İptal edildi",
+};
+
 const STATUS_PROGRESS: Record<string, number> = {
   matching: 12,
   offers_ready: 28,
@@ -52,6 +62,14 @@ const STATUS_NEXT_STEP: Record<string, string> = {
   invoice_approval: "Faturayı onayla",
 };
 
+const TOWING_NEXT_STEP: Record<string, string> = {
+  matching: "Eşleşme bekleniyor",
+  offers_ready: "Teklifleri gör",
+  appointment_pending: "Onay bekleniyor",
+  scheduled: "Saatini bekle",
+  service_in_progress: "Canlı takip et",
+};
+
 const STATUS_PRIMARY_ACTION: Record<
   string,
   { label: string; routeSuffix: string } | undefined
@@ -73,27 +91,44 @@ function isActive(caseItem: CaseSummaryResponse): boolean {
 }
 
 function deriveActiveProcess(caseItem: CaseSummaryResponse): ActiveProcess {
-  const statusLabel = STATUS_LABEL[caseItem.status] ?? caseItem.status;
-  const progressValue = STATUS_PROGRESS[caseItem.status] ?? 0;
-  const nextStepLabel = STATUS_NEXT_STEP[caseItem.status] ?? "Detayları aç";
+  const isTowing = caseItem.kind === "towing";
+  const statusLabel = isTowing
+    ? (TOWING_STATUS_LABEL[caseItem.status] ?? STATUS_LABEL[caseItem.status] ?? caseItem.status)
+    : (STATUS_LABEL[caseItem.status] ?? caseItem.status);
+  const progressValue = isTowing
+    ? caseItem.status === "matching"
+      ? 18
+      : STATUS_PROGRESS[caseItem.status] ?? 0
+    : STATUS_PROGRESS[caseItem.status] ?? 0;
+  const nextStepLabel = isTowing
+    ? (TOWING_NEXT_STEP[caseItem.status] ?? "Canlı takip et")
+    : (STATUS_NEXT_STEP[caseItem.status] ?? "Detayları aç");
   const primary = STATUS_PRIMARY_ACTION[caseItem.status];
   const kindLabel = KIND_LABEL[caseItem.kind] ?? caseItem.kind;
-  const cardRoute = `/vaka/${caseItem.id}`;
+  const cardRoute = isTowing ? `/cekici/${caseItem.id}` : `/vaka/${caseItem.id}`;
 
   return {
     id: caseItem.id,
-    servisAd: caseItem.title || kindLabel,
-    title: caseItem.summary?.trim() || kindLabel,
+    servisAd: isTowing ? "Aktif çekici araması" : caseItem.title || kindLabel,
+    title: isTowing
+      ? "Çekici araması arka planda sürüyor"
+      : caseItem.summary?.trim() || kindLabel,
     status: statusLabel,
-    waitLabel: caseItem.status === "matching" ? "Sırada" : statusLabel,
+    waitLabel: isTowing
+      ? caseItem.status === "matching"
+        ? "Canlı"
+        : statusLabel
+      : caseItem.status === "matching" ? "Sırada" : statusLabel,
     nextStepLabel,
     note: caseItem.location_label ?? "",
     progressLabel: `%${progressValue} tamamlandı`,
     progressValue,
-    priceLabel: "Tutar netleşmedi",
+    priceLabel: isTowing ? "Tavan ücret var" : "Tutar netleşmedi",
     cardRoute,
-    primaryActionLabel: primary?.label,
-    primaryActionRoute: primary ? `${cardRoute}${primary.routeSuffix}` : undefined,
+    primaryActionLabel: isTowing ? "Takibi aç" : primary?.label,
+    primaryActionRoute: isTowing
+      ? cardRoute
+      : primary ? `${cardRoute}${primary.routeSuffix}` : undefined,
   };
 }
 

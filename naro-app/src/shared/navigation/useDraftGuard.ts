@@ -16,6 +16,8 @@ type NavigationWithBeforeRemove = {
 export type UseDraftGuardOptions = {
   /** When true, intercept back navigation. */
   enabled: boolean;
+  /** Return true for app-owned navigations that should not ask the user. */
+  shouldBypass?: () => boolean;
   /** Called when the user chooses to keep the draft alive. */
   onKeep?: () => void;
   /** Called when the user chooses to discard the draft. */
@@ -26,6 +28,7 @@ export type UseDraftGuardOptions = {
 
 export function useDraftGuard({
   enabled,
+  shouldBypass,
   onKeep,
   onDiscard,
   title = "Taslağı kaybetmek ister misin?",
@@ -39,6 +42,9 @@ export function useDraftGuard({
     }
 
     const subscription = navigation.addListener("beforeRemove", (event) => {
+      if (shouldBypass?.()) {
+        return;
+      }
       event.preventDefault();
 
       Alert.alert(title, message, [
@@ -62,5 +68,5 @@ export function useDraftGuard({
     });
 
     return subscription;
-  }, [enabled, navigation, title, message, onKeep, onDiscard]);
+  }, [enabled, navigation, title, message, onKeep, onDiscard, shouldBypass]);
 }

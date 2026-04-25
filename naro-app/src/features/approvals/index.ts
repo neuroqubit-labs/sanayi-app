@@ -1,15 +1,25 @@
-export { useCaseApprovals, useDecideApproval } from "./api";
+export {
+  PaymentInitiateResponseSchema,
+  useCaseApprovals,
+  useDecideApproval,
+  useInitiateApprovalPayment,
+  type PaymentInitiateResponse,
+} from "./api";
 export {
   ApprovalDecidePayloadSchema,
   ApprovalLineItemSchema,
   ApprovalRequestPayloadSchema,
   ApprovalResponseSchema,
+  ApprovalPaymentMethodSchema,
+  ApprovalPaymentStateSchema,
   CaseApprovalKindSchema,
   CaseApprovalStatusSchema,
   type ApprovalDecidePayload,
   type ApprovalLineItem,
   type ApprovalRequestPayload,
   type ApprovalResponse,
+  type ApprovalPaymentMethod,
+  type ApprovalPaymentState,
   type CaseApprovalKind,
   type CaseApprovalStatus,
 } from "./schemas";

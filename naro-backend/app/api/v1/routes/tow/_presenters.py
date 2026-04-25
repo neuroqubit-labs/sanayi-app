@@ -26,6 +26,7 @@ from app.schemas.tow import (
     tow_phase,
     tow_stage_label,
 )
+from app.services import payment_core
 
 
 def _profile_location(profile: TechnicianProfile) -> LatLng | None:
@@ -137,5 +138,5 @@ async def _build_snapshot(db: AsyncSession, case: ServiceCase) -> TowCaseSnapsho
         ),
         final_amount=settlement.final_amount if settlement else None,
         cancellation_fee=None,
+        payment=await payment_core.payment_snapshot_for_case(db, case.id),
     )
-

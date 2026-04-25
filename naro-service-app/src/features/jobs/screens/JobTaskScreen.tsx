@@ -421,7 +421,7 @@ export function JobTaskScreen() {
         <View className="gap-4">
           <SectionHeader
             title="Parça onayı için kalem ekle"
-            description="Müşteri bu kalemlerin toplamını onayladığında iş devam eder."
+            description="Müşteri online ödeme, serviste kart veya nakit seçebilir; sen yalnızca tutar ve kalemi girersin."
           />
           <View className="gap-3">
             {lineItems.map((item, index) => (
@@ -517,7 +517,7 @@ export function JobTaskScreen() {
         <View className="gap-4">
           <SectionHeader
             title="Fatura paylaş"
-            description="Müşteri fatura onayıyla teslim aşamasına geçer."
+            description="Müşteri online ödeme, serviste kart veya nakit seçebilir; online ödeme tamamlanınca fatura otomatik kapanır."
           />
           <FieldInput
             label="Fatura başlığı"

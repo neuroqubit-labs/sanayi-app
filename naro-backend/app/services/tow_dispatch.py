@@ -328,7 +328,7 @@ def compute_cancellation_fee(
 ) -> Decimal:
     """Spec §2 K-4: 0 → 75 → 300 → full. Scheduled farklı bucket."""
     if mode == TowMode.IMMEDIATE:
-        if stage == TowDispatchStage.SEARCHING:
+        if stage in (TowDispatchStage.PAYMENT_REQUIRED, TowDispatchStage.SEARCHING):
             return Decimal("0")
         if stage in (
             TowDispatchStage.ACCEPTED,

@@ -203,6 +203,7 @@ export function deriveTowWaitState(
         label: "Teklifler bekleniyor",
         description: "Randevulu çekici akışında teklifler değerlendiriliyor.",
       };
+    case "payment_required":
     case "preauth_failed":
     case "preauth_stale":
       return {

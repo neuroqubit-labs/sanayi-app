@@ -14,6 +14,15 @@ export function getTowStagePresentation(
   stage: TowDispatchStage,
 ): TowStagePresentation {
   switch (stage) {
+    case "payment_required":
+      return {
+        eyebrow: "Ödeme",
+        title: "Ön provizyon gerekiyor",
+        description:
+          "Çekici araması başlamadan önce güvenli ödeme adımını tamamla.",
+        tone: "warning",
+        liveDot: false,
+      };
     case "searching":
       return {
         eyebrow: "Arıyoruz",
@@ -117,12 +126,12 @@ export function getTowStagePresentation(
       };
     case "timeout_converted_to_pool":
       return {
-        eyebrow: "Havuza düştü",
-        title: "Hemen akışı havuza çevrildi",
+        eyebrow: "Arama sürüyor",
+        title: "Uygun çekici bekleniyor",
         description:
-          "Çevrende uygun operatör hemen bulunamadı. Seni bidding havuzuna aktarıyoruz.",
+          "Şu an yakın çevrede uygun operatör yok. Talebin açık kalır; uygun çekici kabul ettiğinde takip ekranı güncellenir.",
         tone: "warning",
-        liveDot: false,
+        liveDot: true,
       };
     case "preauth_failed":
       return {
@@ -159,6 +168,7 @@ export function labelForEquipment(e: TowVehicleEquipment): string {
 
 export function isActiveStage(stage: TowDispatchStage): boolean {
   return (
+    stage === "payment_required" ||
     stage === "searching" ||
     stage === "accepted" ||
     stage === "en_route" ||

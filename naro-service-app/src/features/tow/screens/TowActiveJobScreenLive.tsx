@@ -43,6 +43,7 @@ import type {
 } from "../schemas";
 
 const STAGE_LABELS: Record<TowDispatchStage, string> = {
+  payment_required: "Ödeme bekleniyor",
   searching: "Arıyor",
   accepted: "Kabul edildi",
   en_route: "Yolda",

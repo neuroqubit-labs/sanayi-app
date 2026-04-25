@@ -32,6 +32,60 @@ Teknik (backend) karar günlüğü: [../veri-modeli/KARAR-LOG.md](../veri-modeli
 
 <!-- En yeni üstte -->
 
+### 2026-04-24 — Pilot çekici fiyat akışı: sabit şerit + tek capture (Senaryo C)
+
+**Karar:** Pilot 90 gün boyunca çekici dikeyinde **sabit fiyat şeridi** (Kayseri merkez ₺800, ilçe ₺1.200, kötü hava +₺200, gece +₺200) → müşteri çağrıdan önce fiyatı görür → tek capture + split. Tavan preauth + gerçek capture (dinamik fiyat) **V1.1 işi**.
+
+**Gerekçe:**
+- iyzico Marketplace + preauth + 3DS + split kombinasyonu doğrulanmamış (sorulacak; cevap belirsiz olabilir).
+- Sabit şerit → teknik karmaşa minimum (capture + split + 3DS standart akış)
+- Müşteri için sürprizsiz fiyat → güven artışı, "kolaylık" omurgasıyla uyumlu
+- 10 partner usta için sabit şerit kabulü kolay (T-3 onboarding'de anlaşılır)
+- Dinamik fiyat (mesafe × saat × hava) → pilot verisiyle V1.1'de kalibre edilir
+
+**Kapsam:** strateji + ürün + ödeme akışı
+**Etki:** P0
+**Aksiyon:**
+- iyzico Marketplace teyit listesi T-3 öncesi gönderilir (8 soru, kombinasyon desteği kritik)
+- Yanıta göre plan B: Param Pazar'a geçiş (provider abstraction sayesinde 2-3 gün migration)
+- Detay: [monetizasyon/odeme-modeli-yasal-cerceve.md §9-11](monetizasyon/odeme-modeli-yasal-cerceve.md)
+- Codex tow.py akışı bu pattern'a göre revize edilmeli (BACKEND-DEV sohbeti)
+
+**Validate edildi:** PO + Codex (2026-04-24, teknik kombinasyon nüansı bulguları)
+
+---
+
+### 2026-04-24 — Ödeme modeli: PSP Marketplace (sub-merchant), Naro anapara tutmaz
+
+**Karar:** Naro tüm ödemeleri **lisanslı PSP'nin marketplace ürünü altında** alır (iyzico Marketplace ya da Param Pazar). Müşteri ödemesi PSP'nin escrow akışı içinde tutulur, otomatik split ile %5 Naro alt-merchant hesabına (komisyon), %95 çekici/usta alt-merchant hesabına (anapara) ayrılır. **Naro'nun kendi banka hesabı para akışında yer almaz.**
+
+**Üç model değerlendirildi, iki ret:**
+- **Model A (Naro hesabı orta yer):** TCMB ödeme kuruluşu lisansı gerekirdi (6-12 ay + 8-15M TL sermaye). Pilot ile uyumsuz, ret.
+- **Model B (hizmet al-sat tüccar):** Çift KDV (fiyat +%20×2) + Naro doğrudan hizmet sorumluluğu. Ekonomik + hukuki yük ağır, ret.
+- **Model C (PSP marketplace):** ✓ Seçildi.
+
+**Gerekçe:**
+- Lisans **gerekmez** (PSP'nin TCMB lisansı kapsıyor)
+- Tek kat KDV (çekici müşteriye, Naro sadece çekiciye komisyon faturası)
+- Hukuki sorumluluk çekicide kalır (Naro aracı, asıl satıcı değil)
+- Disinter savunması güçlenir (kart bilgi platform-içi, dışarı ödeme adresi yok)
+- Türkiye'deki tüm 3. nesil marketplace pattern'i (Trendyol, HepsiBurada, Getir aynı yapı)
+
+**Kapsam:** strateji + monetizasyon + regülasyon + ürün-mühendislik
+**Etki:** P0
+**Aksiyon:**
+- Canonical doküman: [monetizasyon/odeme-modeli-yasal-cerceve.md](monetizasyon/odeme-modeli-yasal-cerceve.md)
+- BACKEND-DEV sohbetine T-3 doğrulama: mevcut `naro-backend/app/integrations/psp/iyzico.py` Marketplace API mı yoksa düz Ödeme API mı? İkincisi ise lansman ertelenir.
+- 10 partner usta T-3'e kadar PSP sub-merchant onboarding tamamlamalı (saha temsilcisi koordinasyonunda).
+- R005 (regülasyon) skor 6 → revize ile **3** indirildi (PSP altında lisans riski yok).
+- Yeni risk R015: yanlış PSP entegrasyonu lisans riski → BACKEND-DEV doğrulaması bekliyor.
+
+**PSP tercih sırası (pilot):** 1. iyzico Marketplace (önerilen, en stabil), 2. Param Pazar (rekabetçi fiyat), 3. Sipay Pazar (yedek).
+
+**Validate edildi:** PO (2026-04-24, ödeme modeli stratejik soru üzerine BD analizi)
+
+---
+
 ### 2026-04-21 — Servis ziyaret frekansı varsayımı revize (5/yıl, Naro kapsamı 4/yıl)
 
 **Karar:** Kullanıcı (araç sahibi) yıllık servis ziyareti varsayımı **2 → 4-5** revize edildi; pilot + LTV + oran hesapları bu varsayıma göre yenilendi.

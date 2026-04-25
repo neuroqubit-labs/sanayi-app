@@ -110,7 +110,10 @@ function resolveCityBucket(coord: LatLng): string {
   if (coord.lat > 40.1 && coord.lat < 40.3 && coord.lng > 29.0 && coord.lng < 29.2) {
     return "Bursa";
   }
-  return "İstanbul";
+  if (coord.lat > 38.55 && coord.lat < 38.9 && coord.lng > 35.25 && coord.lng < 35.75) {
+    return "Kayseri";
+  }
+  return "Türkiye";
 }
 
 const STREETS = [
@@ -139,4 +142,6 @@ const CITY_DISTRICTS: Record<string, string[]> = {
   İzmir: ["Konak", "Bornova", "Alsancak", "Karşıyaka"],
   Antalya: ["Muratpaşa", "Konyaaltı", "Kepez"],
   Bursa: ["Osmangazi", "Nilüfer", "Yıldırım"],
+  Kayseri: ["Melikgazi", "Kocasinan", "Talas"],
+  Türkiye: ["Seçili konum"],
 };

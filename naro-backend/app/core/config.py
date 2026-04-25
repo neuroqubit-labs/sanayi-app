@@ -103,6 +103,24 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
+    def model_post_init(self, __context: object) -> None:
+        if self.environment in ("staging", "production") and self.psp_provider == "mock":
+            raise ValueError("PSP_PROVIDER=mock cannot run outside development")
+        if self.environment in ("staging", "production") and self.psp_provider == "iyzico":
+            missing = [
+                name
+                for name, value in (
+                    ("IYZICO_API_KEY", self.iyzico_api_key),
+                    ("IYZICO_SECRET_KEY", self.iyzico_secret_key),
+                    ("IYZICO_CALLBACK_URL", self.iyzico_callback_url),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError(
+                    "iyzico production config missing: " + ", ".join(missing)
+                )
+
 
 @lru_cache
 def get_settings() -> Settings:

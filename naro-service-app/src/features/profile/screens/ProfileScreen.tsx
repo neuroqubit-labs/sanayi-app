@@ -13,6 +13,7 @@ import {
   StatusChip,
   Text,
   TrustBadge,
+  useNaroTheme,
 } from "@naro/ui";
 import { useRouter } from "expo-router";
 import {
@@ -20,6 +21,7 @@ import {
   Briefcase,
   CheckCircle2,
   Clock,
+  CreditCard,
   FileText,
   MapPin,
   PlayCircle,
@@ -48,7 +50,9 @@ import {
   MONTHLY_STATS,
   getProviderTypeMeta,
   useMyTechnicianShowcases,
+  useMyPaymentAccount,
   useRevokeTechnicianShowcase,
+  useSubmitPaymentAccount,
   useTechnicianProfileStore,
 } from "@/features/technicians";
 import { telemetry } from "@/runtime";
@@ -94,13 +98,41 @@ function showcaseStatusTone(status: ShowcaseStatus) {
   }
 }
 
+function paymentAccountTone(status: string) {
+  if (status === "approved") return "success" as const;
+  if (status === "pending_review" || status === "submitted") return "warning" as const;
+  if (status === "rejected" || status === "disabled") return "critical" as const;
+  return "neutral" as const;
+}
+
+function paymentAccountLabel(status: string) {
+  switch (status) {
+    case "approved":
+      return "Aktif";
+    case "pending_review":
+    case "submitted":
+      return "İncelemede";
+    case "draft":
+      return "Taslak";
+    case "rejected":
+      return "Reddedildi";
+    case "disabled":
+      return "Kapalı";
+    default:
+      return "Başlanmadı";
+  }
+}
+
 export function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useNaroTheme();
   const clear = useAuthStore((s) => s.clear);
   const profile = useTechnicianProfileStore();
   const showcasesQuery = useMyTechnicianShowcases();
   const revokeShowcase = useRevokeTechnicianShowcase();
+  const paymentAccountQuery = useMyPaymentAccount();
+  const submitPaymentAccount = useSubmitPaymentAccount();
   const toggleCapability = useTechnicianProfileStore(
     (state) => state.toggleCapability,
   );
@@ -402,6 +434,55 @@ export function ProfileScreen() {
 
         {/* Yönetim merkezi — anasayfadan taşınan 4 kısayol */}
         <ProfileManagementHub />
+
+        <ProfileSection
+          title="Ödeme hesabı"
+          description="Teklif, çekici ve kampanya gelirleri için online ödeme hesabı gerekir."
+          accessory={
+            <StatusChip
+              label={paymentAccountLabel(
+                paymentAccountQuery.data?.status ?? "not_started",
+              )}
+              tone={paymentAccountTone(
+                paymentAccountQuery.data?.status ?? "not_started",
+              )}
+            />
+          }
+        >
+          <View className="mx-4 gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-4">
+            <View className="flex-row items-center gap-2">
+              <Icon icon={CreditCard} size={14} color={colors.info} />
+              <Text variant="label" tone="inverse" className="flex-1">
+                Online ödeme almaya hazır ol
+              </Text>
+            </View>
+            <Text variant="caption" tone="muted" className="leading-[18px]">
+              Müşteri online, serviste kart veya nakit ödeme seçebilir. Online
+              ödemede tutar Naro üzerinden kayıtlı hesabına aktarılır.
+            </Text>
+            <Button
+              label={
+                paymentAccountQuery.data?.status === "approved"
+                  ? "Hesap aktif"
+                  : submitPaymentAccount.isPending
+                    ? "Gönderiliyor…"
+                    : "Ödeme hesabını tamamla"
+              }
+              variant={
+                paymentAccountQuery.data?.status === "approved"
+                  ? "outline"
+                  : "primary"
+              }
+              disabled={
+                paymentAccountQuery.data?.status === "approved" ||
+                submitPaymentAccount.isPending
+              }
+              loading={submitPaymentAccount.isPending}
+              onPress={() => submitPaymentAccount.mutate()}
+              fullWidth
+            />
+          </View>
+        </ProfileSection>
 
         {/* Müşteriye görünen profil */}
         <ProfileSection

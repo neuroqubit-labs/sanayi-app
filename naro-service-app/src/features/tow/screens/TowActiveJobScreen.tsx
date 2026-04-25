@@ -43,6 +43,7 @@ import { useTechTowBroadcaster } from "../hooks/useTechTowBroadcaster";
 import { type TowActiveJob, useTowServiceStore } from "../store.mock";
 
 const STAGE_LABELS: Record<TowDispatchStage, string> = {
+  payment_required: "Ödeme bekleniyor",
   accepted: "Kabul edildi",
   en_route: "Yolda",
   nearby: "Yakında",

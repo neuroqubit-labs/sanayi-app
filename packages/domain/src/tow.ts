@@ -31,6 +31,7 @@ export type TowIncidentReason = z.infer<typeof TowIncidentReasonSchema>;
 // Canonical BE (tow-priority audit 2026-04-23 P1-4 + matching-audit P2-2):
 // preauth_failed + preauth_stale değerleri shared domain'e eklendi.
 export const TowDispatchStageSchema = z.enum([
+  "payment_required",
   "searching",
   "accepted",
   "en_route",

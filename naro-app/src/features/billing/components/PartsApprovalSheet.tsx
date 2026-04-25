@@ -7,13 +7,19 @@ import {
   Icon,
   MoneyAmount,
   Text,
+  ThreeDSWebView,
   useNaroTheme,
 } from "@naro/ui";
 import { AlertTriangle, Clock3, MessageCircle } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 
-import { useCaseApprovals, useDecideApproval } from "@/features/approvals";
+import { useThreeDSFlow } from "@/features/billing/hooks";
+import {
+  useCaseApprovals,
+  useDecideApproval,
+  useInitiateApprovalPayment,
+} from "@/features/approvals";
 import type { ApprovalResponse } from "@/features/approvals";
 
 function parseDecimal(value: string | null | undefined): number | null {
@@ -49,18 +55,59 @@ export function PartsApprovalSheet({
   );
 
   const submit = useDecideApproval(caseId, approvalId ?? "");
+  const initiatePayment = useInitiateApprovalPayment(caseId, approvalId ?? "");
   const [reason, setReason] = useState("");
   const [rejecting, setRejecting] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const amount = parseDecimal(approval?.amount ?? null);
 
-  const handleApprove = async () => {
+  const flow = useThreeDSFlow({
+    redirectUrl: checkoutUrl,
+    onSuccess: () => {
+      setCheckoutUrl(null);
+      approvalsQuery.refetch();
+      onClose();
+    },
+    onFail: ({ message }) => {
+      setPaymentError(message ?? "Ödeme tamamlanamadı. Tekrar deneyebilirsin.");
+      setCheckoutUrl(null);
+    },
+  });
+
+  const handleOfflineApprove = async (
+    method: "service_card" | "cash" | undefined,
+  ) => {
     if (!approvalId) return;
     try {
-      await submit.mutateAsync({ decision: "approve" });
+      await submit.mutateAsync({
+        decision: "approve",
+        payment_method: method,
+      });
       onClose();
     } catch (err) {
       console.warn("parts approve failed", err);
+    }
+  };
+
+  const handleOnlinePayment = async () => {
+    if (!approvalId) return;
+    if (amount === null) {
+      await handleOfflineApprove(undefined);
+      return;
+    }
+    try {
+      setPaymentError(null);
+      const response = await initiatePayment.mutateAsync();
+      if (response.checkout_url.startsWith("mock://")) {
+        onClose();
+        return;
+      }
+      setCheckoutUrl(response.checkout_url);
+    } catch (err) {
+      console.warn("parts payment failed", err);
+      setPaymentError("Online ödeme başlatılamadı. Diğer ödeme yöntemlerini seçebilirsin.");
     }
   };
 
@@ -80,7 +127,12 @@ export function PartsApprovalSheet({
   };
 
   const handleClose = () => {
-    if (submit.isPending) return;
+    if (submit.isPending || initiatePayment.isPending) return;
+    if (checkoutUrl) {
+      flow.abandon();
+      setCheckoutUrl(null);
+      return;
+    }
     setRejecting(false);
     setReason("");
     onClose();
@@ -91,13 +143,28 @@ export function PartsApprovalSheet({
       visible={visible}
       onClose={handleClose}
       accessibilityLabel="Kapat"
-      dismissible={!submit.isPending}
+      dismissible={!submit.isPending && !initiatePayment.isPending}
     >
       <ActionSheetSurface
         title="Ek parça onayı"
         description="Usta ek parça talep etti"
       >
-        {approvalsQuery.isLoading ? (
+        {checkoutUrl ? (
+          <View className="h-[520px] gap-3">
+            <ThreeDSWebView
+              source={checkoutUrl}
+              onShouldAllowRequest={flow.shouldAllowNavigation}
+              loading={flow.state.phase === "loading"}
+            />
+            <Button
+              label="Ödeme adımını kapat"
+              variant="outline"
+              size="md"
+              fullWidth
+              onPress={handleClose}
+            />
+          </View>
+        ) : approvalsQuery.isLoading ? (
           <View className="items-center py-6">
             <ActivityIndicator size="small" color={colors.info} />
           </View>
@@ -114,9 +181,12 @@ export function PartsApprovalSheet({
             rejecting={rejecting}
             reason={reason}
             setReason={setReason}
-            submitPending={submit.isPending}
-            submitError={submit.isError}
-            onApprove={handleApprove}
+            submitPending={submit.isPending || initiatePayment.isPending}
+            submitError={submit.isError || initiatePayment.isError}
+            paymentError={paymentError}
+            onOnlinePayment={handleOnlinePayment}
+            onServiceCard={() => handleOfflineApprove("service_card")}
+            onCash={() => handleOfflineApprove("cash")}
             onReject={handleReject}
             onStartReject={() => setRejecting(true)}
             onCancelReject={() => {
@@ -143,7 +213,10 @@ type BodyProps = {
   setReason: (v: string) => void;
   submitPending: boolean;
   submitError: boolean;
-  onApprove: () => void;
+  paymentError: string | null;
+  onOnlinePayment: () => void;
+  onServiceCard: () => void;
+  onCash: () => void;
   onReject: () => void;
   onStartReject: () => void;
   onCancelReject: () => void;
@@ -158,7 +231,10 @@ function ApprovalBody({
   setReason,
   submitPending,
   submitError,
-  onApprove,
+  paymentError,
+  onOnlinePayment,
+  onServiceCard,
+  onCash,
   onReject,
   onStartReject,
   onCancelReject,
@@ -225,8 +301,8 @@ function ApprovalBody({
               tone="muted"
               className="text-app-text-muted text-[11px] leading-[16px]"
             >
-              Onaylarsan kartından bu tutar ek olarak pre-auth tutulur. İş
-              bitince kesin tutar üzerinden kesilir.
+              Online ödeme önerilir. İstersen serviste kart veya nakit ödeme
+              seçip bu talebi kayıt altına alabilirsin.
             </Text>
           </View>
         ) : null}
@@ -280,6 +356,46 @@ function ApprovalBody({
         </View>
       ) : (
         <View className="gap-2">
+          {amount !== null ? (
+            <View className="gap-2 rounded-[14px] border border-app-outline bg-app-surface-2 px-3 py-2.5">
+              <Text variant="eyebrow" tone="subtle" className="text-[10px]">
+                Ödeme yöntemi
+              </Text>
+              <Button
+                label={submitPending ? "Başlatılıyor…" : "Naro ile online öde"}
+                size="md"
+                fullWidth
+                loading={submitPending}
+                onPress={onOnlinePayment}
+              />
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <Button
+                    label="Serviste kart"
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    disabled={submitPending}
+                    onPress={onServiceCard}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Button
+                    label="Nakit"
+                    variant="outline"
+                    size="sm"
+                    fullWidth
+                    disabled={submitPending}
+                    onPress={onCash}
+                  />
+                </View>
+              </View>
+              <Text variant="caption" tone="muted" className="text-[11px]">
+                Serviste ödeme Naro üzerinden tahsil edilmez; yalnızca vaka
+                geçmişine işlenir.
+              </Text>
+            </View>
+          ) : null}
           <View className="flex-row gap-2">
             <View className="flex-1">
               <Button
@@ -293,11 +409,12 @@ function ApprovalBody({
             </View>
             <View className="flex-[1.4]">
               <Button
-                label={submitPending ? "Onaylanıyor…" : "Onayla"}
+                label={submitPending ? "Onaylanıyor…" : "Tutar yoksa onayla"}
                 size="md"
                 fullWidth
                 loading={submitPending}
-                onPress={onApprove}
+                disabled={amount !== null || submitPending}
+                onPress={onOnlinePayment}
               />
             </View>
           </View>
@@ -316,6 +433,13 @@ function ApprovalBody({
             <View className="rounded-[10px] border border-app-critical/30 bg-app-critical-soft px-3 py-2">
               <Text variant="caption" tone="critical" className="text-[11px]">
                 İşlem başarısız oldu. Tekrar dene.
+              </Text>
+            </View>
+          ) : null}
+          {paymentError ? (
+            <View className="rounded-[10px] border border-app-critical/30 bg-app-critical-soft px-3 py-2">
+              <Text variant="caption" tone="critical" className="text-[11px]">
+                {paymentError}
               </Text>
             </View>
           ) : null}

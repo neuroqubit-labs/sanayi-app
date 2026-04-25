@@ -34,18 +34,22 @@ from app.api.v1.deps import (
     CurrentUserDep,
     DbDep,
 )
+from app.api.v1.routes.billing import _get_psp
+from app.core.config import get_settings
 from app.models.case import ServiceCase
 from app.models.case_process import (
     CaseApproval,
     CaseApprovalKind,
     CaseApprovalLineItem,
+    CaseApprovalPaymentMethod,
+    CaseApprovalPaymentState,
     CaseApprovalStatus,
 )
 from app.models.review import Review
 from app.models.user import UserRole
 from app.repositories import review as review_repo
-from app.services import approval_flow
-from app.services import case_public_showcases
+from app.schemas.payment import PaymentInitiateResponse
+from app.services import approval_flow, case_public_showcases, payment_core
 
 router = APIRouter(prefix="/cases", tags=["approvals"])
 
@@ -98,6 +102,7 @@ class ApprovalDecidePayload(BaseModel):
     rating: int | None = Field(default=None, ge=1, le=5)
     review_body: str | None = Field(default=None, max_length=2000)
     public_showcase_consent: bool = False
+    payment_method: CaseApprovalPaymentMethod | None = None
 
 
 class ApprovalResponse(BaseModel):
@@ -116,6 +121,10 @@ class ApprovalResponse(BaseModel):
     amount: Decimal | None
     currency: str
     service_comment: str | None
+    payment_method: CaseApprovalPaymentMethod | None = None
+    payment_state: CaseApprovalPaymentState
+    payment_order_id: UUID | None = None
+    available_payment_methods: list[CaseApprovalPaymentMethod] = Field(default_factory=list)
     line_items: list[ApprovalLineItemOut] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
@@ -142,10 +151,22 @@ async def _load_line_items(db: DbDep, approval_id: UUID) -> list[CaseApprovalLin
 
 async def _build_response(db: DbDep, approval: CaseApproval) -> ApprovalResponse:
     items = await _load_line_items(db, approval.id)
+    available_payment_methods: list[CaseApprovalPaymentMethod] = []
+    if (
+        approval.kind in (CaseApprovalKind.PARTS_REQUEST, CaseApprovalKind.INVOICE)
+        and approval.amount is not None
+        and approval.amount > 0
+    ):
+        available_payment_methods = [
+            CaseApprovalPaymentMethod.ONLINE,
+            CaseApprovalPaymentMethod.SERVICE_CARD,
+            CaseApprovalPaymentMethod.CASH,
+        ]
     return ApprovalResponse.model_validate(
         {
             **{c.name: getattr(approval, c.name) for c in approval.__table__.columns},
             "line_items": [ApprovalLineItemOut.model_validate(it) for it in items],
+            "available_payment_methods": available_payment_methods,
         }
     )
 
@@ -183,6 +204,12 @@ async def request_approval_endpoint(
             service_comment=payload.service_comment,
             line_items=[it.model_dump() for it in payload.line_items],
         )
+        if (
+            payload.kind in (CaseApprovalKind.PARTS_REQUEST, CaseApprovalKind.INVOICE)
+            and payload.amount is not None
+            and payload.amount > 0
+        ):
+            approval.payment_state = CaseApprovalPaymentState.REQUIRED
         if payload.kind == CaseApprovalKind.COMPLETION:
             line_items = await _load_line_items(db, approval.id)
             await case_public_showcases.upsert_from_completion_request(
@@ -231,6 +258,44 @@ async def list_approvals_endpoint(
 
 
 @router.post(
+    "/{case_id}/approvals/{approval_id}/payment/initiate",
+    response_model=PaymentInitiateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Approval online ödeme başlat — parts_request / invoice",
+)
+async def initiate_approval_payment_endpoint(
+    case_id: UUID,
+    approval_id: UUID,
+    user: CurrentCustomerDep,
+    db: DbDep,
+) -> PaymentInitiateResponse:
+    case = await _load_case_or_404(db, case_id)
+    if case.customer_user_id != user.id:
+        raise HTTPException(status_code=403, detail={"type": "not_case_owner"})
+    approval = await db.get(CaseApproval, approval_id)
+    if approval is None or approval.case_id != case_id:
+        raise HTTPException(status_code=404, detail={"type": "approval_not_found"})
+
+    psp, _provider = _get_psp()
+    try:
+        response = await payment_core.initiate_case_approval_capture(
+            db,
+            case=case,
+            approval=approval,
+            psp=psp,
+            callback_url=get_settings().iyzico_callback_url,
+        )
+    except payment_core.PaymentCoreError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"type": exc.error_type, "message": str(exc)},
+        ) from exc
+    await db.commit()
+    return response
+
+
+@router.post(
     "/{case_id}/approvals/{approval_id}/decide",
     response_model=ApprovalResponse,
     summary="Customer decide — approve/reject (parts_request / invoice / completion)",
@@ -268,10 +333,35 @@ async def decide_approval_endpoint(
             status_code=422,
             detail={"type": "case_has_no_technician"},
         )
+    payment_required = (
+        approval.kind in (CaseApprovalKind.PARTS_REQUEST, CaseApprovalKind.INVOICE)
+        and approval.amount is not None
+        and approval.amount > 0
+    )
+    if payload.decision == "approve" and payment_required:
+        if payload.payment_method is None:
+            raise HTTPException(
+                status_code=422,
+                detail={"type": "approval_payment_method_required"},
+            )
+        if payload.payment_method == CaseApprovalPaymentMethod.ONLINE:
+            raise HTTPException(
+                status_code=409,
+                detail={"type": "approval_online_payment_required"},
+            )
 
     try:
         if payload.decision == "approve":
+            if payment_required and payload.payment_method is not None:
+                approval.payment_method = payload.payment_method
+                approval.payment_state = CaseApprovalPaymentState.OFFLINE_RECORDED
             decided = await approval_flow.approve(db, approval_id, actor_user_id=user.id)
+            if (
+                decided.kind == CaseApprovalKind.INVOICE
+                and decided.payment_state == CaseApprovalPaymentState.OFFLINE_RECORDED
+            ):
+                case.billing_state = "settled"
+                case.total_amount = decided.amount
             if decided.kind == CaseApprovalKind.COMPLETION:
                 existing_review = (
                     await db.execute(

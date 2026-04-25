@@ -34,6 +34,7 @@ export const TowIncidentReasonSchema = z.enum([
 export type TowIncidentReason = z.infer<typeof TowIncidentReasonSchema>;
 
 export const TowDispatchStageSchema = z.enum([
+  "payment_required",
   "searching",
   "accepted",
   "en_route",
@@ -62,6 +63,43 @@ export const TowSettlementStatusSchema = z.enum([
   "kasko_rejected",
 ]);
 export type TowSettlementStatus = z.infer<typeof TowSettlementStatusSchema>;
+
+export const TowPaymentStateSchema = z.enum([
+  "payment_required",
+  "preauth_requested",
+  "preauth_held",
+  "preauth_failed",
+  "capture_requested",
+  "captured",
+  "voided",
+  "refunded",
+  "cancelled",
+]);
+export type TowPaymentState = z.infer<typeof TowPaymentStateSchema>;
+
+export const TowPaymentSnapshotSchema = z.object({
+  state: TowPaymentStateSchema,
+  amount_label: z.string().nullable().optional(),
+  retryable: z.boolean().default(false),
+  next_action: z.string().nullable().optional(),
+  payment_order_id: z.string().uuid().nullable().optional(),
+  amount: z.string().nullable().optional(),
+  currency: z.string().default("TRY"),
+});
+export type TowPaymentSnapshot = z.infer<typeof TowPaymentSnapshotSchema>;
+
+export const TowPaymentInitiateResponseSchema = z.object({
+  payment_order_id: z.string().uuid(),
+  payment_attempt_id: z.string().uuid(),
+  checkout_url: z.string(),
+  amount: z.string(),
+  currency: z.string(),
+  expires_at: z.string().nullable().optional(),
+  payment_mode: z.enum(["preauth_capture", "direct_capture"]),
+});
+export type TowPaymentInitiateResponse = z.infer<
+  typeof TowPaymentInitiateResponseSchema
+>;
 
 // ─── Primitives ────────────────────────────────────────────────────────────
 
@@ -178,6 +216,7 @@ export const TowCaseSnapshotSchema = z.object({
   settlement_status: TowSettlementStatusSchema,
   final_amount: z.string().nullable(),
   cancellation_fee: z.string().nullable(),
+  payment: TowPaymentSnapshotSchema.nullable().optional(),
 });
 export type TowCaseSnapshot = z.infer<typeof TowCaseSnapshotSchema>;
 

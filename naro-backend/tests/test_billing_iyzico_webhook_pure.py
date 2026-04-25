@@ -22,6 +22,8 @@ from app.main import app
 from app.services.payment_idempotency import ConcurrentOperationError
 from app.services.webhook_security import (
     compute_hmac_signature,
+    compute_iyzico_v3_signature,
+    verify_iyzico_v3_signature,
     verify_webhook_signature,
 )
 
@@ -35,7 +37,8 @@ async def test_iyzico_webhook_missing_secret_returns_503(
     """Secret boş → 503 (degraded mode). I-BILL-5."""
     from app.core import config as config_mod
 
-    monkeypatch.delenv("IYZICO_WEBHOOK_SECRET", raising=False)
+    monkeypatch.setenv("IYZICO_WEBHOOK_SECRET", "")
+    monkeypatch.setenv("IYZICO_SECRET_KEY", "")
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
     transport = ASGITransport(app=app)
@@ -74,6 +77,7 @@ async def test_iyzico_webhook_with_secret_missing_signature_401(
     # Pydantic Settings immutable — direkt monkey patching güvenli değil.
     # Env-based override kullan:
     monkeypatch.setenv("IYZICO_WEBHOOK_SECRET", "testsecret")
+    monkeypatch.setenv("ENVIRONMENT", "development")
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
     transport = ASGITransport(app=app)
@@ -93,6 +97,7 @@ async def test_iyzico_webhook_invalid_signature_401(
     from app.core import config as config_mod
 
     monkeypatch.setenv("IYZICO_WEBHOOK_SECRET", "testsecret")
+    monkeypatch.setenv("ENVIRONMENT", "development")
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
     transport = ASGITransport(app=app)
@@ -114,6 +119,7 @@ async def test_iyzico_webhook_valid_signature_200(
     from app.core import config as config_mod
 
     monkeypatch.setenv("IYZICO_WEBHOOK_SECRET", "testsecret")
+    monkeypatch.setenv("ENVIRONMENT", "development")
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
     # conversationId eksik — webhook `received_incomplete` döner (HMAC OK ama body kısmi)
@@ -136,6 +142,36 @@ async def test_iyzico_webhook_valid_signature_200(
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
 
+@pytest.mark.asyncio
+async def test_iyzico_webhook_valid_official_signature_200(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core import config as config_mod
+
+    monkeypatch.setenv("IYZICO_SECRET_KEY", "iyzico-secret")
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
+    payload = {
+        "paymentStatus": "SUCCESS",
+        "paymentId": "abc123",
+        "currency": "TRY",
+        "basketId": "basket-1",
+        "paidPrice": "10.0",
+        "price": "10.00",
+        "token": "checkout-token",
+    }
+    payload["signature"] = compute_iyzico_v3_signature(
+        payload=payload,
+        secret_key="iyzico-secret",
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.post("/api/v1/webhooks/iyzico/payment", json=payload)
+    assert r.status_code == 200
+    assert r.json() == {"status": "received_incomplete"}
+    config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
+
+
 # ─── HMAC helper direct tests ──────────────────────────────────────────────
 
 
@@ -152,6 +188,30 @@ def test_hmac_verify_empty_signature_false() -> None:
     body = b'{"x":1}'
     assert (
         verify_webhook_signature(body=body, signature="", secret="s") is False
+    )
+
+
+def test_iyzico_official_signature_checkout_form_shape() -> None:
+    payload = {
+        "paymentStatus": "SUCCESS",
+        "paymentId": "12345",
+        "currency": "TRY",
+        "basketId": "B678",
+        "conversationId": "conv-1",
+        "paidPrice": "12.30",
+        "price": "12.300",
+        "token": "tok-1",
+    }
+    sig = compute_iyzico_v3_signature(payload=payload, secret_key="secret")
+    assert verify_iyzico_v3_signature(
+        payload=payload,
+        signature=sig,
+        secret_key="secret",
+    )
+    assert not verify_iyzico_v3_signature(
+        payload={**payload, "price": "12.31"},
+        signature=sig,
+        secret_key="secret",
     )
 
 
@@ -284,9 +344,13 @@ def test_iyzico_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     """Default config baseline — env boşken."""
     from app.core import config as config_mod
 
-    monkeypatch.delenv("IYZICO_WEBHOOK_SECRET", raising=False)
-    monkeypatch.delenv("IYZICO_BASE_URL", raising=False)
-    monkeypatch.delenv("IYZICO_CALLBACK_URL", raising=False)
+    monkeypatch.setenv("IYZICO_WEBHOOK_SECRET", "")
+    monkeypatch.setenv("IYZICO_SECRET_KEY", "")
+    monkeypatch.setenv("IYZICO_BASE_URL", "https://sandbox-api.iyzipay.com")
+    monkeypatch.setenv(
+        "IYZICO_CALLBACK_URL",
+        "https://api-sandbox.naro.app/api/v1/webhooks/iyzico/payment",
+    )
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
 
     s = get_settings()

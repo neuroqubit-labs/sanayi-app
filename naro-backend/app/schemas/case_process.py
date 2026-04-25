@@ -18,6 +18,8 @@ from app.models.case_communication import CaseMessageAuthorRole
 from app.models.case_process import (
     CaseActor,
     CaseApprovalKind,
+    CaseApprovalPaymentMethod,
+    CaseApprovalPaymentState,
     CaseApprovalStatus,
     CaseMilestoneStatus,
     CaseTaskKind,
@@ -129,6 +131,9 @@ class CaseApprovalResponse(BaseModel):
     amount: Decimal | None
     currency: str
     service_comment: str | None
+    payment_method: CaseApprovalPaymentMethod | None = None
+    payment_state: CaseApprovalPaymentState
+    payment_order_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

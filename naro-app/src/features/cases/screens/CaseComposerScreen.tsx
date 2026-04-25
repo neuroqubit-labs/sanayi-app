@@ -12,13 +12,14 @@ import {
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { CarFront, ChevronDown, Plus } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getMissingRequiredAttachmentCategories } from "@/features/cases/caseCreationContract";
 import { useTechnicianCooldownStore } from "@/features/cases/cooldown-store";
 import { useTowFareQuote } from "@/features/tow/api";
+import { useTowEntryRoute } from "@/features/tow/entry";
 import { useTechnicianProfile } from "@/features/ustalar/api";
 import {
   useActiveVehicle,
@@ -101,6 +102,11 @@ export function CaseComposerScreen() {
   );
   const [stepIndex, setStepIndex] = useState(0);
   const [towSubmitMessage, setTowSubmitMessage] = useState<string | null>(null);
+  const bypassDraftGuardRef = useRef(false);
+  const freshTowDraftKeyRef = useRef<string | null>(null);
+  const towEntry = useTowEntryRoute({
+    vehicleId: activeVehicle?.id,
+  });
 
   useEffect(() => {
     if (vehicleId && vehicleId !== activeVehicle?.id) {
@@ -150,9 +156,31 @@ export function CaseComposerScreen() {
       : flow.description;
 
   useDraftGuard({
-    enabled: Boolean(draft && hasMeaningfulDraft(draft)),
+    enabled: kind !== "towing" && Boolean(draft && hasMeaningfulDraft(draft)),
+    shouldBypass: () => bypassDraftGuardRef.current,
     onDiscard: () => resetDraft(),
   });
+
+  useEffect(() => {
+    if (kind !== "towing" || !activeVehicle?.id || !draft) return;
+    const draftKey = `${activeVehicle.id}:${parentCaseId ?? ""}`;
+    if (freshTowDraftKeyRef.current === draftKey) return;
+    freshTowDraftKeyRef.current = draftKey;
+    resetTowSubmitErrors();
+    resetDraft();
+  }, [
+    activeVehicle?.id,
+    draft,
+    kind,
+    parentCaseId,
+    resetDraft,
+    resetTowSubmitErrors,
+  ]);
+
+  useEffect(() => {
+    if (kind !== "towing" || !towEntry.activeTowCase) return;
+    router.replace(`/cekici/${towEntry.activeTowCase.id}` as Href);
+  }, [kind, router, towEntry.activeTowCase]);
 
   if (!isValidKind) {
     return (
@@ -314,11 +342,17 @@ export function CaseComposerScreen() {
             parentCaseId: parentCaseId ?? null,
           },
         });
+        bypassDraftGuardRef.current = true;
         resetDraft();
-        router.replace(`/cekici/${createdCase.id}` as Href);
+        router.replace(
+          (isImmediate
+            ? `/(modal)/cekici-odeme/${createdCase.id}`
+            : `/cekici/${createdCase.id}`) as Href,
+        );
       } catch (err) {
         const existingCaseId = extractDuplicateOpenCaseId(err);
         if (existingCaseId) {
+          bypassDraftGuardRef.current = true;
           resetDraft();
           router.replace(`/cekici/${existingCaseId}` as Href);
           return;
@@ -331,6 +365,7 @@ export function CaseComposerScreen() {
     }
 
     const createdCase = await submitMutation.mutateAsync();
+    bypassDraftGuardRef.current = true;
     resetDraft();
     const nextRoute =
       technicianId && canFastTrackToAppointment

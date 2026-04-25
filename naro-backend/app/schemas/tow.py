@@ -15,6 +15,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.payment import PaymentSnapshot
+
 # ─── Enums (StrEnum — JSON serde ile uyumlu) ────────────────────────────────
 
 
@@ -43,6 +45,7 @@ class TowIncidentReasonSchema(StrEnum):
 
 
 class TowDispatchStageSchema(StrEnum):
+    PAYMENT_REQUIRED = "payment_required"
     SEARCHING = "searching"
     ACCEPTED = "accepted"
     EN_ROUTE = "en_route"
@@ -75,6 +78,10 @@ class TowSettlementStatusSchema(StrEnum):
 # FE UX: tow shell coarse status ("matching" vs "service_in_progress"),
 # stage detay burada. FE tow_phase'e göre ana chip, stage_label alt-satır.
 _STAGE_META: dict[TowDispatchStageSchema, tuple[str, str]] = {
+    TowDispatchStageSchema.PAYMENT_REQUIRED: (
+        "Ödeme bekleniyor",
+        "payment",
+    ),
     TowDispatchStageSchema.SEARCHING: (
         "Çekici aranıyor",
         "dispatch",
@@ -440,6 +447,7 @@ class TowCaseSnapshot(BaseModel):
     settlement_status: TowSettlementStatusSchema
     final_amount: Decimal | None
     cancellation_fee: Decimal | None
+    payment: PaymentSnapshot | None = None
 
 
 class TowTrackingSnapshot(BaseModel):

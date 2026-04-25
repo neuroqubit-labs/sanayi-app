@@ -99,6 +99,21 @@ class CaseApprovalStatus(StrEnum):
     REJECTED = "rejected"
 
 
+class CaseApprovalPaymentMethod(StrEnum):
+    ONLINE = "online"
+    SERVICE_CARD = "service_card"
+    CASH = "cash"
+
+
+class CaseApprovalPaymentState(StrEnum):
+    NOT_REQUIRED = "not_required"
+    REQUIRED = "required"
+    REQUESTED = "requested"
+    PAID = "paid"
+    OFFLINE_RECORDED = "offline_recorded"
+    FAILED = "failed"
+
+
 class CaseWorkflowBlueprint(StrEnum):
     """App-level; service_cases.workflow_blueprint string olarak tutulur.
 
@@ -214,6 +229,19 @@ class CaseApproval(UUIDPkMixin, TimestampMixin, Base):
         String(8), nullable=False, default="TRY", server_default="TRY"
     )
     service_comment: Mapped[str | None] = mapped_column(Text)
+    payment_method: Mapped[CaseApprovalPaymentMethod | None] = mapped_column(
+        pg_enum(CaseApprovalPaymentMethod, name="case_approval_payment_method"),
+        nullable=True,
+    )
+    payment_state: Mapped[CaseApprovalPaymentState] = mapped_column(
+        pg_enum(CaseApprovalPaymentState, name="case_approval_payment_state"),
+        nullable=False,
+        default=CaseApprovalPaymentState.NOT_REQUIRED,
+        server_default=CaseApprovalPaymentState.NOT_REQUIRED.value,
+    )
+    payment_order_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("payment_orders.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class CaseApprovalLineItem(UUIDPkMixin, Base):

@@ -31,6 +31,25 @@ export const CaseApprovalStatusSchema = z.enum([
 ]);
 export type CaseApprovalStatus = z.infer<typeof CaseApprovalStatusSchema>;
 
+export const ApprovalPaymentMethodSchema = z.enum([
+  "online",
+  "service_card",
+  "cash",
+]);
+export type ApprovalPaymentMethod = z.infer<
+  typeof ApprovalPaymentMethodSchema
+>;
+
+export const ApprovalPaymentStateSchema = z.enum([
+  "not_required",
+  "required",
+  "requested",
+  "paid",
+  "offline_recorded",
+  "failed",
+]);
+export type ApprovalPaymentState = z.infer<typeof ApprovalPaymentStateSchema>;
+
 // ─── Line item (HTTP shape) ─────────────────────────────────────────────────
 
 /**
@@ -56,6 +75,10 @@ export const ApprovalResponseSchema = z.object({
   currency: z.string().default("TRY"),
   description: z.string().nullable().optional(),
   service_comment: z.string().nullable().optional(),
+  payment_method: ApprovalPaymentMethodSchema.nullable().optional(),
+  payment_state: ApprovalPaymentStateSchema.default("not_required"),
+  payment_order_id: z.string().uuid().nullable().optional(),
+  available_payment_methods: z.array(ApprovalPaymentMethodSchema).default([]),
   line_items: z.array(ApprovalLineItemSchema).default([]),
   created_at: z.string(),
   resolved_at: z.string().nullable().optional(),
@@ -102,6 +125,7 @@ export const ApprovalDecidePayloadSchema = z.object({
   rating: z.number().int().min(1).max(5).nullable().optional(),
   review_body: z.string().max(2000).nullable().optional(),
   public_showcase_consent: z.boolean().default(false).optional(),
+  payment_method: ApprovalPaymentMethodSchema.optional(),
 });
 export type ApprovalDecidePayload = z.infer<
   typeof ApprovalDecidePayloadSchema

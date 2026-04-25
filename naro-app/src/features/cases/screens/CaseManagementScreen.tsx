@@ -40,6 +40,7 @@ import {
   type CaseBillingStage,
 } from "@/features/billing";
 import { useCaseOffers } from "@/features/offers";
+import { useTowEntryRoute } from "@/features/tow/entry";
 import { useUstaPreviewStore } from "@/features/ustalar";
 import { useTechnicianPublicView } from "@/features/ustalar/api";
 import { useVehicle } from "@/features/vehicles";
@@ -150,6 +151,10 @@ export function CaseManagementScreen() {
   );
   const offersQuery = useCaseOffers(caseId);
   const offers = offersQuery.data ?? [];
+  const towEntry = useTowEntryRoute({
+    vehicleId: caseItem?.vehicle_id,
+    fallback: `/(modal)/talep/towing?parentCaseId=${caseId}` as Href,
+  });
 
   // BE Faz 2 linkage — canonical adapter üzerinden okunur.
   const linkedTowCaseIds = linkage?.linked_tow_case_ids ?? [];
@@ -332,11 +337,7 @@ export function CaseManagementScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Bu vakaya çekici çağır"
-            onPress={() =>
-              router.push(
-                `/(modal)/talep/towing?parentCaseId=${caseId}` as Href,
-              )
-            }
+            onPress={() => router.push(towEntry.route)}
             className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
           >
             <View className="h-10 w-10 items-center justify-center rounded-full bg-app-surface-2">

@@ -1,3 +1,5 @@
+import type { Href } from "expo-router";
+
 import type { SearchPrompt, SearchSuggestionChip } from "../types";
 
 export const SEARCH_PROMPTS: SearchPrompt[] = [
@@ -5,31 +7,31 @@ export const SEARCH_PROMPTS: SearchPrompt[] = [
     id: "prompt-ariza",
     body: "Aracımdan sürekli ses geliyor — kime güvenebilirim?",
     category: "usta",
-    route: "/(modal)/talep/breakdown",
+    route: "/(modal)/talep/breakdown" as Href,
   },
   {
     id: "prompt-cekici",
     body: "Şu an yolda kaldım, hızlıca çekici çağırmam lazım.",
     category: "usta",
-    route: "/(modal)/talep/towing",
+    route: "/(modal)/talep/towing" as Href,
   },
   {
     id: "prompt-bakim",
     body: "Yaz öncesi hangi bakım kontrollerini yaptırmalıyım?",
     category: "bakim",
-    route: "/(modal)/talep/maintenance",
+    route: "/(modal)/talep/maintenance" as Href,
   },
   {
     id: "prompt-kampanya",
     body: "Bu ay aracıma uygun kampanyalı paket var mı?",
     category: "kampanya",
-    route: "/(tabs)/",
+    route: "/(tabs)" as Href,
   },
   {
     id: "prompt-kaza",
     body: "Hafif bir kazam oldu, nereden başlamalıyım?",
     category: "rehber",
-    route: "/(modal)/talep/accident",
+    route: "/(modal)/talep/accident" as Href,
   },
 ];
 

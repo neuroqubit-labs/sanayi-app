@@ -19,7 +19,7 @@ from app.schemas.tow import (
     TowCaseSnapshot,
     TowPendingDispatch,
 )
-from app.services import tow_presence
+from app.services import technician_payment_accounts, tow_presence
 
 from ._guards import _get_tow_profile_for_user
 from ._presenters import _build_availability_output, _build_pending_dispatch, _build_snapshot
@@ -40,6 +40,17 @@ async def set_tow_availability(
 ) -> TowAvailabilityOutput:
     profile = await _get_tow_profile_for_user(db, tech.id)
     now = datetime.now(UTC)
+
+    if payload.available:
+        try:
+            await technician_payment_accounts.require_can_receive_online_payments(
+                db, tech.id
+            )
+        except technician_payment_accounts.PaymentAccountRequiredError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail={"type": "payment_account_required"},
+            ) from exc
 
     if payload.available and (payload.lat is None or payload.lng is None):
         raise HTTPException(

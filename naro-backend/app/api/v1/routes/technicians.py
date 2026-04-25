@@ -29,7 +29,6 @@ from sqlalchemy import select
 
 from app.api.v1.deps import CurrentTechnicianDep, CurrentUserDep, DbDep, RedisDep
 from app.models.auth_event import AuthEvent, AuthEventType
-from app.models.user import UserRole
 from app.models.case import (
     ServiceCaseStatus,
     ServiceRequestKind,
@@ -51,6 +50,11 @@ from app.models.technician import (
     TechnicianProfile,
     TechnicianVerifiedLevel,
 )
+from app.models.technician_payment import (
+    TechnicianPaymentAccountStatus,
+    TechnicianPaymentLegalType,
+)
+from app.models.user import UserRole
 from app.repositories import case as case_repo
 from app.repositories import technician as technician_repo
 from app.schemas.insurance_claim import (
@@ -59,7 +63,7 @@ from app.schemas.insurance_claim import (
 )
 from app.schemas.shell_config import ShellConfig
 from app.services import insurance_claim_flow as claim_flow
-from app.services import technician_mutations, technician_shell
+from app.services import technician_mutations, technician_payment_accounts, technician_shell
 from app.services.case_public_showcases import revoke_for_actor, snapshot_value
 from app.services.technician_admission import (
     AdmissionGateError,
@@ -1098,6 +1102,121 @@ class TowEquipmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     equipment: list[TowEquipment]
+
+
+class PaymentAccountResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID | None = None
+    technician_user_id: UUID
+    provider: str
+    status: TechnicianPaymentAccountStatus
+    legal_type: TechnicianPaymentLegalType | None = None
+    legal_name: str | None = None
+    tax_number_ref: str | None = None
+    iban_ref: str | None = None
+    authorized_person_name: str | None = None
+    address_snapshot: dict[str, object] = Field(default_factory=dict)
+    business_snapshot: dict[str, object] = Field(default_factory=dict)
+    can_receive_online_payments: bool
+    sub_merchant_key: str | None = None
+    submitted_at: datetime | None = None
+    reviewed_at: datetime | None = None
+    reviewer_note: str | None = None
+
+
+class PaymentAccountDraftPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    legal_type: TechnicianPaymentLegalType | None = None
+    legal_name: Annotated[str, Field(min_length=1, max_length=255)] | None = None
+    tax_number_ref: Annotated[str, Field(min_length=4, max_length=80)] | None = None
+    iban_ref: Annotated[str, Field(min_length=8, max_length=80)] | None = None
+    authorized_person_name: Annotated[str, Field(max_length=255)] | None = None
+    address_snapshot: dict[str, object] = Field(default_factory=dict)
+    business_snapshot: dict[str, object] = Field(default_factory=dict)
+
+
+def _payment_account_response(
+    user_id: UUID,
+    account: object | None,
+) -> PaymentAccountResponse:
+    if account is None:
+        return PaymentAccountResponse(
+            technician_user_id=user_id,
+            provider="mock",
+            status=TechnicianPaymentAccountStatus.NOT_STARTED,
+            can_receive_online_payments=False,
+        )
+    return PaymentAccountResponse.model_validate(account)
+
+
+@router.get(
+    "/payment-account",
+    response_model=PaymentAccountResponse,
+    summary="Teknisyen ödeme hesabı durumu",
+)
+async def get_me_payment_account(
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> PaymentAccountResponse:
+    account = await technician_payment_accounts.get_payment_account(db, user.id)
+    return _payment_account_response(user.id, account)
+
+
+@router.put(
+    "/payment-account/draft",
+    response_model=PaymentAccountResponse,
+    summary="Teknisyen ödeme hesabı taslağını kaydet",
+)
+async def put_me_payment_account_draft(
+    payload: PaymentAccountDraftPayload,
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> PaymentAccountResponse:
+    account = await technician_payment_accounts.save_payment_account_draft(
+        db,
+        technician_user_id=user.id,
+        legal_type=payload.legal_type,
+        legal_name=payload.legal_name,
+        tax_number_ref=payload.tax_number_ref,
+        iban_ref=payload.iban_ref,
+        authorized_person_name=payload.authorized_person_name,
+        address_snapshot=payload.address_snapshot,
+        business_snapshot=payload.business_snapshot,
+    )
+    await _emit_auth_event(
+        db,
+        user.id,
+        AuthEventType.TECHNICIAN_PROFILE_UPDATED,
+        {"scope": "payment_account", "status": "draft"},
+    )
+    await db.commit()
+    return PaymentAccountResponse.model_validate(account)
+
+
+@router.post(
+    "/payment-account/submit",
+    response_model=PaymentAccountResponse,
+    summary="Teknisyen ödeme hesabını doğrulamaya gönder",
+)
+async def post_me_payment_account_submit(
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> PaymentAccountResponse:
+    account = await technician_payment_accounts.submit_payment_account(db, user.id)
+    await _emit_auth_event(
+        db,
+        user.id,
+        AuthEventType.TECHNICIAN_PROFILE_UPDATED,
+        {
+            "scope": "payment_account",
+            "status": account.status.value,
+            "can_receive_online_payments": account.can_receive_online_payments,
+        },
+    )
+    await db.commit()
+    return PaymentAccountResponse.model_validate(account)
 
 
 @router.get(

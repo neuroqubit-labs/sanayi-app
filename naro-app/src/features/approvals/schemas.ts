@@ -13,6 +13,8 @@
 export {
   CaseApprovalKindSchema,
   CaseApprovalStatusSchema,
+  ApprovalPaymentMethodSchema,
+  ApprovalPaymentStateSchema,
   ApprovalLineItemSchema,
   ApprovalResponseSchema,
   ApprovalRequestPayloadSchema,
@@ -21,6 +23,8 @@ export {
 export type {
   CaseApprovalKind,
   CaseApprovalStatus,
+  ApprovalPaymentMethod,
+  ApprovalPaymentState,
   ApprovalLineItem,
   ApprovalResponse,
   ApprovalRequestPayload,

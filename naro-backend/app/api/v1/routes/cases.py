@@ -23,7 +23,6 @@ from app.api.v1.deps import (
     CurrentUserDep,
     CustomerDep,
     DbDep,
-    PspDep,
     RedisDep,
     SettingsDep,
 )
@@ -182,7 +181,6 @@ async def create_case_endpoint(
     draft: ServiceRequestDraftCreate,
     user: CustomerDep,
     db: DbDep,
-    psp: PspDep,
     redis: RedisDep,
 ) -> CaseCreateResponse:
     try:
@@ -193,7 +191,6 @@ async def create_case_endpoint(
                 case=result.case,
                 draft=draft,
                 actor_user_id=user.id,
-                psp=psp,
                 redis=redis,
             )
     except case_create.CaseCreateError as exc:

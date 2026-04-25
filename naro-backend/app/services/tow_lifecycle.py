@@ -33,6 +33,11 @@ from app.services.tow_dispatch import compute_cancellation_fee
 # ─── Stage graph (allowed transitions) ──────────────────────────────────────
 
 _ALLOWED: dict[TowDispatchStage, frozenset[TowDispatchStage]] = {
+    TowDispatchStage.PAYMENT_REQUIRED: frozenset({
+        TowDispatchStage.SEARCHING,
+        TowDispatchStage.PREAUTH_FAILED,
+        TowDispatchStage.CANCELLED,
+    }),
     TowDispatchStage.SEARCHING: frozenset({
         TowDispatchStage.ACCEPTED,
         TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL,

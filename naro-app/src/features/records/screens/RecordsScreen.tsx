@@ -21,6 +21,7 @@ import {
 import { useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
 
+import { useTowEntryRoute } from "@/features/tow/entry";
 import { useActiveVehicle, useVehicleSwitcherStore } from "@/features/vehicles";
 
 import { useRecordsFeed } from "../api";
@@ -41,7 +42,7 @@ const EMPTY_ACTIONS = [
     key: "accident",
     title: "Kaza bildir",
     description: "Acil panel, foto rehberi, tutanak ve sigorta",
-    route: "/(modal)/talep/accident",
+    route: "/(modal)/talep/accident" as Href,
     icon: AlertTriangle,
     tone: "critical" as const,
   },
@@ -49,7 +50,7 @@ const EMPTY_ACTIONS = [
     key: "maintenance",
     title: "Bakım planla",
     description: "Periyodik bakımdan kampanyaya her tip",
-    route: "/(modal)/talep/maintenance",
+    route: "/(modal)/talep/maintenance" as Href,
     icon: Heart,
     tone: "success" as const,
   },
@@ -57,7 +58,7 @@ const EMPTY_ACTIONS = [
     key: "towing",
     title: "Çekici çağır",
     description: "Konum, zaman ve fiyat tahmini tek yüzeyde",
-    route: "/(modal)/talep/towing",
+    route: "/(modal)/talep/towing" as Href,
     icon: Truck,
     tone: "warning" as const,
   },
@@ -65,15 +66,22 @@ const EMPTY_ACTIONS = [
     key: "breakdown",
     title: "Arıza bildir",
     description: "Kategori, belirti ve kanıt tek akışta",
-    route: "/(modal)/talep/breakdown",
+    route: "/(modal)/talep/breakdown" as Href,
     icon: Wrench,
     tone: "info" as const,
   },
 ];
 
+type EmptyAction = (typeof EMPTY_ACTIONS)[number] & {
+  route: Href;
+};
+
 export function RecordsScreen() {
   const router = useRouter();
   const { data: activeVehicle } = useActiveVehicle();
+  const towEntry = useTowEntryRoute({
+    vehicleId: activeVehicle?.id,
+  });
   const openVehicleSwitcher = useVehicleSwitcherStore((s) => s.open);
   const { data: feed = { activeRecords: [], items: [] } as RecordsFeed } =
     useRecordsFeed();
@@ -93,6 +101,16 @@ export function RecordsScreen() {
   const totalActive = feed.activeRecords.length;
   const totalCompleted = feed.items.length;
   const isEmpty = totalActive === 0 && totalCompleted === 0;
+  const emptyActions: EmptyAction[] = EMPTY_ACTIONS.map((action) =>
+    action.key === "towing"
+      ? { ...action, route: towEntry.route }
+      : action,
+  );
+  const guidanceActions: GuidanceAction[] = GUIDANCE_ACTIONS.map((action) =>
+    action.key === "towing"
+      ? { ...action, route: towEntry.route }
+      : action,
+  );
 
   return (
     <Screen
@@ -140,7 +158,10 @@ export function RecordsScreen() {
             ) : null}
 
             {isEmpty ? (
-              <EmptyState onAction={(route) => router.push(route as Href)} />
+              <EmptyState
+                actions={emptyActions}
+                onAction={(route) => router.push(route as Href)}
+              />
             ) : null}
 
             {totalActive > 0 ? (
@@ -180,6 +201,7 @@ export function RecordsScreen() {
 
             {!isEmpty && totalCompleted <= 1 ? (
               <GuidanceCard
+                actions={guidanceActions}
                 onAction={(route) => router.push(route as Href)}
               />
             ) : null}
@@ -212,7 +234,7 @@ export function RecordsScreen() {
 }
 
 type EmptyStateProps = {
-  onAction: (route: string) => void;
+  onAction: (route: Href) => void;
 };
 
 const GUIDANCE_ACTIONS = [
@@ -220,26 +242,35 @@ const GUIDANCE_ACTIONS = [
     key: "maintenance",
     title: "Bakım planla",
     hint: "Periyodik bakım veya paket",
-    route: "/(modal)/talep/maintenance",
+    route: "/(modal)/talep/maintenance" as Href,
     icon: Heart,
   },
   {
     key: "accident",
     title: "Hasar bildir",
     hint: "Kaza, darbe, cam kırığı",
-    route: "/(modal)/talep/accident",
+    route: "/(modal)/talep/accident" as Href,
     icon: AlertTriangle,
   },
   {
     key: "towing",
     title: "Çekici çağır",
     hint: "Anında veya randevulu",
-    route: "/(modal)/talep/towing",
+    route: "/(modal)/talep/towing" as Href,
     icon: Truck,
   },
 ];
 
-function GuidanceCard({ onAction }: EmptyStateProps) {
+type GuidanceAction = (typeof GUIDANCE_ACTIONS)[number] & {
+  route: Href;
+};
+
+function GuidanceCard({
+  actions,
+  onAction,
+}: EmptyStateProps & {
+  actions: GuidanceAction[];
+}) {
   return (
     <Surface
       variant="raised"
@@ -257,7 +288,7 @@ function GuidanceCard({ onAction }: EmptyStateProps) {
         Daha fazla geçmiş için
       </Text>
       <View className="gap-2">
-        {GUIDANCE_ACTIONS.map((action) => (
+        {actions.map((action) => (
           <PressableCard
             key={action.key}
             accessibilityRole="button"
@@ -357,7 +388,12 @@ function RecordsPillHeader({
   );
 }
 
-function EmptyState({ onAction }: EmptyStateProps) {
+function EmptyState({
+  actions,
+  onAction,
+}: EmptyStateProps & {
+  actions: EmptyAction[];
+}) {
   return (
     <Surface variant="raised" radius="xl" className="gap-4 px-4 py-5">
       <View className="gap-2">
@@ -370,7 +406,7 @@ function EmptyState({ onAction }: EmptyStateProps) {
         </Text>
       </View>
       <View className="gap-3">
-        {EMPTY_ACTIONS.map((action) => (
+        {actions.map((action) => (
           <PressableCard
             key={action.key}
             accessibilityRole="button"

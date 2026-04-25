@@ -21,6 +21,7 @@ import {
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
+import { useTowEntryRoute } from "@/features/tow/entry";
 import { useActiveVehicle } from "@/features/vehicles";
 
 import { useSearchResults } from "../api";
@@ -55,6 +56,9 @@ export function SearchScreen() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<SearchCategory>("all");
   const { data: vehicle } = useActiveVehicle();
+  const towEntry = useTowEntryRoute({
+    vehicleId: vehicle?.id,
+  });
   const recent = useSearchRecentStore((s) => s.queries);
   const pushRecent = useSearchRecentStore((s) => s.pushQuery);
   const clearRecent = useSearchRecentStore((s) => s.clear);
@@ -62,6 +66,15 @@ export function SearchScreen() {
 
   const trimmed = useMemo(() => query.trim(), [query]);
   const isSearching = trimmed.length > 0;
+  const prompts: SearchPrompt[] = useMemo(
+    () =>
+      SEARCH_PROMPTS.map((prompt) =>
+        prompt.route === "/(modal)/talep/towing"
+          ? { ...prompt, route: towEntry.route }
+          : prompt,
+      ),
+    [towEntry.route],
+  );
 
   function runQuery(next: string) {
     setQuery(next);
@@ -123,7 +136,7 @@ export function SearchScreen() {
         ) : (
           <>
             <PromptsSection
-              prompts={SEARCH_PROMPTS}
+              prompts={prompts}
               onPress={(prompt) => router.push(prompt.route as Href)}
             />
             {vehicle ? (

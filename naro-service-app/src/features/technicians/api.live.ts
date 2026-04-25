@@ -92,6 +92,61 @@ export function useRevokeTechnicianShowcase() {
   });
 }
 
+const TechnicianPaymentAccountStatusSchema = z.enum([
+  "not_started",
+  "draft",
+  "submitted",
+  "pending_review",
+  "approved",
+  "rejected",
+  "disabled",
+]);
+
+export const TechnicianPaymentAccountSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
+  technician_user_id: z.string().uuid(),
+  provider: z.string(),
+  status: TechnicianPaymentAccountStatusSchema,
+  legal_type: z.enum(["individual_sole_prop", "company"]).nullable().optional(),
+  legal_name: z.string().nullable().optional(),
+  can_receive_online_payments: z.boolean(),
+  sub_merchant_key: z.string().nullable().optional(),
+  submitted_at: z.string().nullable().optional(),
+  reviewed_at: z.string().nullable().optional(),
+  reviewer_note: z.string().nullable().optional(),
+});
+export type TechnicianPaymentAccount = z.infer<
+  typeof TechnicianPaymentAccountSchema
+>;
+
+export function useMyPaymentAccount() {
+  return useQuery<TechnicianPaymentAccount>({
+    queryKey: ["technicians", "me", "payment-account"],
+    queryFn: async () => {
+      const raw = await apiClient(`/technicians/me/payment-account`);
+      return TechnicianPaymentAccountSchema.parse(raw);
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSubmitPaymentAccount() {
+  const queryClient = useQueryClient();
+  return useMutation<TechnicianPaymentAccount, Error, void>({
+    mutationFn: async () => {
+      const raw = await apiClient(`/technicians/me/payment-account/submit`, {
+        method: "POST",
+      });
+      return TechnicianPaymentAccountSchema.parse(raw);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["technicians", "me", "payment-account"],
+      });
+    },
+  });
+}
+
 // ─── Profile store hydrate (/me/profile + /me/certificates) ─────────────────
 //
 // Customer-app `useMe` pattern'in teknisyen ikizi:

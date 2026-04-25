@@ -5,22 +5,27 @@ import {
   Screen,
   StatusChip,
   Text,
+  useNaroTheme,
+  withAlphaHex,
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
+  CreditCard,
   FileText,
   KeyRound,
   MapPin,
+  ShieldCheck,
   Star,
   X,
 } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Pressable,
   ScrollView,
   TextInput,
@@ -92,6 +97,17 @@ export function TowCaseScreenLive() {
   const verifyOtp = useVerifyTowOtp(caseId);
   const submitRating = useSubmitTowRating(caseId);
 
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        router.replace("/(tabs)" as Href);
+        return true;
+      },
+    );
+    return () => subscription.remove();
+  }, [router]);
+
   // BE Faz 2 (2026-04-23) — çekici, accident/breakdown parent'tan doğduysa
   // "şu vakadan geldi" link CTA'sı. Canonical case detail endpoint'inden
   // okunur (tow snapshot parent_case_id expose etmiyor).
@@ -116,7 +132,7 @@ export function TowCaseScreenLive() {
     return (
       <Screen backgroundClassName="bg-app-bg" className="flex-1 gap-4 px-5">
         <View className="flex-row items-center gap-3 pt-3">
-          <BackButton onPress={() => router.back()} variant="close" />
+          <BackButton onPress={() => router.replace("/(tabs)" as Href)} variant="close" />
           <Text variant="h3" tone="inverse">
             Talep yüklenemedi
           </Text>
@@ -137,6 +153,10 @@ export function TowCaseScreenLive() {
   const tracking = trackingQuery.data;
   const presentation = getTowStagePresentation(snapshot.stage);
   const isSearching = SEARCHING_STAGES.includes(snapshot.stage);
+  const needsPayment =
+    snapshot.stage === "payment_required" ||
+    snapshot.stage === "preauth_failed" ||
+    snapshot.stage === "preauth_stale";
   const isTerminal =
     snapshot.stage === "delivered" || snapshot.stage === "cancelled";
 
@@ -161,36 +181,27 @@ export function TowCaseScreenLive() {
     <Screen backgroundClassName="bg-app-bg" padded={false} className="flex-1">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: 160 }}
+        contentContainerStyle={{ paddingBottom: isTerminal ? 150 : 36 }}
         showsVerticalScrollIndicator={false}
       >
         <View className="flex-row items-center gap-3 px-5 pt-3">
-          <BackButton onPress={() => router.back()} variant="close" />
-          <View className="flex-1 gap-0.5">
-            <Text variant="eyebrow" tone="subtle">
-              {snapshot.mode === "immediate" ? "Hemen çekici" : "Randevulu çekici"}
-              {" · "}
-              {presentation.eyebrow}
-            </Text>
-            <Text variant="h2" tone="inverse">
+          <BackButton onPress={() => router.replace("/(tabs)" as Href)} variant="close" />
+          <View className="flex-1" />
+          {!isSearching ? (
+            <StatusChip
+              label={presentation.eyebrow}
+              tone={presentation.tone}
+            />
+          ) : null}
+        </View>
+
+        {!isSearching ? (
+          <View className="px-5 pt-4">
+            <Text variant="h2" tone="inverse" numberOfLines={1}>
               {presentation.title}
             </Text>
           </View>
-          <StatusChip
-            label={presentation.eyebrow}
-            tone={presentation.tone}
-          />
-        </View>
-
-        <View className="px-5 pt-3">
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted text-[13px] leading-[18px]"
-          >
-            {presentation.description}
-          </Text>
-        </View>
+        ) : null}
 
         {parentCaseId ? (
           <View className="mt-3 px-5">
@@ -217,7 +228,7 @@ export function TowCaseScreenLive() {
         ) : null}
 
         {!isTerminal ? (
-          <View className="mt-4 px-5">
+          <View className="mt-3 px-5">
             <TowMapCanvas
               stage={snapshot.stage}
               pickup={snapshot.pickup_lat_lng}
@@ -228,23 +239,24 @@ export function TowCaseScreenLive() {
           </View>
         ) : null}
 
-        <View className="mt-4 gap-4 px-5">
+        <View className="mt-3 gap-3 px-5">
+          {needsPayment ? (
+            <PaymentRequiredCard
+              label={snapshot.payment?.amount_label ?? null}
+              retry={snapshot.stage !== "payment_required"}
+              onPress={() =>
+                router.push(`/(modal)/cekici-odeme/${snapshot.id}` as Href)
+              }
+            />
+          ) : null}
+
           {isSearching ? (
-            <View className="flex-row items-center gap-3 rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-3.5">
-              <ActivityIndicator size="small" color="#83a7ff" />
-              <View className="flex-1 gap-0.5">
-                <Text variant="label" tone="inverse" className="text-[13px]">
-                  Çekici aranıyor
-                </Text>
-                <Text
-                  variant="caption"
-                  tone="muted"
-                  className="text-app-text-muted text-[11px]"
-                >
-                  Bölgendeki uygun çekicilere sırayla bildirim gidiyor.
-                </Text>
-              </View>
-            </View>
+            <SearchingTowCard
+              noImmediateCandidate={snapshot.stage === "timeout_converted_to_pool"}
+              onAccidentPress={() =>
+                router.push("/(modal)/talep/accident" as Href)
+              }
+            />
           ) : null}
 
           {snapshot.assigned_technician_id ? (
@@ -288,24 +300,17 @@ export function TowCaseScreenLive() {
           ) : null}
 
           <FareSummaryCard snapshot={snapshot} />
+
+          {!isTerminal && !needsPayment ? (
+            <CancelTowButton
+              pending={cancel.isPending}
+              onPress={handleCancel}
+            />
+          ) : null}
         </View>
       </ScrollView>
 
-      {!isTerminal ? (
-        <View className="absolute inset-x-0 bottom-0 border-t border-app-outline bg-app-bg px-5 pb-8 pt-4">
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleCancel}
-            disabled={cancel.isPending}
-            className="flex-row items-center justify-center gap-2 rounded-[18px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
-          >
-            <Icon icon={X} size={14} color="#ff6b6b" />
-            <Text variant="label" tone="critical">
-              {cancel.isPending ? "İptal ediliyor…" : "Talebi iptal et"}
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
+      {isTerminal ? (
         <View className="absolute inset-x-0 bottom-0 border-t border-app-outline bg-app-bg px-5 pb-8 pt-4">
           <Button
             label="Ana sayfaya dön"
@@ -314,7 +319,7 @@ export function TowCaseScreenLive() {
             onPress={() => router.replace("/(tabs)")}
           />
         </View>
-      )}
+      ) : null}
     </Screen>
   );
 }
@@ -324,6 +329,97 @@ function canShowOtp(stage: TowDispatchStage): boolean {
     stage === "arrived" ||
     stage === "loading" ||
     stage === "in_transit"
+  );
+}
+
+function SearchingTowCard({
+  noImmediateCandidate,
+  onAccidentPress,
+}: {
+  noImmediateCandidate: boolean;
+  onAccidentPress: () => void;
+}) {
+  return (
+    <View className="gap-3 rounded-[24px] border border-brand-500/25 bg-brand-500/10 px-4 py-4">
+      <View className="flex-row items-center gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
+          <ActivityIndicator size="small" color="#83a7ff" />
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text variant="label" tone="inverse" className="text-[14px]">
+            {noImmediateCandidate ? "Talep açık" : "Operatör bekleniyor"}
+          </Text>
+        </View>
+      </View>
+      <Button
+        label="Beklerken hasar bildir"
+        variant="outline"
+        size="md"
+        fullWidth
+        onPress={onAccidentPress}
+      />
+    </View>
+  );
+}
+
+function PaymentRequiredCard({
+  label,
+  retry,
+  onPress,
+}: {
+  label: string | null;
+  retry: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useNaroTheme();
+  return (
+    <View className="gap-3 rounded-[24px] border border-brand-500/25 bg-brand-500/10 px-4 py-4">
+      <View className="flex-row items-center gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
+          <Icon icon={CreditCard} size={18} color={colors.info} />
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text variant="label" tone="inverse" className="text-[14px]">
+            {retry ? "Ödeme tekrar gerekiyor" : "Ödeme adımı bekliyor"}
+          </Text>
+          {label ? (
+            <Text variant="caption" tone="muted" className="text-[12px]">
+              {label}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      <Button
+        label={retry ? "Ödemeyi tekrar dene" : "Güvenli ödeme ile devam et"}
+        size="md"
+        fullWidth
+        onPress={onPress}
+      />
+    </View>
+  );
+}
+
+function CancelTowButton({
+  pending,
+  onPress,
+}: {
+  pending: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useNaroTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      disabled={pending}
+      className="min-h-12 flex-row items-center justify-center gap-2 rounded-[18px] border bg-transparent px-4 py-3 active:bg-app-critical-soft"
+      style={{ borderColor: withAlphaHex(colors.critical, 0.24) }}
+    >
+      <Icon icon={X} size={14} color={colors.critical} />
+      <Text variant="label" tone="critical">
+        {pending ? "İptal ediliyor..." : "Talebi iptal et"}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -567,8 +663,22 @@ function FareSummaryCard({ snapshot }: { snapshot: TowCaseSnapshot }) {
     ? parseDecimal(snapshot.fare_quote.cap_amount)
     : null;
   const final = parseDecimal(snapshot.final_amount);
+  const hasPaymentGuarantee = snapshot.settlement_status !== "none";
+  const isTerminal =
+    snapshot.stage === "delivered" || snapshot.stage === "cancelled";
 
-  if (!cap && !final) return null;
+  if (!cap && !final && !hasPaymentGuarantee) return null;
+
+  if (!isTerminal && final === null) {
+    return hasPaymentGuarantee ? (
+      <View className="flex-row items-center gap-2 rounded-[18px] border border-app-success/30 bg-app-success-soft px-4 py-3">
+        <Icon icon={ShieldCheck} size={15} color="#2dd28d" />
+        <Text variant="label" tone="success" className="text-[13px]">
+          Ön provizyon alındı
+        </Text>
+      </View>
+    ) : null;
+  }
 
   return (
     <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
@@ -599,11 +709,19 @@ function FareSummaryCard({ snapshot }: { snapshot: TowCaseSnapshot }) {
         variant="caption"
         tone="muted"
         className="text-app-text-subtle text-[11px] leading-[15px]"
+        numberOfLines={2}
       >
         Cap tutarı pre-auth olarak tutulur; iş bitiminde gerçek tutar kesilir,
         fark otomatik iade edilir.
       </Text>
+      {hasPaymentGuarantee ? (
+        <View className="flex-row items-center gap-2">
+          <Icon icon={ShieldCheck} size={13} color="#2dd28d" />
+          <Text variant="caption" tone="success" className="text-[11px]">
+            Ön provizyon alındı
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
-

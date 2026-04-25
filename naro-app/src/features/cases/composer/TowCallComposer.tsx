@@ -24,6 +24,7 @@ import {
   CircleDot,
   CreditCard,
   MapPin,
+  Navigation,
   ShieldCheck,
   Wrench,
   X,
@@ -53,6 +54,7 @@ type TowCallComposerProps = {
 };
 
 type RoutePoint = "pickup" | "dropoff";
+type TowCallStep = "select_pickup" | "select_dropoff" | "confirm";
 
 const TIME_WINDOWS = [
   "Bugün öğleden sonra",
@@ -110,6 +112,15 @@ function mapSelectedLabel(point: RoutePoint) {
     : "Teslim noktası seçildi";
 }
 
+function resolveTowCallStep(
+  pickupReady: boolean,
+  dropoffReady: boolean,
+): TowCallStep {
+  if (!pickupReady) return "select_pickup";
+  if (!dropoffReady) return "select_dropoff";
+  return "confirm";
+}
+
 async function readGps() {
   const current = await Location.getForegroundPermissionsAsync();
   const permission =
@@ -144,6 +155,7 @@ export function TowCallComposer({
   const [activePoint, setActivePoint] = useState<RoutePoint>("pickup");
   const [mapPicking, setMapPicking] = useState(false);
   const [mapCandidate, setMapCandidate] = useState<LatLng | null>(null);
+  const [mapInitialCenter, setMapInitialCenter] = useState<LatLng | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -165,6 +177,8 @@ export function TowCallComposer({
   const pickupReady = Boolean(pickupCoord) && hasRouteLabel(draft.location_label);
   const dropoffReady =
     Boolean(dropoffCoord) && hasRouteLabel(draft.dropoff_label);
+  const callStep = resolveTowCallStep(pickupReady, dropoffReady);
+  const isConfirmStep = callStep === "confirm";
   const actionPoint: RoutePoint = !pickupReady
     ? "pickup"
     : !dropoffReady
@@ -259,6 +273,7 @@ export function TowCallComposer({
     setLocalError(null);
     onResetSubmitError?.();
     setMapPicking(false);
+    setMapInitialCenter(null);
     setActivePoint(
       point === "pickup" && !dropoffReady
         ? "dropoff"
@@ -273,11 +288,21 @@ export function TowCallComposer({
     onResetSubmitError?.();
     setActivePoint(point);
     setMapPicking(true);
-    setMapCandidate(
+    setMapCandidate(point === "pickup" ? pickupCoord : dropoffCoord);
+    setMapInitialCenter(
       point === "pickup"
         ? (pickupCoord ?? dropoffCoord)
         : (dropoffCoord ?? pickupCoord),
     );
+    if (!pickupCoord && !dropoffCoord) {
+      void Location.getLastKnownPositionAsync().then((position) => {
+        if (!position) return;
+        setMapInitialCenter({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      });
+    }
     setLocalError(null);
     setDetailsOpen(false);
   };
@@ -342,6 +367,7 @@ export function TowCallComposer({
           routeCoords={quote?.route_coords ?? null}
           activePoint={mapPicking ? activePoint : actionPoint}
           picking={mapPicking}
+          selectionCenter={mapInitialCenter}
           gpsLoading={gpsLoading}
           onUseGps={useCurrentLocation}
           onMapPress={setMapCandidate}
@@ -386,7 +412,7 @@ export function TowCallComposer({
           style={{ paddingBottom: insets.bottom + 10 }}
         >
           <View
-            className="gap-3 rounded-[28px] border border-app-outline px-4 py-4"
+            className="gap-2.5 rounded-[28px] border border-app-outline px-4 py-3.5"
             style={{
               backgroundColor: withAlphaHex(
                 colors.surface,
@@ -405,18 +431,21 @@ export function TowCallComposer({
                 candidateReady={Boolean(mapCandidate)}
                 onCancel={() => {
                   setMapPicking(false);
+                  setMapInitialCenter(null);
                   setLocalError(null);
                 }}
                 onConfirm={confirmMapPick}
               />
             ) : (
               <>
+                <StepHeader step={callStep} />
                 <RouteSelector
                   activePoint={actionPoint}
                   pickupLabel={pickupLabel}
                   dropoffLabel={dropoffLabel}
                   pickupReady={pickupReady}
                   dropoffReady={dropoffReady}
+                  compact={!isConfirmStep}
                   onPressPickup={() => startMapPick("pickup")}
                   onPressDropoff={() => {
                     if (!pickupReady) {
@@ -429,147 +458,173 @@ export function TowCallComposer({
                   }}
                 />
 
-                {actionPoint === "pickup" ? (
-                  <Button
-                    label={gpsLoading ? "Bulunuyor" : "Konumumu kullan"}
-                    variant="surface"
-                    size="sm"
-                    loading={gpsLoading}
-                    fullWidth
-                    leftIcon={<Icon icon={Zap} size={14} color={colors.info} />}
-                    onPress={useCurrentLocation}
+                {callStep === "select_pickup" ? (
+                  <PickupStepActions
+                    gpsLoading={gpsLoading}
+                    shownError={shownError}
+                    onUseCurrentLocation={useCurrentLocation}
+                    onPickOnMap={() => startMapPick("pickup")}
                   />
                 ) : null}
 
-                <View className="gap-2">
-                  <Text variant="caption" tone="muted" className="text-[11px]">
-                    Araç durumu
-                  </Text>
-                  <View className="flex-row flex-wrap gap-2">
-                    {INCIDENT_OPTIONS.map((option) => (
-                      <ToggleChip
-                        key={option.id}
-                        label={option.label}
-                        selected={selectedIncidentReason === option.id}
-                        onPress={() =>
-                          chooseIncident(option.id, option.drivable)
-                        }
-                      />
-                    ))}
-                  </View>
-                </View>
+                {callStep === "select_dropoff" ? (
+                  <DropoffStepActions
+                    shownError={shownError}
+                    onPickOnMap={() => startMapPick("dropoff")}
+                  />
+                ) : null}
 
-                <View className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface-2 px-3.5 py-3">
-                  <View
-                    className="h-10 w-10 items-center justify-center rounded-full"
-                    style={{
-                      backgroundColor: withAlphaHex(colors.info, 0.14),
-                    }}
-                  >
-                    <Icon icon={CreditCard} size={18} color={colors.info} />
-                  </View>
-                  <View className="flex-1">
-                    <Text
-                      variant="caption"
-                      tone="muted"
-                      className="text-[11px]"
-                    >
-                      En fazla
-                    </Text>
-                    <Text variant="h3" tone="inverse" className="text-[22px]">
-                      {quoteQuery.isFetching ? "Hesaplanıyor" : fareLabel}
-                    </Text>
-                  </View>
-                  <View className="items-end gap-1">
-                    <Icon
-                      icon={ShieldCheck}
-                      size={18}
-                      color={colors.success}
-                    />
-                    {distanceLabel ? (
+                {isConfirmStep ? (
+                  <>
+                    <View className="gap-2">
                       <Text
                         variant="caption"
                         tone="muted"
                         className="text-[11px]"
                       >
-                        {distanceLabel}
+                        Araç durumu
                       </Text>
+                      <View className="flex-row flex-wrap gap-2">
+                        {INCIDENT_OPTIONS.map((option) => (
+                          <ToggleChip
+                            key={option.id}
+                            label={option.label}
+                            selected={selectedIncidentReason === option.id}
+                            onPress={() =>
+                              chooseIncident(option.id, option.drivable)
+                            }
+                          />
+                        ))}
+                      </View>
+                    </View>
+
+                    <View className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface-2 px-3.5 py-3">
+                      <View
+                        className="h-10 w-10 items-center justify-center rounded-full"
+                        style={{
+                          backgroundColor: withAlphaHex(colors.info, 0.14),
+                        }}
+                      >
+                        <Icon icon={CreditCard} size={18} color={colors.info} />
+                      </View>
+                      <View className="flex-1">
+                        <Text
+                          variant="caption"
+                          tone="muted"
+                          className="text-[11px]"
+                        >
+                          En fazla
+                        </Text>
+                        <Text
+                          variant="h3"
+                          tone="inverse"
+                          className="text-[22px]"
+                        >
+                          {quoteQuery.isFetching ? "Hesaplanıyor" : fareLabel}
+                        </Text>
+                      </View>
+                      <View className="items-end gap-1">
+                        <Icon
+                          icon={ShieldCheck}
+                          size={18}
+                          color={colors.success}
+                        />
+                        {distanceLabel ? (
+                          <Text
+                            variant="caption"
+                            tone="muted"
+                            className="text-[11px]"
+                          >
+                            {distanceLabel}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        detailsOpen ? "Ayrıntıları gizle" : "Ayrıntı ekle"
+                      }
+                      hitSlop={6}
+                      onPress={() => setDetailsOpen((current) => !current)}
+                      className="min-h-11 flex-row items-center justify-between rounded-[16px] px-1 active:opacity-80"
+                    >
+                      <View className="flex-row items-center gap-2">
+                        <Icon
+                          icon={Wrench}
+                          size={15}
+                          color={colors.textSubtle}
+                        />
+                        <Text
+                          variant="label"
+                          tone="muted"
+                          className="text-[13px]"
+                        >
+                          Ayrıntı ekle
+                        </Text>
+                      </View>
+                      <Icon
+                        icon={detailsOpen ? ChevronUp : ChevronDown}
+                        size={16}
+                        color={colors.textSubtle}
+                      />
+                    </Pressable>
+
+                    {detailsOpen ? (
+                      <DetailsPanel
+                        urgent={urgent}
+                        selectedEquipment={selectedEquipment}
+                        draft={draft}
+                        updateDraft={updateDraft}
+                        onSetUrgentMode={setUrgentMode}
+                      />
                     ) : null}
-                  </View>
-                </View>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    detailsOpen ? "Ayrıntıları gizle" : "Ayrıntı ekle"
-                  }
-                  hitSlop={6}
-                  onPress={() => setDetailsOpen((current) => !current)}
-                  className="min-h-11 flex-row items-center justify-between rounded-[16px] px-1 active:opacity-80"
-                >
-                  <View className="flex-row items-center gap-2">
-                    <Icon icon={Wrench} size={15} color={colors.textSubtle} />
-                    <Text
-                      variant="label"
-                      tone="muted"
-                      className="text-[13px]"
-                    >
-                      Ayrıntı ekle
-                    </Text>
-                  </View>
-                  <Icon
-                    icon={detailsOpen ? ChevronUp : ChevronDown}
-                    size={16}
-                    color={colors.textSubtle}
-                  />
-                </Pressable>
+                    {shownError || validationMessage ? (
+                      <View className="flex-row items-center gap-2">
+                        <Icon
+                          icon={AlertCircle}
+                          size={15}
+                          color={
+                            shownError ? colors.critical : colors.warning
+                          }
+                        />
+                        <Text
+                          variant="caption"
+                          tone={shownError ? "critical" : "warning"}
+                          className="flex-1 text-[12px]"
+                        >
+                          {shownError ?? validationMessage}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        variant="caption"
+                        tone="muted"
+                        className="text-[12px]"
+                      >
+                        Yakındaki çekiciler çember genişletilerek aranır. Tavan
+                        ücret teslim sonrası aşılmaz.
+                      </Text>
+                    )}
 
-                {detailsOpen ? (
-                  <DetailsPanel
-                    urgent={urgent}
-                    selectedEquipment={selectedEquipment}
-                    draft={draft}
-                    updateDraft={updateDraft}
-                    onSetUrgentMode={setUrgentMode}
-                  />
-                ) : null}
-
-                {shownError || validationMessage ? (
-                  <View className="flex-row items-center gap-2">
-                    <Icon
-                      icon={AlertCircle}
-                      size={15}
-                      color={shownError ? colors.critical : colors.warning}
+                    <Button
+                      label={
+                        canRetryQuote
+                          ? "Ücreti tekrar dene"
+                          : urgent
+                            ? "Çekiciyi çağır"
+                            : "Çekiciyi planla"
+                      }
+                      size="xl"
+                      fullWidth
+                      loading={primaryLoading}
+                      disabled={primaryDisabled}
+                      onPress={handlePrimaryPress}
                     />
-                    <Text
-                      variant="caption"
-                      tone={shownError ? "critical" : "warning"}
-                      className="flex-1 text-[12px]"
-                    >
-                      {shownError ?? validationMessage}
-                    </Text>
-                  </View>
-                ) : (
-                  <Text variant="caption" tone="muted" className="text-[12px]">
-                    Yakındaki çekiciler çember genişletilerek aranır. Tavan
-                    ücret teslim sonrası aşılmaz.
-                  </Text>
-                )}
-
-                <Button
-                  label={
-                    canRetryQuote
-                      ? "Ücreti tekrar dene"
-                      : urgent
-                        ? "Çekiciyi çağır"
-                        : "Çekiciyi planla"
-                  }
-                  size="xl"
-                  fullWidth
-                  loading={primaryLoading}
-                  disabled={primaryDisabled}
-                  onPress={handlePrimaryPress}
-                />
+                  </>
+                ) : null}
               </>
             )}
           </View>
@@ -643,12 +698,148 @@ function MapPickingPanel({
   );
 }
 
+type StepHeaderProps = {
+  step: TowCallStep;
+};
+
+function StepHeader({ step }: StepHeaderProps) {
+  const copy =
+    step === "select_pickup"
+      ? {
+          eyebrow: "1 / 3",
+          title: "Araç nerede?",
+          body: "Konumunu kullan ya da haritada aracın durduğu noktayı seç.",
+        }
+      : step === "select_dropoff"
+        ? {
+            eyebrow: "2 / 3",
+            title: "Nereye götürülsün?",
+            body: "Teslim noktasını haritada seç. Ücret bu rota üzerinden hesaplanır.",
+          }
+        : {
+            eyebrow: "3 / 3",
+            title: "Çağırmaya hazır",
+            body: "Araç durumunu kontrol et, tavan ücreti gör ve çekiciyi çağır.",
+          };
+  return (
+    <View className="gap-0.5">
+      <Text variant="caption" tone="muted" className="text-[11px]">
+        {copy.eyebrow}
+      </Text>
+      <Text variant="h3" tone="inverse" className="text-[18px]">
+        {copy.title}
+      </Text>
+      <Text
+        variant="caption"
+        tone="muted"
+        numberOfLines={2}
+        className="text-[12px]"
+      >
+        {copy.body}
+      </Text>
+    </View>
+  );
+}
+
+type PickupStepActionsProps = {
+  gpsLoading: boolean;
+  shownError: string | null | undefined;
+  onUseCurrentLocation: () => void;
+  onPickOnMap: () => void;
+};
+
+function PickupStepActions({
+  gpsLoading,
+  shownError,
+  onUseCurrentLocation,
+  onPickOnMap,
+}: PickupStepActionsProps) {
+  const { colors } = useNaroTheme();
+  return (
+    <View className="gap-2">
+      <View className="flex-row gap-2">
+        <Button
+          label={gpsLoading ? "Bulunuyor" : "Konumum"}
+          variant="surface"
+          size="md"
+          loading={gpsLoading}
+          fullWidth
+          leftIcon={<Icon icon={Zap} size={14} color={colors.info} />}
+          onPress={onUseCurrentLocation}
+          className="flex-1"
+        />
+        <Button
+          label="Haritada seç"
+          size="md"
+          fullWidth
+          leftIcon={<Icon icon={MapPin} size={14} color={colors.surface} />}
+          onPress={onPickOnMap}
+          className="flex-1"
+        />
+      </View>
+      <StepMessage error={shownError} message="Sonra teslim noktasını seçeceğiz." />
+    </View>
+  );
+}
+
+type DropoffStepActionsProps = {
+  shownError: string | null | undefined;
+  onPickOnMap: () => void;
+};
+
+function DropoffStepActions({
+  shownError,
+  onPickOnMap,
+}: DropoffStepActionsProps) {
+  const { colors } = useNaroTheme();
+  return (
+    <View className="gap-2">
+      <Button
+        label="Teslim noktasını seç"
+        size="md"
+        fullWidth
+        leftIcon={<Icon icon={Navigation} size={14} color={colors.surface} />}
+        onPress={onPickOnMap}
+      />
+      <StepMessage
+        error={shownError}
+        message="Teslim adresini haritada işaretle; fiyat rota üzerinden hesaplanır."
+      />
+    </View>
+  );
+}
+
+type StepMessageProps = {
+  error?: string | null;
+  message: string;
+};
+
+function StepMessage({ error, message }: StepMessageProps) {
+  const { colors } = useNaroTheme();
+  if (error) {
+    return (
+      <View className="flex-row items-center gap-2">
+        <Icon icon={AlertCircle} size={15} color={colors.critical} />
+        <Text variant="caption" tone="critical" className="flex-1 text-[12px]">
+          {error}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Text variant="caption" tone="muted" className="text-[12px]">
+      {message}
+    </Text>
+  );
+}
+
 type RouteSelectorProps = {
   activePoint: RoutePoint;
   pickupLabel: string;
   dropoffLabel: string;
   pickupReady: boolean;
   dropoffReady: boolean;
+  compact?: boolean;
   onPressPickup: () => void;
   onPressDropoff: () => void;
 };
@@ -659,11 +850,17 @@ function RouteSelector({
   dropoffLabel,
   pickupReady,
   dropoffReady,
+  compact = false,
   onPressPickup,
   onPressDropoff,
 }: RouteSelectorProps) {
   return (
-    <View className="gap-1 rounded-[24px] border border-app-outline bg-app-surface-2 p-2">
+    <View
+      className={[
+        "gap-1 rounded-[24px] border border-app-outline bg-app-surface-2",
+        compact ? "p-1.5" : "p-2",
+      ].join(" ")}
+    >
       <RouteRow
         eyebrow="ALIM"
         title="Aracın bulunduğu yer"
@@ -672,6 +869,7 @@ function RouteSelector({
         active={activePoint === "pickup"}
         icon={CircleDot}
         tone="pickup"
+        compact={compact}
         onPress={onPressPickup}
       />
       <View className="mx-3 h-px bg-app-outline" />
@@ -683,6 +881,7 @@ function RouteSelector({
         active={activePoint === "dropoff"}
         icon={MapPin}
         tone="dropoff"
+        compact={compact}
         onPress={onPressDropoff}
       />
     </View>
@@ -697,6 +896,7 @@ type RouteRowProps = {
   active: boolean;
   icon: LucideIcon;
   tone: RoutePoint;
+  compact: boolean;
   onPress: () => void;
 };
 
@@ -708,6 +908,7 @@ function RouteRow({
   active,
   icon,
   tone,
+  compact,
   onPress,
 }: RouteRowProps) {
   const { colors } = useNaroTheme();
@@ -719,7 +920,10 @@ function RouteRow({
       accessibilityLabel={`${eyebrow} seç`}
       hitSlop={8}
       onPress={onPress}
-      className="min-h-[76px] flex-row items-center gap-3 rounded-[20px] px-3 py-2 active:opacity-80"
+      className={[
+        "flex-row items-center gap-3 rounded-[20px] px-3 active:opacity-80",
+        compact ? "min-h-[56px] py-1" : "min-h-[76px] py-2",
+      ].join(" ")}
       style={{
         backgroundColor: active ? withAlphaHex(accent, 0.08) : "transparent",
         borderColor: active ? withAlphaHex(accent, 0.28) : "transparent",
@@ -727,10 +931,13 @@ function RouteRow({
       }}
     >
       <View
-        className="h-10 w-10 items-center justify-center rounded-full"
+        className={[
+          "items-center justify-center rounded-full",
+          compact ? "h-9 w-9" : "h-10 w-10",
+        ].join(" ")}
         style={{ backgroundColor: withAlphaHex(color, 0.14) }}
       >
-        <Icon icon={icon} size={17} color={color} />
+        <Icon icon={icon} size={compact ? 15 : 17} color={color} />
       </View>
       <View className="flex-1 gap-0.5">
         <Text
@@ -741,7 +948,12 @@ function RouteRow({
         >
           {eyebrow}
         </Text>
-        <Text variant="label" tone="inverse" className="text-[13px]">
+        <Text
+          variant="label"
+          tone="inverse"
+          numberOfLines={1}
+          className="text-[13px]"
+        >
           {title}
         </Text>
         <Text
@@ -754,7 +966,10 @@ function RouteRow({
         </Text>
       </View>
       <View
-        className="rounded-full border px-3 py-2"
+        className={[
+          "rounded-full border px-3",
+          compact ? "py-1.5" : "py-2",
+        ].join(" ")}
         style={{
           backgroundColor: withAlphaHex(ready ? accent : colors.surface, 0.82),
           borderColor: withAlphaHex(ready ? accent : colors.outlineStrong, 0.36),

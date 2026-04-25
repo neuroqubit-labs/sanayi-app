@@ -28,6 +28,7 @@ type TowCallMapProps = {
   routeCoords?: LatLng[] | null;
   activePoint: "pickup" | "dropoff";
   picking: boolean;
+  selectionCenter?: LatLng | null;
   onMapPress: (coord: LatLng) => void;
   onCenterChange?: (coord: LatLng) => void;
   onUseGps: () => void;
@@ -76,6 +77,7 @@ export function TowCallMap({
   routeCoords,
   activePoint,
   picking,
+  selectionCenter,
   onMapPress,
   onCenterChange,
   onUseGps,
@@ -83,9 +85,13 @@ export function TowCallMap({
 }: TowCallMapProps) {
   const { colors, scheme } = useNaroTheme();
   const mapRef = useRef<MapView | null>(null);
+  const userMovedMapRef = useRef(false);
   const center = useMemo(
-    () => resolveCenter(pickup, dropoff),
-    [dropoff, pickup],
+    () =>
+      picking && selectionCenter
+        ? selectionCenter
+        : resolveCenter(pickup, dropoff),
+    [dropoff, picking, pickup, selectionCenter],
   );
   const fitCoords = useMemo(
     () => [pickup, dropoff].filter(Boolean) as LatLng[],
@@ -98,10 +104,8 @@ export function TowCallMap({
   }, [dropoff, pickup, routeCoords]);
 
   useEffect(() => {
-    if (picking) {
-      onCenterChange?.(center);
-    }
-  }, [center, onCenterChange, picking]);
+    userMovedMapRef.current = false;
+  }, [activePoint, picking]);
 
   useEffect(() => {
     if (!mapRef.current || picking || fitCoords.length === 0) return;
@@ -114,6 +118,11 @@ export function TowCallMap({
       edgePadding: { bottom: 260, left: 56, right: 56, top: 136 },
     });
   }, [fitCoords, picking]);
+
+  useEffect(() => {
+    if (!mapRef.current || !picking || !selectionCenter) return;
+    mapRef.current.animateToRegion(toRegion(selectionCenter), 220);
+  }, [picking, selectionCenter]);
 
   if (!hasGoogleKey()) {
     return (
@@ -159,6 +168,7 @@ export function TowCallMap({
 
   const handlePress = (event: MapPressEvent) => {
     if (!picking) return;
+    userMovedMapRef.current = true;
     onMapPress({
       lat: event.nativeEvent.coordinate.latitude,
       lng: event.nativeEvent.coordinate.longitude,
@@ -166,7 +176,7 @@ export function TowCallMap({
   };
 
   const handleRegionChangeComplete = (region: Region) => {
-    if (!picking) return;
+    if (!picking || !userMovedMapRef.current) return;
     onCenterChange?.(fromRegion(region));
   };
 
@@ -182,6 +192,9 @@ export function TowCallMap({
         showsMyLocationButton={false}
         toolbarEnabled={false}
         onPress={handlePress}
+        onPanDrag={() => {
+          if (picking) userMovedMapRef.current = true;
+        }}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
         {lineCoords.length > 1 ? (
@@ -261,14 +274,25 @@ function MapCenterPin({ activePoint }: { activePoint: "pickup" | "dropoff" }) {
   return (
     <View
       pointerEvents="none"
-      className="absolute left-1/2 top-1/2 items-center"
+      className="absolute left-1/2 top-1/2 w-28 items-center"
+      style={{ transform: [{ translateX: -56 }, { translateY: -78 }] }}
     >
+      <View
+        className="mb-1 rounded-full border px-2.5 py-1"
+        style={{
+          backgroundColor: withAlphaHex(colors.surface, 0.9),
+          borderColor: withAlphaHex(color, 0.36),
+        }}
+      >
+        <Text variant="caption" tone="inverse" className="text-[10px]">
+          {isPickup ? "Alım noktası" : "Teslim noktası"}
+        </Text>
+      </View>
       <View
         className="h-11 w-11 items-center justify-center rounded-full border-2"
         style={{
           backgroundColor: withAlphaHex(color, 0.17),
           borderColor: withAlphaHex(color, 0.76),
-          transform: [{ translateX: -22 }, { translateY: -40 }],
         }}
       >
         <Icon
@@ -281,7 +305,6 @@ function MapCenterPin({ activePoint }: { activePoint: "pickup" | "dropoff" }) {
         className="h-3 w-3 rounded-full"
         style={{
           backgroundColor: color,
-          transform: [{ translateX: -6 }, { translateY: -41 }],
         }}
       />
     </View>

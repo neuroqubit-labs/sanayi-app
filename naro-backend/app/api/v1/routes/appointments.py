@@ -38,7 +38,7 @@ from app.models.case_audit import CaseEventType, CaseTone
 from app.models.user import UserRole
 from app.repositories import appointment as appointment_repo
 from app.schemas.appointment import AppointmentRequest
-from app.services import appointment_flow
+from app.services import appointment_flow, technician_payment_accounts
 from app.services.case_events import append_event
 from app.services.case_lifecycle import transition_case_status
 
@@ -190,6 +190,16 @@ async def approve_endpoint(
     user: CurrentTechnicianDep,
     db: DbDep,
 ) -> AppointmentResponse:
+    try:
+        await technician_payment_accounts.require_can_receive_online_payments(
+            db, user.id
+        )
+    except technician_payment_accounts.PaymentAccountRequiredError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={"type": "payment_account_required"},
+        ) from exc
+
     appt = await appointment_repo.get_appointment(db, appointment_id)
     if appt is None:
         raise HTTPException(

@@ -16,10 +16,13 @@ import logging
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 
-from app.api.v1.deps import DbDep
+from app.api.v1.deps import DbDep, RedisDep
 from app.core.config import get_settings
-from app.services import case_billing
-from app.services.webhook_security import verify_webhook_signature
+from app.services import case_billing, payment_core
+from app.services.webhook_security import (
+    verify_iyzico_v3_signature,
+    verify_webhook_signature,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +45,12 @@ def _get_psp_for_webhook() -> object:
 async def iyzico_payment_webhook(
     request: Request,
     db: DbDep,
+    redis: RedisDep,
     x_iyzico_signature: str | None = Header(
         default=None, alias="X-Iyzico-Signature"
+    ),
+    x_iyzico_signature_v3: str | None = Header(
+        default=None, alias="X-IYZ-SIGNATURE-V3"
     ),
 ) -> dict[str, str]:
     """HMAC-SHA256 doğrulama + payment status dispatch.
@@ -57,27 +64,7 @@ async def iyzico_payment_webhook(
       }
     """
     settings = get_settings()
-    secret = settings.iyzico_webhook_secret
-    if not secret:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"type": "iyzico_webhook_not_configured"},
-        )
-    if x_iyzico_signature is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"type": "webhook_signature_missing"},
-        )
     body = await request.body()
-    if not verify_webhook_signature(
-        body=body, signature=x_iyzico_signature, secret=secret
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"type": "webhook_signature_invalid"},
-        )
-
-    # Body parse — Iyzico payload variants
     try:
         payload = json.loads(body.decode("utf-8") or "{}")
     except (ValueError, UnicodeDecodeError):
@@ -91,8 +78,50 @@ async def iyzico_payment_webhook(
             detail={"type": "webhook_body_must_be_object"},
         )
 
+    signature = str(payload.get("signature") or x_iyzico_signature_v3 or "")
+    if signature:
+        if not settings.iyzico_secret_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"type": "iyzico_signature_not_configured"},
+            )
+        if not verify_iyzico_v3_signature(
+            payload=payload,
+            signature=signature,
+            secret_key=settings.iyzico_secret_key,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"type": "webhook_signature_invalid"},
+            )
+    elif x_iyzico_signature is not None and settings.environment == "development":
+        secret = settings.iyzico_webhook_secret
+        if not secret:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"type": "iyzico_webhook_not_configured"},
+            )
+        if not verify_webhook_signature(
+            body=body, signature=x_iyzico_signature, secret=secret
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"type": "webhook_signature_invalid"},
+            )
+    else:
+        if not settings.iyzico_webhook_secret and not settings.iyzico_secret_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"type": "iyzico_webhook_not_configured"},
+            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"type": "webhook_signature_missing"},
+        )
+
     payment_id = str(
         payload.get("paymentId")
+        or payload.get("iyziPaymentId")
         or payload.get("payment_id")
         or payload.get("iyziEventIdentifier")
         or ""
@@ -105,24 +134,37 @@ async def iyzico_payment_webhook(
     )
     if not payment_id or not conversation_id:
         logger.warning(
-            "iyzico webhook missing paymentId/conversationId: %s",
-            payload,
+            "iyzico webhook missing paymentId/conversationId: keys=%s payload=%s",
+            sorted(payload.keys()),
+            _redact_payment_payload(payload),
         )
         # Iyzico tolerate — ack et, sadece log
         return {"status": "received_incomplete"}
 
     psp = _get_psp_for_webhook()
     try:
-        await case_billing.process_3ds_callback(
+        handled = await payment_core.process_payment_callback(
             db,
             conversation_id=conversation_id,
             payment_id=payment_id,
             psp=psp,  # type: ignore[arg-type]
+            redis=redis,
         )
+        if not handled:
+            await case_billing.process_3ds_callback(
+                db,
+                conversation_id=conversation_id,
+                payment_id=payment_id,
+                psp=psp,  # type: ignore[arg-type]
+            )
         await db.commit()
     except Exception:
         await db.rollback()
-        logger.exception("iyzico webhook process error payload=%s", payload)
+        logger.exception(
+            "iyzico webhook process error keys=%s payload=%s",
+            sorted(payload.keys()),
+            _redact_payment_payload(payload),
+        )
         # Iyzico'ya 500 dönme — 2xx döneriz, retry istemeyiz
         return {"status": "error_logged"}
     return {"status": "received"}
@@ -139,3 +181,29 @@ async def iyzico_chargeback_webhook() -> dict[str, str]:
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail={"type": "chargeback_webhook_v2"},
     )
+
+
+def _redact_payment_payload(payload: dict[str, object]) -> dict[str, object]:
+    sensitive_markers = (
+        "token",
+        "signature",
+        "authorization",
+        "card",
+        "cvv",
+        "cvc",
+        "pan",
+        "secret",
+        "password",
+        "phone",
+        "email",
+        "checkout",
+    )
+    redacted: dict[str, object] = {}
+    for key, value in payload.items():
+        if any(marker in key.lower() for marker in sensitive_markers):
+            redacted[key] = "[redacted]"
+        elif isinstance(value, dict):
+            redacted[key] = _redact_payment_payload(value)
+        else:
+            redacted[key] = value
+    return redacted

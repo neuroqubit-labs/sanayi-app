@@ -28,6 +28,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTowEntryRoute } from "@/features/tow/entry";
+import { useActiveVehicle } from "@/features/vehicles";
+
 type ActionKey = "bakim" | "hasar" | "ariza" | "cekici";
 type ActionTone = "success" | "critical" | "warning" | "info";
 
@@ -89,6 +92,10 @@ const DISCOVERY_ITEMS: {
 export function QuickActionsScreen() {
   const router = useRouter();
   const { colors, scheme } = useNaroTheme();
+  const { data: activeVehicle } = useActiveVehicle();
+  const towEntry = useTowEntryRoute({
+    vehicleId: activeVehicle?.id,
+  });
   const { height } = useWindowDimensions();
   const glassBase = scheme === "dark" ? colors.bgMuted : colors.text;
   const glassTextColor = scheme === "dark" ? colors.text : colors.surface;
@@ -115,6 +122,12 @@ export function QuickActionsScreen() {
   const goTo = (route: Href) => {
     router.replace(route);
   };
+
+  const primaryActions = PRIMARY_ACTIONS.map((action) =>
+    action.key === "cekici"
+      ? { ...action, route: towEntry.route }
+      : action,
+  );
 
   return (
     <View className="flex-1 justify-end">
@@ -210,7 +223,7 @@ export function QuickActionsScreen() {
               </View>
 
               <PrimaryActionsGrid
-                actions={PRIMARY_ACTIONS}
+                actions={primaryActions}
                 colors={colors}
                 scheme={scheme}
                 onSelect={goTo}

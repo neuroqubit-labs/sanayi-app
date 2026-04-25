@@ -96,7 +96,7 @@ export type PaymentInitiateResponse = z.infer<
 
 /** 3DS callback URL'den parse edilen payload. */
 export const ThreeDSCallbackParamsSchema = z.object({
-  payment_id: z.string().uuid(),
+  payment_id: z.string().min(1),
   status: z.enum(["success", "fail"]),
   error_code: z.string().nullable().optional(),
   error_message: z.string().nullable().optional(),

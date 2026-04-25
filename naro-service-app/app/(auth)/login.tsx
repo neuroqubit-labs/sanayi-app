@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { normalizePhoneTR } from "@naro/mobile-core";
 import { Button, FormField, Screen, Text } from "@naro/ui";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -34,8 +35,16 @@ export default function LoginScreen() {
 
   async function onSubmit(values: LoginFormValues) {
     setSubmitError(null);
+    // Phone'u E.164'e normalize et — backend unique check + technician
+    // lookup string-eq, yani "0555900007" ve "+905559000007" farklı kayıt
+    // sayar ve sessizce ikinci pending user yaratır.
+    const normalized = normalizePhoneTR(values.phone);
+    if (!normalized) {
+      setSubmitError("Telefon numarası geçerli değil");
+      return;
+    }
     try {
-      const res = await authApi.requestOtp({ channel: "sms", phone: values.phone });
+      const res = await authApi.requestOtp({ channel: "sms", phone: normalized });
       telemetry.track("auth_otp_requested", { app: "service" });
       router.push({ pathname: "/(auth)/verify", params: { deliveryId: res.delivery_id } });
     } catch (error) {

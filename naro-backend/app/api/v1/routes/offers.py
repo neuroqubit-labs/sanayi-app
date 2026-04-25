@@ -46,7 +46,7 @@ from app.models.offer import CaseOffer, CaseOfferStatus
 from app.models.technician import ProviderType, TechnicianProfile
 from app.models.user import UserRole
 from app.repositories import offer as offer_repo
-from app.services import offer_acceptance
+from app.services import offer_acceptance, technician_payment_accounts
 from app.services.case_events import append_event
 from app.services.pool_matching import KIND_PROVIDER_MAP
 
@@ -144,6 +144,16 @@ async def submit_offer_endpoint(
     user: CurrentTechnicianDep,
     db: DbDep,
 ) -> OfferResponse:
+    try:
+        await technician_payment_accounts.require_can_receive_online_payments(
+            db, user.id
+        )
+    except technician_payment_accounts.PaymentAccountRequiredError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail={"type": "payment_account_required"},
+        ) from exc
+
     case = await db.get(ServiceCase, payload.case_id)
     if case is None or case.deleted_at is not None:
         raise HTTPException(

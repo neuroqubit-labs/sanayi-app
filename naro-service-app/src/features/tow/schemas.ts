@@ -24,6 +24,7 @@ export const TowDispatchResponseSchema = z.enum([
 export type TowDispatchResponse = z.infer<typeof TowDispatchResponseSchema>;
 
 export const TowDispatchStageSchema = z.enum([
+  "payment_required",
   "searching",
   "accepted",
   "en_route",

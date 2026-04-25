@@ -14,12 +14,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from redis.asyncio import Redis
 from sqlalchemy import and_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case import (
     CaseOrigin,
@@ -53,12 +52,6 @@ from app.services.maintenance_detail_validator import (
     MaintenanceDetailValidationError,
     validate_maintenance_detail,
 )
-
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from app.integrations.psp import Psp
-
 
 # ─── Domain exceptions ─────────────────────────────────────────────────────
 
@@ -351,10 +344,10 @@ async def start_tow_operations(
     case: ServiceCase,
     draft: ServiceRequestDraftCreate,
     actor_user_id: UUID,
-    psp: Psp,
     redis: Redis | None = None,
 ) -> dict[str, object]:
     """Canonical /cases sonrası tow alt sistemini başlatır."""
+    _ = (actor_user_id, redis)
     if draft.kind != ServiceRequestKind.TOWING:
         return {}
 
@@ -364,62 +357,18 @@ async def start_tow_operations(
     if tow_case.tow_mode != TowMode.IMMEDIATE:
         return {"stage": tow_case.tow_stage.value}
 
-    quote = draft.tow_fare_quote or {}
-    cap_amount = _quote_decimal(quote, "cap_amount")
-    quoted_amount = _quote_decimal(quote, "locked_price") or cap_amount
-    if cap_amount is None:
-        raise TowQuoteRequiredError(
-            "immediate towing requires tow_fare_quote.cap_amount"
-        )
-
-    from app.services import tow_dispatch as dispatch_svc
-    from app.services import tow_payment as payment_svc
+    from app.services import payment_core
 
     try:
-        await payment_svc.authorize_preauth(
-            session,
-            case=case,
-            cap_amount=cap_amount,
-            quoted_amount=quoted_amount,
-            customer_token="",
-            psp=psp,
+        await payment_core.ensure_tow_payment_required(
+            session, case=case, tow_case=tow_case
         )
-    except payment_svc.PaymentDeclinedError as exc:
-        raise TowPreauthDeclinedError(str(exc)) from exc
-
-    try:
-        decision = await dispatch_svc.initiate_dispatch(
-            session, case, tow_case, redis=redis
-        )
-    except dispatch_svc.NoCandidateFoundError:
-        await dispatch_svc._transition_to_pool_offered(
-            session,
-            case,
-            tow_case,
-            actor_user_id,
-        )
-        return {"stage": TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL.value}
-
+    except payment_core.PaymentCoreError as exc:
+        raise TowQuoteRequiredError(str(exc)) from exc
     return {
-        "stage": tow_case.tow_stage.value,
-        "first_attempt": {
-            "attempt_id": str(decision.attempt_id),
-            "technician_id": str(decision.technician_id),
-            "distance_km": str(decision.distance_km),
-            "eta_minutes": decision.eta_minutes,
-            "radius_km": decision.radius_km,
-        },
+        "stage": TowDispatchStage.PAYMENT_REQUIRED.value,
+        "payment_required": True,
     }
-
-
-def _quote_decimal(quote: dict[str, object], key: str) -> Decimal | None:
-    value = quote.get(key)
-    if value is None:
-        return None
-    try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError):
-        return None
 
 
 # ─── Subtype dispatch (Faz 1c canonical case architecture) ───────────────
@@ -470,7 +419,7 @@ async def _insert_subtype_row(
     if draft.kind == ServiceRequestKind.TOWING:
         tow_mode = draft.tow_mode or TowMode.IMMEDIATE
         initial_stage = (
-            TowDispatchStage.SEARCHING
+            TowDispatchStage.PAYMENT_REQUIRED
             if tow_mode == TowMode.IMMEDIATE
             else TowDispatchStage.SCHEDULED_WAITING
         )

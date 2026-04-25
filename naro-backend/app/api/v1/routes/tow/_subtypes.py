@@ -26,7 +26,7 @@ async def _insert_tow_subtype_row(
     snapshot = await build_vehicle_snapshot(db, case.vehicle_id)
     tow_mode = TowMode(payload.mode.value)
     initial_stage = (
-        TowDispatchStage.SEARCHING
+        TowDispatchStage.PAYMENT_REQUIRED
         if tow_mode == TowMode.IMMEDIATE
         else TowDispatchStage.SCHEDULED_WAITING
     )

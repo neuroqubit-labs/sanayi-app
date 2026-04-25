@@ -1,25 +1,25 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.v1.deps import CurrentUserDep, CustomerDep, DbDep, RedisDep
+from app.api.v1.deps import CurrentUserDep, CustomerDep, DbDep, PspDep, RedisDep
 from app.core.config import get_settings
 from app.integrations.maps import get_maps
-from app.integrations.psp.mock import build_mock_psp
 from app.models.case import (
     CaseOrigin,
     ServiceCase,
     ServiceCaseStatus,
     ServiceRequestKind,
     ServiceRequestUrgency,
-    TowDispatchStage,
     TowMode,
 )
+from app.models.case_subtypes import TowCase
 from app.models.vehicle import Vehicle
+from app.schemas.payment import PaymentInitiateResponse
 from app.schemas.tow import (
     LatLng,
     TowCaseSnapshot,
@@ -28,9 +28,11 @@ from app.schemas.tow import (
     TowFareQuoteRequest,
     TowFareQuoteResponse,
 )
+from app.services import payment_core
 from app.services import tow_dispatch as dispatch_svc
-from app.services import tow_payment as payment_svc
 
+from ._guards import _ensure_participant
+from ._presenters import _build_snapshot
 from ._subtypes import _insert_tow_subtype_row
 
 router = APIRouter()
@@ -91,7 +93,7 @@ async def quote_fare(
             if route_distance.route_coords
             else None
         ),
-        expires_at=datetime.now(UTC).replace(microsecond=0),
+        expires_at=datetime.now(UTC).replace(microsecond=0) + timedelta(minutes=5),
     )
 
 
@@ -101,15 +103,14 @@ async def quote_fare(
 @router.post(
     "/cases",
     status_code=status.HTTP_201_CREATED,
-    summary="Çekici talebi oluştur + (immediate) ilk aday atama",
+    summary="Çekici talebi oluştur + ödeme bekleyen gate",
 )
 async def create_case(
     payload: TowCreateCaseRequest,
     user: CustomerDep,
     db: DbDep,
-    redis: RedisDep,
     response: Response,
-) -> dict[str, object]:
+) -> TowCaseSnapshot:
     vehicle = await db.get(Vehicle, payload.vehicle_id)
     if vehicle is None:
         raise HTTPException(status_code=404, detail="vehicle not found")
@@ -133,11 +134,6 @@ async def create_case(
             )
 
     tow_mode = TowMode(payload.mode.value)
-    initial_stage = (
-        TowDispatchStage.SEARCHING
-        if tow_mode == TowMode.IMMEDIATE
-        else TowDispatchStage.SCHEDULED_WAITING
-    )
     urgency = (
         ServiceRequestUrgency.URGENT
         if tow_mode == TowMode.IMMEDIATE
@@ -163,49 +159,61 @@ async def create_case(
     # (service_cases.tow_* migration 0032 ile DROP edildi).
     tow_case = await _insert_tow_subtype_row(db, case, payload)
 
-    result: dict[str, object] = {"case_id": str(case.id), "stage": initial_stage.value}
-
     if tow_mode == TowMode.IMMEDIATE:
-        # P0-3 fix: immediate tow create → preauth gate ZORUNLU.
-        # Settlement oluşturulmadan dispatch başlamaz.
-        # V1 MockPsp (stored card yok, Iyzico 3DS async — Faz C'de subaccount
-        # tokenization ile gerçek Iyzico preauth).
         try:
-            await payment_svc.authorize_preauth(
-                db,
-                case=case,
-                cap_amount=payload.fare_quote.cap_amount,
-                quoted_amount=(payload.fare_quote.locked_price or payload.fare_quote.cap_amount),
-                customer_token="",  # V1 mock default — B-4 stored card yok
-                psp=build_mock_psp(),
+            await payment_core.ensure_tow_payment_required(
+                db, case=case, tow_case=tow_case
             )
-        except payment_svc.PaymentDeclinedError as exc:
-            # 402 Payment Required — settlement yok, dispatch başlamaz
+        except payment_core.PaymentCoreError as exc:
             await db.rollback()
             raise HTTPException(
-                status_code=402,
-                detail={
-                    "type": "preauth_declined",
-                    "error_code": exc.error_code,
-                    "message": str(exc),
-                },
+                status_code=exc.http_status,
+                detail={"type": exc.error_type, "message": str(exc)},
             ) from exc
-
-        try:
-            decision = await dispatch_svc.initiate_dispatch(db, case, tow_case, redis=redis)
-            result["first_attempt"] = {
-                "attempt_id": str(decision.attempt_id),
-                "technician_id": str(decision.technician_id),
-                "distance_km": str(decision.distance_km),
-                "eta_minutes": decision.eta_minutes,
-                "radius_km": decision.radius_km,
-            }
-        except dispatch_svc.NoCandidateFoundError:
-            await dispatch_svc._transition_to_pool_offered(db, case, tow_case, user.id)
-            result["stage"] = TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL.value
 
     await db.commit()
     response.headers["Location"] = f"/tow/cases/{case.id}"
+    snapshot = await _build_snapshot(db, case)
+    return snapshot
+
+
+@router.post(
+    "/cases/{case_id}/payment/initiate",
+    response_model=PaymentInitiateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Çekici ön provizyon checkout başlat",
+)
+async def initiate_tow_payment(
+    case_id: UUID,
+    user: CustomerDep,
+    db: DbDep,
+    psp: PspDep,
+    redis: RedisDep,
+) -> PaymentInitiateResponse:
+    case = await db.get(ServiceCase, case_id)
+    if case is None or case.kind != ServiceRequestKind.TOWING:
+        raise HTTPException(status_code=404, detail={"type": "tow_case_not_found"})
+    if case.customer_user_id != user.id:
+        raise HTTPException(status_code=403, detail={"type": "not_case_owner"})
+    tow_case = await db.get(TowCase, case_id)
+    if tow_case is None:
+        raise HTTPException(status_code=404, detail={"type": "tow_subtype_not_found"})
+    try:
+        result = await payment_core.initiate_tow_preauth(
+            db,
+            case=case,
+            tow_case=tow_case,
+            psp=psp,
+            callback_url=get_settings().iyzico_callback_url,
+            redis=redis,
+        )
+    except payment_core.PaymentCoreError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=exc.http_status,
+            detail={"type": exc.error_type, "message": str(exc)},
+        ) from exc
+    await db.commit()
     return result
 
 
@@ -225,3 +233,5 @@ async def get_case(
     case = await db.get(ServiceCase, case_id)
     if case is None or case.kind != ServiceRequestKind.TOWING:
         raise HTTPException(status_code=404, detail="tow case not found")
+    _ensure_participant(case, user)
+    return await _build_snapshot(db, case)

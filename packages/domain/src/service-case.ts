@@ -425,10 +425,25 @@ export type Appointment = z.infer<typeof AppointmentSchema>;
 // Detail dossier read model (CaseApprovalSchema, id'li line item) burada kalır;
 // CaseDossier içinde `pending_approvals` alanı bu shape'i bekler.
 
-import { CaseApprovalKindSchema, CaseApprovalStatusSchema } from "./approval";
+import {
+  ApprovalPaymentMethodSchema,
+  ApprovalPaymentStateSchema,
+  CaseApprovalKindSchema,
+  CaseApprovalStatusSchema,
+} from "./approval";
 
-export { CaseApprovalKindSchema, CaseApprovalStatusSchema } from "./approval";
-export type { CaseApprovalKind, CaseApprovalStatus } from "./approval";
+export {
+  ApprovalPaymentMethodSchema,
+  ApprovalPaymentStateSchema,
+  CaseApprovalKindSchema,
+  CaseApprovalStatusSchema,
+} from "./approval";
+export type {
+  ApprovalPaymentMethod,
+  ApprovalPaymentState,
+  CaseApprovalKind,
+  CaseApprovalStatus,
+} from "./approval";
 
 export const CaseApprovalLineItemSchema = z.object({
   id: z.string(),
@@ -450,6 +465,10 @@ export const CaseApprovalSchema = z.object({
   amount_label: z.string().nullable().default(null),
   action_label: z.string().nullable().default(null),
   service_comment: z.string().optional(),
+  payment_method: ApprovalPaymentMethodSchema.nullable().optional(),
+  payment_state: ApprovalPaymentStateSchema.optional(),
+  payment_order_id: z.string().nullable().optional(),
+  available_payment_methods: z.array(ApprovalPaymentMethodSchema).optional(),
   line_items: z.array(CaseApprovalLineItemSchema).default([]),
   evidence_document_ids: z.array(z.string()).default([]),
 });

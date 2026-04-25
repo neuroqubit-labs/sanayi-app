@@ -54,6 +54,7 @@ class TowIncidentReason(StrEnum):
 
 
 class TowDispatchStage(StrEnum):
+    PAYMENT_REQUIRED = "payment_required"
     SEARCHING = "searching"
     ACCEPTED = "accepted"
     EN_ROUTE = "en_route"

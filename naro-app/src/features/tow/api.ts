@@ -9,6 +9,7 @@ import {
   TowFareQuoteRequestSchema,
   TowFareQuoteResponseSchema,
   TowOtpChallengeSchema,
+  TowPaymentInitiateResponseSchema,
   TowOtpVerifyInputSchema,
   TowRatingInputSchema,
   TowTrackingSnapshotSchema,
@@ -18,6 +19,7 @@ import {
   type TowFareQuoteRequest,
   type TowFareQuoteResponse,
   type TowOtpChallenge,
+  type TowPaymentInitiateResponse,
   type TowOtpVerifyInput,
   type TowRatingInput,
   type TowTrackingSnapshot,
@@ -93,6 +95,24 @@ export function useTowCaseSnapshot(caseId: string) {
       return TowCaseSnapshotSchema.parse(raw);
     },
     staleTime: 5 * 1000,
+  });
+}
+
+export function useInitiateTowPayment(caseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<TowPaymentInitiateResponse, Error, void>({
+    mutationFn: async () => {
+      const raw = await apiClient(`/tow/cases/${caseId}/payment/initiate`, {
+        method: "POST",
+        body: {},
+      });
+      return TowPaymentInitiateResponseSchema.parse(raw);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tow", "case", caseId] });
+      queryClient.invalidateQueries({ queryKey: ["tow", "tracking", caseId] });
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+    },
   });
 }
 

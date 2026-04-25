@@ -26,6 +26,8 @@ import {
 import { useState } from "react";
 import { Alert, Linking, Platform, Pressable, TextInput, View } from "react-native";
 
+import { useTowEntryRoute } from "@/features/tow/entry";
+
 import { ComposerSection } from "./components/ComposerSection";
 import { DocumentPickerRow } from "./components/DocumentPickerRow";
 import { EvidenceStepCard } from "./components/EvidenceStepCard";
@@ -114,11 +116,14 @@ function dialEmergency() {
 }
 
 function EmergencyPanelStep({
-  draft: _draft,
+  draft,
   updateDraft,
   goNext,
 }: ComposerStepRenderProps) {
   const router = useRouter();
+  const towEntry = useTowEntryRoute({
+    vehicleId: draft.vehicle_id,
+  });
 
   const handleTowingRedirect = () => {
     // Composer taslak state'te kalır — kullanıcı çekici akışından döndüğünde
@@ -127,7 +132,7 @@ function EmergencyPanelStep({
       vehicle_drivable: false,
       towing_required: true,
     });
-    router.push("/(modal)/talep/towing");
+    router.push(towEntry.route);
   };
 
   return (
