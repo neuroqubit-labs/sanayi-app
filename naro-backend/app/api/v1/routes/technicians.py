@@ -27,8 +27,9 @@ from fastapi import APIRouter, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from app.api.v1.deps import CurrentTechnicianDep, DbDep, RedisDep
+from app.api.v1.deps import CurrentTechnicianDep, CurrentUserDep, DbDep, RedisDep
 from app.models.auth_event import AuthEvent, AuthEventType
+from app.models.user import UserRole
 from app.models.case import (
     ServiceCaseStatus,
     ServiceRequestKind,
@@ -159,6 +160,24 @@ class ProfilePatchPayload(BaseModel):
     biography: Annotated[str, Field(max_length=2000)] | None = None
     avatar_asset_id: UUID | None = None
     promo_video_asset_id: UUID | None = None
+
+
+class ProfileBootstrapPayload(BaseModel):
+    """POST /technicians/me/profile — yeni teknisyen kaydı için.
+
+    OTP verify sonrası user yaratılır ama TechnicianProfile NULL kalır;
+    onboarding wizard ilk adımdan sonra bu endpoint'i çağırarak profile
+    satırını oluşturur. Diğer alanlar (business_info, capabilities,
+    coverage, service_area) ayrı PATCH/PUT endpoint'leriyle doldurulur.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: Annotated[str, Field(min_length=1, max_length=255)]
+    provider_type: ProviderType
+    provider_mode: ProviderMode = ProviderMode.BUSINESS
+    secondary_provider_types: list[ProviderType] = Field(default_factory=list)
+    active_provider_type: ProviderType | None = None
 
 
 class BusinessPatchPayload(BaseModel):
@@ -426,6 +445,85 @@ async def get_me_shell_config(
 
 
 # ─── Simple mutations ──────────────────────────────────────────────────────
+
+
+@router.post(
+    "/profile",
+    response_model=TechnicianProfileResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_me_profile(
+    payload: ProfileBootstrapPayload,
+    user: CurrentUserDep,
+    db: DbDep,
+) -> TechnicianProfileResponse:
+    """Onboarding wizard ilk submit'i — yeni teknisyenin TechnicianProfile
+    satırını oluşturur. OTP verify sonrası User var ama profile NULL idi.
+
+    Auth: CurrentUserDep (require_technician kullanılmıyor — yeni başvuruda
+    approval_status NULL olacağından require_technician 403 atar). Role
+    kontrolünü burada yapıyoruz: yalnız role=technician ilerleyebilir;
+    customer için 403.
+    """
+    if user.role != UserRole.TECHNICIAN:
+        raise HTTPException(
+            status_code=403,
+            detail={"type": "technician_role_required"},
+        )
+
+    existing = (
+        await db.execute(
+            select(TechnicianProfile).where(TechnicianProfile.user_id == user.id)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={"type": "profile_exists", "profile_id": str(existing.id)},
+        )
+
+    profile = TechnicianProfile(
+        user_id=user.id,
+        display_name=payload.display_name.strip(),
+        availability=TechnicianAvailability.OFFLINE,
+        verified_level=TechnicianVerifiedLevel.BASIC,
+        provider_type=payload.provider_type,
+        secondary_provider_types=list(payload.secondary_provider_types),
+        provider_mode=payload.provider_mode,
+        active_provider_type=payload.active_provider_type,
+        business_info={},
+    )
+    db.add(profile)
+    await db.flush()
+
+    capability = TechnicianCapability(
+        profile_id=profile.id,
+        insurance_case_handler=False,
+        on_site_repair=False,
+        valet_service=False,
+        towing_coordination=False,
+    )
+    db.add(capability)
+
+    await bump_role_config_version(db, profile.id)
+    await _emit_auth_event(
+        db,
+        user.id,
+        AuthEventType.TECHNICIAN_PROFILE_UPDATED,
+        {
+            "scope": "bootstrap",
+            "provider_type": payload.provider_type.value,
+            "provider_mode": payload.provider_mode.value,
+        },
+    )
+    await db.commit()
+    await db.refresh(profile)
+    return TechnicianProfileResponse.model_validate(
+        {
+            **profile.__dict__,
+            "capability": TechnicianCapabilityResponse.model_validate(capability),
+        }
+    )
 
 
 @router.patch("/profile", response_model=TechnicianProfileResponse)
