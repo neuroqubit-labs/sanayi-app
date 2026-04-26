@@ -12,6 +12,7 @@ import type {
   ServiceRequestDraft,
   ServiceRequestKind,
 } from "@naro/domain";
+import { CaseWorkflowBlueprintSchema } from "@naro/domain";
 import {
   buildTechnicianTrackingView,
   syncTrackingCase,
@@ -125,6 +126,7 @@ const CaseDetailResponseSchema = z.object({
   next_action: CaseNextActionSchema.nullable().optional(),
   estimate_amount: z.string().nullable().optional(),
   assigned_technician_id: z.string().uuid().nullable().optional(),
+  workflow_blueprint: CaseWorkflowBlueprintSchema.optional(),
 });
 type CaseDetailResponse = z.infer<typeof CaseDetailResponseSchema>;
 
@@ -616,6 +618,9 @@ function buildRequestFromDetail(detail: CaseDetailResponse): ServiceRequestDraft
 }
 
 function workflowBlueprintFor(detail: CaseDetailResponse): ServiceCase["workflow_blueprint"] {
+  if (detail.workflow_blueprint) {
+    return detail.workflow_blueprint;
+  }
   const subtype = (detail.subtype ?? {}) as Record<string, unknown>;
   if (detail.kind === "accident") {
     return subtype.kasko_selected || subtype.sigorta_selected

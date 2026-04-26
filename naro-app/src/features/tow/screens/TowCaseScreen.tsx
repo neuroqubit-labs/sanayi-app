@@ -42,6 +42,7 @@ import { useTowStore } from "../store";
 
 const SEARCHING_STAGES: TowDispatchStage[] = [
   "searching",
+  "no_candidate_found",
   "timeout_converted_to_pool",
 ];
 
@@ -387,7 +388,7 @@ function SearchingCard({
           : `${attemptCount}. dispatch çağrısı`}
       </Text>
       <Text variant="caption" tone="muted" className="text-app-text-muted text-[12px]">
-        Kabul gelmezse otomatik olarak sıradaki operatöre geçeriz. 3 denemeden sonra randevulu havuza aktarırız.
+        Kabul gelmezse otomatik olarak sıradaki operatöre geçeriz. Aday bulunamazsa tekrar deneme seçeneği açılır.
       </Text>
       {canSimulate ? (
         <Pressable

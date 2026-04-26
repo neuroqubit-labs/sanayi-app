@@ -98,6 +98,15 @@ export function getTowStagePresentation(
         tone: "critical",
         liveDot: false,
       };
+    case "no_candidate_found":
+      return {
+        eyebrow: "Tekrar dene",
+        title: "Aday çekici bulunamadı",
+        description:
+          "Yakında uygun çekici bulamadık. Talebin açık; birazdan tekrar deneyebilirsin.",
+        tone: "warning",
+        liveDot: false,
+      };
     case "scheduled_waiting":
       return {
         eyebrow: "Randevu onaylandı",
@@ -179,6 +188,7 @@ export function isActiveStage(stage: TowDispatchStage): boolean {
     stage === "bidding_open" ||
     stage === "offer_accepted" ||
     stage === "scheduled_waiting" ||
+    stage === "no_candidate_found" ||
     stage === "timeout_converted_to_pool"
   );
 }

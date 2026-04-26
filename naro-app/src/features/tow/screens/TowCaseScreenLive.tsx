@@ -48,6 +48,7 @@ import type { TowCaseSnapshot, TowDispatchStage } from "../schemas";
 
 const SEARCHING_STAGES: TowDispatchStage[] = [
   "searching",
+  "no_candidate_found",
   "timeout_converted_to_pool",
 ];
 
@@ -262,7 +263,10 @@ export function TowCaseScreenLive() {
 
           {isSearching ? (
             <SearchingTowCard
-              noImmediateCandidate={snapshot.stage === "timeout_converted_to_pool"}
+              noImmediateCandidate={
+                snapshot.stage === "no_candidate_found" ||
+                snapshot.stage === "timeout_converted_to_pool"
+              }
               onAccidentPress={() =>
                 router.push("/(modal)/talep/accident" as Href)
               }
@@ -392,8 +396,13 @@ function SearchingTowCard({
         </View>
         <View className="flex-1 gap-0.5">
           <Text variant="label" tone="inverse" className="text-[14px]">
-            {noImmediateCandidate ? "Talep açık" : "Operatör bekleniyor"}
+            {noImmediateCandidate ? "Aday çekici bulunamadı" : "Operatör bekleniyor"}
           </Text>
+          {noImmediateCandidate ? (
+            <Text variant="caption" tone="muted" className="text-app-text-muted text-[12px]">
+              Yakında uygun çekici bulamadık. Birazdan tekrar deneyebilirsin.
+            </Text>
+          ) : null}
         </View>
       </View>
       <Button

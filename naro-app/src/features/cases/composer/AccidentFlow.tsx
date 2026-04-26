@@ -916,22 +916,6 @@ export const ACCIDENT_FLOW: ComposerFlow = {
       hideFooter: true,
     },
     {
-      key: "accident_photos",
-      title: "Fotoğraf",
-      description: "Önce kaydet, sonra anlat",
-      validate: (draft) => {
-        const requiredMissing = ACCIDENT_EVIDENCE_STEPS.some((step) => {
-          if (!step.required) return false;
-          const count = draft.attachments.filter((attachment) =>
-            attachment.id.startsWith(`${step.id}:`),
-          ).length;
-          return count < (step.minPhotos ?? 1);
-        });
-        return requiredMissing ? "Zorunlu fotoğraf adımları eksik." : null;
-      },
-      render: (props) => <AccidentPhotosStep {...props} />,
-    },
-    {
       key: "accident_kind",
       title: "Temel bilgi",
       description: "Tür, konum, araç durumu",
@@ -965,6 +949,22 @@ export const ACCIDENT_FLOW: ComposerFlow = {
       validate: (draft) =>
         draft.report_method ? null : "Tutanak yöntemini seç.",
       render: (props) => <ReportStep {...props} />,
+    },
+    {
+      key: "accident_photos",
+      title: "Fotoğraf",
+      description: "Hasarı görünür hale getir",
+      validate: (draft) => {
+        const requiredMissing = ACCIDENT_EVIDENCE_STEPS.some((step) => {
+          if (!step.required) return false;
+          const count = draft.attachments.filter((attachment) =>
+            attachment.id.startsWith(`${step.id}:`),
+          ).length;
+          return count < (step.minPhotos ?? 1);
+        });
+        return requiredMissing ? "Zorunlu fotoğraf adımları eksik." : null;
+      },
+      render: (props) => <AccidentPhotosStep {...props} />,
     },
     {
       key: "documents",

@@ -44,6 +44,7 @@ export const TowDispatchStageSchema = z.enum([
   "in_transit",
   "delivered",
   "cancelled",
+  "no_candidate_found",
   "timeout_converted_to_pool",
   "scheduled_waiting",
   "bidding_open",

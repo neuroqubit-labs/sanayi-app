@@ -60,7 +60,7 @@ function summarizeServicePreferences(draft: ServiceRequestDraft): string {
   return parts.join(" · ");
 }
 
-function CategoryStep({ draft, updateDraft, goNext }: ComposerStepRenderProps) {
+function CategoryStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const selected = draft.maintenance_category;
 
   const pickCategory = (id: MaintenanceCategoryMeta["id"]) => {
@@ -68,7 +68,6 @@ function CategoryStep({ draft, updateDraft, goNext }: ComposerStepRenderProps) {
       maintenance_category: id,
       maintenance_items: [],
     });
-    goNext();
   };
 
   return (
@@ -715,7 +714,6 @@ export const MAINTENANCE_FLOW: ComposerFlow = {
       validate: (draft) =>
         draft.maintenance_category ? null : "Bir kategori seç.",
       render: (props) => <CategoryStep {...props} />,
-      hideFooter: true,
     },
     {
       key: "maintenance_detail",

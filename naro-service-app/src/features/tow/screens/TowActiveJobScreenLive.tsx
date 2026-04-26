@@ -53,6 +53,7 @@ const STAGE_LABELS: Record<TowDispatchStage, string> = {
   in_transit: "Transit",
   delivered: "Teslim edildi",
   cancelled: "İptal",
+  no_candidate_found: "Aday bulunamadı",
   timeout_converted_to_pool: "Havuza düştü",
   scheduled_waiting: "Randevu bekleniyor",
   bidding_open: "Teklif topluyor",

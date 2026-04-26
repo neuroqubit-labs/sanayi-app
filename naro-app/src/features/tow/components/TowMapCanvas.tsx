@@ -84,6 +84,7 @@ export function TowMapCanvas({
   const showRequestRoute =
     stage === "payment_required" ||
     stage === "searching" ||
+    stage === "no_candidate_found" ||
     stage === "timeout_converted_to_pool" ||
     stage === "bidding_open";
   const routeFrom = showTransitRoute || showRequestRoute ? pickup : current;
@@ -102,7 +103,10 @@ export function TowMapCanvas({
   }, [current, pickup, dropoff, showTransitRoute]);
 
   const showTruck =
-    current !== null && stage !== "searching" && stage !== "bidding_open";
+    current !== null &&
+    stage !== "searching" &&
+    stage !== "no_candidate_found" &&
+    stage !== "bidding_open";
 
   const center = useMemo(() => resolveCenter(fitCoords), [fitCoords]);
   const routeCoords = useMemo(

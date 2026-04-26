@@ -203,17 +203,6 @@ function VehicleStateStep({
         </View>
       </ComposerSection>
 
-      <ComposerSection title="Açıklama (opsiyonel)">
-        <TextInput
-          value={draft.notes ?? ""}
-          onChangeText={(value) => updateDraft({ notes: value })}
-          placeholder="Ne zaman başladı, hangi koşullarda artıyor, daha önce müdahale oldu mu?"
-          placeholderTextColor="#6f7b97"
-          multiline
-          textAlignVertical="top"
-          className={[INPUT_CLASS, "min-h-[110px] py-3"].join(" ")}
-        />
-      </ComposerSection>
     </View>
   );
 }
@@ -465,6 +454,18 @@ function LogisticsStep({ draft, updateDraft }: ComposerStepRenderProps) {
             />
           ))}
         </View>
+      </ComposerSection>
+
+      <ComposerSection title="Açıklama (opsiyonel)">
+        <TextInput
+          value={draft.notes ?? ""}
+          onChangeText={(value) => updateDraft({ notes: value })}
+          placeholder="Ne zaman başladı, hangi koşullarda artıyor, daha önce müdahale oldu mu?"
+          placeholderTextColor="#6f7b97"
+          multiline
+          textAlignVertical="top"
+          className={[INPUT_CLASS, "min-h-[110px] py-3"].join(" ")}
+        />
       </ComposerSection>
     </View>
   );

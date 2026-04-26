@@ -549,17 +549,10 @@ export const useTowStore = create<TowStoreState>((set, get) => {
       const snap = get().getCase(caseId);
       if (!snap || snap.stage !== "searching") return null;
       clearTimers(caseId);
-      const updated = setCase(caseId, (current) => ({
+      return setCase(caseId, (current) => ({
         ...current,
-        stage: "timeout_converted_to_pool",
+        stage: "no_candidate_found",
       }));
-      setTimeout(() => {
-        setCase(caseId, (current) => ({
-          ...current,
-          stage: "scheduled_waiting",
-        }));
-      }, 800);
-      return updated;
     },
 
     __advanceStage: (caseId, stage) => {
