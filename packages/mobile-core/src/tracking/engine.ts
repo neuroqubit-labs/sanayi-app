@@ -2359,6 +2359,7 @@ export function createTechnicianInsuranceCase(
     maintenance_items: [],
     vehicle_drivable: payload.vehicle_drivable ?? null,
     towing_required: payload.towing_required ?? false,
+    towing_decision_made: true,
     pickup_preference: null,
     mileage_km: null,
     preferred_technician_id: payload.technician_id,

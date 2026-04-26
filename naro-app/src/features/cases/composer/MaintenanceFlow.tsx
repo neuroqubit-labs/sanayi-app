@@ -615,12 +615,20 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
         <View className="gap-2">
           <Pressable
             accessibilityRole="radio"
-            accessibilityState={{ selected: draft.towing_required === true }}
+            accessibilityState={{
+              selected:
+                draft.towing_decision_made && draft.towing_required === true,
+            }}
             accessibilityLabel="Evet, çekici istiyorum"
-            onPress={() => updateDraft({ towing_required: true })}
+            onPress={() =>
+              updateDraft({
+                towing_decision_made: true,
+                towing_required: true,
+              })
+            }
             className={[
               "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
-              draft.towing_required
+              draft.towing_decision_made && draft.towing_required
                 ? "border border-app-warning/40 bg-app-warning-soft"
                 : "border border-app-outline bg-app-surface",
             ].join(" ")}
@@ -628,19 +636,29 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
             <View
               className={[
                 "h-11 w-11 items-center justify-center rounded-full",
-                draft.towing_required ? "bg-app-warning/20" : "bg-app-surface-2",
+                draft.towing_decision_made && draft.towing_required
+                  ? "bg-app-warning/20"
+                  : "bg-app-surface-2",
               ].join(" ")}
             >
               <Icon
                 icon={Truck}
                 size={22}
-                color={draft.towing_required ? "#f5b33f" : "#83a7ff"}
+                color={
+                  draft.towing_decision_made && draft.towing_required
+                    ? "#f5b33f"
+                    : "#83a7ff"
+                }
               />
             </View>
             <View className="flex-1 gap-0.5">
               <Text
                 variant="h3"
-                tone={draft.towing_required ? "warning" : "inverse"}
+                tone={
+                  draft.towing_decision_made && draft.towing_required
+                    ? "warning"
+                    : "inverse"
+                }
                 className="text-[15px]"
               >
                 Evet, çekici istiyorum
@@ -656,12 +674,20 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
           </Pressable>
           <Pressable
             accessibilityRole="radio"
-            accessibilityState={{ selected: draft.towing_required === false }}
+            accessibilityState={{
+              selected:
+                draft.towing_decision_made && draft.towing_required === false,
+            }}
             accessibilityLabel="Hayır, çekici gerekmiyor"
-            onPress={() => updateDraft({ towing_required: false })}
+            onPress={() =>
+              updateDraft({
+                towing_decision_made: true,
+                towing_required: false,
+              })
+            }
             className={[
               "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
-              draft.towing_required === false
+              draft.towing_decision_made && draft.towing_required === false
                 ? "border border-brand-500/40 bg-brand-500/10"
                 : "border border-app-outline bg-app-surface",
             ].join(" ")}
@@ -669,19 +695,29 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
             <View
               className={[
                 "h-11 w-11 items-center justify-center rounded-full",
-                draft.towing_required === false ? "bg-brand-500/20" : "bg-app-surface-2",
+                draft.towing_decision_made && draft.towing_required === false
+                  ? "bg-brand-500/20"
+                  : "bg-app-surface-2",
               ].join(" ")}
             >
               <Icon
                 icon={Car}
                 size={22}
-                color={draft.towing_required === false ? "#0ea5e9" : "#83a7ff"}
+                color={
+                  draft.towing_decision_made && draft.towing_required === false
+                    ? "#0ea5e9"
+                    : "#83a7ff"
+                }
               />
             </View>
             <View className="flex-1 gap-0.5">
               <Text
                 variant="h3"
-                tone={draft.towing_required === false ? "accent" : "inverse"}
+                tone={
+                  draft.towing_decision_made && draft.towing_required === false
+                    ? "accent"
+                    : "inverse"
+                }
                 className="text-[15px]"
               >
                 Hayır, gerekmiyor
@@ -844,7 +880,10 @@ export const MAINTENANCE_FLOW: ComposerFlow = {
       key: "maintenance_review",
       title: "Önizleme",
       description: "Son kontrol",
-      validate: () => null,
+      validate: (draft) =>
+        draft.towing_decision_made
+          ? null
+          : "Çekici gerekip gerekmediğini seç.",
       render: (props) => <ReviewStep {...props} />,
       isTerminal: true,
     },

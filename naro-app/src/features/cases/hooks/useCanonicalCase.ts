@@ -400,6 +400,7 @@ function buildRequestFromSubtype(
     vehicle_drivable:
       (subtype.vehicle_drivable as boolean | null | undefined) ?? null,
     towing_required: false,
+    towing_decision_made: false,
     pickup_preference:
       (subtype.pickup_preference as ServiceRequestDraft["pickup_preference"]) ??
       null,

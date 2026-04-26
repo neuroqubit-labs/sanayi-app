@@ -291,14 +291,22 @@ function AccidentKindStep({ draft, updateDraft }: ComposerStepRenderProps) {
             label="Sürülebiliyor"
             selected={draft.vehicle_drivable === true}
             onPress={() =>
-              updateDraft({ vehicle_drivable: true, towing_required: false })
+              updateDraft({
+                towing_decision_made: true,
+                vehicle_drivable: true,
+                towing_required: false,
+              })
             }
           />
           <ToggleChip
             label="Sürülemiyor — yerinde"
             selected={draft.vehicle_drivable === false}
             onPress={() =>
-              updateDraft({ vehicle_drivable: false, towing_required: true })
+              updateDraft({
+                towing_decision_made: true,
+                vehicle_drivable: false,
+                towing_required: true,
+              })
             }
           />
         </View>

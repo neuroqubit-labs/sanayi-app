@@ -288,6 +288,7 @@ export const ServiceRequestDraftSchema = z.object({
   preferred_window: z.string().optional(),
   vehicle_drivable: z.boolean().nullable().default(null),
   towing_required: z.boolean().default(false),
+  towing_decision_made: z.boolean().default(false),
   pickup_preference: ServicePickupPreferenceSchema.nullable().default(null),
   mileage_km: z.number().int().nullable().default(null),
   preferred_technician_id: z.string().nullable().default(null),
