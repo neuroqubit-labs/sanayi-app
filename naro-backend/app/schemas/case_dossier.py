@@ -73,6 +73,7 @@ class CaseShellSection(BaseModel):
     title: str
     subtitle: str | None = None
     summary: str | None = None
+    customer_notes: str | None = None
     location_label: str | None = None
     wait_state: CaseWaitState
     created_at: datetime

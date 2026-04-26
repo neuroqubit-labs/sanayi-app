@@ -1,1 +1,1 @@
-export { CaseManagementScreen as default } from "@/features/cases/screens/CaseManagementScreen";
+export { CustomerCaseProfileScreen as default } from "@/features/cases/screens/CustomerCaseProfileScreen";

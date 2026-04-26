@@ -1,4 +1,9 @@
-import type { CaseDossierResponse, KindDetailSection, OfferSummary } from "@naro/domain";
+import type {
+  CaseAttachment,
+  CaseDossierResponse,
+  KindDetailSection,
+  OfferSummary,
+} from "@naro/domain";
 import { useCaseDossier } from "@naro/mobile-core";
 import {
   BackButton,
@@ -18,18 +23,42 @@ import {
   FileText,
   Fuel,
   Gauge,
+  type LucideIcon,
   MapPin,
+  MessageSquare,
+  Pencil,
+  Plus,
   Shield,
   Star,
   Truck,
   User,
   Wrench,
+  XCircle,
 } from "lucide-react-native";
-import { Alert, ScrollView, View } from "react-native";
+import { useState } from "react";
+import { Alert, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCancelAppointment } from "@/features/appointments";
-import { useNotifyCaseToTechnician } from "@/features/cases/api";
+import {
+  BillingSummaryCard,
+  CancellationSheet,
+  CompletionApprovalSheet,
+  InvoiceApprovalSheet,
+  PartsApprovalSheet,
+  type CaseBillingStage,
+} from "@/features/billing";
+import {
+  useAddCaseAttachment,
+  useCaseDetailLive,
+  useCaseThreadLive,
+  useNotifyCaseToTechnician,
+  useUpdateCaseNotes,
+  useUpdateCaseNotesLive,
+} from "@/features/cases/api";
+import { AddAttachmentSheet } from "@/features/cases/components/AddAttachmentSheet";
+import { EditCaseNotesSheet } from "@/features/cases/components/EditCaseNotesSheet";
+import { useTowEntryRoute } from "@/features/tow/entry";
 import { apiClient } from "@/runtime";
 
 /* ────────────────────────────────────────────────────────────
@@ -41,6 +70,32 @@ type StickyVariant =
   | { kind: "appointment" }
   | { kind: "process" }
   | { kind: "none" };
+
+const INACTIVE_STATUSES = new Set(["completed", "archived", "cancelled"]);
+
+function deriveBillingStage(
+  status: CaseDossierResponse["shell"]["status"],
+): CaseBillingStage {
+  switch (status) {
+    case "matching":
+    case "offers_ready":
+      return "pre_preauth";
+    case "appointment_pending":
+    case "scheduled":
+      return "scheduled_before_start";
+    case "service_in_progress":
+    case "parts_approval":
+      return "service_in_progress";
+    case "invoice_approval":
+      return "invoice_approval";
+    case "completed":
+    case "cancelled":
+    case "archived":
+      return "completed";
+    default:
+      return "pre_preauth";
+  }
+}
 
 function statusBadge(status: CaseDossierResponse["shell"]["status"]): {
   label: string;
@@ -562,6 +617,49 @@ function TimelineRow({
   );
 }
 
+function ProfileActionRow({
+  description,
+  icon,
+  iconColor = "#83a7ff",
+  label,
+  onPress,
+}: {
+  description?: string | null;
+  icon: LucideIcon;
+  iconColor?: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
+    >
+      <View className="h-10 w-10 items-center justify-center rounded-full bg-app-surface-2">
+        <Icon icon={icon} size={16} color={iconColor} />
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text variant="label" tone="inverse" className="text-[14px]">
+          {label}
+        </Text>
+        {description ? (
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[12px]"
+            numberOfLines={1}
+          >
+            {description}
+          </Text>
+        ) : null}
+      </View>
+      <Icon icon={ChevronRight} size={16} color="#83a7ff" />
+    </Pressable>
+  );
+}
+
 /* ────────────────────────────────────────────────────────────
  * Main Screen
  * ──────────────────────────────────────────────────────────── */
@@ -570,13 +668,30 @@ export function CustomerCaseProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const dossierQuery = useCaseDossier(id ?? "", { apiClient });
+  const caseId = id ?? "";
+  const dossierQuery = useCaseDossier(caseId, { apiClient });
+  const detailQuery = useCaseDetailLive(caseId);
+  const threadQuery = useCaseThreadLive(caseId);
   const dossier = dossierQuery.data;
   const cancelAppointment = useCancelAppointment(
     dossier?.appointment?.id ?? "",
-    id ?? "",
+    caseId,
   );
+  const addAttachment = useAddCaseAttachment();
+  const updateNotes = useUpdateCaseNotes();
+  const updateNotesLive = useUpdateCaseNotesLive(caseId);
   const notifyCase = useNotifyCaseToTechnician();
+  const towEntry = useTowEntryRoute({
+    vehicleId: detailQuery.data?.vehicle_id,
+    fallback: `/(modal)/talep/towing?parentCaseId=${caseId}` as Href,
+  });
+  const [editOpen, setEditOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [cancelSheetOpen, setCancelSheetOpen] = useState(false);
+  const [openApproval, setOpenApproval] = useState<{
+    id: string;
+    kind: "parts_request" | "invoice" | "completion";
+  } | null>(null);
 
   if (!dossier) {
     return (
@@ -603,6 +718,18 @@ export function CustomerCaseProfileScreen() {
     ...dossier.evidence,
     ...dossier.documents,
   ];
+  const isActive = !INACTIVE_STATUSES.has(dossier.shell.status);
+  const isCancelled = dossier.shell.status === "cancelled";
+  const pendingApprovals = dossier.approvals.filter(
+    (approval) => approval.status === "pending",
+  );
+  const threadItems =
+    threadQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const latestMessage = threadItems[0] ?? null;
+  const linkedTowCaseIds = detailQuery.data?.linked_tow_case_ids ?? [];
+  const canLinkTow =
+    dossier.shell.kind === "accident" || dossier.shell.kind === "breakdown";
+  const customerNotes = dossier.shell.customer_notes ?? "";
 
   const handleCancelAppointment = () => {
     Alert.alert(
@@ -635,6 +762,19 @@ export function CustomerCaseProfileScreen() {
         "Bu servis bu vaka için uygun olmayabilir veya bildirim limitine ulaşılmış olabilir.",
       );
     }
+  };
+  const handleEditSubmit = async (patch: { summary: string; notes: string }) => {
+    await updateNotesLive.mutateAsync({ content: patch.notes || null });
+    await updateNotes.mutateAsync({
+      caseId: dossier.shell.id,
+      summary: patch.summary,
+      notes: patch.notes,
+    });
+    await dossierQuery.refetch();
+  };
+  const handleAddAttachment = async (attachment: CaseAttachment) => {
+    await addAttachment.mutateAsync({ caseId: dossier.shell.id, attachment });
+    await dossierQuery.refetch();
   };
 
   return (
@@ -670,14 +810,35 @@ export function CustomerCaseProfileScreen() {
         {/* 2. Vaka detayları */}
         <DossierSection title="Vaka detayları">
           <View className="gap-0.5 rounded-[20px] border border-app-outline bg-app-surface px-4 py-4">
+            <View className="mb-2 flex-row items-start justify-between gap-3">
+              <View className="flex-1 gap-1">
+                <Text variant="eyebrow" tone="subtle">
+                  Oluştururken girilen bilgiler
+                </Text>
+                {dossier.shell.summary ? (
+                  <Text
+                    variant="body"
+                    tone="muted"
+                    className="text-[13px] leading-[19px]"
+                  >
+                    {dossier.shell.summary}
+                  </Text>
+                ) : null}
+              </View>
+              {isActive ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Vaka notlarını düzenle"
+                  onPress={() => setEditOpen(true)}
+                  hitSlop={8}
+                  className="h-9 w-9 items-center justify-center rounded-full border border-app-outline bg-app-surface-2"
+                >
+                  <Icon icon={Pencil} size={14} color="#83a7ff" />
+                </Pressable>
+              ) : null}
+            </View>
             {dossier.shell.summary ? (
-              <Text
-                variant="body"
-                tone="muted"
-                className="mb-2 text-[13px] leading-[19px]"
-              >
-                {dossier.shell.summary}
-              </Text>
+              <View className="h-px bg-app-outline/50" />
             ) : null}
             {detailRows.map((row) => (
               <View
@@ -712,8 +873,47 @@ export function CustomerCaseProfileScreen() {
                 </Text>
               </View>
             ) : null}
+            {customerNotes ? (
+              <View className="gap-1 border-t border-app-outline/50 pt-2.5">
+                <Text variant="eyebrow" tone="subtle">
+                  Ek notlar
+                </Text>
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted leading-[19px]"
+                >
+                  {customerNotes}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </DossierSection>
+
+        {canLinkTow ? (
+          <DossierSection title="Çekici bağlantısı">
+            <View className="gap-2">
+              {linkedTowCaseIds.map((towId) => (
+                <ProfileActionRow
+                  key={towId}
+                  icon={Truck}
+                  iconColor="#0ea5e9"
+                  label="Bu vakanın çekicisini aç"
+                  description={`Çekici #${towId.slice(0, 8)}`}
+                  onPress={() => router.push(`/cekici/${towId}` as Href)}
+                />
+              ))}
+              {linkedTowCaseIds.length === 0 && isActive ? (
+                <ProfileActionRow
+                  icon={Truck}
+                  label="Bu vakaya bağlı çekici çağır"
+                  description="Çekici gerekiyorsa ayrı ama bağlı bir çekici vakası açılır."
+                  onPress={() => router.push(towEntry.route as Href)}
+                />
+              ) : null}
+            </View>
+          </DossierSection>
+        ) : null}
 
         {/* 3. Eşleşen Ustalar */}
         <DossierSection title="Uygun ustalar">
@@ -764,11 +964,41 @@ export function CustomerCaseProfileScreen() {
           )}
         </DossierSection>
 
+        {pendingApprovals.length > 0 ? (
+          <DossierSection title="Bekleyen onaylar">
+            <View className="gap-2">
+              {pendingApprovals.map((approval) => (
+                <ProfileActionRow
+                  key={approval.id}
+                  icon={
+                    approval.kind === "completion" ? CheckCircle : FileText
+                  }
+                  iconColor={
+                    approval.kind === "parts_request"
+                      ? "#f5b33f"
+                      : approval.kind === "completion"
+                        ? "#2dd28d"
+                        : "#0ea5e9"
+                  }
+                  label={approval.title}
+                  description={approval.description}
+                  onPress={() =>
+                    setOpenApproval({
+                      id: approval.id,
+                      kind: approval.kind,
+                    })
+                  }
+                />
+              ))}
+            </View>
+          </DossierSection>
+        ) : null}
+
         {/* 5. Dosyalar ve kanıtlar */}
-        {allDocuments.length > 0 ? (
-          <DossierSection title="Dosyalar">
-            <View className="gap-2 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5">
-              {allDocuments.slice(0, 6).map((item) => (
+        <DossierSection title="Dosyalar">
+          <View className="gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5">
+            {allDocuments.length > 0 ? (
+              allDocuments.slice(0, 6).map((item) => (
                 <View
                   key={`${item.id}-${item.title}`}
                   className="flex-row items-center gap-3 border-b border-app-outline/40 pb-2.5 last:border-0 last:pb-0"
@@ -795,10 +1025,43 @@ export function CustomerCaseProfileScreen() {
                     ) : null}
                   </View>
                 </View>
-              ))}
+              ))
+            ) : (
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted"
+              >
+                Henüz dosya eklenmemiş.
+              </Text>
+            )}
+            <View className="flex-row gap-2">
+              {isActive ? (
+                <View className="flex-1">
+                  <Button
+                    label="Dosya ekle"
+                    variant="outline"
+                    leftIcon={<Icon icon={Plus} size={14} color="#83a7ff" />}
+                    onPress={() => setAttachOpen(true)}
+                    fullWidth
+                  />
+                </View>
+              ) : null}
+              {allDocuments.length > 0 ? (
+                <View className="flex-1">
+                  <Button
+                    label="Tümünü gör"
+                    variant="outline"
+                    onPress={() =>
+                      router.push(`/vaka/${dossier.shell.id}/belgeler` as Href)
+                    }
+                    fullWidth
+                  />
+                </View>
+              ) : null}
             </View>
-          </DossierSection>
-        ) : null}
+          </View>
+        </DossierSection>
 
         {/* 6. Süreç — milestone + task */}
         <DossierSection title="Süreç">
@@ -863,6 +1126,65 @@ export function CustomerCaseProfileScreen() {
             </Text>
           )}
         </DossierSection>
+
+        <DossierSection title="İletişim ve ödeme">
+          <View className="gap-2">
+            <ProfileActionRow
+              icon={MessageSquare}
+              label="Mesajlar"
+              description={
+                latestMessage
+                  ? `${latestMessage.sender_role === "customer" ? "Sen" : "Servis"}: ${latestMessage.content}`
+                  : "Henüz mesaj yok"
+              }
+              onPress={() =>
+                router.push(`/vaka/${dossier.shell.id}/mesajlar` as Href)
+              }
+            />
+            <BillingSummaryCard
+              caseId={dossier.shell.id}
+              estimateFallback={
+                dossier.payment_snapshot.estimate_amount == null
+                  ? null
+                  : String(dossier.payment_snapshot.estimate_amount)
+              }
+            />
+          </View>
+        </DossierSection>
+
+        {!isActive && !isCancelled ? (
+          <Button
+            label="Benzer talep aç"
+            variant="outline"
+            onPress={() =>
+              router.push(`/(modal)/talep/${dossier.shell.kind}` as Href)
+            }
+          />
+        ) : null}
+
+        {isActive ? (
+          <View className="gap-3 rounded-[20px] border border-app-critical/30 bg-app-surface px-4 py-4">
+            <View className="flex-row items-center gap-2">
+              <Icon icon={XCircle} size={15} color="#ef4444" />
+              <Text variant="eyebrow" tone="critical">
+                Vaka yönetimi
+              </Text>
+            </View>
+            <Text
+              variant="caption"
+              tone="muted"
+              className="text-app-text-muted leading-5"
+            >
+              Vakayı iptal edersen aktif teklif ve randevu düşer.
+            </Text>
+            <Button
+              label="Vakayı iptal et"
+              variant="outline"
+              onPress={() => setCancelSheetOpen(true)}
+              fullWidth
+            />
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Sticky CTA */}
@@ -897,13 +1219,78 @@ export function CustomerCaseProfileScreen() {
               label="Süreç takibine git"
               size="lg"
               onPress={() =>
-                router.push(`/vaka/${dossier.shell.id}` as Href)
+                router.push(`/vaka/${dossier.shell.id}/surec` as Href)
               }
               fullWidth
             />
           ) : null}
         </View>
       ) : null}
+
+      <EditCaseNotesSheet
+        visible={editOpen}
+        initialSummary={dossier.shell.summary ?? ""}
+        initialNotes={customerNotes}
+        onClose={() => setEditOpen(false)}
+        onSubmit={(patch) => {
+          void handleEditSubmit(patch);
+        }}
+      />
+
+      <AddAttachmentSheet
+        visible={attachOpen}
+        onClose={() => setAttachOpen(false)}
+        onSubmit={(attachment) => {
+          void handleAddAttachment(attachment);
+        }}
+        target={{
+          purpose: "case_evidence_photo",
+          ownerRef: `case:${dossier.shell.id}`,
+        }}
+      />
+
+      <CancellationSheet
+        visible={cancelSheetOpen}
+        caseId={dossier.shell.id}
+        stage={deriveBillingStage(dossier.shell.status)}
+        estimate={null}
+        onClose={() => setCancelSheetOpen(false)}
+        onCancelled={() => router.replace("/(tabs)/" as Href)}
+      />
+
+      <PartsApprovalSheet
+        visible={openApproval?.kind === "parts_request"}
+        caseId={dossier.shell.id}
+        approvalId={
+          openApproval?.kind === "parts_request" ? openApproval.id : null
+        }
+        onClose={() => setOpenApproval(null)}
+        onTalkToTechnician={(threadCaseId) =>
+          router.push(`/vaka/${threadCaseId}/mesajlar` as Href)
+        }
+      />
+
+      <InvoiceApprovalSheet
+        visible={openApproval?.kind === "invoice"}
+        caseId={dossier.shell.id}
+        approvalId={openApproval?.kind === "invoice" ? openApproval.id : null}
+        onClose={() => setOpenApproval(null)}
+        onTalkToTechnician={(threadCaseId) =>
+          router.push(`/vaka/${threadCaseId}/mesajlar` as Href)
+        }
+      />
+
+      <CompletionApprovalSheet
+        visible={openApproval?.kind === "completion"}
+        caseId={dossier.shell.id}
+        approvalId={
+          openApproval?.kind === "completion" ? openApproval.id : null
+        }
+        onClose={() => setOpenApproval(null)}
+        onTalkToTechnician={(threadCaseId) =>
+          router.push(`/vaka/${threadCaseId}/mesajlar` as Href)
+        }
+      />
     </SafeAreaView>
   );
 }

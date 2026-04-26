@@ -48,7 +48,7 @@ export function ManagementMatchingSection({
                     label="Vaka profilini aç"
                     variant="outline"
                     onPress={() =>
-                        router.push(`/(modal)/vaka-profili/${caseId}` as Href)
+                        router.push(`/vaka/${caseId}` as Href)
                     }
                 />
             )}

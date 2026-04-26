@@ -452,6 +452,7 @@ def _build_shell(case: ServiceCase) -> CaseShellSection:
         title=case.title,
         subtitle=case.subtitle,
         summary=case.summary,
+        customer_notes=case.customer_notes,
         location_label=case.location_label,
         wait_state=CaseWaitState(
             actor=case.wait_state_actor,

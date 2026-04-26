@@ -340,7 +340,7 @@ export function CaseDetailScreen() {
   const appointmentExpired = caseItem.appointment?.status === "expired";
   // Faz 2 linkage (2026-04-23) — accident/breakdown parent ise child tow;
   // tow ise parent accident/breakdown. Cross-navigation için tracking
-  // view üstüne CTA konur (detayca CaseManagementScreen ile paralel).
+  // view üstüne CTA konur; vaka profili artık canonical `/vaka/:id`.
   const linkedTowCaseIds = linkage?.linked_tow_case_ids ?? [];
   const parentCaseId = linkage?.parent_case_id ?? null;
   const canLinkTow =
@@ -353,7 +353,7 @@ export function CaseDetailScreen() {
           trackingView={trackingView}
           onBack={() => router.back()}
           onOpenProfile={() =>
-            router.push(`/(modal)/vaka-profili/${caseItem.id}` as Href)
+            router.push(`/vaka/${caseItem.id}` as Href)
           }
         />
 

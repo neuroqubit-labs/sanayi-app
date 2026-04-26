@@ -59,6 +59,7 @@ export const CaseShellSectionSchema = z.object({
   title: z.string(),
   subtitle: z.string().nullable().default(null),
   summary: z.string().nullable().default(null),
+  customer_notes: z.string().nullable().default(null),
   location_label: z.string().nullable().default(null),
   wait_state: DossierCaseWaitStateSchema,
   created_at: DateTimeSchema,

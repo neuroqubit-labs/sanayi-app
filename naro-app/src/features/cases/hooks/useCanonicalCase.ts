@@ -525,7 +525,7 @@ export function useCanonicalCase(caseId: string): CanonicalCaseResult {
     const primary: ServiceCase = {
       id: detail.id,
       // QA tur 1 P1-D fix: plaka UUID alanına yazılamaz (BE vehicle_id
-      // expose etmiyor; CaseManagementScreen.useVehicle 422 atıyordu).
+    // expose etmiyor; legacy yönetim ekranında vehicle fetch 422 atıyordu).
       // Canonical vehicle_snapshot `VehicleSnapshotCard`'dan render edilir.
       vehicle_id: "",
       kind: detail.kind as ServiceRequestKind,
