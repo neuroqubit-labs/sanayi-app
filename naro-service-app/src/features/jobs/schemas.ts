@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CaseWorkflowBlueprintSchema } from "@naro/domain";
 
 /**
  * Service app jobs canonical schemas — BE parity (app/schemas/pool.py +
@@ -46,6 +47,7 @@ export const PoolCaseItemSchema = z.object({
   kind: ServiceRequestKindSchema,
   urgency: ServiceRequestUrgencySchema,
   status: ServiceCaseStatusSchema,
+  workflow_blueprint: CaseWorkflowBlueprintSchema,
   title: z.string(),
   subtitle: z.string().nullable(),
   location_label: z.string().nullable(),
@@ -64,6 +66,7 @@ export const PoolCaseDetailSchema = z.object({
   kind: ServiceRequestKindSchema,
   urgency: ServiceRequestUrgencySchema,
   status: ServiceCaseStatusSchema,
+  workflow_blueprint: CaseWorkflowBlueprintSchema,
   title: z.string(),
   subtitle: z.string().nullable(),
   summary: z.string().nullable(),

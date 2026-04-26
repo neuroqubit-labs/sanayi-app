@@ -157,6 +157,7 @@ def test_pool_case_item_construct() -> None:
         kind=ServiceRequestKind.BREAKDOWN,
         urgency=ServiceRequestUrgency.TODAY,
         status=ServiceCaseStatus.MATCHING,
+        workflow_blueprint="breakdown_standard",
         title="Motor arızası",
         subtitle=None,
         location_label="Kadıköy",

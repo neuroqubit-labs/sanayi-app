@@ -156,6 +156,7 @@ class TechnicianCaseSummary(BaseModel):
     kind: ServiceRequestKind
     urgency: ServiceRequestUrgency
     status: ServiceCaseStatus
+    workflow_blueprint: str
     title: str
     summary: str | None = None
     subtitle: str | None = None

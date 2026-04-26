@@ -28,6 +28,7 @@ class PoolCaseItem(BaseModel):
     kind: ServiceRequestKind
     urgency: ServiceRequestUrgency
     status: ServiceCaseStatus
+    workflow_blueprint: str
     title: str
     subtitle: str | None
     location_label: str | None
@@ -49,6 +50,7 @@ class PoolCaseDetail(BaseModel):
     kind: ServiceRequestKind
     urgency: ServiceRequestUrgency
     status: ServiceCaseStatus
+    workflow_blueprint: str
     title: str
     subtitle: str | None
     summary: str | None

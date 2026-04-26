@@ -126,7 +126,7 @@ const CaseDetailResponseSchema = z.object({
   next_action: CaseNextActionSchema.nullable().optional(),
   estimate_amount: z.string().nullable().optional(),
   assigned_technician_id: z.string().uuid().nullable().optional(),
-  workflow_blueprint: CaseWorkflowBlueprintSchema.optional(),
+  workflow_blueprint: CaseWorkflowBlueprintSchema,
 });
 type CaseDetailResponse = z.infer<typeof CaseDetailResponseSchema>;
 
@@ -285,6 +285,7 @@ const TechnicianCaseSummarySchema = z.object({
   kind: ServiceRequestKindSchema,
   urgency: ServiceRequestUrgencySchema,
   status: ServiceCaseStatusSchema,
+  workflow_blueprint: CaseWorkflowBlueprintSchema,
   title: z.string(),
   summary: z.string().nullable().optional(),
   subtitle: z.string().nullable().optional(),
@@ -617,24 +618,6 @@ function buildRequestFromDetail(detail: CaseDetailResponse): ServiceRequestDraft
   };
 }
 
-function workflowBlueprintFor(detail: CaseDetailResponse): ServiceCase["workflow_blueprint"] {
-  if (detail.workflow_blueprint) {
-    return detail.workflow_blueprint;
-  }
-  const subtype = (detail.subtype ?? {}) as Record<string, unknown>;
-  if (detail.kind === "accident") {
-    return subtype.kasko_selected || subtype.sigorta_selected
-      ? "damage_insured"
-      : "damage_uninsured";
-  }
-  if (detail.kind === "maintenance") {
-    return subtype.maintenance_tier === "major"
-      ? "maintenance_major"
-      : "maintenance_standard";
-  }
-  return "maintenance_standard";
-}
-
 function technicianPrimaryLabel(status: ServiceCaseStatus): string {
   switch (status) {
     case "matching":
@@ -806,7 +789,7 @@ function buildCaseFromBundle(bundle: CanonicalJobBundle): ServiceCase {
     attachments: [],
     events,
     thread,
-    workflow_blueprint: workflowBlueprintFor(detail),
+    workflow_blueprint: detail.workflow_blueprint,
     milestones: [],
     tasks: [],
     evidence_feed: [],
@@ -849,6 +832,7 @@ function buildCaseFromSummary(summary: TechnicianCaseSummary): ServiceCase {
     kind: summary.kind,
     status: summary.status,
     urgency: summary.urgency,
+    workflow_blueprint: summary.workflow_blueprint,
     title: summary.title,
     summary: summary.summary,
     subtitle: summary.subtitle,
@@ -885,6 +869,7 @@ export function buildServiceCaseFromPoolDetail(
       kind: detail.kind,
       status: detail.status,
       urgency: detail.urgency,
+      workflow_blueprint: detail.workflow_blueprint,
       title: detail.title,
       summary: detail.summary,
       subtitle: detail.subtitle,

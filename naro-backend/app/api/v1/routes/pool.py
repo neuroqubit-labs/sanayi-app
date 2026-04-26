@@ -161,6 +161,7 @@ async def get_pool_case(
         kind=case.kind,
         urgency=case.urgency,
         status=case.status,
+        workflow_blueprint=case.workflow_blueprint,
         title=case.title,
         subtitle=case.subtitle,
         summary=case.summary,

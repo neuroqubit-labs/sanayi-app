@@ -96,6 +96,7 @@ class CaseSummaryResponse(BaseModel):
     kind: ServiceRequestKind
     status: ServiceCaseStatus
     urgency: str
+    workflow_blueprint: str
     title: str
     summary: str | None = None
     location_label: str | None = None
@@ -313,6 +314,7 @@ async def get_case_endpoint(
         kind=case.kind,
         status=case.status,
         urgency=case.urgency.value,
+        workflow_blueprint=case.workflow_blueprint,
         title=case.title,
         summary=case.summary,
         location_label=case.location_label,
@@ -527,6 +529,7 @@ async def update_case_notes(
         kind=case.kind,
         status=case.status,
         urgency=case.urgency.value,
+        workflow_blueprint=case.workflow_blueprint,
         title=case.title,
         summary=case.summary,
         location_label=case.location_label,
