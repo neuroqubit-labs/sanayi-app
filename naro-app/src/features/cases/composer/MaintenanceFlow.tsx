@@ -6,6 +6,7 @@ import type {
 import { FieldInput, Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
 import {
   Camera,
+  Car,
   Check,
   ChevronDown,
   ChevronUp,
@@ -15,6 +16,7 @@ import {
   KeySquare,
   Sparkles,
   TrendingUp,
+  Truck,
   type LucideIcon,
 } from "lucide-react-native";
 import { useState } from "react";
@@ -429,7 +431,7 @@ function CheckPreferenceRow({
   );
 }
 
-function ReviewStep({ draft }: ComposerStepRenderProps) {
+function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const [showPriceInfo, setShowPriceInfo] = useState(false);
   const category = draft.maintenance_category;
   const template = category ? MAINTENANCE_TEMPLATES[category] : null;
@@ -603,6 +605,97 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
           </View>
         </AccordionRow>
       ) : null}
+
+      {/* Son karar: çekici ihtiyacı */}
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          Aracın servise taşınması gerekiyor mu?
+        </Text>
+        <View className="gap-2">
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: draft.towing_required === true }}
+            accessibilityLabel="Evet, çekici istiyorum"
+            onPress={() => updateDraft({ towing_required: true })}
+            className={[
+              "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
+              draft.towing_required
+                ? "border border-app-warning/40 bg-app-warning-soft"
+                : "border border-app-outline bg-app-surface",
+            ].join(" ")}
+          >
+            <View
+              className={[
+                "h-11 w-11 items-center justify-center rounded-full",
+                draft.towing_required ? "bg-app-warning/20" : "bg-app-surface-2",
+              ].join(" ")}
+            >
+              <Icon
+                icon={Truck}
+                size={22}
+                color={draft.towing_required ? "#f5b33f" : "#83a7ff"}
+              />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text
+                variant="h3"
+                tone={draft.towing_required ? "warning" : "inverse"}
+                className="text-[15px]"
+              >
+                Evet, çekici istiyorum
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px] leading-[16px]"
+              >
+                Vaka sonrası çekici çağırma ekranına yönlendirilirsin
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: draft.towing_required === false }}
+            accessibilityLabel="Hayır, çekici gerekmiyor"
+            onPress={() => updateDraft({ towing_required: false })}
+            className={[
+              "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
+              draft.towing_required === false
+                ? "border border-brand-500/40 bg-brand-500/10"
+                : "border border-app-outline bg-app-surface",
+            ].join(" ")}
+          >
+            <View
+              className={[
+                "h-11 w-11 items-center justify-center rounded-full",
+                draft.towing_required === false ? "bg-brand-500/20" : "bg-app-surface-2",
+              ].join(" ")}
+            >
+              <Icon
+                icon={Car}
+                size={22}
+                color={draft.towing_required === false ? "#0ea5e9" : "#83a7ff"}
+              />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text
+                variant="h3"
+                tone={draft.towing_required === false ? "accent" : "inverse"}
+                className="text-[15px]"
+              >
+                Hayır, gerekmiyor
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px] leading-[16px]"
+              >
+                Aracı kendim götüreceğim veya yerinde onarım istiyorum
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }

@@ -155,7 +155,7 @@ Akış:
    - **Yarıçap merdiveni:** önce 10 km, sonra 25 km, en son 50 km.
    - Her turda en uygun aday bulunur, çekici kabul/red için kısa süre tutulur.
    - Bir aday reddederse veya cevap vermezse bir sonraki adaya geçilir.
-   - 3 deneme sonunda hiçbir çekici kabul etmezse vaka **havuza fallback** olur (`TIMEOUT_CONVERTED_TO_POOL`); kullanıcıya bilgilendirme yapılır, çekiciler havuzdan teklif yollayabilir hâle gelir.
+   - 3 deneme sonunda hiçbir çekici kabul etmezse vaka `NO_CANDIDATE_FOUND` durumuna düşer; kullanıcıya **"Aday bulunamadı, tekrar dene veya destek bekleniyor"** bildirimi düşer. **Havuz/teklif akışına dönmez** — V1'de çekici dispatch direct, havuz/teklif modeline sızmaz (sözlük §22 V1 kararı).
 7. Çekici kabul edince süreç başlar; iş teslim edilince final tutar çekilir (capture).
 
 ### 3.6 Planlı Çekici

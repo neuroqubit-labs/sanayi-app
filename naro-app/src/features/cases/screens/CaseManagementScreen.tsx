@@ -1,31 +1,14 @@
-import type { CaseDocument } from "@naro/domain";
 import {
   Avatar,
   BackButton,
   Button,
   Icon,
-  StatusChip,
-  Surface,
   Text,
   TrustBadge,
   VehicleContextBar,
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
-import {
-  AudioWaveform,
-  Camera,
-  CheckCircle2,
-  ChevronRight,
-  FileText,
-  Film,
-  Hourglass,
-  MessageSquare,
-  Pencil,
-  Plus,
-  Sparkles,
-  Truck,
-  type LucideIcon,
-} from "lucide-react-native";
+import { ChevronRight } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -44,7 +27,6 @@ import { useTowEntryRoute } from "@/features/tow/entry";
 import { useUstaPreviewStore } from "@/features/ustalar";
 import { useTechnicianPublicView } from "@/features/ustalar/api";
 import { useVehicle } from "@/features/vehicles";
-import { openMediaAsset } from "@/shared/media/openAsset";
 
 import {
   useAddCaseAttachment,
@@ -57,68 +39,20 @@ import { EditCaseNotesSheet } from "../components/EditCaseNotesSheet";
 import { SubtypeDetailCard } from "../components/SubtypeDetailCard";
 import { VehicleSnapshotCard } from "../components/VehicleSnapshotCard";
 import { useCanonicalCase } from "../hooks/useCanonicalCase";
-import { getCaseKindLabel, getCaseStatusLabel, getCaseStatusTone } from "../presentation";
+import { getCaseKindLabel } from "../presentation";
+
+// Extracted Management Components
+import { ManagementApprovalsSection } from "../components/management/ManagementApprovalsSection";
+import { MessagesPreviewSection, OffersPreviewSection } from "../components/management/ManagementContactSections";
+import { ManagementDocumentsSection } from "../components/management/ManagementDocumentsSection";
+import { ManagementHazardZone } from "../components/management/ManagementHazardZone";
+import { ManagementHeader } from "../components/management/ManagementHeader";
+import { ManagementMatchingSection } from "../components/management/ManagementMatchingSection";
+import { ManagementNotesSection } from "../components/management/ManagementNotesSection";
+import { ManagementProcessBridge } from "../components/management/ManagementProcessBridge";
+import { ManagementTowingSection } from "../components/management/ManagementTowingSection";
 
 const INACTIVE_STATUSES = new Set<string>(["completed", "archived", "cancelled"]);
-
-const ATTACHMENT_ICON: Record<string, LucideIcon> = {
-  photo: Camera,
-  video: Film,
-  audio: AudioWaveform,
-  document: FileText,
-  invoice: FileText,
-  report: FileText,
-  location: FileText,
-};
-
-const ATTACHMENT_COLOR: Record<string, string> = {
-  photo: "#83a7ff",
-  video: "#0ea5e9",
-  audio: "#2dd28d",
-  document: "#f5b33f",
-  invoice: "#f5b33f",
-  report: "#f5b33f",
-  location: "#83a7ff",
-};
-
-type ApprovalKind = "parts_request" | "invoice" | "completion";
-
-const APPROVAL_META: Record<
-  ApprovalKind,
-  {
-    label: string;
-    icon: LucideIcon;
-    iconColor: string;
-    containerClass: string;
-    iconBgClass: string;
-    textTone: "warning" | "accent" | "success";
-  }
-> = {
-  parts_request: {
-    label: "Parça/kapsam onayı bekliyor",
-    icon: Sparkles,
-    iconColor: "#f5b33f",
-    containerClass: "border-app-warning/40 bg-app-warning-soft",
-    iconBgClass: "bg-app-warning/20",
-    textTone: "warning",
-  },
-  invoice: {
-    label: "Fatura onayı bekliyor",
-    icon: FileText,
-    iconColor: "#0ea5e9",
-    containerClass: "border-brand-500/40 bg-brand-500/10",
-    iconBgClass: "bg-brand-500/20",
-    textTone: "accent",
-  },
-  completion: {
-    label: "İş tamamlandı — son onay",
-    icon: CheckCircle2,
-    iconColor: "#2dd28d",
-    containerClass: "border-app-success/40 bg-app-success-soft",
-    iconBgClass: "bg-app-success/20",
-    textTone: "success",
-  },
-};
 
 export function CaseManagementScreen() {
   const router = useRouter();
@@ -143,12 +77,12 @@ export function CaseManagementScreen() {
     kind: "parts_request" | "invoice" | "completion";
   } | null>(null);
 
-  // Canlı approvals (BE shipped 2026-04-23): case bazlı pending liste
   const approvalsQuery = useCaseApprovals(caseId);
   const pendingApprovals = useMemo(
     () => (approvalsQuery.data ?? []).filter((a) => a.status === "pending"),
     [approvalsQuery.data],
   );
+
   const offersQuery = useCaseOffers(caseId);
   const offers = offersQuery.data ?? [];
   const towEntry = useTowEntryRoute({
@@ -156,15 +90,28 @@ export function CaseManagementScreen() {
     fallback: `/(modal)/talep/towing?parentCaseId=${caseId}` as Href,
   });
 
-  // BE Faz 2 linkage — canonical adapter üzerinden okunur.
-  const linkedTowCaseIds = linkage?.linked_tow_case_ids ?? [];
+  const isActive = caseItem ? !INACTIVE_STATUSES.has(caseItem.status) : false;
+  const isCancelled = caseItem?.status === "cancelled";
+  const documents = caseItem?.documents ?? [];
+  const lastMessage =
+    caseItem?.thread.messages[caseItem.thread.messages.length - 1] ?? null;
+
+  const hasProcessBridge = caseItem && [
+    "appointment_pending",
+    "scheduled",
+    "service_in_progress",
+    "parts_approval",
+    "invoice_approval",
+  ].includes(caseItem.status);
+
+  const showFinderHint =
+    caseItem && (caseItem.status === "matching" || caseItem.status === "offers_ready");
+
   const canLinkTow =
     caseItem?.kind === "accident" || caseItem?.kind === "breakdown";
 
   const assignedTechnicianId = caseItem?.assigned_technician_id ?? "";
-  const { data: assignedTechnician } = useTechnicianPublicView(
-    assignedTechnicianId,
-  );
+  const { data: assignedTechnician } = useTechnicianPublicView(assignedTechnicianId);
 
   if (!caseItem) {
     return (
@@ -183,30 +130,7 @@ export function CaseManagementScreen() {
     );
   }
 
-  const isActive = !INACTIVE_STATUSES.has(caseItem.status);
-  const isCancelled = caseItem.status === "cancelled";
-  const documents = caseItem.documents ?? [];
-  const lastMessage =
-    caseItem.thread.messages[caseItem.thread.messages.length - 1] ?? null;
-  const hasProcessBridge = [
-    "appointment_pending",
-    "scheduled",
-    "service_in_progress",
-    "parts_approval",
-    "invoice_approval",
-  ].includes(caseItem.status);
-  const showFinderHint =
-    caseItem.status === "matching" || caseItem.status === "offers_ready";
-
-  const handleCancel = () => {
-    setCancelSheetOpen(true);
-  };
-
   const handleEditSubmit = (patch: { summary: string; notes: string }) => {
-    // İş A (2026-04-23): customer_notes canlı BE PATCH /cases/{id}/notes.
-    // Summary güncellemesi için henüz ayrı endpoint yok — mock store'a yazıp
-    // özet alanını local tutuyoruz. Summary endpoint shipped olunca tek çağrı
-    // olur.
     void updateNotesLive.mutateAsync({ content: patch.notes || null });
     void updateNotes.mutateAsync({
       caseId,
@@ -244,152 +168,41 @@ export function CaseManagementScreen() {
         contentContainerClassName="gap-4 px-4 pb-10 pt-2"
         showsVerticalScrollIndicator={false}
       >
-        {/* Özet kartı */}
-        <Surface
-          variant="raised"
-          radius="lg"
-          className="gap-3 border-app-outline-strong bg-app-surface-2 px-4 py-4"
-        >
-          <View className="flex-row flex-wrap items-center gap-2">
-            <TrustBadge label={getCaseKindLabel(caseItem.kind)} tone="accent" />
-            <StatusChip
-              label={getCaseStatusLabel(caseItem.status)}
-              tone={getCaseStatusTone(caseItem.status)}
-            />
-          </View>
-          <Text variant="display" tone="inverse" className="text-[20px] leading-[24px]">
-            {caseItem.title}
-          </Text>
-          <Text variant="caption" tone="muted" className="text-app-text-subtle text-[11px]">
-            {`Oluşturuldu · ${caseItem.created_at_label} · #${caseItem.id.slice(0, 8)}`}
-          </Text>
-        </Surface>
+        <ManagementHeader
+          kind={caseItem.kind}
+          status={caseItem.status}
+          title={caseItem.title}
+          createdAtLabel={caseItem.created_at_label}
+          id={caseItem.id}
+        />
 
-        {/* Süreç köprüsü */}
-        {hasProcessBridge ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Ustayla süreci aç"
-            onPress={() => router.push(`/vaka/${caseId}/surec` as Href)}
-            className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/40 bg-brand-500/10 px-4 py-3.5 active:opacity-90"
-          >
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/20">
-              <Icon
-                icon={caseItem.status === "appointment_pending" ? Hourglass : Sparkles}
-                size={18}
-                color="#0ea5e9"
-              />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text variant="eyebrow" tone="subtle">
-                Ustayla süreç
-              </Text>
-              <Text variant="label" tone="inverse" className="text-[14px]">
-                {caseItem.next_action_title || getCaseStatusLabel(caseItem.status)}
-              </Text>
-              {countdown.label ? (
-                <Text variant="caption" tone="warning" className="text-[11px]">
-                  {countdown.label}
-                </Text>
-              ) : caseItem.next_action_description ? (
-                <Text
-                  variant="caption"
-                  tone="muted"
-                  className="text-app-text-muted text-[12px]"
-                  numberOfLines={2}
-                >
-                  {caseItem.next_action_description}
-                </Text>
-              ) : null}
-            </View>
-            <Icon icon={ChevronRight} size={16} color="#83a7ff" />
-          </Pressable>
-        ) : null}
+        {hasProcessBridge && (
+          <ManagementProcessBridge
+            caseId={caseId}
+            status={caseItem.status}
+            nextActionTitle={caseItem.next_action_title}
+            nextActionDescription={caseItem.next_action_description}
+            countdownLabel={countdown.label}
+          />
+        )}
 
-        {/* Linked tow case(ler) — accident/breakdown parent ise */}
-        {canLinkTow && linkedTowCaseIds.length > 0 ? (
-          <View className="gap-2">
-            {linkedTowCaseIds.map((towId) => (
-              <Pressable
-                key={towId}
-                accessibilityRole="button"
-                accessibilityLabel="Bu vakanın çekicisini aç"
-                onPress={() => router.push(`/cekici/${towId}` as Href)}
-                className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/40 bg-brand-500/10 px-4 py-3.5 active:opacity-90"
-              >
-                <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/20">
-                  <Icon icon={Truck} size={18} color="#0ea5e9" />
-                </View>
-                <View className="flex-1 gap-0.5">
-                  <Text variant="eyebrow" tone="subtle">
-                    Bu vakanın çekicisi
-                  </Text>
-                  <Text variant="label" tone="inverse" className="text-[14px]">
-                    {`Çekici #${towId.slice(0, 8)}`}
-                  </Text>
-                </View>
-                <Icon icon={ChevronRight} size={16} color="#83a7ff" />
-              </Pressable>
-            ))}
-          </View>
-        ) : canLinkTow && isActive ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Bu vakaya çekici çağır"
-            onPress={() => router.push(towEntry.route)}
-            className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
-          >
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-app-surface-2">
-              <Icon icon={Truck} size={18} color="#83a7ff" />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text variant="eyebrow" tone="subtle">
-                Çekici gerekli mi?
-              </Text>
-              <Text variant="label" tone="inverse" className="text-[14px]">
-                Bu vakaya bağlı çekici çağır
-              </Text>
-            </View>
-            <Icon icon={ChevronRight} size={16} color="#83a7ff" />
-          </Pressable>
-        ) : null}
+        {canLinkTow && (
+          <ManagementTowingSection
+            caseId={caseId}
+            isActive={isActive}
+            linkedTowCaseIds={linkage?.linked_tow_case_ids ?? []}
+            towEntryRoute={towEntry.route}
+          />
+        )}
 
-        {/* Usta henüz yok */}
-        {showFinderHint ? (
-          <Surface variant="flat" radius="lg" className="gap-3 px-4 py-3.5">
-            <View className="flex-row items-center gap-2">
-              <Icon icon={Sparkles} size={14} color="#83a7ff" />
-              <Text variant="label" tone="inverse" className="text-[14px]">
-                {caseItem.status === "matching"
-                  ? "Usta henüz seçilmedi"
-                  : `${offers.length} teklif hazır`}
-              </Text>
-            </View>
-            <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
-              {caseItem.status === "matching"
-                ? "Uygun ustalar senin için taranıyor. Çarşı'dan manuel de seçebilirsin."
-                : "Teklifleri karşılaştır ve uygun olanıyla randevu al."}
-            </Text>
-            {caseItem.status === "offers_ready" ? (
-              <Button
-                label="Teklifleri aç"
-                onPress={() =>
-                  router.push(`/vaka/${caseId}/teklifler` as Href)
-                }
-              />
-            ) : (
-              <Button
-                label="Usta ara"
-                variant="outline"
-                onPress={() => router.push("/(tabs)/carsi" as Href)}
-              />
-            )}
-          </Surface>
-        ) : null}
+        {showFinderHint && (
+          <ManagementMatchingSection
+            caseId={caseId}
+            status={caseItem.status}
+            offerCount={offers.length}
+          />
+        )}
 
-        {/* Araç kartı — customer store'da kayıtlı ise VehicleContextBar
-            (arac detay linkli), yoksa canonical snapshot kartı (QA tur 0
-            T4 fix — match plaka snapshot'tan). */}
         {vehicle ? (
           <VehicleContextBar
             plate={vehicle.plate}
@@ -401,16 +214,14 @@ export function CaseManagementScreen() {
           <VehicleSnapshotCard snapshot={linkage?.vehicle_snapshot} />
         )}
 
-        {/* Subtype detail (canonical) */}
-        {linkage?.subtype ? (
+        {linkage?.subtype && (
           <SubtypeDetailCard
             kind={caseItem.kind}
             subtype={linkage.subtype}
           />
-        ) : null}
+        )}
 
-        {/* Atanmış usta (scheduled ve sonrası için) */}
-        {assignedTechnician && !showFinderHint ? (
+        {assignedTechnician && !showFinderHint && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${assignedTechnician.display_name} önizleme`}
@@ -438,258 +249,55 @@ export function CaseManagementScreen() {
             </View>
             <Icon icon={ChevronRight} size={16} color="#83a7ff" />
           </Pressable>
-        ) : null}
+        )}
 
-        {/* Özet + notlar */}
-        <Surface variant="flat" radius="lg" className="gap-3 px-4 py-4">
-          <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1 gap-1">
-              <Text variant="eyebrow" tone="subtle">
-                Özet
-              </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text leading-[20px]"
-              >
-                {caseItem.summary || "Özet girilmemiş."}
-              </Text>
-            </View>
-            {isActive ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Notları düzenle"
-                onPress={() => setEditOpen(true)}
-                hitSlop={8}
-                className="h-9 w-9 items-center justify-center rounded-full border border-app-outline bg-app-surface-2"
-              >
-                <Icon icon={Pencil} size={14} color="#83a7ff" />
-              </Pressable>
-            ) : null}
-          </View>
-          {caseItem.request.notes ? (
-            <>
-              <View className="h-px bg-app-outline" />
-              <View className="gap-1">
-                <Text variant="eyebrow" tone="subtle">
-                  Ek notlar
-                </Text>
-                <Text
-                  variant="caption"
-                  tone="muted"
-                  className="text-app-text-muted leading-[20px]"
-                >
-                  {caseItem.request.notes}
-                </Text>
-              </View>
-            </>
-          ) : null}
-        </Surface>
+        <ManagementNotesSection
+          summary={caseItem.summary}
+          notes={linkage?.customer_notes ?? caseItem.request.notes ?? ""}
+          isActive={isActive}
+          onEdit={() => setEditOpen(true)}
+        />
 
-        {/* Dosyalar */}
-        <Surface variant="flat" radius="lg" className="gap-3 px-4 py-4">
-          <View className="flex-row items-center justify-between">
-            <Text variant="label" tone="inverse" className="text-[14px]">
-              Dosyalar
-            </Text>
-            <Text variant="caption" tone="muted" className="text-app-text-subtle text-[11px]">
-              {documents.length} dosya
-            </Text>
-          </View>
-          {documents.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8 }}
-            >
-              {documents.slice(0, 4).map((doc: CaseDocument) => {
-                const IconCmp = ATTACHMENT_ICON[doc.kind] ?? FileText;
-                const color = ATTACHMENT_COLOR[doc.kind] ?? "#83a7ff";
-                return (
-                  <Pressable
-                    key={doc.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${doc.title} dosyasını aç`}
-                    onPress={() => void openMediaAsset(doc.asset, "preview")}
-                    className="w-24 items-center gap-1.5 rounded-[14px] border border-app-outline bg-app-surface-2 px-2 py-2.5 active:opacity-85"
-                  >
-                    <View className="h-9 w-9 items-center justify-center rounded-full bg-app-bg">
-                      <Icon icon={IconCmp} size={16} color={color} />
-                    </View>
-                    <Text
-                      variant="caption"
-                      tone="muted"
-                      className="text-app-text text-[11px] text-center"
-                      numberOfLines={2}
-                    >
-                      {doc.title}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          ) : (
-            <Text variant="caption" tone="muted" className="text-app-text-muted">
-              Henüz dosya eklenmemiş.
-            </Text>
-          )}
-          <View className="flex-row gap-2">
-            {isActive ? (
-              <Button
-                label="Dosya ekle"
-                variant="outline"
-                leftIcon={<Icon icon={Plus} size={14} color="#83a7ff" />}
-                className="flex-1"
-                onPress={() => setAttachOpen(true)}
-              />
-            ) : null}
-            {documents.length > 4 ? (
-              <Button
-                label="Tümünü gör"
-                variant="outline"
-                className="flex-1"
-                onPress={() =>
-                  router.push(`/vaka/${caseId}/belgeler` as Href)
-                }
-              />
-            ) : null}
-          </View>
-        </Surface>
+        <ManagementDocumentsSection
+          caseId={caseId}
+          documents={documents}
+          isActive={isActive}
+          onAddPress={() => setAttachOpen(true)}
+        />
 
-        {/* Mesajlar özeti */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Mesajları aç"
-          onPress={() => router.push(`/vaka/${caseId}/mesajlar` as Href)}
-          className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
-        >
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
-            <Icon icon={MessageSquare} size={16} color="#83a7ff" />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <View className="flex-row items-center gap-2">
-              <Text variant="label" tone="inverse" className="text-[14px]">
-                Mesajlar
-              </Text>
-              {caseItem.thread.unread_count > 0 ? (
-                <View className="h-5 min-w-[20px] items-center justify-center rounded-full bg-app-critical px-1.5">
-                  <Text
-                    variant="caption"
-                    tone="inverse"
-                    className="text-[10px] font-semibold"
-                  >
-                    {caseItem.thread.unread_count}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            {lastMessage ? (
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-muted text-[12px]"
-                numberOfLines={1}
-              >
-                {`${lastMessage.author_name}: ${lastMessage.body}`}
-              </Text>
-            ) : (
-              <Text variant="caption" tone="muted" className="text-app-text-muted text-[12px]">
-                Henüz mesaj yok
-              </Text>
-            )}
-          </View>
-          <Icon icon={ChevronRight} size={16} color="#83a7ff" />
-        </Pressable>
+        <MessagesPreviewSection
+          caseId={caseId}
+          unreadCount={caseItem.thread.unread_count}
+          lastMessageAuthor={lastMessage?.author_name}
+          lastMessageBody={lastMessage?.body}
+        />
 
-        {/* Teklifler özeti */}
-        {offers.length > 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Teklifleri aç"
-            onPress={() => router.push(`/vaka/${caseId}/teklifler` as Href)}
-            className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5 active:bg-app-surface-2"
-          >
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-app-success/15">
-              <Icon icon={FileText} size={16} color="#2dd28d" />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text variant="label" tone="inverse" className="text-[14px]">
-                Teklifler
-              </Text>
-              <Text variant="caption" tone="muted" className="text-app-text-muted text-[12px]">
-                {`${offers.length} teklif${offers[0] ? ` · ${formatOfferPrice(offers[0].amount, offers[0].currency)}` : ""}`}
-              </Text>
-            </View>
-            <Icon icon={ChevronRight} size={16} color="#83a7ff" />
-          </Pressable>
-        ) : null}
+        {offers.length > 0 && (
+          <OffersPreviewSection
+            caseId={caseId}
+            offerCount={offers.length}
+            firstOfferAmount={offers[0]?.amount}
+            firstOfferCurrency={offers[0]?.currency}
+          />
+        )}
 
-        {/* Bekleyen onay talepleri — canlı approvals endpoint */}
-        {pendingApprovals.map((approval) => {
-          const meta = APPROVAL_META[approval.kind];
-          return (
-            <Pressable
-              key={approval.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${meta.label} onayını aç`}
-              onPress={() =>
-                setOpenApproval({ id: approval.id, kind: approval.kind })
-              }
-              className={[
-                "flex-row items-center gap-3 rounded-[16px] border px-4 py-3.5 active:opacity-90",
-                meta.containerClass,
-              ].join(" ")}
-            >
-              <View
-                className={[
-                  "h-9 w-9 items-center justify-center rounded-full",
-                  meta.iconBgClass,
-                ].join(" ")}
-              >
-                <Icon icon={meta.icon} size={15} color={meta.iconColor} />
-              </View>
-              <View className="flex-1 gap-0.5">
-                <Text
-                  variant="label"
-                  tone={meta.textTone}
-                  className="text-[13px]"
-                >
-                  {meta.label}
-                </Text>
-                {approval.description ? (
-                  <Text
-                    variant="caption"
-                    tone="muted"
-                    className="text-app-text-muted text-[11px]"
-                    numberOfLines={1}
-                  >
-                    {approval.description}
-                  </Text>
-                ) : null}
-              </View>
-              <Icon icon={ChevronRight} size={14} color="#83a7ff" />
-            </Pressable>
-          );
-        })}
+        <ManagementApprovalsSection
+          approvals={pendingApprovals as any}
+          onApprovalPress={(id, kind) => setOpenApproval({ id, kind })}
+        />
 
-        {/* Billing summary — BE billing summary 404 iken canonical
-            `linkage.estimate_amount` minimal kart render eder (BE FIX 4
-            estimate_amount shipped olunca canlı; yoksa null → kart
-            gizli). */}
         <BillingSummaryCard
           caseId={caseId}
           estimateFallback={linkage?.estimate_amount ?? null}
         />
 
-        {/* Metadata */}
         <View className="items-center pt-2">
           <Text variant="caption" tone="muted" className="text-app-text-subtle text-[10px]">
             {`Son güncelleme · ${caseItem.updated_at_label}`}
           </Text>
         </View>
 
-        {/* Kapandı durumunda benzer talep */}
-        {!isActive && !isCancelled ? (
+        {!isActive && !isCancelled && (
           <Button
             label="Benzer talep aç"
             variant="outline"
@@ -697,38 +305,17 @@ export function CaseManagementScreen() {
               router.push(`/(modal)/talep/${caseItem.kind}` as Href)
             }
           />
-        ) : null}
+        )}
 
-        {/* Tehlikeli bölge */}
-        {isActive ? (
-          <Surface
-            variant="flat"
-            radius="lg"
-            className="mt-4 gap-3 border-app-critical/30 px-4 py-4"
-          >
-            <Text variant="eyebrow" tone="critical">
-              Tehlikeli bölge
-            </Text>
-            <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
-              Vakayı iptal edersen aktif teklif ve randevu düşer. Geri alma yok.
-            </Text>
-            <Button
-              label="Vakayı iptal et"
-              variant="outline"
-              onPress={handleCancel}
-            />
-          </Surface>
-        ) : null}
+        {isActive && (
+          <ManagementHazardZone onCancelPress={() => setCancelSheetOpen(true)} />
+        )}
       </ScrollView>
 
       <EditCaseNotesSheet
         visible={editOpen}
         initialSummary={caseItem.summary}
-        initialNotes={
-          // İş A (2026-04-23): customer_notes canonical kaynak. Fallback:
-          // mock store'daki request.notes (owner view dışında null).
-          linkage?.customer_notes ?? caseItem.request.notes ?? ""
-        }
+        initialNotes={linkage?.customer_notes ?? caseItem.request.notes ?? ""}
         onClose={() => setEditOpen(false)}
         onSubmit={handleEditSubmit}
       />
@@ -784,17 +371,6 @@ export function CaseManagementScreen() {
       />
     </SafeAreaView>
   );
-}
-
-function formatOfferPrice(amountRaw: string, currency: string): string {
-  const parsed = Number.parseFloat(amountRaw);
-  if (Number.isNaN(parsed)) return `${amountRaw} ${currency}`;
-  const formatted = parsed.toLocaleString("tr-TR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  const symbol = currency === "TRY" ? "₺" : currency;
-  return `${formatted} ${symbol}`;
 }
 
 function deriveBillingStage(status: string): CaseBillingStage {

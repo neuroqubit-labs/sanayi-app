@@ -361,10 +361,17 @@ export function CaseComposerScreen() {
       return;
     }
 
+    const towingHandoff = draft.towing_required;
     const createdCase = await submitMutation.mutateAsync();
     bypassDraftGuardRef.current = true;
     resetDraft();
-    router.replace(`/vaka/${createdCase.id}` as Href);
+    if (towingHandoff) {
+      router.replace(
+        `/(modal)/talep/towing?parentCaseId=${createdCase.id}` as Href,
+      );
+    } else {
+      router.replace(`/vaka/${createdCase.id}` as Href);
+    }
   }
 
   const handleClose = () => {

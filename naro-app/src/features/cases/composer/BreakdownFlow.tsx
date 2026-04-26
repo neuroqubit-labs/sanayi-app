@@ -63,7 +63,6 @@ const PRICE_OPTIONS: { value: PricePreference; label: string }[] = [
 
 function summarizeServicePreferences(draft: ServiceRequestDraft): string {
   const parts: string[] = [];
-  if (draft.towing_required) parts.push("Çekici");
   if (draft.on_site_repair) parts.push("Yerinde onarım");
   if (draft.valet_requested) parts.push("Vale servis");
   if (parts.length === 0) return "Servise ben götüreceğim";
@@ -163,15 +162,15 @@ function VehicleStateStep({
             subtitle="Aracı servise ben götürebilirim"
             selected={drivable === true}
             onPress={() =>
-              updateDraft({ vehicle_drivable: true, towing_required: false })
+              updateDraft({ vehicle_drivable: true })
             }
           />
           <DrivableOption
             title="Hayır, sürülemiyor"
-            subtitle="Çekici gerek — randevu onayıyla otomatik talep açılır"
+            subtitle="Son adımda çekici ihtiyacını belirleyeceksin"
             selected={drivable === false}
             onPress={() =>
-              updateDraft({ vehicle_drivable: false, towing_required: true })
+              updateDraft({ vehicle_drivable: false })
             }
           />
         </View>
@@ -497,19 +496,12 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
   ).length;
   const servicePreferenceLabel = summarizeServicePreferences(draft);
   const hasAnyPreference =
-    draft.towing_required || draft.on_site_repair || draft.valet_requested;
+    draft.on_site_repair || draft.valet_requested;
   const priceLabel =
     PRICE_OPTIONS.find((option) => option.value === draft.price_preference)
       ?.label ?? "Fark etmez";
   const severity = computeSeverityHint(draft);
-  const towing = draft.towing_required;
-
-  const toggleTowing = () => {
-    updateDraft({
-      towing_required: !towing,
-      vehicle_drivable: towing ? true : false,
-    });
-  };
+  const towingDesired = draft.towing_required;
 
   return (
     <View className="gap-4">
@@ -562,51 +554,96 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
         <SummaryRow label="Öncelik" value={priceLabel} />
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ selected: towing }}
-        accessibilityLabel={
-          towing ? "Çekici talebini kaldır" : "Çekici istiyorum"
-        }
-        onPress={toggleTowing}
-        className={[
-          "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
-          towing
-            ? "border border-app-warning/40 bg-app-warning-soft"
-            : "border border-app-outline bg-app-surface",
-        ].join(" ")}
-      >
-        <View
-          className={[
-            "h-11 w-11 items-center justify-center rounded-full",
-            towing ? "bg-app-warning/20" : "bg-app-surface-2",
-          ].join(" ")}
-        >
-          <Icon
-            icon={Truck}
-            size={22}
-            color={towing ? "#f5b33f" : "#83a7ff"}
-          />
-        </View>
-        <View className="flex-1 gap-0.5">
-          <Text
-            variant="h3"
-            tone={towing ? "warning" : "inverse"}
-            className="text-[15px]"
+      {/* Son karar: çekici ihtiyacı */}
+      <View className="gap-2">
+        <Text variant="eyebrow" tone="subtle">
+          Aracın taşınması gerekiyor mu?
+        </Text>
+        <View className="gap-2">
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: towingDesired === true }}
+            accessibilityLabel="Evet, çekici istiyorum"
+            onPress={() => updateDraft({ towing_required: true })}
+            className={[
+              "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
+              towingDesired
+                ? "border border-app-warning/40 bg-app-warning-soft"
+                : "border border-app-outline bg-app-surface",
+            ].join(" ")}
           >
-            {towing ? "Çekici çağrıldı" : "Çekici eklemek ister misin?"}
-          </Text>
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted text-[12px] leading-[16px]"
+            <View
+              className={[
+                "h-11 w-11 items-center justify-center rounded-full",
+                towingDesired ? "bg-app-warning/20" : "bg-app-surface-2",
+              ].join(" ")}
+            >
+              <Icon
+                icon={Truck}
+                size={22}
+                color={towingDesired ? "#f5b33f" : "#83a7ff"}
+              />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text
+                variant="h3"
+                tone={towingDesired ? "warning" : "inverse"}
+                className="text-[15px]"
+              >
+                Evet, çekici istiyorum
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px] leading-[16px]"
+              >
+                Vaka oluşturulduktan sonra çekici çağırma ekranına yönlendirilirsin
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ selected: towingDesired === false }}
+            accessibilityLabel="Hayır, çekici gerekmiyor"
+            onPress={() => updateDraft({ towing_required: false })}
+            className={[
+              "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
+              towingDesired === false
+                ? "border border-brand-500/40 bg-brand-500/10"
+                : "border border-app-outline bg-app-surface",
+            ].join(" ")}
           >
-            {towing
-              ? "Araç sürülemez olarak işaretlendi — dokunarak kaldır"
-              : "Aracım sürülemez durumda — randevu onayında çekici otomatik açılır"}
-          </Text>
+            <View
+              className={[
+                "h-11 w-11 items-center justify-center rounded-full",
+                towingDesired === false ? "bg-brand-500/20" : "bg-app-surface-2",
+              ].join(" ")}
+            >
+              <Icon
+                icon={Car}
+                size={22}
+                color={towingDesired === false ? "#0ea5e9" : "#83a7ff"}
+              />
+            </View>
+            <View className="flex-1 gap-0.5">
+              <Text
+                variant="h3"
+                tone={towingDesired === false ? "accent" : "inverse"}
+                className="text-[15px]"
+              >
+                Hayır, gerekmiyor
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px] leading-[16px]"
+              >
+                Aracı kendim götüreceğim veya yerinde onarım istiyorum
+              </Text>
+            </View>
+          </Pressable>
         </View>
-      </Pressable>
+      </View>
 
       <AccordionRow
         title="Tüm semptomlar"
