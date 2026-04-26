@@ -85,7 +85,6 @@ const ActiveProcessSchema = z.object({
   title: z.string(),
   status: z.string(),
   nextStepLabel: z.string(),
-  note: z.string(),
   progressValue: z.number(),
   cardRoute: z.string(),
   primaryActionLabel: z.string().optional(),

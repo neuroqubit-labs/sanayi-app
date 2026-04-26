@@ -124,7 +124,6 @@ function deriveActiveProcess(caseItem: CaseSummaryResponse): ActiveProcess {
       : caseItem.summary?.trim() || caseItem.title || "",
     status: statusLabel,
     nextStepLabel,
-    note: caseItem.location_label ?? "",
     progressValue,
     cardRoute,
     primaryActionLabel: isTowing ? "Takibi aç" : primary?.label,
