@@ -17,7 +17,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.v1.deps import (
     CurrentTechnicianDep,
@@ -48,6 +48,7 @@ from app.models.case_subtypes import (
     TowCase,
 )
 from app.models.media import MediaAsset, MediaStatus
+from app.models.offer import ACTIVE_OFFER_STATUSES, CaseOffer
 from app.models.user import User, UserRole
 from app.repositories import appointment as appointment_repo
 from app.repositories import case as case_repo
@@ -102,6 +103,8 @@ class CaseSummaryResponse(BaseModel):
     location_label: str | None = None
     created_at: datetime
     updated_at: datetime
+    active_offer_count: int = 0
+    has_active_offers: bool = False
 
 
 class VehicleSnapshotResponse(BaseModel):
@@ -275,7 +278,29 @@ async def list_my_cases(
     db: DbDep,
 ) -> list[CaseSummaryResponse]:
     cases = await case_repo.list_cases_for_customer(db, user.id)
-    return [CaseSummaryResponse.model_validate(c) for c in cases]
+    case_ids = [case.id for case in cases]
+    active_offer_counts: dict[UUID, int] = {}
+    if case_ids:
+        rows = await db.execute(
+            select(CaseOffer.case_id, func.count(CaseOffer.id))
+            .where(
+                CaseOffer.case_id.in_(case_ids),
+                CaseOffer.status.in_(tuple(ACTIVE_OFFER_STATUSES)),
+            )
+            .group_by(CaseOffer.case_id)
+        )
+        active_offer_counts = {
+            case_id: int(count) for case_id, count in rows.all()
+        }
+    return [
+        CaseSummaryResponse.model_validate(case).model_copy(
+            update={
+                "active_offer_count": active_offer_counts.get(case.id, 0),
+                "has_active_offers": active_offer_counts.get(case.id, 0) > 0,
+            }
+        )
+        for case in cases
+    ]
 
 
 @router.get(

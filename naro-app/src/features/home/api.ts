@@ -90,11 +90,18 @@ function isActive(caseItem: CaseSummaryResponse): boolean {
   return ACTIVE_STATUSES.has(caseItem.status);
 }
 
+function hasNewOffers(caseItem: CaseSummaryResponse): boolean {
+  return caseItem.has_active_offers || caseItem.active_offer_count > 0;
+}
+
 function deriveActiveProcess(caseItem: CaseSummaryResponse): ActiveProcess {
   const isTowing = caseItem.kind === "towing";
+  const offerReady = hasNewOffers(caseItem);
   const statusLabel = isTowing
     ? (TOWING_STATUS_LABEL[caseItem.status] ?? STATUS_LABEL[caseItem.status] ?? caseItem.status)
-    : (STATUS_LABEL[caseItem.status] ?? caseItem.status);
+    : offerReady
+      ? "Yeni teklif gelenler"
+      : (STATUS_LABEL[caseItem.status] ?? caseItem.status);
   const progressValue = isTowing
     ? caseItem.status === "matching"
       ? 18
@@ -102,7 +109,9 @@ function deriveActiveProcess(caseItem: CaseSummaryResponse): ActiveProcess {
     : STATUS_PROGRESS[caseItem.status] ?? 0;
   const nextStepLabel = isTowing
     ? (TOWING_NEXT_STEP[caseItem.status] ?? "Canlı takip et")
-    : (STATUS_NEXT_STEP[caseItem.status] ?? "Detayları aç");
+    : offerReady
+      ? "Teklif seç"
+      : (STATUS_NEXT_STEP[caseItem.status] ?? "Detayları aç");
   const primary = STATUS_PRIMARY_ACTION[caseItem.status];
   const kindLabel = KIND_LABEL[caseItem.kind] ?? caseItem.kind;
   const cardRoute = isTowing ? `/cekici/${caseItem.id}` : `/vaka/${caseItem.id}`;
@@ -118,7 +127,9 @@ function deriveActiveProcess(caseItem: CaseSummaryResponse): ActiveProcess {
       ? caseItem.status === "matching"
         ? "Canlı"
         : statusLabel
-      : caseItem.status === "matching" ? "Sırada" : statusLabel,
+      : offerReady
+        ? "Yeni teklif"
+        : caseItem.status === "matching" ? "Sırada" : statusLabel,
     nextStepLabel,
     note: caseItem.location_label ?? "",
     progressLabel: `%${progressValue} tamamlandı`,
@@ -185,9 +196,11 @@ export function useHomeSummary() {
 
   const summary: HomeSummary | undefined = useMemo(() => {
     if (!cases) return undefined;
-    const sorted = [...cases].sort((a, b) =>
-      b.updated_at.localeCompare(a.updated_at),
-    );
+    const sorted = [...cases].sort((a, b) => {
+      const offerDelta = Number(hasNewOffers(b)) - Number(hasNewOffers(a));
+      if (offerDelta !== 0) return offerDelta;
+      return b.updated_at.localeCompare(a.updated_at);
+    });
     const activeCase = sorted.find(isActive) ?? null;
     const activeProcess = activeCase ? deriveActiveProcess(activeCase) : null;
     const decision = activeCase
@@ -198,7 +211,9 @@ export function useHomeSummary() {
               : ("service_in_progress" as const),
           eyebrow: STATUS_LABEL[activeCase.status] ?? activeCase.status,
           title: activeCase.title || (KIND_LABEL[activeCase.kind] ?? "Vaka"),
-          description: activeCase.summary ?? "",
+          description: hasNewOffers(activeCase)
+            ? `${activeCase.active_offer_count} yeni teklif üstte. Karşılaştırıp randevuya geçebilirsin.`
+            : activeCase.summary ?? "",
           statusLabel: STATUS_LABEL[activeCase.status] ?? activeCase.status,
           statusTone: "accent" as const,
           cardRoute: `/vaka/${activeCase.id}`,

@@ -247,6 +247,8 @@ export const CaseSummaryResponseSchema = z.object({
   location_label: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
+  active_offer_count: z.number().int().nonnegative().default(0),
+  has_active_offers: z.boolean().default(false),
 });
 export type CaseSummaryResponse = z.infer<typeof CaseSummaryResponseSchema>;
 

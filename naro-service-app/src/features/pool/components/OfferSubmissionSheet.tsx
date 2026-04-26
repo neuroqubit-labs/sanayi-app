@@ -16,7 +16,6 @@ import {
   usePoolCaseDetailLive,
   useSubmitOfferLive,
 } from "@/features/jobs/api.live";
-import { useTechnicianProfileStore } from "@/features/technicians";
 import {
   isPaymentAccountRequiredError,
   paymentAccountRequiredMessage,
@@ -31,25 +30,11 @@ const DEFAULT_ETA_PRESETS = [
   { label: "1 hafta", minutes: 60 * 24 * 7 },
 ];
 
-const TOW_ETA_PRESETS = [
-  { label: "10 dk", minutes: 10 },
-  { label: "20 dk", minutes: 20 },
-  { label: "30 dk", minutes: 30 },
-  { label: "45 dk", minutes: 45 },
-];
-
 const DEFAULT_DELIVERY_MODES = [
   "Atölye kabul",
   "Pickup + atölye",
   "Mobil + atölye",
   "Yerinde onarım",
-];
-
-const TOW_DELIVERY_MODES = [
-  "Flatbed çekici",
-  "Hook çekici",
-  "Wheel-lift çekici",
-  "Yol yardım / kısa müdahale",
 ];
 
 const DEFAULT_WARRANTIES = [
@@ -59,11 +44,19 @@ const DEFAULT_WARRANTIES = [
   "1 yıl yazılı garanti",
 ];
 
-const TOW_WARRANTIES = [
-  "Canlı konum paylaşımı",
-  "Fotoğraflı teslim",
-  "Sigortalı taşıma",
-  "Dikkatli yükleme / sabitleme",
+const APPOINTMENT_SLOT_PRESETS = [
+  { label: "Bugün", helper: "Uygunsa bugün kabul", preset_key: "today" },
+  { label: "Yarın", helper: "Yarın için randevu öner", preset_key: "tomorrow" },
+  {
+    label: "Önümüzdeki hafta",
+    helper: "Hafta içinde uygun zaman",
+    preset_key: "next_week",
+  },
+  {
+    label: "Esnek tarih",
+    helper: "Müşteriyle birlikte netleşir",
+    preset_key: "flexible",
+  },
 ];
 
 /**
@@ -79,15 +72,13 @@ export function OfferSubmissionSheet() {
   const caseId = useOfferSheetStore((state) => state.caseId);
   const close = useOfferSheetStore((state) => state.close);
   const { data: caseItem } = usePoolCaseDetailLive(caseId ?? "");
-  const activeProviderType = useTechnicianProfileStore(
-    (state) => state.active_provider_type ?? state.provider_type,
-  );
   const submit = useSubmitOfferLive();
 
   const [amount, setAmount] = useState("");
   const [etaIndex, setEtaIndex] = useState(1);
   const [deliveryIndex, setDeliveryIndex] = useState(0);
   const [warrantyIndex, setWarrantyIndex] = useState(2);
+  const [slotIndex, setSlotIndex] = useState(3);
   const [note, setNote] = useState("");
 
   useEffect(() => {
@@ -96,23 +87,15 @@ export function OfferSubmissionSheet() {
       setEtaIndex(1);
       setDeliveryIndex(0);
       setWarrantyIndex(2);
+      setSlotIndex(3);
       setNote("");
     }
   }, [caseId]);
 
-  const isTowOffer =
-    caseItem?.kind === "towing" && activeProviderType === "cekici";
-  const etaPresets = isTowOffer ? TOW_ETA_PRESETS : DEFAULT_ETA_PRESETS;
-  const deliveryModes = isTowOffer
-    ? TOW_DELIVERY_MODES
-    : DEFAULT_DELIVERY_MODES;
-  const warranties = isTowOffer ? TOW_WARRANTIES : DEFAULT_WARRANTIES;
-  const etaSectionTitle = isTowOffer ? "Varış süresi" : "Teslim süresi";
-  const deliverySectionTitle = isTowOffer ? "Hizmet tipi" : "Teslim modu";
-  const warrantySectionTitle = isTowOffer ? "Taşıma güvencesi" : "Garanti";
-  const notePlaceholder = isTowOffer
-    ? "Konum teyidi, ekipman, varış notu..."
-    : "Kapsam, parça, teslim detayı...";
+  const etaPresets = DEFAULT_ETA_PRESETS;
+  const deliveryModes = DEFAULT_DELIVERY_MODES;
+  const warranties = DEFAULT_WARRANTIES;
+  const notePlaceholder = "Kapsam, parça, teslim detayı...";
 
   const isOpen = Boolean(caseId);
   const amountNumeric = Number(amount.replace(/\./g, ""));
@@ -127,24 +110,28 @@ export function OfferSubmissionSheet() {
   const handleSubmit = async () => {
     if (!caseId || !canSubmit) return;
     const eta = etaPresets[etaIndex]!;
+    const slot = APPOINTMENT_SLOT_PRESETS[slotIndex]!;
     try {
       await submit.mutateAsync({
         case_id: caseId,
         headline:
           note.trim() ||
-          `${caseItem?.title ?? "Vaka"} için ${isTowOffer ? "çekici teklifi" : "teklif"}`,
+          `${caseItem?.title ?? "Vaka"} için teklif`,
         description:
           note.trim() ||
-          (isTowOffer
-            ? "Varış süresi, çekici hizmet tipi ve taşıma güvencesi yukarıda belirtilmiştir."
-            : "Bu vakayı uzmanlığımla çözebilirim. Teslim saatleri ve garanti şartlarını yukarıda belirttim."),
+          "Bu vakayı uzmanlığımla çözebilirim. Teslim saatleri ve garanti şartlarını yukarıda belirttim.",
         amount: String(amountNumeric),
         currency: "TRY",
         eta_minutes: eta.minutes,
         delivery_mode: deliveryModes[deliveryIndex]!,
         warranty_label: warranties[warrantyIndex]!,
-        available_at_label: isTowOffer ? "Hemen çıkışa hazır" : "Hazır",
+        available_at_label: slot.label,
         badges: [],
+        slot_proposal: {
+          kind: "flexible",
+          label: slot.label,
+          preset_key: slot.preset_key,
+        },
         slot_is_firm: false,
       });
       close();
@@ -164,9 +151,7 @@ export function OfferSubmissionSheet() {
       <ActionSheetSurface
         title="Teklif Gönder"
         description={
-          isTowOffer
-            ? "Çekici vakanız için varış süresi ve hizmet tipini netleştirin."
-            : (caseItem?.title ?? "Havuzdaki vaka için teklif")
+          caseItem?.title ?? "Havuzdaki vaka için teklif"
         }
       >
         <View className="gap-4">
@@ -184,7 +169,7 @@ export function OfferSubmissionSheet() {
             <View className="flex-row items-center gap-2">
               <Icon icon={Clock} size={12} color={colors.info} />
               <Text variant="eyebrow" tone="subtle">
-                {etaSectionTitle}
+                Teslim süresi
               </Text>
             </View>
             <OptionPillGroup
@@ -201,7 +186,27 @@ export function OfferSubmissionSheet() {
             <View className="flex-row items-center gap-2">
               <Icon icon={PackageCheck} size={12} color={colors.info} />
               <Text variant="eyebrow" tone="subtle">
-                {deliverySectionTitle}
+                Randevu önerisi
+              </Text>
+            </View>
+            <OptionPillGroup
+              options={APPOINTMENT_SLOT_PRESETS.map((slot, index) => ({
+                key: String(index),
+                label: slot.label,
+              }))}
+              selectedKey={String(slotIndex)}
+              onSelect={(key) => setSlotIndex(Number(key))}
+            />
+            <Text variant="caption" tone="muted" className="text-app-text-muted">
+              {APPOINTMENT_SLOT_PRESETS[slotIndex]?.helper}
+            </Text>
+          </View>
+
+          <View className="gap-2">
+            <View className="flex-row items-center gap-2">
+              <Icon icon={PackageCheck} size={12} color={colors.info} />
+              <Text variant="eyebrow" tone="subtle">
+                Teslim modu
               </Text>
             </View>
             <OptionPillGroup
@@ -218,7 +223,7 @@ export function OfferSubmissionSheet() {
             <View className="flex-row items-center gap-2">
               <Icon icon={ShieldCheck} size={12} color={colors.info} />
               <Text variant="eyebrow" tone="subtle">
-                {warrantySectionTitle}
+                Garanti
               </Text>
             </View>
             <OptionPillGroup
