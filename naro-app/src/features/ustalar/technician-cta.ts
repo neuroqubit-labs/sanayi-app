@@ -53,8 +53,17 @@ export function resolveTechnicianCta(opts: {
   providerType: ProviderType;
   activeCases: CaseSummaryResponse[];
   acceptingNewJobs: boolean;
+  activeCaseMatchesTechnician?: boolean | null;
+  activeCaseMatchReason?: string | null;
 }): TechnicianCta {
-  const { technicianId, providerType, activeCases, acceptingNewJobs } = opts;
+  const {
+    technicianId,
+    providerType,
+    activeCases,
+    acceptingNewJobs,
+    activeCaseMatchesTechnician,
+    activeCaseMatchReason,
+  } = opts;
 
   if (!acceptingNewJobs) {
     return {
@@ -83,18 +92,19 @@ export function resolveTechnicianCta(opts: {
     };
   }
 
-  const matches = technicianMatchesCaseKind(activeCase.kind, providerType);
+  const matches =
+    activeCaseMatchesTechnician ?? technicianMatchesCaseKind(activeCase.kind, providerType);
   if (!matches) {
     return {
       mode: "mismatch",
       caseId: activeCase.id,
-      primaryLabel: "Vakanla uyumlu değil",
-      primaryRoute: "",
-      primaryDisabled: true,
+      primaryLabel: "Uygun vaka oluştur",
+      primaryRoute: `/(modal)/usta-vaka/${technicianId}`,
+      primaryDisabled: false,
       helperText:
         activeCase.kind === "towing"
-          ? "Çekici vakası için çekici sağlayıcı servis seçmelisin."
-          : "Bu servis çekici sağlayıcı; mevcut vakan farklı bir uzmanlık istiyor.",
+          ? "Çekici vakası ayrı çağrı akışıyla ilerler."
+          : "Mevcut aktif vakan bu ustanın uzmanlığıyla eşleşmiyor.",
     };
   }
 
@@ -104,6 +114,8 @@ export function resolveTechnicianCta(opts: {
     primaryLabel: "Vakayı bildir",
     primaryRoute: `/vaka/${activeCase.id}`,
     primaryDisabled: false,
-    helperText: "Usta teklif gönderirse randevu ve ödeme adımına geçersin.",
+    helperText:
+      activeCaseMatchReason ??
+      "Usta teklif gönderirse randevu ve ödeme adımına geçersin.",
   };
 }

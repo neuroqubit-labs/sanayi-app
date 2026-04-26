@@ -8,6 +8,7 @@ import {
   useNaroTheme,
   withAlphaHex,
 } from "@naro/ui";
+import { useCaseDossier } from "@naro/mobile-core";
 import { type Href, useRouter, useSegments } from "expo-router";
 import {
   CheckCircle2,
@@ -18,7 +19,7 @@ import {
   Star,
   Wrench,
 } from "lucide-react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -27,6 +28,7 @@ import {
 } from "react-native";
 
 import { useMyCasesLive, useNotifyCaseToTechnician } from "@/features/cases/api";
+import { apiClient } from "@/runtime";
 
 import { useTechnicianPublicView } from "../api";
 import { useUstaPreviewStore } from "../preview-store";
@@ -48,6 +50,16 @@ const TRUST_ICON = {
   certificates: ShieldCheck,
 } as const;
 
+const ACTIVE_CASE_STATUSES = new Set([
+  "matching",
+  "offers_ready",
+  "appointment_pending",
+  "scheduled",
+  "service_in_progress",
+  "parts_approval",
+  "invoice_approval",
+]);
+
 /**
  * Usta önizleme sheet — tam profilin kısa karar versiyonu.
  * Avatar'a dokunma tam profile gider; kart gövdesi preview açmaya devam eder.
@@ -66,6 +78,25 @@ export function UstaPreviewSheet() {
   } = useTechnicianPublicView(technicianId ?? "");
   const { data: myCases } = useMyCasesLive();
   const notifyCase = useNotifyCaseToTechnician();
+  const activeCaseForDossier =
+    useMemo(
+      () =>
+        (myCases ?? [])
+          .filter((caseItem) => ACTIVE_CASE_STATUSES.has(caseItem.status))
+          .sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0] ??
+        null,
+      [myCases],
+    );
+  const dossierQuery = useCaseDossier(activeCaseForDossier?.id ?? "", {
+    apiClient,
+    enabled: Boolean(activeCaseForDossier?.id && profile?.user_id),
+  });
+  const activeCaseMatch = dossierQuery.data?.matches.find(
+    (match) =>
+      match.technician_user_id === profile?.user_id &&
+      match.visibility_state !== "hidden" &&
+      match.visibility_state !== "invalidated",
+  );
 
   const isOpen = Boolean(technicianId);
   const routeKeyAtOpen = useRef<string | null>(null);
@@ -113,6 +144,9 @@ export function UstaPreviewSheet() {
         providerType: getActiveProviderType(profile),
         activeCases: myCases ?? [],
         acceptingNewJobs: profile.accepting_new_jobs,
+        activeCaseMatchesTechnician:
+          activeCaseForDossier ? Boolean(activeCaseMatch) : null,
+        activeCaseMatchReason: activeCaseMatch?.reason_label ?? null,
       })
     : null;
 

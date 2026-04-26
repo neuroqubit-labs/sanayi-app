@@ -9,7 +9,9 @@ from app.models.case_matching import CaseTechnicianNotificationStatus
 from app.models.case_subtypes import TowCase
 from app.models.technician import ProviderType
 from app.services.case_matching import (
+    MAX_CUSTOMER_NOTIFICATIONS_PER_CASE,
     _case_location_text,
+    _maintenance_category_domain_keys,
     _matches_any_location_candidate,
     _normalize_text,
     _reason_label,
@@ -64,6 +66,15 @@ def test_towing_is_never_normal_pool_match_kind() -> None:
     )
 
 
+def test_maintenance_category_domain_keys_are_specific() -> None:
+    assert _maintenance_category_domain_keys("glass_film") == {"cam"}
+    assert _maintenance_category_domain_keys("climate") == {
+        "klima",
+        "elektrik",
+    }
+    assert "elektrik" not in _maintenance_category_domain_keys("glass_film")
+
+
 @pytest.mark.asyncio
 async def test_notify_case_to_technician_allows_notification_without_match(
     monkeypatch: pytest.MonkeyPatch,
@@ -86,6 +97,9 @@ async def test_notify_case_to_technician_allows_notification_without_match(
             )
 
     class FakeSession:
+        async def scalar(self, *_args, **_kwargs):
+            return 0
+
         async def execute(self, stmt):
             compiled = stmt.compile(dialect=pg_dialect())
             captured["match_id"] = compiled.params["match_id"]
@@ -114,6 +128,24 @@ async def test_notify_case_to_technician_allows_notification_without_match(
         fake_get_match_for_technician,
     )
 
+    async def fake_get_notification_for_technician(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(
+        case_matching,
+        "get_notification_for_technician",
+        fake_get_notification_for_technician,
+    )
+
+    async def fake_profile_matches_case_scope(*_args, **_kwargs):
+        return True
+
+    monkeypatch.setattr(
+        case_matching,
+        "profile_matches_case_scope",
+        fake_profile_matches_case_scope,
+    )
+
     notification = await notify_case_to_technician(
         FakeSession(),
         case=SimpleNamespace(id=case_id, kind=ServiceRequestKind.BREAKDOWN),
@@ -123,3 +155,89 @@ async def test_notify_case_to_technician_allows_notification_without_match(
 
     assert notification.match_id is None
     assert notification.status == CaseTechnicianNotificationStatus.SENT
+
+
+@pytest.mark.asyncio
+async def test_notify_case_to_technician_rejects_scope_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import case_matching
+
+    async def fake_get_profile_for_user(*_args, **_kwargs):
+        return SimpleNamespace(
+            id=uuid4(),
+            user_id=uuid4(),
+            provider_type=ProviderType.OTO_ELEKTRIK,
+            secondary_provider_types=[],
+        )
+
+    async def fake_profile_matches_case_scope(*_args, **_kwargs):
+        return False
+
+    monkeypatch.setattr(
+        case_matching,
+        "_get_profile_for_user",
+        fake_get_profile_for_user,
+    )
+    monkeypatch.setattr(
+        case_matching,
+        "profile_matches_case_scope",
+        fake_profile_matches_case_scope,
+    )
+
+    with pytest.raises(ValueError, match="technician_case_kind_mismatch"):
+        await notify_case_to_technician(
+            SimpleNamespace(),
+            case=SimpleNamespace(id=uuid4(), kind=ServiceRequestKind.MAINTENANCE),
+            customer_user_id=uuid4(),
+            technician_user_id=uuid4(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_notify_case_to_technician_rejects_when_notification_limit_reached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import case_matching
+
+    async def fake_get_profile_for_user(*_args, **_kwargs):
+        return SimpleNamespace(
+            id=uuid4(),
+            user_id=uuid4(),
+            provider_type=ProviderType.USTA,
+            secondary_provider_types=[],
+        )
+
+    async def fake_profile_matches_case_scope(*_args, **_kwargs):
+        return True
+
+    async def fake_get_notification_for_technician(*_args, **_kwargs):
+        return None
+
+    class FakeSession:
+        async def scalar(self, *_args, **_kwargs):
+            return MAX_CUSTOMER_NOTIFICATIONS_PER_CASE
+
+    monkeypatch.setattr(
+        case_matching,
+        "_get_profile_for_user",
+        fake_get_profile_for_user,
+    )
+    monkeypatch.setattr(
+        case_matching,
+        "profile_matches_case_scope",
+        fake_profile_matches_case_scope,
+    )
+    monkeypatch.setattr(
+        case_matching,
+        "get_notification_for_technician",
+        fake_get_notification_for_technician,
+    )
+
+    with pytest.raises(ValueError, match="case_notification_limit_reached"):
+        await notify_case_to_technician(
+            FakeSession(),
+            case=SimpleNamespace(id=uuid4(), kind=ServiceRequestKind.MAINTENANCE),
+            customer_user_id=uuid4(),
+            technician_user_id=uuid4(),
+        )

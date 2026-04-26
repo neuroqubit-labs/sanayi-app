@@ -742,6 +742,7 @@ async def get_public_profile(
 
     view = TechnicianPublicView(
         id=profile.id,
+        user_id=profile.user_id,
         display_name=profile.display_name,
         tagline=profile.tagline,
         biography=profile.biography,

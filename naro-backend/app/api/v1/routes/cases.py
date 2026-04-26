@@ -49,7 +49,8 @@ from app.models.case_subtypes import (
 )
 from app.models.media import MediaAsset, MediaStatus
 from app.models.offer import ACTIVE_OFFER_STATUSES, CaseOffer
-from app.models.user import User, UserRole
+from app.models.technician import TechnicianProfile
+from app.models.user import User, UserRole, UserStatus
 from app.repositories import appointment as appointment_repo
 from app.repositories import case as case_repo
 from app.repositories import offer as offer_repo
@@ -217,6 +218,42 @@ class CaseTechnicianNotifyResponse(BaseModel):
     status: CaseTechnicianNotificationStatus
     match_badge: str
     match_reason_label: str
+
+
+async def _resolve_notify_technician_user_id(
+    db: DbDep,
+    technician_or_profile_id: UUID,
+) -> UUID:
+    """Resolve public profile id or technician user id for notify flow.
+
+    Customer-facing public technician screens are keyed by
+    `technician_profiles.id`; the notification/matching ledger is keyed by
+    technician `users.id`. Accept both here so a profile id never leaks into
+    assignment, offer, or notification semantics.
+    """
+    technician = await db.get(User, technician_or_profile_id)
+    if technician is not None:
+        if technician.role != UserRole.TECHNICIAN:
+            raise HTTPException(
+                status_code=404, detail={"type": "technician_not_found"}
+            )
+        return technician.id
+
+    profile = await db.get(TechnicianProfile, technician_or_profile_id)
+    if profile is None or profile.deleted_at is not None:
+        raise HTTPException(
+            status_code=404, detail={"type": "technician_not_found"}
+        )
+    owner = await db.get(User, profile.user_id)
+    if (
+        owner is None
+        or owner.role != UserRole.TECHNICIAN
+        or owner.status != UserStatus.ACTIVE
+    ):
+        raise HTTPException(
+            status_code=404, detail={"type": "technician_not_found"}
+        )
+    return owner.id
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -461,29 +498,29 @@ async def notify_technician_for_case(
             },
         )
 
-    technician = await db.get(User, payload.technician_id)
-    if technician is None or technician.role != UserRole.TECHNICIAN:
-        raise HTTPException(
-            status_code=404, detail={"type": "technician_not_found"}
-        )
+    technician_user_id = await _resolve_notify_technician_user_id(
+        db, payload.technician_id
+    )
 
     try:
         notification = await case_matching.notify_case_to_technician(
             db,
             case=case,
             customer_user_id=user.id,
-            technician_user_id=payload.technician_id,
+            technician_user_id=technician_user_id,
             note=payload.note,
         )
     except ValueError as exc:
         error_type = str(exc)
         status_code = 404 if error_type == "technician_profile_not_found" else 422
+        if error_type == "case_notification_limit_reached":
+            status_code = 409
         raise HTTPException(status_code=status_code, detail={"type": error_type}) from exc
 
     context = await case_matching.context_for_cases(
         db,
         case_ids=[case.id],
-        technician_user_id=payload.technician_id,
+        technician_user_id=technician_user_id,
     )
     await append_event(
         db,
@@ -493,7 +530,8 @@ async def notify_technician_for_case(
         tone=CaseTone.INFO,
         actor_user_id=user.id,
         context={
-            "technician_id": str(payload.technician_id),
+            "technician_id": str(technician_user_id),
+            "technician_profile_or_user_id": str(payload.technician_id),
             "notification_id": str(notification.id),
             "match_id": str(notification.match_id) if notification.match_id else None,
         },
@@ -504,7 +542,7 @@ async def notify_technician_for_case(
         notification_id=notification.id,
         match_id=notification.match_id,
         case_id=case.id,
-        technician_id=payload.technician_id,
+        technician_id=technician_user_id,
         status=notification.status,
         match_badge=str(item.get("match_badge") or "Ustaya bildirildi"),
         match_reason_label=str(

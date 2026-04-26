@@ -181,6 +181,7 @@ export type PublicAbout = z.infer<typeof PublicAboutSchema>;
 
 export const TechnicianPublicViewSchema = z.object({
   id: z.string().uuid(),
+  user_id: z.string().uuid(),
   display_name: z.string(),
   tagline: z.string().nullable(),
   biography: z.string().nullable(),

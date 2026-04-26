@@ -195,6 +195,7 @@ class TechnicianPublicView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    user_id: UUID
     display_name: str
     tagline: str | None
     biography: str | None

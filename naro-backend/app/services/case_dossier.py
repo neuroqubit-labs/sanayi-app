@@ -24,6 +24,7 @@ from app.models.case_subtypes import (
 )
 from app.models.offer import CaseOffer, CaseOfferStatus
 from app.models.payment import PaymentOrder, PaymentState
+from app.models.technician import TechnicianProfile
 from app.models.tow import TowFareSettlement
 from app.models.user import User, UserRole
 from app.repositories import case as case_repo
@@ -93,7 +94,7 @@ async def assemble_dossier(
     if dossier_role is None:
         raise NotPermittedError(str(case_id))
 
-    matches = await _load_matches(session, case.id)
+    matches = await _load_matches(session, case)
     notifications = await _load_notifications(session, case.id)
     offers = await _load_offers(session, case.id)
     appointment = await _load_appointment(session, case.id)
@@ -170,21 +171,36 @@ async def _can_view_as_pool_technician(
     profile = await case_matching._get_profile_for_user(session, user_id)
     if profile is None:
         return False
-    return case_matching.profile_matches_case_kind(case.kind, profile)
+    return await case_matching.profile_matches_case_scope(
+        session, case=case, profile=profile
+    )
 
 
 async def _load_matches(
-    session: AsyncSession, case_id: UUID
+    session: AsyncSession, case: ServiceCase
 ) -> list[CaseTechnicianMatch]:
     rows = await session.execute(
         select(CaseTechnicianMatch)
         .where(
-            CaseTechnicianMatch.case_id == case_id,
+            CaseTechnicianMatch.case_id == case.id,
             CaseTechnicianMatch.invalidated_at.is_(None),
         )
         .order_by(CaseTechnicianMatch.score.desc(), CaseTechnicianMatch.computed_at.desc())
     )
-    return list(rows.scalars().all())
+    visible_matches: list[CaseTechnicianMatch] = []
+    for match in rows.scalars().all():
+        profile = (
+            await session.get(TechnicianProfile, match.technician_profile_id)
+            if match.technician_profile_id
+            else None
+        )
+        if profile is None:
+            continue
+        if await case_matching.profile_matches_case_scope(
+            session, case=case, profile=profile
+        ):
+            visible_matches.append(match)
+    return visible_matches
 
 
 async def _load_notifications(

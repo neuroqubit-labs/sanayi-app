@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,16 +20,25 @@ from app.models.case_matching import (
     CaseTechnicianNotification,
     CaseTechnicianNotificationStatus,
 )
-from app.models.case_subtypes import TowCase
+from app.models.case_subtypes import MaintenanceCase, TowCase
 from app.models.offer import CaseOffer, CaseOfferStatus
-from app.models.taxonomy import TaxonomyCity, TaxonomyDistrict
+from app.models.taxonomy import BrandTier, TaxonomyBrand, TaxonomyCity, TaxonomyDistrict
 from app.models.technician import ProviderType, TechnicianAvailability, TechnicianProfile
 from app.models.technician_signal import (
+    TechnicianBrandCoverage,
     TechnicianServiceArea,
     TechnicianServiceDomain,
     TechnicianWorkingDistrict,
 )
+from app.models.vehicle import Vehicle, VehicleKind
 from app.services.pool_matching import KIND_PROVIDER_MAP, kinds_for_provider
+
+MAX_CUSTOMER_NOTIFICATIONS_PER_CASE = 3
+ACTIVE_NOTIFICATION_STATUSES = (
+    CaseTechnicianNotificationStatus.SENT,
+    CaseTechnicianNotificationStatus.SEEN,
+    CaseTechnicianNotificationStatus.OFFER_CREATED,
+)
 
 
 def technician_matches_case_kind(
@@ -51,6 +60,46 @@ def profile_matches_case_kind(
         technician_matches_case_kind(case_kind, provider_type)
         for provider_type in provider_types
     )
+
+
+MAINTENANCE_CATEGORY_DOMAINS: dict[str, set[str]] = {
+    "periodic": {"motor", "fren", "elektrik", "aku"},
+    "tire": {"lastik"},
+    "glass_film": {"cam"},
+    "coating": {"aksesuar", "kaporta"},
+    "battery": {"aku", "elektrik"},
+    "climate": {"klima", "elektrik"},
+    "brake": {"fren"},
+    "detail_wash": {"aksesuar"},
+    "headlight_polish": {"aksesuar", "kaporta"},
+    "engine_wash": {"motor", "aksesuar"},
+    "package_summer": {"klima", "lastik", "cam", "aksesuar"},
+    "package_winter": {"lastik", "aku", "fren", "klima"},
+    "package_new_car": {"aksesuar", "cam", "kaporta"},
+    "package_sale_prep": {"aksesuar", "motor", "kaporta", "cam"},
+}
+
+
+def _maintenance_category_domain_keys(category: str | None) -> set[str]:
+    if not category:
+        return set()
+    return set(MAINTENANCE_CATEGORY_DOMAINS.get(category, set()))
+
+
+async def profile_matches_case_scope(
+    session: AsyncSession,
+    *,
+    case: ServiceCase,
+    profile: TechnicianProfile,
+) -> bool:
+    if not await _vehicle_kind_matches_profile(session, case=case, profile=profile):
+        return False
+    if not profile_matches_case_kind(case.kind, profile):
+        return False
+    required_domains = await _case_required_domain_keys(session, case)
+    if not required_domains:
+        return True
+    return await _profile_has_any_domain(session, profile, required_domains)
 
 
 async def upsert_match_for_profile(
@@ -124,6 +173,8 @@ async def generate_initial_matches(
     profiles = list((await session.execute(stmt)).scalars().all())
     matches: list[CaseTechnicianMatch] = []
     for profile in profiles:
+        if not await profile_matches_case_scope(session, case=case, profile=profile):
+            continue
         matches.append(
             await upsert_match_for_profile(
                 session,
@@ -146,8 +197,25 @@ async def notify_case_to_technician(
     profile = await _get_profile_for_user(session, technician_user_id)
     if profile is None:
         raise ValueError("technician_profile_not_found")
-    if not profile_matches_case_kind(case.kind, profile):
+    if not await profile_matches_case_scope(session, case=case, profile=profile):
         raise ValueError("technician_case_kind_mismatch")
+
+    existing_notification = await get_notification_for_technician(
+        session,
+        case_id=case.id,
+        technician_user_id=technician_user_id,
+    )
+    if existing_notification is None:
+        active_notification_count = await session.scalar(
+            select(func.count(CaseTechnicianNotification.id)).where(
+                CaseTechnicianNotification.case_id == case.id,
+                CaseTechnicianNotification.status.in_(
+                    ACTIVE_NOTIFICATION_STATUSES
+                ),
+            )
+        )
+        if int(active_notification_count or 0) >= MAX_CUSTOMER_NOTIFICATIONS_PER_CASE:
+            raise ValueError("case_notification_limit_reached")
 
     match = await get_match_for_technician(
         session,
@@ -213,6 +281,23 @@ async def get_match_for_technician(
             CaseTechnicianMatch.case_id == case_id,
             CaseTechnicianMatch.technician_user_id == technician_user_id,
             CaseTechnicianMatch.invalidated_at.is_(None),
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def get_notification_for_technician(
+    session: AsyncSession,
+    *,
+    case_id: UUID,
+    technician_user_id: UUID,
+) -> CaseTechnicianNotification | None:
+    stmt = (
+        select(CaseTechnicianNotification)
+        .where(
+            CaseTechnicianNotification.case_id == case_id,
+            CaseTechnicianNotification.technician_user_id == technician_user_id,
         )
         .limit(1)
     )
@@ -302,6 +387,9 @@ async def _score_match(
 ) -> tuple[Decimal, list[str], str]:
     score = Decimal("0.00")
     reason_codes: list[str] = []
+    if await _vehicle_kind_matches_profile(session, case=case, profile=profile):
+        score += Decimal("5.00")
+        reason_codes.append("vehicle_kind")
     if profile_matches_case_kind(case.kind, profile):
         score += Decimal("45.00")
         reason_codes.append("provider_type")
@@ -314,11 +402,14 @@ async def _score_match(
     if "district_match" in area_reason_codes:
         score += Decimal("10.00")
     reason_codes.extend(area_reason_codes)
-    has_domain = await session.scalar(
-        select(TechnicianServiceDomain.profile_id)
-        .where(TechnicianServiceDomain.profile_id == profile.id)
-        .limit(1)
-    )
+    required_domains = await _case_required_domain_keys(session, case)
+    has_domain = await _profile_has_any_domain(session, profile, required_domains)
+    if not required_domains:
+        has_domain = await session.scalar(
+            select(TechnicianServiceDomain.profile_id)
+            .where(TechnicianServiceDomain.profile_id == profile.id)
+            .limit(1)
+        )
     if has_domain:
         score += Decimal("10.00")
         reason_codes.append("service_domain")
@@ -327,6 +418,63 @@ async def _score_match(
     score = min(score, Decimal("100.00")).quantize(Decimal("0.01"))
     label = _reason_label(reason_codes)
     return score, reason_codes, label
+
+
+async def _case_required_domain_keys(
+    session: AsyncSession,
+    case: ServiceCase,
+) -> set[str]:
+    if case.kind != ServiceRequestKind.MAINTENANCE:
+        return set()
+    subtype = await session.get(MaintenanceCase, case.id)
+    if subtype is None:
+        return set()
+    return _maintenance_category_domain_keys(subtype.maintenance_category)
+
+
+async def _vehicle_kind_matches_profile(
+    session: AsyncSession,
+    *,
+    case: ServiceCase,
+    profile: TechnicianProfile,
+) -> bool:
+    vehicle = await session.get(Vehicle, case.vehicle_id)
+    if vehicle is None or vehicle.vehicle_kind is None:
+        return True
+    if vehicle.vehicle_kind != VehicleKind.MOTOSIKLET:
+        return True
+    motorcycle_brand = await session.scalar(
+        select(TechnicianBrandCoverage.profile_id)
+        .join(
+            TaxonomyBrand,
+            TaxonomyBrand.brand_key == TechnicianBrandCoverage.brand_key,
+        )
+        .where(
+            TechnicianBrandCoverage.profile_id == profile.id,
+            TaxonomyBrand.tier == BrandTier.MOTORCYCLE,
+        )
+        .limit(1)
+    )
+    return bool(motorcycle_brand)
+
+
+async def _profile_has_any_domain(
+    session: AsyncSession,
+    profile: TechnicianProfile,
+    domain_keys: set[str],
+) -> bool:
+    if not domain_keys:
+        return False
+    return bool(
+        await session.scalar(
+            select(TechnicianServiceDomain.profile_id)
+            .where(
+                TechnicianServiceDomain.profile_id == profile.id,
+                TechnicianServiceDomain.domain_key.in_(domain_keys),
+            )
+            .limit(1)
+        )
+    )
 
 
 def _reason_label(reason_codes: list[str]) -> str:
