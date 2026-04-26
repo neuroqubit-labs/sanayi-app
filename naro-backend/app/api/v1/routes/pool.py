@@ -37,6 +37,7 @@ from app.models.user import User, UserApprovalStatus, UserStatus
 from app.repositories import case as case_repo
 from app.schemas.pool import PoolCaseDetail, PoolCaseItem
 from app.schemas.review import mask_reviewer_name
+from app.services import case_matching
 
 router = APIRouter(prefix="/pool", tags=["pool"])
 
@@ -109,8 +110,21 @@ async def get_pool_feed(
         before_id=before_id,
         technician_user_id=user.id,
     )
+    context = await case_matching.context_for_cases(
+        db,
+        case_ids=[case.id for case in rows],
+        technician_user_id=user.id,
+    )
     return build_paginated(
-        [PoolCaseItem.model_validate(c) for c in rows],
+        [
+            PoolCaseItem.model_validate(
+                {
+                    **case.__dict__,
+                    **context.get(case.id, {}),
+                }
+            )
+            for case in rows
+        ],
         limit=limit,
         cursor_fn=lambda item: encode_cursor(
             id_=item.id, sort_value=item.created_at
@@ -141,6 +155,11 @@ async def get_pool_case(
     # Customer full_name → initials mask
     customer = await db.get(User, case.customer_user_id)
     masked = mask_reviewer_name(customer.full_name if customer else None)
+    context = await case_matching.context_for_cases(
+        db,
+        case_ids=[case.id],
+        technician_user_id=user.id,
+    )
     return PoolCaseDetail(
         id=case.id,
         kind=case.kind,
@@ -155,4 +174,5 @@ async def get_pool_case(
         created_at=case.created_at,
         updated_at=case.updated_at,
         estimate_amount=case.estimate_amount,
+        **context.get(case.id, {}),
     )

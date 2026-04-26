@@ -1,11 +1,12 @@
 import { Avatar, Button, Icon, Text, TrustBadge } from "@naro/ui";
 import { Href, useRouter } from "expo-router";
 import { Clock, MapPin, Star } from "lucide-react-native";
-import { Pressable, View, type ViewStyle } from "react-native";
+import { Alert, Pressable, View, type ViewStyle } from "react-native";
 
 import {
   attachTechnicianToCase,
   prefillDraftForTechnician,
+  useNotifyCaseToTechnician,
   useTechnicianCaseAction,
 } from "@/features/cases";
 import { useUstaPreviewStore } from "@/features/ustalar";
@@ -30,6 +31,7 @@ export function TechnicianSuggestionCard({
 }: TechnicianSuggestionCardProps) {
   const router = useRouter();
   const action = useTechnicianCaseAction(technician.id);
+  const notifyCase = useNotifyCaseToTechnician();
   const { data: activeVehicle } = useActiveVehicle();
   const openPreview = useUstaPreviewStore((state) => state.open);
   const primaryLabel =
@@ -40,10 +42,25 @@ export function TechnicianSuggestionCard({
 
   const showPreview = () => openPreview(technician.id);
 
-  function handlePrimary() {
-    if (action.disabled) return;
+  async function handlePrimary() {
+    if (action.disabled || notifyCase.isPending) return;
     if (action.mode === "open_case") {
       showPreview();
+      return;
+    }
+    if (action.mode === "notify_case" && action.caseId) {
+      try {
+        await notifyCase.mutateAsync({
+          caseId: action.caseId,
+          technicianId: technician.id,
+        });
+        router.push(action.primaryRoute as Href);
+      } catch {
+        Alert.alert(
+          "Vaka bildirilemedi",
+          "Usta bu vaka için uygun olmayabilir. Birazdan tekrar dene.",
+        );
+      }
       return;
     }
     if (action.attachOnPrimary && action.caseId) {
@@ -161,10 +178,10 @@ export function TechnicianSuggestionCard({
           size="lg"
           className={buttonClassName}
           labelClassName="text-[15px] font-semibold"
-          disabled={action.disabled}
+          disabled={action.disabled || notifyCase.isPending}
           onPress={(event) => {
             event.stopPropagation();
-            handlePrimary();
+            void handlePrimary();
           }}
         />
         {action.helperText ? (

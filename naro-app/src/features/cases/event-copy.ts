@@ -163,20 +163,20 @@ const EVENT_META: Record<CaseEventType, EventMeta> = {
 
   // Approvals + delivery
   parts_requested: {
-    title: "Parça talebi geldi",
-    body: "Usta ek parça önerdi, onayın bekleniyor",
+    title: "Parça/kapsam onayı geldi",
+    body: "Usta kapsam değişikliği paylaştı, onayın bekleniyor",
     icon: Package,
     tone: "warning",
   },
   parts_approved: {
     title: "Parça onayı verildi",
-    body: "İş ek parçayla devam ediyor",
+    body: "İş onaylanan kapsamla devam ediyor",
     icon: CheckCircle2,
     tone: "success",
   },
   parts_rejected: {
     title: "Parça talebi reddedildi",
-    body: "Ek parça kullanılmadan iş sürecek",
+    body: "Onaylanmayan kapsam uygulanmadan iş sürecek",
     icon: CircleOff,
     tone: "warning",
   },

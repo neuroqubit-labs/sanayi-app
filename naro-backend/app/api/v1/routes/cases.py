@@ -35,6 +35,7 @@ from app.models.case import (
 )
 from app.models.case_artifact import CaseAttachmentKind
 from app.models.case_audit import CaseEventType, CaseTone
+from app.models.case_matching import CaseTechnicianNotificationStatus
 from app.models.case_subtypes import (
     AccidentCase,
     BreakdownCase,
@@ -42,7 +43,7 @@ from app.models.case_subtypes import (
     TowCase,
 )
 from app.models.media import MediaAsset, MediaStatus
-from app.models.user import UserRole
+from app.models.user import User, UserRole
 from app.repositories import appointment as appointment_repo
 from app.repositories import case as case_repo
 from app.repositories import offer as offer_repo
@@ -55,7 +56,7 @@ from app.schemas.case_document import (
 from app.schemas.case_process import CaseEvidenceItemResponse
 from app.schemas.case_thread import CaseNotesPayload
 from app.schemas.service_request import ServiceRequestDraftCreate
-from app.services import approval_flow, case_create, case_documents
+from app.services import approval_flow, case_create, case_documents, case_matching
 from app.services import evidence as evidence_service
 from app.services.case_events import append_event
 
@@ -166,6 +167,23 @@ class CaseEvidencePayload(BaseModel):
     milestone_id: UUID | None = None
     approval_id: UUID | None = None
     requirement_id: str | None = Field(default=None, max_length=64)
+
+
+class CaseTechnicianNotifyPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    technician_id: UUID
+    note: str | None = Field(default=None, max_length=500)
+
+
+class CaseTechnicianNotifyResponse(BaseModel):
+    notification_id: UUID
+    match_id: UUID | None = None
+    case_id: UUID
+    technician_id: UUID
+    status: CaseTechnicianNotificationStatus
+    match_badge: str
+    match_reason_label: str
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────
@@ -282,6 +300,95 @@ async def get_case_endpoint(
         wait_state_description=case.wait_state_description,
         estimate_amount=case.estimate_amount,
         assigned_technician_id=case.assigned_technician_id,
+    )
+
+
+@router.post(
+    "/{case_id}/notify-technicians",
+    response_model=CaseTechnicianNotifyResponse,
+    summary="Müşteri vakayı belirli ustaya bildirir",
+)
+async def notify_technician_for_case(
+    case_id: UUID,
+    payload: CaseTechnicianNotifyPayload,
+    user: CustomerDep,
+    db: DbDep,
+) -> CaseTechnicianNotifyResponse:
+    case = await case_repo.get_case(db, case_id)
+    if case is None or case.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
+    if case.customer_user_id != user.id:
+        raise HTTPException(status_code=403, detail={"type": "not_case_owner"})
+    if case.kind == ServiceRequestKind.TOWING:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "tow_case_cannot_be_notified_to_technician"},
+        )
+    if case.assigned_technician_id is not None:
+        raise HTTPException(
+            status_code=409, detail={"type": "case_already_assigned"}
+        )
+    if case.status not in (
+        ServiceCaseStatus.MATCHING,
+        ServiceCaseStatus.OFFERS_READY,
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "case_not_open_for_notification",
+                "case_status": case.status.value,
+            },
+        )
+
+    technician = await db.get(User, payload.technician_id)
+    if technician is None or technician.role != UserRole.TECHNICIAN:
+        raise HTTPException(
+            status_code=404, detail={"type": "technician_not_found"}
+        )
+
+    try:
+        notification = await case_matching.notify_case_to_technician(
+            db,
+            case=case,
+            customer_user_id=user.id,
+            technician_user_id=payload.technician_id,
+            note=payload.note,
+        )
+    except ValueError as exc:
+        error_type = str(exc)
+        status_code = 404 if error_type == "technician_profile_not_found" else 422
+        raise HTTPException(status_code=status_code, detail={"type": error_type}) from exc
+
+    context = await case_matching.context_for_cases(
+        db,
+        case_ids=[case.id],
+        technician_user_id=payload.technician_id,
+    )
+    await append_event(
+        db,
+        case_id=case.id,
+        event_type=CaseEventType.STATUS_UPDATE,
+        title="Vaka ustaya bildirildi",
+        tone=CaseTone.INFO,
+        actor_user_id=user.id,
+        context={
+            "technician_id": str(payload.technician_id),
+            "notification_id": str(notification.id),
+            "match_id": str(notification.match_id) if notification.match_id else None,
+        },
+    )
+    await db.commit()
+    item = context.get(case.id, {})
+    return CaseTechnicianNotifyResponse(
+        notification_id=notification.id,
+        match_id=notification.match_id,
+        case_id=case.id,
+        technician_id=payload.technician_id,
+        status=notification.status,
+        match_badge=str(item.get("match_badge") or "Bu vakaya uygun"),
+        match_reason_label=str(
+            item.get("match_reason_label") or "Müşteri bu vakayı bildirdi"
+        ),
     )
 
 

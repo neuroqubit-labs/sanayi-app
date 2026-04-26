@@ -30,10 +30,16 @@ from sqlalchemy import select
 from app.api.v1.deps import CurrentTechnicianDep, CurrentUserDep, DbDep, RedisDep
 from app.models.auth_event import AuthEvent, AuthEventType
 from app.models.case import (
+    ServiceCase,
     ServiceCaseStatus,
     ServiceRequestKind,
     ServiceRequestUrgency,
     TowEquipment,
+)
+from app.models.case_matching import (
+    CaseTechnicianMatch,
+    CaseTechnicianNotification,
+    CaseTechnicianNotificationStatus,
 )
 from app.models.case_public_showcase import (
     CasePublicShowcase,
@@ -62,8 +68,13 @@ from app.schemas.insurance_claim import (
     InsuranceClaimSubmit,
 )
 from app.schemas.shell_config import ShellConfig
+from app.services import (
+    case_matching,
+    technician_mutations,
+    technician_payment_accounts,
+    technician_shell,
+)
 from app.services import insurance_claim_flow as claim_flow
-from app.services import technician_mutations, technician_payment_accounts, technician_shell
 from app.services.case_public_showcases import revoke_for_actor, snapshot_value
 from app.services.technician_admission import (
     AdmissionGateError,
@@ -152,6 +163,20 @@ class TechnicianCaseSummary(BaseModel):
     estimate_amount: Decimal | None = None
     assigned_technician_id: UUID | None = None
     preferred_technician_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TechnicianCaseNotificationResponse(BaseModel):
+    id: UUID
+    case_id: UUID
+    case_title: str
+    case_kind: ServiceRequestKind
+    case_status: ServiceCaseStatus
+    status: CaseTechnicianNotificationStatus
+    match_badge: str | None = None
+    match_reason_label: str | None = None
+    has_offer_from_me: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -296,6 +321,62 @@ async def get_me_cases(
 ) -> list[TechnicianCaseSummary]:
     cases = await case_repo.list_cases_for_technician(db, user.id)
     return [TechnicianCaseSummary.model_validate(case) for case in cases]
+
+
+@router.get(
+    "/case-notifications",
+    response_model=list[TechnicianCaseNotificationResponse],
+)
+async def get_me_case_notifications(
+    user: CurrentTechnicianDep,
+    db: DbDep,
+) -> list[TechnicianCaseNotificationResponse]:
+    stmt = (
+        select(CaseTechnicianNotification, ServiceCase, CaseTechnicianMatch)
+        .join(ServiceCase, ServiceCase.id == CaseTechnicianNotification.case_id)
+        .outerjoin(
+            CaseTechnicianMatch,
+            CaseTechnicianMatch.id == CaseTechnicianNotification.match_id,
+        )
+        .where(
+            CaseTechnicianNotification.technician_user_id == user.id,
+            ServiceCase.deleted_at.is_(None),
+            CaseTechnicianNotification.status.not_in(
+                (
+                    CaseTechnicianNotificationStatus.DISMISSED,
+                    CaseTechnicianNotificationStatus.EXPIRED,
+                )
+            ),
+        )
+        .order_by(CaseTechnicianNotification.created_at.desc())
+        .limit(50)
+    )
+    rows = list((await db.execute(stmt)).all())
+    context = await case_matching.context_for_cases(
+        db,
+        case_ids=[case.id for _, case, _ in rows],
+        technician_user_id=user.id,
+    )
+    return [
+        TechnicianCaseNotificationResponse(
+            id=notification.id,
+            case_id=case.id,
+            case_title=case.title,
+            case_kind=case.kind,
+            case_status=case.status,
+            status=notification.status,
+            match_badge=str(
+                context.get(case.id, {}).get("match_badge") or "Size bildirildi"
+            ),
+            match_reason_label=match.reason_label if match else None,
+            has_offer_from_me=bool(
+                context.get(case.id, {}).get("has_offer_from_me")
+            ),
+            created_at=notification.created_at,
+            updated_at=notification.updated_at,
+        )
+        for notification, case, match in rows
+    ]
 
 
 @router.post(

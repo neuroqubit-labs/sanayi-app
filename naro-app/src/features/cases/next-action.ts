@@ -130,7 +130,7 @@ function fallbackCustomerDescription(status: ServiceCaseStatus): string {
     case "service_in_progress":
       return "Usta iş sürecini paylaşıyor.";
     case "parts_approval":
-      return "Usta ek parça öneriyor, onay gerekiyor.";
+      return "Usta kapsam değişikliği paylaştı, onay gerekiyor.";
     case "invoice_approval":
       return "Fatura paylaşıldı, onay gerekiyor.";
     default:

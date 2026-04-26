@@ -51,6 +51,11 @@ export const PoolCaseItemSchema = z.object({
   location_label: z.string().nullable(),
   created_at: z.string(),
   estimate_amount: z.string().nullable(),
+  is_matched_to_me: z.boolean().default(false),
+  match_badge: z.string().nullable().optional(),
+  match_reason_label: z.string().nullable().optional(),
+  is_notified_to_me: z.boolean().default(false),
+  has_offer_from_me: z.boolean().default(false),
 });
 export type PoolCaseItem = z.infer<typeof PoolCaseItemSchema>;
 
@@ -68,6 +73,11 @@ export const PoolCaseDetailSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   estimate_amount: z.string().nullable(),
+  is_matched_to_me: z.boolean().default(false),
+  match_badge: z.string().nullable().optional(),
+  match_reason_label: z.string().nullable().optional(),
+  is_notified_to_me: z.boolean().default(false),
+  has_offer_from_me: z.boolean().default(false),
 });
 export type PoolCaseDetail = z.infer<typeof PoolCaseDetailSchema>;
 

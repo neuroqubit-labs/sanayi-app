@@ -127,6 +127,15 @@ export function PoolReelsCardLive({
           <View className="absolute left-5 right-5 top-4 flex-row flex-wrap items-center gap-2">
             <TrustBadge label={kindMeta.label} tone={kindMeta.tone} />
             <TrustBadge label={urgencyMeta.label} tone={urgencyMeta.tone} />
+            {caseItem.is_notified_to_me ? (
+              <TrustBadge label="Size bildirildi" tone="accent" />
+            ) : null}
+            {caseItem.is_matched_to_me ? (
+              <TrustBadge
+                label={caseItem.match_badge ?? "Bu vakaya uygun"}
+                tone="success"
+              />
+            ) : null}
           </View>
 
           <View className="absolute inset-x-0 bottom-3 items-center">
@@ -152,6 +161,16 @@ export function PoolReelsCardLive({
                 numberOfLines={1}
               >
                 {caseItem.subtitle}
+              </Text>
+            ) : null}
+            {caseItem.match_reason_label ? (
+              <Text
+                variant="caption"
+                tone="accent"
+                className="text-center text-[12px]"
+                numberOfLines={1}
+              >
+                {caseItem.match_reason_label}
               </Text>
             ) : null}
           </View>

@@ -27,6 +27,7 @@ import {
 } from "lucide-react-native";
 import { useState, type ReactNode } from "react";
 import {
+  Alert,
   ActivityIndicator,
   Image,
   Pressable,
@@ -36,7 +37,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useMyCasesLive } from "@/features/cases/api";
+import { useMyCasesLive, useNotifyCaseToTechnician } from "@/features/cases/api";
 import { useFavoriteTechniciansStore } from "@/features/profile";
 
 import { useTechnicianPublicView, useTechnicianShowcaseDetail } from "../api";
@@ -88,6 +89,7 @@ export function TechnicianProfileScreen() {
     selectedShowcaseId ?? "",
   );
   const { data: myCases } = useMyCasesLive();
+  const notifyCase = useNotifyCaseToTechnician();
 
   const isFavorite = useFavoriteTechniciansStore((state) =>
     state.ids.includes(technicianId),
@@ -366,7 +368,7 @@ export function TechnicianProfileScreen() {
             }
             size="lg"
             fullWidth
-            disabled={cta.primaryDisabled}
+            disabled={cta.primaryDisabled || notifyCase.isPending}
             className={
               cta.primaryDisabled
                 ? "border-app-outline bg-app-surface-2 opacity-100"
@@ -377,6 +379,23 @@ export function TechnicianProfileScreen() {
             }
             onPress={() => {
               if (cta.primaryDisabled || !cta.primaryRoute) return;
+              if (cta.mode === "ready" && cta.caseId) {
+                void notifyCase
+                  .mutateAsync({
+                    caseId: cta.caseId,
+                    technicianId: technician.id,
+                  })
+                  .then(() => {
+                    router.push(cta.primaryRoute as Href);
+                  })
+                  .catch(() => {
+                    Alert.alert(
+                      "Vaka bildirilemedi",
+                      "Usta bu vaka için uygun olmayabilir. Birazdan tekrar dene.",
+                    );
+                  });
+                return;
+              }
               router.push(cta.primaryRoute as Href);
             }}
           />

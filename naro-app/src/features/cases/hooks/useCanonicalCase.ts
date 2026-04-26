@@ -242,7 +242,7 @@ function approvalToDomain(approval: ApprovalResponse): CaseApproval {
     status: approval.status,
     title:
       approval.kind === "parts_request"
-        ? "Ek parça onayı"
+        ? "Parça/kapsam onayı"
         : approval.kind === "invoice"
           ? "Fatura onayı"
           : "Tamamlama onayı",

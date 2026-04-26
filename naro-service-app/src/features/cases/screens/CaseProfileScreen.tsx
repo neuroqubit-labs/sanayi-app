@@ -180,10 +180,7 @@ export function CaseProfileScreen() {
   }
 
   const context = deriveContext(caseItem);
-  const myTechnicianId =
-    caseItem.assigned_technician_id ??
-    caseItem.preferred_technician_id ??
-    "";
+  const myTechnicianId = caseItem.assigned_technician_id ?? "";
   const sticky = deriveSticky(caseItem, myTechnicianId);
   const kindMeta = CASE_KIND_META[caseItem.kind];
   const badge = statusBadge(caseItem);

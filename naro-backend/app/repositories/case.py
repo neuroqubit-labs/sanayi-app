@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, and_, or_, select, update
+from sqlalchemy import ColumnElement, and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case import (
@@ -155,6 +155,7 @@ async def list_pool_cases(
     conds: list[ColumnElement[bool]] = [
         ServiceCase.status.in_(POOL_VISIBLE_STATUSES),
         ServiceCase.kind.in_(kinds),
+        ServiceCase.kind != ServiceRequestKind.TOWING,
         ServiceCase.deleted_at.is_(None),
         ServiceCase.assigned_technician_id.is_(None),
     ]
@@ -209,14 +210,16 @@ async def list_cases_for_customer(
 async def list_cases_for_technician(
     session: AsyncSession, technician_user_id: UUID
 ) -> list[ServiceCase]:
+    """Assigned technician worklist.
+
+    `preferred_technician_id` is customer intent / notify context, not a real
+    assignment. Notified cases are exposed through the notification read model.
+    """
     stmt = (
         select(ServiceCase)
         .where(
             and_(
-                or_(
-                    ServiceCase.assigned_technician_id == technician_user_id,
-                    ServiceCase.preferred_technician_id == technician_user_id,
-                ),
+                ServiceCase.assigned_technician_id == technician_user_id,
                 ServiceCase.deleted_at.is_(None),
             )
         )

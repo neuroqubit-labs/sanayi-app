@@ -59,7 +59,6 @@ export function isRelevantToTechnician(
 ) {
   return Boolean(
     caseItem.assigned_technician_id === technicianId ||
-      caseItem.preferred_technician_id === technicianId ||
       caseItem.offers.some((offer) => offer.technician_id === technicianId),
   );
 }

@@ -1,7 +1,7 @@
 """Case approval flow — parça/fatura/teslim onay akışları.
 
 3 kind:
-- parts_request: usta ek parça talep eder, müşteri onay verir
+- parts_request: usta parça/kapsam değişikliği ister, müşteri onay verir
 - invoice: usta fatura paylaşır, müşteri onay verir
 - completion: usta teslim hazır der, müşteri onay verir
 

@@ -98,6 +98,43 @@ export function attachTechnicianToCase(caseId: string, technicianId: string) {
   void invalidateCaseConsumers();
 }
 
+export type NotifyCaseToTechnicianVariables = {
+  caseId: string;
+  technicianId: string;
+  note?: string | null;
+};
+
+export function useNotifyCaseToTechnician() {
+  return useMutation({
+    mutationFn: async ({
+      caseId,
+      technicianId,
+      note = null,
+    }: NotifyCaseToTechnicianVariables) => {
+      const response = await apiClient(
+        `/cases/${caseId}/notify-technicians`,
+        {
+          method: "POST",
+          body: {
+            technician_id: technicianId,
+            note,
+          },
+        },
+      );
+      return response as {
+        notification_id: string;
+        match_id: string | null;
+        case_id: string;
+        technician_id: string;
+        status: string;
+      };
+    },
+    onSuccess: async () => {
+      await invalidateCaseConsumers();
+    },
+  });
+}
+
 export function useCasesFeed() {
   const { data: activeVehicle } = useActiveVehicle();
   const vehicleId = activeVehicle?.id ?? "";
@@ -738,6 +775,7 @@ export function useMarkCaseSeen(caseId: string) {
 
 export type TechnicianActionMode =
   | "request_appointment"
+  | "notify_case"
   | "start_case"
   | "open_case"
   | "attach_case"
@@ -774,16 +812,14 @@ export function useTechnicianCaseAction(
   const acceptingNewJobs = technician?.accepting_new_jobs ?? true;
 
   const isAttached = Boolean(
-    activeCase &&
-    (activeCase.preferred_technician_id === technicianId ||
-      activeCase.assigned_technician_id === technicianId),
+    activeCase && activeCase.assigned_technician_id === technicianId,
   );
 
   if (activeCase && isAttached) {
     return {
       mode: "open_case",
-      primaryLabel: "Randevu Al",
-      primaryRoute: `/randevu/${technicianId}?caseId=${activeCase.id}`,
+      primaryLabel: "Vaka Detayını Aç",
+      primaryRoute: `/vaka/${activeCase.id}`,
       disabled: false,
       secondaryLabel: "Mesaj",
       secondaryRoute: `/vaka/${activeCase.id}/mesajlar`,
@@ -829,15 +865,14 @@ export function useTechnicianCaseAction(
       };
     }
 
-    const route = `/randevu/${technicianId}?caseId=${activeCase.id}`;
     return {
-      mode: "request_appointment",
-      primaryLabel: "Randevu Al",
-      primaryRoute: route,
+      mode: "notify_case",
+      primaryLabel: "Vakayı Bildir",
+      primaryRoute: `/vaka/${activeCase.id}`,
       disabled: false,
-      attachOnPrimary: true,
+      attachOnPrimary: false,
       prefillOnPrimary: false,
-      description: "Bu usta ile randevu talebi aç.",
+      description: "Bu vakayı ustaya bildir; usta teklif gönderirse randevuya geçersin.",
       kind,
       caseId: activeCase.id,
       offerId: null,

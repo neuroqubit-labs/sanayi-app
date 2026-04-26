@@ -95,7 +95,7 @@ const APPROVAL_META: Record<
   }
 > = {
   parts_request: {
-    label: "Ek parça onayı bekliyor",
+    label: "Parça/kapsam onayı bekliyor",
     icon: Sparkles,
     iconColor: "#f5b33f",
     containerClass: "border-app-warning/40 bg-app-warning-soft",
@@ -161,8 +161,7 @@ export function CaseManagementScreen() {
   const canLinkTow =
     caseItem?.kind === "accident" || caseItem?.kind === "breakdown";
 
-  const assignedTechnicianId =
-    caseItem?.assigned_technician_id ?? caseItem?.preferred_technician_id ?? "";
+  const assignedTechnicianId = caseItem?.assigned_technician_id ?? "";
   const { data: assignedTechnician } = useTechnicianPublicView(
     assignedTechnicianId,
   );

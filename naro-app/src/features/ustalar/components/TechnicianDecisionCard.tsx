@@ -1,10 +1,11 @@
 import { Avatar, Button, MetricPill, Text, TrustBadge } from "@naro/ui";
 import { Href, useRouter } from "expo-router";
-import { Pressable, View, type ViewStyle } from "react-native";
+import { Alert, Pressable, View, type ViewStyle } from "react-native";
 
 import {
   attachTechnicianToCase,
   prefillDraftForTechnician,
+  useNotifyCaseToTechnician,
   useTechnicianCaseAction,
 } from "@/features/cases";
 import { useActiveVehicle } from "@/features/vehicles";
@@ -29,6 +30,7 @@ export function TechnicianDecisionCard({
 }: TechnicianDecisionCardProps) {
   const router = useRouter();
   const action = useTechnicianCaseAction(technician.id);
+  const notifyCase = useNotifyCaseToTechnician();
   const { data: activeVehicle } = useActiveVehicle();
   const primaryLabel =
     action.mode === "open_case" ? "Profili Gör" : action.primaryLabel;
@@ -38,9 +40,25 @@ export function TechnicianDecisionCard({
 
   const route = `/usta/${technician.id}` as Href;
 
-  function handlePrimary() {
+  async function handlePrimary() {
+    if (notifyCase.isPending) return;
     if (action.mode === "open_case") {
       router.push(route);
+      return;
+    }
+    if (action.mode === "notify_case" && action.caseId) {
+      try {
+        await notifyCase.mutateAsync({
+          caseId: action.caseId,
+          technicianId: technician.id,
+        });
+        router.push(action.primaryRoute as Href);
+      } catch {
+        Alert.alert(
+          "Vaka bildirilemedi",
+          "Usta bu vaka için uygun olmayabilir. Birazdan tekrar dene.",
+        );
+      }
       return;
     }
     if (action.attachOnPrimary && action.caseId) {
@@ -168,10 +186,10 @@ export function TechnicianDecisionCard({
           variant={action.disabled ? "outline" : "primary"}
           size="md"
           className={buttonClassName}
-          disabled={action.disabled}
+          disabled={action.disabled || notifyCase.isPending}
           onPress={(event) => {
             event.stopPropagation();
-            handlePrimary();
+            void handlePrimary();
           }}
         />
       </View>

@@ -70,6 +70,7 @@ export function RandevuRequestScreen() {
     ? offers.find((o) => o.id === offerId)
     : offers.find((o) => o.technician_id === technicianId);
   const hasBindingPrice = Boolean(offer);
+  const offerRequired = !offer;
 
   const requestMutation = useCreateAppointment();
   const isInCooldown = useTechnicianCooldownStore((state) =>
@@ -107,7 +108,12 @@ export function RandevuRequestScreen() {
   const allConsents = consent1 && consent2 && consent3;
   const slotSelected = slotKind && (slotKind !== "custom" || customDate !== null);
   const submitEnabled =
-    !cooldownBlocked && allConsents && slotSelected && !!caseId && !!technicianId;
+    !offerRequired &&
+    !cooldownBlocked &&
+    allConsents &&
+    slotSelected &&
+    !!caseId &&
+    !!technicianId;
 
   const priceLabel = offer
     ? formatOfferPrice(offer.amount, offer.currency)
@@ -118,24 +124,25 @@ export function RandevuRequestScreen() {
   const warrantyLabel = offer?.warranty_label ?? "Usta belirleyecek";
 
   const handleSubmit = async () => {
-    if (!submitEnabled || !caseId || !slotKind || !technicianId) return;
+    if (!submitEnabled || !caseId || !slotKind || !technicianId || !offer) return;
     const slot = {
       kind: slotKind,
       dateLabel: slotKind === "custom" ? customLabel ?? null : null,
     };
-    // BE canonical AppointmentRequest (api-validation-hotlist P0-1):
-    // yalnızca case_id/technician_id/slot/note. offer_id/expires_at/source
-    // BE tarafında türetilir; FE göndermez.
     try {
       await requestMutation.mutateAsync({
         case_id: caseId,
         technician_id: technicianId,
+        offer_id: offer.id,
         slot,
         note: "",
       });
       router.replace(`/vaka/${caseId}/surec` as Href);
-    } catch {
-      Alert.alert("Hata", "Randevu talebi gönderilemedi, tekrar dene.");
+    } catch (error) {
+      Alert.alert(
+        "Randevu oluşturulamadı",
+        getAppointmentErrorMessage(error),
+      );
     }
   };
 
@@ -175,6 +182,21 @@ export function RandevuRequestScreen() {
               </Text>
               <Text variant="caption" tone="muted" className="text-app-text-muted">
                 Cooldown süresi geçince tekrar dene veya alternatiflere bak.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {offerRequired ? (
+          <View className="flex-row items-start gap-3 rounded-[18px] border border-app-warning/40 bg-app-warning/10 px-4 py-3">
+            <Icon icon={Info} size={16} color="#f5b33f" />
+            <View className="flex-1 gap-1">
+              <Text variant="label" tone="warning" className="text-[13px]">
+                Randevu için önce teklif gerekir
+              </Text>
+              <Text variant="caption" tone="muted" className="text-app-text-muted">
+                Bu vaka için ustadan teklif geldiğinde randevu ve ödeme adımına
+                geçebilirsin.
               </Text>
             </View>
           </View>
@@ -339,6 +361,10 @@ export function RandevuRequestScreen() {
           <Text variant="caption" tone="muted" className="text-center text-app-text-subtle text-[11px]">
             Randevu zamanı seç · tüm onayları işaretle
           </Text>
+        ) : offerRequired ? (
+          <Text variant="caption" tone="muted" className="text-center text-app-text-subtle text-[11px]">
+            Teklif olmadan randevu oluşturulamaz
+          </Text>
         ) : null}
         <View className="flex-row gap-3">
           <View className="flex-1">
@@ -352,7 +378,7 @@ export function RandevuRequestScreen() {
           </View>
           <View className="flex-[2]">
             <Button
-              label="Randevu Talep Et"
+              label={offerRequired ? "Teklif bekleniyor" : "Randevu Talep Et"}
               size="lg"
               fullWidth
               disabled={!submitEnabled || requestMutation.isPending}
@@ -438,4 +464,26 @@ function formatEtaLabel(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return mins > 0 ? `${hours} sa ${mins} dk` : `${hours} sa`;
+}
+
+function getAppointmentErrorMessage(error: unknown): string {
+  const body = (error as { body?: unknown })?.body;
+  const detail =
+    (error as { detail?: unknown })?.detail ??
+    (body && typeof body === "object"
+      ? (body as { detail?: unknown }).detail
+      : undefined);
+  if (detail && typeof detail === "object") {
+    const type = (detail as { type?: unknown }).type;
+    if (type === "offer_required_for_appointment") {
+      return "Randevu için önce bu ustadan gelen bir teklifi seçmelisin.";
+    }
+    if (type === "direct_appointment_disabled") {
+      return "Teklif olmadan randevu talebi bu akışta kapalı.";
+    }
+    if (type === "offer_not_acceptable") {
+      return "Bu teklif artık randevu için kullanılamıyor.";
+    }
+  }
+  return "Randevu talebi gönderilemedi, tekrar dene.";
 }

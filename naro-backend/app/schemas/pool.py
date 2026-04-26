@@ -33,6 +33,11 @@ class PoolCaseItem(BaseModel):
     location_label: str | None
     created_at: datetime
     estimate_amount: Decimal | None
+    is_matched_to_me: bool = False
+    match_badge: str | None = None
+    match_reason_label: str | None = None
+    is_notified_to_me: bool = False
+    has_offer_from_me: bool = False
 
 
 class PoolCaseDetail(BaseModel):
@@ -53,3 +58,8 @@ class PoolCaseDetail(BaseModel):
     created_at: datetime
     updated_at: datetime
     estimate_amount: Decimal | None
+    is_matched_to_me: bool = False
+    match_badge: str | None = None
+    match_reason_label: str | None = None
+    is_notified_to_me: bool = False
+    has_offer_from_me: bool = False

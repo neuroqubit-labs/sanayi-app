@@ -31,7 +31,7 @@ export function technicianMatchesCaseKind(
 }
 
 export type TechnicianCtaMode =
-  | "ready" // aktif + uyumlu vaka var → Randevu al
+  | "ready" // aktif + uyumlu vaka var → vakayı bildir / teklif bekle
   | "mismatch" // aktif vaka var ama usta uygun değil
   | "no_case"; // aktif vaka yok → önce vaka aç
 
@@ -101,8 +101,9 @@ export function resolveTechnicianCta(opts: {
   return {
     mode: "ready",
     caseId: activeCase.id,
-    primaryLabel: "Randevu al",
-    primaryRoute: `/randevu/${technicianId}?caseId=${activeCase.id}`,
+    primaryLabel: "Vakayı bildir",
+    primaryRoute: `/vaka/${activeCase.id}`,
     primaryDisabled: false,
+    helperText: "Usta teklif gönderirse randevu ve ödeme adımına geçersin.",
   };
 }

@@ -46,7 +46,7 @@ from app.models.offer import CaseOffer, CaseOfferStatus
 from app.models.technician import ProviderType, TechnicianProfile
 from app.models.user import UserRole
 from app.repositories import offer as offer_repo
-from app.services import offer_acceptance, technician_payment_accounts
+from app.services import case_matching, offer_acceptance, technician_payment_accounts
 from app.services.case_events import append_event
 from app.services.pool_matching import KIND_PROVIDER_MAP
 
@@ -248,6 +248,15 @@ async def submit_offer_endpoint(
         offer.slot_proposal = payload.slot_proposal
     offer.slot_is_firm = payload.slot_is_firm
     await db.flush()
+    await case_matching.upsert_match_for_profile(
+        db,
+        case=case,
+        profile=profile,
+        source=case_matching.CaseTechnicianMatchSource.SYSTEM,
+    )
+    await case_matching.mark_notification_offer_created(
+        db, case_id=case.id, technician_user_id=user.id
+    )
 
     # Case henüz matching ise offers_ready'ye geçir (ilk teklifte)
     if case.status == ServiceCaseStatus.MATCHING:

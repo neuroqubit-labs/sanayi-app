@@ -1,7 +1,7 @@
-"""/appointments router — randevu akışı (direct request + counter-offer + approve/decline/cancel).
+"""/appointments router — offer-based randevu akışı.
 
 Faz A brief §4. 7-8 endpoint:
-- POST /appointments                          — customer: direct_request path
+- POST /appointments                          — customer: offer accept path
 - GET  /appointments/case/{id}                — case owner + assigned tech
 - POST /appointments/{id}/approve             — technician
 - POST /appointments/{id}/decline             — technician + reason
@@ -16,11 +16,12 @@ guard'ları uygular. Atomic transition (appointment + case status).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 
 from app.api.v1.deps import (
     CurrentCustomerDep,
@@ -31,18 +32,36 @@ from app.api.v1.deps import (
 from app.models.appointment import (
     Appointment,
     AppointmentSlotKind,
+    AppointmentSource,
     AppointmentStatus,
 )
-from app.models.case import ServiceCase, ServiceCaseStatus
+from app.models.case import ServiceCase, ServiceCaseStatus, ServiceRequestKind
 from app.models.case_audit import CaseEventType, CaseTone
+from app.models.offer import CaseOffer, CaseOfferStatus
 from app.models.user import UserRole
 from app.repositories import appointment as appointment_repo
 from app.schemas.appointment import AppointmentRequest
-from app.services import appointment_flow, technician_payment_accounts
+from app.services import (
+    appointment_flow,
+    offer_acceptance,
+    technician_payment_accounts,
+)
 from app.services.case_events import append_event
 from app.services.case_lifecycle import transition_case_status
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
+
+_APPOINTMENT_TTL = timedelta(hours=48)
+_OFFER_REQUIRED_KINDS = {
+    ServiceRequestKind.ACCIDENT,
+    ServiceRequestKind.BREAKDOWN,
+    ServiceRequestKind.MAINTENANCE,
+}
+_APPOINTABLE_OFFER_STATUSES = {
+    CaseOfferStatus.PENDING,
+    CaseOfferStatus.SHORTLISTED,
+    CaseOfferStatus.ACCEPTED,
+}
 
 
 # ─── Pydantic schemas ───────────────────────────────────────────────────────
@@ -88,9 +107,9 @@ class AppointmentResponse(BaseModel):
     "",
     response_model=AppointmentResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Direct randevu talebi (müşteri → teknisyen, offer'sız)",
+    summary="Teklif üzerinden randevu talebi (müşteri → teknisyen)",
 )
-async def create_direct_request(
+async def create_appointment_request(
     payload: AppointmentRequest,
     user: CurrentCustomerDep,
     db: DbDep,
@@ -112,6 +131,8 @@ async def create_direct_request(
                 "case_status": case.status.value,
             },
         )
+    offer = await _load_and_validate_appointment_offer(db, case, payload)
+
     # Aktif pending randevu var mı (partial unique benzeri guard)
     existing = await appointment_repo.get_active_for_case(db, case.id)
     if existing is not None:
@@ -123,16 +144,46 @@ async def create_direct_request(
             },
         )
 
+    if offer.status != CaseOfferStatus.ACCEPTED:
+        try:
+            await offer_acceptance.accept_offer(
+                db, offer.id, actor_user_id=user.id
+            )
+        except offer_acceptance.OfferNotFoundError as exc:
+            raise HTTPException(
+                status_code=404, detail={"type": "offer_not_found"}
+            ) from exc
+        except offer_acceptance.OfferNotAcceptableError as exc:
+            raise HTTPException(
+                status_code=410,
+                detail={
+                    "type": "offer_not_acceptable",
+                    "message": str(exc),
+                },
+            ) from exc
+        except offer_acceptance.OfferSlotInvalidError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"type": "offer_slot_invalid", "message": str(exc)},
+            ) from exc
+        await db.refresh(offer)
+
+    firm_appointment = await _get_appointment_for_offer(db, offer.id)
+    if firm_appointment is not None:
+        await db.commit()
+        return AppointmentResponse.model_validate(firm_appointment)
+
     slot_dict = payload.slot.model_dump(mode="json", exclude_none=True)
+    expires_at = payload.expires_at or datetime.now(UTC) + _APPOINTMENT_TTL
     appointment = await appointment_repo.request_appointment(
         db,
         case_id=case.id,
         technician_id=payload.technician_id,
-        offer_id=payload.offer_id,
+        offer_id=offer.id,
         slot=slot_dict,
-        expires_at=payload.expires_at,
+        expires_at=expires_at,
         note=payload.note,
-        source=payload.source,
+        source=AppointmentSource.OFFER_ACCEPT,
     )
     await append_event(
         db,
@@ -155,6 +206,59 @@ async def create_direct_request(
     )
     await db.commit()
     return AppointmentResponse.model_validate(appointment)
+
+
+async def _load_and_validate_appointment_offer(
+    db: DbDep,
+    case: ServiceCase,
+    payload: AppointmentRequest,
+) -> CaseOffer:
+    if case.kind in _OFFER_REQUIRED_KINDS and payload.offer_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "offer_required_for_appointment",
+                "message": "Bakım, arıza ve hasar vakalarında randevu için önce teklif seçilmelidir.",
+            },
+        )
+    if payload.source == AppointmentSource.DIRECT_REQUEST:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "type": "direct_appointment_disabled",
+                "message": "Teklif olmadan randevu talebi bu akışta kapalıdır.",
+            },
+        )
+    if payload.offer_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "offer_required_for_appointment"},
+        )
+
+    offer = await db.get(CaseOffer, payload.offer_id)
+    if offer is None:
+        raise HTTPException(status_code=404, detail={"type": "offer_not_found"})
+    if offer.case_id != case.id or offer.technician_id != payload.technician_id:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "offer_not_valid_for_appointment"},
+        )
+    if offer.status not in _APPOINTABLE_OFFER_STATUSES:
+        raise HTTPException(
+            status_code=410,
+            detail={
+                "type": "offer_not_acceptable",
+                "offer_status": offer.status.value,
+            },
+        )
+    return offer
+
+
+async def _get_appointment_for_offer(
+    db: DbDep, offer_id: UUID
+) -> Appointment | None:
+    stmt = select(Appointment).where(Appointment.offer_id == offer_id).limit(1)
+    return (await db.execute(stmt)).scalar_one_or_none()
 
 
 @router.get(

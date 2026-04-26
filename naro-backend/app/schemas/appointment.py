@@ -26,7 +26,7 @@ class AppointmentRequest(BaseModel):
     offer_id: UUID | None = None
     slot: AppointmentSlot
     note: str = ""
-    expires_at: datetime
+    expires_at: datetime | None = None
     source: AppointmentSource = AppointmentSource.OFFER_ACCEPT
 
 

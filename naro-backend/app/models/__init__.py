@@ -19,13 +19,6 @@ from app.models.billing import (
     PaymentOperation,
     PaymentProvider,
 )
-from app.models.payment import (
-    PaymentAttempt,
-    PaymentMode,
-    PaymentOrder,
-    PaymentState,
-    PaymentSubjectType,
-)
 from app.models.case import (
     CaseOrigin,
     CaseWaitActor,
@@ -58,6 +51,13 @@ from app.models.case_communication import (
     CaseMessageAttachment,
     CaseMessageAuthorRole,
     CaseThread,
+)
+from app.models.case_matching import (
+    CaseTechnicianMatch,
+    CaseTechnicianMatchSource,
+    CaseTechnicianMatchVisibility,
+    CaseTechnicianNotification,
+    CaseTechnicianNotificationStatus,
 )
 from app.models.case_process import (
     CaseActor,
@@ -93,6 +93,13 @@ from app.models.insurance_claim import (
 )
 from app.models.media import MediaAsset
 from app.models.offer import CaseOffer, CaseOfferKind, CaseOfferStatus
+from app.models.payment import (
+    PaymentAttempt,
+    PaymentMode,
+    PaymentOrder,
+    PaymentState,
+    PaymentSubjectType,
+)
 from app.models.review import Review
 from app.models.taxonomy import (
     BrandTier,
@@ -119,6 +126,11 @@ from app.models.technician import (
     TechnicianTowEquipmentLink,
     TechnicianVerifiedLevel,
 )
+from app.models.technician_payment import (
+    TechnicianPaymentAccount,
+    TechnicianPaymentAccountStatus,
+    TechnicianPaymentLegalType,
+)
 from app.models.technician_signal import (
     TechnicianBrandCoverage,
     TechnicianCapacity,
@@ -130,11 +142,6 @@ from app.models.technician_signal import (
     TechnicianServiceDomain,
     TechnicianWorkingDistrict,
     TechnicianWorkingSchedule,
-)
-from app.models.technician_payment import (
-    TechnicianPaymentAccount,
-    TechnicianPaymentAccountStatus,
-    TechnicianPaymentLegalType,
 )
 from app.models.tow import (
     TowCancellation,
@@ -209,6 +216,11 @@ __all__ = [
     "CaseTaskKind",
     "CaseTaskStatus",
     "CaseTaskUrgency",
+    "CaseTechnicianMatch",
+    "CaseTechnicianMatchSource",
+    "CaseTechnicianMatchVisibility",
+    "CaseTechnicianNotification",
+    "CaseTechnicianNotificationStatus",
     "CaseThread",
     "CaseTone",
     "CaseWaitActor",
@@ -221,9 +233,9 @@ __all__ = [
     "MediaAsset",
     "OtpChannel",
     "OtpCode",
+    "PaymentAttempt",
     "PaymentIdempotency",
     "PaymentIdempotencyState",
-    "PaymentAttempt",
     "PaymentMode",
     "PaymentOperation",
     "PaymentOrder",
@@ -252,10 +264,10 @@ __all__ = [
     "TechnicianCertificateStatus",
     "TechnicianDrivetrainCoverage",
     "TechnicianGalleryItem",
-    "TechnicianPerformanceSnapshot",
     "TechnicianPaymentAccount",
     "TechnicianPaymentAccountStatus",
     "TechnicianPaymentLegalType",
+    "TechnicianPerformanceSnapshot",
     "TechnicianProcedure",
     "TechnicianProcedureTag",
     "TechnicianProfile",

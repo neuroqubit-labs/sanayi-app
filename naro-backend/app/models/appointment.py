@@ -37,9 +37,9 @@ class AppointmentStatus(StrEnum):
 class AppointmentSource(StrEnum):
     """App-level; DB'de CHECK constraint ile enforce."""
 
-    OFFER_ACCEPT = "offer_accept"       # Müşteri firm teklifi kabul etti → auto-randevu (Kural 4)
-    DIRECT_REQUEST = "direct_request"   # Müşteri teklif olmadan randevu talep (Kural 2)
-    COUNTER = "counter"                 # Usta counter-offer sonrası oluşan randevu (Kural 5)
+    OFFER_ACCEPT = "offer_accept"       # Müşteri teklif seçti → randevu akışı
+    DIRECT_REQUEST = "direct_request"   # Legacy compat; aktif üründe rejected
+    COUNTER = "counter"                 # Usta counter-offer sonrası randevu
 
 
 class Appointment(UUIDPkMixin, TimestampMixin, Base):

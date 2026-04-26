@@ -140,11 +140,8 @@ export function CaseComposerScreen() {
     (missingRequiredAttachments.length > 0
       ? `${missingRequiredAttachments[0]!.label} eksik.`
       : null);
-  const canFastTrackToAppointment = Boolean(
-    technicianId &&
-    preferredTechnician &&
-    preferredTechnician.availability === "available" &&
-    !isTechnicianInCooldown,
+  const canNotifyPreferredTechnician = Boolean(
+    technicianId && preferredTechnician && !isTechnicianInCooldown,
   );
   const compactShell = flow.progressVariant === "bar-thin";
   // Compact shell body zaten adım başlığını taşıyor — shell description boş geçilir,
@@ -367,11 +364,7 @@ export function CaseComposerScreen() {
     const createdCase = await submitMutation.mutateAsync();
     bypassDraftGuardRef.current = true;
     resetDraft();
-    const nextRoute =
-      technicianId && canFastTrackToAppointment
-        ? `/randevu/${technicianId}?caseId=${createdCase.id}`
-        : `/vaka/${createdCase.id}`;
-    router.replace(nextRoute as Href);
+    router.replace(`/vaka/${createdCase.id}` as Href);
   }
 
   const handleClose = () => {
@@ -441,9 +434,9 @@ export function CaseComposerScreen() {
                 ? validationMessage
                 : isLastStep
                   ? preferredTechnician
-                    ? canFastTrackToAppointment
-                      ? `${preferredTechnician.name} için vaka açılır; müsait olduğu için sonraki adımda randevuya geçersin.`
-                      : `${preferredTechnician.name} için vaka açılır; şu an hızlı randevu yerine önce vaka detayında ilerlersin.`
+                    ? canNotifyPreferredTechnician
+                      ? `${preferredTechnician.name} için vaka açılır; teklif geldiğinde randevuya geçersin.`
+                      : `${preferredTechnician.name} için vaka açılır; teklif süreci vaka detayında ilerler.`
                     : "Gönderdiğinde hasar havuzuna düşer ve ustalar tekliflerini gönderir."
                   : "Adımı tamamladıkça bildirim netleşir."
             }

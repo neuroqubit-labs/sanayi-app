@@ -1,10 +1,13 @@
 """Workflow blueprint seed — case create'de milestone+task setini otomatik doldur.
 
-4 blueprint constant'ı ([case_process.CaseWorkflowBlueprint]):
+7 blueprint constant'ı ([case_process.CaseWorkflowBlueprint]):
 - damage_insured: intake → insurance → approval → repair → delivery
 - damage_uninsured: intake → diagnosis → approval → repair → delivery
 - maintenance_standard: intake → scope → service → quality → delivery
 - maintenance_major: intake → scope → service → quality → delivery
+- breakdown_standard: intake → diagnosis → approval → repair → delivery
+- towing_immediate: payment → dispatch → pickup → transit → delivery
+- towing_scheduled: scheduled → payment → dispatch → pickup → delivery
 
 Mobil [packages/mobile-core/src/tracking/engine.ts::buildMilestones] ile
 birebir template mirror'ı. Task listesi başlangıçta sadece intake
@@ -145,6 +148,72 @@ BLUEPRINT_TEMPLATES: dict[CaseWorkflowBlueprint, _BlueprintDef] = {
                 "urgency": CaseTaskUrgency.SOON,
                 "cta_label": "Teklifleri aç",
                 "helper_label": "Havuzdan gelen teklifleri takip et.",
+            },
+        ],
+    },
+    CaseWorkflowBlueprint.BREAKDOWN_STANDARD: {
+        "milestones": [
+            {"key": "intake", "title": "Arıza kaydı", "description": "Arıza belirtileri ve ilk değerlendirme.", "actor": CaseActor.SYSTEM},
+            {"key": "diagnosis", "title": "Teşhis", "description": "Usta arızayı inceler ve kapsamı netleştirir.", "actor": CaseActor.TECHNICIAN},
+            {"key": "approval", "title": "Kapsam onayı", "description": "Onarım kapsamı ve final fatura onayı.", "actor": CaseActor.CUSTOMER},
+            {"key": "repair", "title": "Onarım", "description": "Arıza giderilir ve süreç güncellenir.", "actor": CaseActor.TECHNICIAN},
+            {"key": "delivery", "title": "Teslim", "description": "Araç teslim edilir ve vaka kapanır.", "actor": CaseActor.TECHNICIAN},
+        ],
+        "initial_tasks": [
+            {
+                "milestone_key": "intake",
+                "kind": CaseTaskKind.REVIEW_OFFERS,
+                "title": "Teklifleri incele",
+                "description": "Arıza için gelen teklifleri karşılaştır.",
+                "actor": CaseActor.CUSTOMER,
+                "status": CaseTaskStatus.ACTIVE,
+                "urgency": CaseTaskUrgency.SOON,
+                "cta_label": "Teklifleri aç",
+                "helper_label": "Uygun usta teklif verdiğinde randevuya geç.",
+            },
+        ],
+    },
+    CaseWorkflowBlueprint.TOWING_IMMEDIATE: {
+        "milestones": [
+            {"key": "payment", "title": "Ödeme güvencesi", "description": "Ön provizyon tamamlanınca çekici aranır.", "actor": CaseActor.CUSTOMER},
+            {"key": "dispatch", "title": "Çekici aranıyor", "description": "Uygun çekici canlı olarak eşleştirilir.", "actor": CaseActor.SYSTEM},
+            {"key": "pickup", "title": "Alım", "description": "Çekici aracın yanına gelir ve aracı yükler.", "actor": CaseActor.TECHNICIAN},
+            {"key": "transit", "title": "Yolda", "description": "Araç teslim noktasına götürülür.", "actor": CaseActor.TECHNICIAN},
+            {"key": "delivery", "title": "Teslim", "description": "Araç teslim edilir ve ücret netleşir.", "actor": CaseActor.TECHNICIAN},
+        ],
+        "initial_tasks": [
+            {
+                "milestone_key": "payment",
+                "kind": CaseTaskKind.REVIEW_PROGRESS,
+                "title": "Ödeme adımını tamamla",
+                "description": "Ön provizyon alınmadan canlı çekici araması başlamaz.",
+                "actor": CaseActor.CUSTOMER,
+                "status": CaseTaskStatus.ACTIVE,
+                "urgency": CaseTaskUrgency.NOW,
+                "cta_label": "Ödemeye geç",
+                "helper_label": "Ücret teslimde gerçek tutara göre netleşir.",
+            },
+        ],
+    },
+    CaseWorkflowBlueprint.TOWING_SCHEDULED: {
+        "milestones": [
+            {"key": "scheduled", "title": "Planlandı", "description": "Ödeme zamanı yaklaşınca bilgilendirileceksin.", "actor": CaseActor.SYSTEM},
+            {"key": "payment", "title": "Ödeme güvencesi", "description": "Randevuya yakın ön provizyon alınır.", "actor": CaseActor.CUSTOMER},
+            {"key": "dispatch", "title": "Çekici atanıyor", "description": "Zamanı geldiğinde çekici canlı olarak eşleştirilir.", "actor": CaseActor.SYSTEM},
+            {"key": "pickup", "title": "Alım", "description": "Çekici aracın yanına gelir ve aracı yükler.", "actor": CaseActor.TECHNICIAN},
+            {"key": "delivery", "title": "Teslim", "description": "Araç teslim edilir ve ücret netleşir.", "actor": CaseActor.TECHNICIAN},
+        ],
+        "initial_tasks": [
+            {
+                "milestone_key": "scheduled",
+                "kind": CaseTaskKind.REVIEW_PROGRESS,
+                "title": "Planlı çekici zamanı bekleniyor",
+                "description": "Ödeme penceresi açıldığında işlem devam eder.",
+                "actor": CaseActor.SYSTEM,
+                "status": CaseTaskStatus.ACTIVE,
+                "urgency": CaseTaskUrgency.BACKGROUND,
+                "cta_label": "Detayı aç",
+                "helper_label": "Planlı çekici havuz/teklif akışına düşmez.",
             },
         ],
     },

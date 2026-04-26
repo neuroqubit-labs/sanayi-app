@@ -20,12 +20,13 @@ import {
 } from "lucide-react-native";
 import { useEffect, useRef } from "react";
 import {
+  Alert,
   ActivityIndicator,
   Pressable,
   View,
 } from "react-native";
 
-import { useMyCasesLive } from "@/features/cases/api";
+import { useMyCasesLive, useNotifyCaseToTechnician } from "@/features/cases/api";
 
 import { useTechnicianPublicView } from "../api";
 import { useUstaPreviewStore } from "../preview-store";
@@ -64,6 +65,7 @@ export function UstaPreviewSheet() {
     isError,
   } = useTechnicianPublicView(technicianId ?? "");
   const { data: myCases } = useMyCasesLive();
+  const notifyCase = useNotifyCaseToTechnician();
 
   const isOpen = Boolean(technicianId);
   const routeKeyAtOpen = useRef<string | null>(null);
@@ -114,8 +116,22 @@ export function UstaPreviewSheet() {
       })
     : null;
 
-  const handlePrimary = () => {
+  const handlePrimary = async () => {
     if (!cta || cta.primaryDisabled || !cta.primaryRoute) return;
+    if (cta.mode === "ready" && cta.caseId && technicianId) {
+      try {
+        await notifyCase.mutateAsync({
+          caseId: cta.caseId,
+          technicianId,
+        });
+      } catch {
+        Alert.alert(
+          "Vaka bildirilemedi",
+          "Usta bu vaka için uygun olmayabilir. Birazdan tekrar dene.",
+        );
+        return;
+      }
+    }
     close();
     router.push(cta.primaryRoute as Href);
   };
@@ -154,7 +170,10 @@ export function UstaPreviewSheet() {
             profile={profile}
             onOpenFull={openFullProfile}
             cta={cta}
-            onPrimary={handlePrimary}
+            primaryPending={notifyCase.isPending}
+            onPrimary={() => {
+              void handlePrimary();
+            }}
           />
         )}
       </ActionSheetSurface>
@@ -166,6 +185,7 @@ type PreviewContentProps = {
   profile: TechnicianPublicView;
   onOpenFull: () => void;
   cta: TechnicianCta | null;
+  primaryPending: boolean;
   onPrimary: () => void;
 };
 
@@ -173,6 +193,7 @@ function PreviewContent({
   profile,
   onOpenFull,
   cta,
+  primaryPending,
   onPrimary,
 }: PreviewContentProps) {
   const { colors } = useNaroTheme();
@@ -368,7 +389,7 @@ function PreviewContent({
           }
           size="lg"
           fullWidth
-          disabled={!cta || cta.primaryDisabled}
+          disabled={!cta || cta.primaryDisabled || primaryPending}
           variant={
             !cta || cta.primaryDisabled
               ? "surface"

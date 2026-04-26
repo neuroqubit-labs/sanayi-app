@@ -146,8 +146,8 @@ _WAIT_STATE_MAP: dict[
     ),
     ServiceCaseStatus.PARTS_APPROVAL: (
         CaseWaitActor.CUSTOMER,
-        "Parça talebi onayı",
-        "Usta ek parça talep etti",
+        "Parça/kapsam onayı",
+        "Usta parça veya kapsam değişikliği için onay istedi",
     ),
     ServiceCaseStatus.INVOICE_APPROVAL: (
         CaseWaitActor.CUSTOMER,

@@ -47,6 +47,7 @@ from app.schemas.service_request import (
     MaintenanceCategory,
     ServiceRequestDraftCreate,
 )
+from app.services import case_matching, workflow_seed
 from app.services.case_events import append_event
 from app.services.maintenance_detail_validator import (
     MaintenanceDetailValidationError,
@@ -303,6 +304,8 @@ async def create_case(
         # Faz 1c — subtype row insert (canonical case architecture)
         # Vehicle snapshot populate (immutable) + kind-specific payload
         await _insert_subtype_row(session, case, draft)
+        await workflow_seed.seed_blueprint(session, case.id, blueprint.value)
+        await case_matching.generate_initial_matches(session, case=case)
 
         if asset_ids:
             await session.execute(

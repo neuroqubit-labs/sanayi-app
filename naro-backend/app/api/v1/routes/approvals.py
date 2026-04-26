@@ -189,6 +189,14 @@ async def request_approval_endpoint(
     case = await _load_case_or_404(db, case_id)
     if case.assigned_technician_id != user.id:
         raise HTTPException(status_code=403, detail={"type": "not_assigned_technician"})
+    if (
+        payload.kind in (CaseApprovalKind.PARTS_REQUEST, CaseApprovalKind.INVOICE)
+        and not (payload.description or "").strip()
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "approval_description_required"},
+        )
 
     try:
         approval = await approval_flow.request_approval(

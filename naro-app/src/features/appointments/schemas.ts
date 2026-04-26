@@ -4,7 +4,7 @@ import { z } from "zod";
  * Appointment canonical schemas — BE app/schemas/appointment.py.
  *
  * Endpoint'ler (customer scope):
- * - POST   /appointments                  (direct request, offer_id opsiyonel)
+ * - POST   /appointments                  (offer-based appointment request)
  * - GET    /appointments/case/{case_id}
  * - POST   /appointments/{id}/cancel      (customer)
  * - POST   /appointments/{id}/confirm-counter
@@ -49,14 +49,15 @@ export type AppointmentSlot = z.infer<typeof AppointmentSlotSchema>;
 // ─── Request bodies ────────────────────────────────────────────────────────
 
 /**
- * Canonical backend AppointmentRequest (api-validation-hotlist 2026-04-23
- * P0-1): yalnızca 4 alan. `offer_id`, `expires_at`, `source` FE tarafından
- * GÖNDERİLMEZ — BE `extra="forbid"` 422 üretir. BE bunları internal olarak
- * türetiyor (offer_id'siz direct_request, TTL default).
+ * Canonical backend AppointmentRequest.
+ * Vaka omurgası refactor: bakım/arıza/hasar randevusu teklif olmadan
+ * oluşturulmaz. FE `offer_id` gönderir; BE `expires_at/source` defaultlarını
+ * güvenli şekilde üretir.
  */
 export const AppointmentRequestPayloadSchema = z.object({
   case_id: z.string().uuid(),
   technician_id: z.string().uuid(),
+  offer_id: z.string().uuid(),
   slot: AppointmentSlotSchema,
   note: z.string().default(""),
 });

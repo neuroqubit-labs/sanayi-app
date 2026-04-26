@@ -146,8 +146,8 @@ export function PartsApprovalSheet({
       dismissible={!submit.isPending && !initiatePayment.isPending}
     >
       <ActionSheetSurface
-        title="Ek parça onayı"
-        description="Usta ek parça talep etti"
+        title="Parça/kapsam onayı"
+        description="Usta parça veya kapsam değişikliği için onay istedi"
       >
         {checkoutUrl ? (
           <View className="h-[520px] gap-3">
@@ -292,7 +292,7 @@ function ApprovalBody({
             <View className="flex-row items-center gap-2">
               <Icon icon={AlertTriangle} size={14} color={colors.warning} />
               <Text variant="eyebrow" tone="warning">
-                Ek tutar
+                Kapsam onayı
               </Text>
             </View>
             <MoneyAmount amount={amount} variant="h2" tone="warning" />

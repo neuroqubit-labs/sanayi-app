@@ -396,7 +396,7 @@ function priceLabel(amount: string | number | null | undefined, currency = "TRY"
 
 function approvalTitle(kind: CaseApproval["kind"], fallback?: string | null) {
   if (fallback?.trim()) return fallback.trim();
-  if (kind === "parts_request") return "Ek parça onayı";
+  if (kind === "parts_request") return "Parça/kapsam onayı";
   if (kind === "invoice") return "Fatura onayı";
   return "Tamamlama onayı";
 }
@@ -1142,10 +1142,10 @@ export function useRequestJobPartsApproval(caseId: string) {
         method: "POST",
         body: JSON.parse(JSON.stringify(approvalPayload({
           kind: "parts_request",
-          title: "Ek parça onayı",
+          title: "Parça/kapsam onayı",
           description:
             input.note?.trim() ||
-            "Servis ek parça veya ek kapsam için müşteri onayı istiyor.",
+            "Servis parça veya kapsam değişikliği için müşteri onayı istiyor.",
           amount,
           service_comment: input.note?.trim() || null,
           line_items: lineItems,
