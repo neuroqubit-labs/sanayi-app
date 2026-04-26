@@ -127,7 +127,6 @@ _KIND_OFFER_CAP: dict[ServiceRequestKind, int] = {
     ServiceRequestKind.ACCIDENT: 5,
     ServiceRequestKind.BREAKDOWN: 7,
     ServiceRequestKind.MAINTENANCE: 10,
-    ServiceRequestKind.TOWING: 5,
 }
 
 
@@ -159,6 +158,11 @@ async def submit_offer_endpoint(
     if case is None or case.deleted_at is not None:
         raise HTTPException(
             status_code=404, detail={"type": "case_not_found"}
+        )
+    if case.kind == ServiceRequestKind.TOWING:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "tow_offer_disabled"},
         )
     if case.status in CASE_TERMINAL or case.status in CASE_SINK:
         raise HTTPException(

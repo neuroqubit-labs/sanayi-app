@@ -15,7 +15,7 @@ from app.models.case_matching import (
     CaseTechnicianMatch,
     CaseTechnicianNotification,
 )
-from app.models.case_process import CaseApproval
+from app.models.case_process import CaseApproval, CaseMilestone, CaseTask
 from app.models.case_subtypes import (
     AccidentCase,
     BreakdownCase,
@@ -37,7 +37,9 @@ from app.schemas.case_dossier import (
     CaseDocumentSummary,
     CaseDossierResponse,
     CaseEvidenceSummary,
+    CaseMilestoneSummary,
     CaseShellSection,
+    CaseTaskSummary,
     CaseWaitState,
     MaintenanceDetail,
     MatchSummary,
@@ -99,6 +101,8 @@ async def assemble_dossier(
     attachments = await _load_attachments(session, case.id)
     evidence = await _load_evidence(session, case.id)
     documents = await _load_documents(session, case.id)
+    milestones = await _load_milestones(session, case.id)
+    tasks = await _load_tasks(session, case.id)
     timeline = await _load_timeline(session, case.id, limit=timeline_limit)
     payment_orders = await _load_payment_orders(session, case.id)
     settlement = await _load_tow_settlement(session, case.id)
@@ -127,6 +131,8 @@ async def assemble_dossier(
         approvals=[_approval_summary(item) for item in approvals],
         payment_snapshot=_payment_snapshot(case, payment_orders),
         tow_snapshot=_tow_snapshot(case, subtype, settlement),
+        milestones=[_milestone_summary(item) for item in milestones],
+        tasks=[_task_summary(item, milestones) for item in tasks],
         timeline_summary=[_timeline_summary(item) for item in timeline],
         viewer=viewer_ctx,
     )
@@ -221,6 +227,26 @@ async def _load_approvals(
         select(CaseApproval)
         .where(CaseApproval.case_id == case_id)
         .order_by(CaseApproval.requested_at.desc(), CaseApproval.id.desc())
+    )
+    return list(rows.scalars().all())
+
+
+async def _load_milestones(
+    session: AsyncSession, case_id: UUID
+) -> list[CaseMilestone]:
+    rows = await session.execute(
+        select(CaseMilestone)
+        .where(CaseMilestone.case_id == case_id)
+        .order_by(CaseMilestone.sequence.asc(), CaseMilestone.id.asc())
+    )
+    return list(rows.scalars().all())
+
+
+async def _load_tasks(session: AsyncSession, case_id: UUID) -> list[CaseTask]:
+    rows = await session.execute(
+        select(CaseTask)
+        .where(CaseTask.case_id == case_id)
+        .order_by(CaseTask.created_at.asc(), CaseTask.id.asc())
     )
     return list(rows.scalars().all())
 
@@ -496,6 +522,35 @@ def _notification_summary(item: CaseTechnicianNotification) -> NotificationSumma
         created_at=item.created_at,
         seen_at=item.seen_at,
         responded_at=item.responded_at,
+    )
+
+
+def _milestone_summary(item: CaseMilestone) -> CaseMilestoneSummary:
+    return CaseMilestoneSummary(
+        id=item.id,
+        milestone_key=item.key,
+        title=item.title,
+        description=item.description,
+        actor=item.actor,
+        status=item.status,
+        order=item.sequence,
+    )
+
+
+def _task_summary(item: CaseTask, milestones: list[CaseMilestone]) -> CaseTaskSummary:
+    milestone_key_by_id = {milestone.id: milestone.key for milestone in milestones}
+    return CaseTaskSummary(
+        id=item.id,
+        task_key=item.kind.value,
+        kind=item.kind,
+        title=item.title,
+        description=item.description,
+        actor=item.actor,
+        status=item.status,
+        urgency=item.urgency,
+        cta_label=item.cta_label,
+        helper_label=item.helper_label,
+        milestone_key=milestone_key_by_id.get(item.milestone_id, item.kind.value),
     )
 
 

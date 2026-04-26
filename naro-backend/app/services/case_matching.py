@@ -20,6 +20,7 @@ from app.models.case_matching import (
     CaseTechnicianNotification,
     CaseTechnicianNotificationStatus,
 )
+from app.models.case_subtypes import TowCase
 from app.models.offer import CaseOffer, CaseOfferStatus
 from app.models.taxonomy import TaxonomyCity, TaxonomyDistrict
 from app.models.technician import ProviderType, TechnicianAvailability, TechnicianProfile
@@ -29,19 +30,6 @@ from app.models.technician_signal import (
     TechnicianWorkingDistrict,
 )
 from app.services.pool_matching import KIND_PROVIDER_MAP, kinds_for_provider
-
-_LOCATION_HINT_KEYS = {
-    "city",
-    "city_code",
-    "district",
-    "district_label",
-    "dropoff_label",
-    "location",
-    "location_label",
-    "pickup_label",
-    "service_city",
-    "service_district",
-}
 
 
 def technician_matches_case_kind(
@@ -166,6 +154,7 @@ async def notify_case_to_technician(
         case_id=case.id,
         technician_user_id=technician_user_id,
     )
+    match_id = match.id if match else None
     stmt = (
         insert(CaseTechnicianNotification)
         .values(
@@ -173,7 +162,7 @@ async def notify_case_to_technician(
             customer_user_id=customer_user_id,
             technician_user_id=technician_user_id,
             technician_profile_id=profile.id,
-            match_id=match.id,
+            match_id=match_id,
             status=CaseTechnicianNotificationStatus.SENT,
             note=note,
         )
@@ -182,7 +171,7 @@ async def notify_case_to_technician(
             set_={
                 "customer_user_id": customer_user_id,
                 "technician_profile_id": profile.id,
-                "match_id": match.id,
+                "match_id": match_id,
                 "status": CaseTechnicianNotificationStatus.SENT,
                 "note": note,
                 "updated_at": datetime.now(UTC),
@@ -359,7 +348,10 @@ async def _area_reason_codes(
     if area is None:
         return []
 
-    location_text = _case_location_text(case)
+    subtype: object | None = None
+    if case.kind == ServiceRequestKind.TOWING:
+        subtype = await session.get(TowCase, case.id)
+    location_text = _case_location_text(case, subtype=subtype)
     if not location_text:
         return ["service_area_configured"]
 
@@ -399,32 +391,16 @@ async def _area_reason_codes(
     return reasons or ["service_area_configured"]
 
 
-def _case_location_text(case: ServiceCase) -> str:
+def _case_location_text(case: ServiceCase, *, subtype: object | None = None) -> str:
     values: list[str] = []
     if case.location_label:
         values.append(case.location_label)
-    request_draft = case.request_draft if isinstance(case.request_draft, dict) else {}
-    for key, value in request_draft.items():
-        if key not in _LOCATION_HINT_KEYS:
-            continue
-        values.extend(_extract_location_strings(value))
+    if isinstance(subtype, TowCase):
+        if subtype.pickup_address:
+            values.append(subtype.pickup_address)
+        if subtype.dropoff_address:
+            values.append(subtype.dropoff_address)
     return _normalize_text(" ".join(values))
-
-
-def _extract_location_strings(value: object) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, dict):
-        result: list[str] = []
-        for nested_value in value.values():
-            result.extend(_extract_location_strings(nested_value))
-        return result
-    if isinstance(value, (list, tuple)):
-        result: list[str] = []
-        for nested_value in value:
-            result.extend(_extract_location_strings(nested_value))
-        return result
-    return []
 
 
 def _matches_any_location_candidate(

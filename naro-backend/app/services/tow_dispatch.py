@@ -3,7 +3,8 @@
 Blocking loop yok. Senkron ilk aday SQL scoring + optimistic lock; timeout/decline
 sonrası ARQ job `dispatch_attempt_timeout` tetiği (10f).
 
-Radius fallback: 10 → 25 → 50 km. 3 deneme tükenince pool conversion opsiyonu.
+Radius fallback: 10 → 25 → 50 km. 3 deneme tükenince kullanıcı retry'a
+alınır; V1 dispatch akışı havuz/teklif moduna dönmez.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from app.models.case import (
     TowEquipment,
     TowMode,
 )
-from app.models.case_audit import CaseEventType
+from app.models.case_audit import CaseEventType, CaseTone
 from app.models.case_subtypes import TowCase
 from app.models.tow import TowDispatchResponse
 from app.repositories import tow as tow_repo
@@ -30,7 +31,7 @@ from app.services import tow_presence
 from app.services.case_events import append_event
 
 DISPATCH_RADIUS_LADDER_KM: tuple[int, ...] = (10, 25, 50)
-MAX_ATTEMPTS_BEFORE_POOL = 3
+MAX_ATTEMPTS_BEFORE_NO_CANDIDATE = 3
 
 
 class ConcurrentOfferError(Exception):
@@ -38,7 +39,7 @@ class ConcurrentOfferError(Exception):
 
 
 class NoCandidateFoundError(Exception):
-    """Radius ladder exhausted; convert-to-pool eligible."""
+    """Radius ladder exhausted; no immediate candidate is available."""
 
 
 @dataclass(slots=True)
@@ -88,9 +89,9 @@ async def record_dispatch_response(
     rejection_reason: str | None = None,
     redis: Redis | None = None,
 ) -> DispatchDecision | None:
-    """Accept → stage='accepted'. Decline/timeout → next candidate or pool.
+    """Accept → stage='accepted'. Decline/timeout → next candidate or retry state.
 
-    None döner → radius ladder tükendi, pool'a dönüştürme gerekli.
+    None döner → radius ladder tükendi veya teklif kabul edildi.
     """
     attempt = await tow_repo.record_response(
         session, attempt_id, response, rejection_reason
@@ -113,8 +114,8 @@ async def record_dispatch_response(
     await tow_repo.release_technician_offer(session, attempt.technician_id)
     excluded = await tow_repo.list_attempt_technicians(session, case.id)
     next_order = attempt.attempt_order + 1
-    if next_order > MAX_ATTEMPTS_BEFORE_POOL:
-        await _transition_to_pool_offered(session, case, tow_case, actor_user_id)
+    if next_order > MAX_ATTEMPTS_BEFORE_NO_CANDIDATE:
+        await transition_to_no_candidate_found(session, case, tow_case, actor_user_id)
         return None
     try:
         return await _attempt_next_candidate(
@@ -126,7 +127,7 @@ async def record_dispatch_response(
             redis=redis,
         )
     except NoCandidateFoundError:
-        await _transition_to_pool_offered(session, case, tow_case, actor_user_id)
+        await transition_to_no_candidate_found(session, case, tow_case, actor_user_id)
         return None
 
 
@@ -281,7 +282,7 @@ async def _transition_to_accepted(
     )
 
 
-async def _transition_to_pool_offered(
+async def transition_to_no_candidate_found(
     session: AsyncSession,
     case: ServiceCase,
     tow_case: TowCase,
@@ -291,20 +292,26 @@ async def _transition_to_pool_offered(
         session,
         case_id=case.id,
         from_stage=TowDispatchStage.SEARCHING,
-        to_stage=TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL,
+        to_stage=TowDispatchStage.NO_CANDIDATE_FOUND,
     )
     if not moved:
+        if tow_case.tow_stage == TowDispatchStage.NO_CANDIDATE_FOUND:
+            return
         return
-    tow_case.tow_stage = TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL
+    tow_case.tow_stage = TowDispatchStage.NO_CANDIDATE_FOUND
+    from app.services import tow_lifecycle
+
+    tow_lifecycle.sync_case_status(case, TowDispatchStage.NO_CANDIDATE_FOUND)
     await append_event(
         session,
         case_id=case.id,
         event_type=CaseEventType.TOW_STAGE_COMMITTED,
-        title="Acil eşleştirme başarısız — havuza dönüştürme teklifi",
+        title="Aday çekici bulunamadı",
+        tone=CaseTone.WARNING,
         actor_user_id=actor_user_id,
         context={
             "from_stage": TowDispatchStage.SEARCHING.value,
-            "to_stage": TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL.value,
+            "to_stage": TowDispatchStage.NO_CANDIDATE_FOUND.value,
         },
     )
 
@@ -328,7 +335,11 @@ def compute_cancellation_fee(
 ) -> Decimal:
     """Spec §2 K-4: 0 → 75 → 300 → full. Scheduled farklı bucket."""
     if mode == TowMode.IMMEDIATE:
-        if stage in (TowDispatchStage.PAYMENT_REQUIRED, TowDispatchStage.SEARCHING):
+        if stage in (
+            TowDispatchStage.PAYMENT_REQUIRED,
+            TowDispatchStage.SEARCHING,
+            TowDispatchStage.NO_CANDIDATE_FOUND,
+        ):
             return Decimal("0")
         if stage in (
             TowDispatchStage.ACCEPTED,
@@ -342,7 +353,11 @@ def compute_cancellation_fee(
             return locked_price or Decimal("-1")  # -1 → "full fare"
         return Decimal("0")
     # scheduled
-    if stage in (TowDispatchStage.BIDDING_OPEN, TowDispatchStage.SCHEDULED_WAITING):
+    if stage in (
+        TowDispatchStage.BIDDING_OPEN,
+        TowDispatchStage.SCHEDULED_WAITING,
+        TowDispatchStage.NO_CANDIDATE_FOUND,
+    ):
         return Decimal("0")
     if stage in (TowDispatchStage.ACCEPTED, TowDispatchStage.EN_ROUTE):
         return Decimal("150")

@@ -147,7 +147,7 @@ def test_kind_offer_cap_matrix() -> None:
     assert _KIND_OFFER_CAP[ServiceRequestKind.ACCIDENT] == 5
     assert _KIND_OFFER_CAP[ServiceRequestKind.BREAKDOWN] == 7
     assert _KIND_OFFER_CAP[ServiceRequestKind.MAINTENANCE] == 10
-    assert _KIND_OFFER_CAP[ServiceRequestKind.TOWING] == 5
+    assert ServiceRequestKind.TOWING not in _KIND_OFFER_CAP
 
 
 # ─── AppointmentRequest ────────────────────────────────────────────────────

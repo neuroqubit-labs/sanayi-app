@@ -31,9 +31,14 @@ from app.models.case_matching import (
     CaseTechnicianNotificationStatus,
 )
 from app.models.case_process import (
+    CaseActor,
     CaseApprovalKind,
     CaseApprovalPaymentState,
     CaseApprovalStatus,
+    CaseMilestoneStatus,
+    CaseTaskKind,
+    CaseTaskStatus,
+    CaseTaskUrgency,
 )
 from app.models.offer import CaseOfferStatus
 
@@ -241,6 +246,30 @@ class TowSnapshot(BaseModel):
     captured_amount: Decimal | None = None
 
 
+class CaseMilestoneSummary(BaseModel):
+    id: UUID
+    milestone_key: str
+    title: str
+    description: str | None = None
+    actor: CaseActor
+    status: CaseMilestoneStatus
+    order: int
+
+
+class CaseTaskSummary(BaseModel):
+    id: UUID
+    task_key: str
+    kind: CaseTaskKind
+    title: str
+    description: str | None = None
+    actor: CaseActor
+    status: CaseTaskStatus
+    urgency: CaseTaskUrgency
+    cta_label: str
+    helper_label: str | None = None
+    milestone_key: str
+
+
 class TimelineEventSummary(BaseModel):
     id: UUID
     event_type: CaseEventType
@@ -282,5 +311,7 @@ class CaseDossierResponse(BaseModel):
     approvals: list[ApprovalSummary] = Field(default_factory=list)
     payment_snapshot: PaymentSnapshot
     tow_snapshot: TowSnapshot | None = None
+    milestones: list[CaseMilestoneSummary] = Field(default_factory=list)
+    tasks: list[CaseTaskSummary] = Field(default_factory=list)
     timeline_summary: list[TimelineEventSummary] = Field(default_factory=list)
     viewer: ViewerContext

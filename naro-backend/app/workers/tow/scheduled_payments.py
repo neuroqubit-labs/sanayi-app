@@ -125,6 +125,6 @@ async def _start_scheduled_dispatch(
     try:
         await tow_dispatch.initiate_dispatch(session, case, tow_case, redis=None)
     except tow_dispatch.NoCandidateFoundError:
-        await tow_dispatch._transition_to_pool_offered(
+        await tow_dispatch.transition_to_no_candidate_found(
             session, case, tow_case, case.customer_user_id
         )

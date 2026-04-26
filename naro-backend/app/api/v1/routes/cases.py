@@ -17,6 +17,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 
 from app.api.v1.deps import (
     CurrentTechnicianDep,
@@ -36,6 +37,10 @@ from app.models.case import (
 from app.models.case_artifact import CaseAttachmentKind
 from app.models.case_audit import CaseEventType, CaseTone
 from app.models.case_matching import CaseTechnicianNotificationStatus
+from app.models.case_public_showcase import (
+    CasePublicShowcase,
+    CasePublicShowcaseStatus,
+)
 from app.models.case_subtypes import (
     AccidentCase,
     BreakdownCase,
@@ -56,7 +61,13 @@ from app.schemas.case_document import (
 from app.schemas.case_process import CaseEvidenceItemResponse
 from app.schemas.case_thread import CaseNotesPayload
 from app.schemas.service_request import ServiceRequestDraftCreate
-from app.services import approval_flow, case_create, case_documents, case_matching
+from app.services import (
+    approval_flow,
+    case_create,
+    case_documents,
+    case_matching,
+    case_public_showcases,
+)
 from app.services import evidence as evidence_service
 from app.services.case_events import append_event
 
@@ -116,6 +127,24 @@ class CaseNextAction(BaseModel):
     label: str | None = None
     description: str | None = None
     waiting_on_me: bool = False
+
+
+class CustomerShowcaseRevokePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class CustomerShowcaseItem(BaseModel):
+    id: UUID
+    case_id: UUID
+    kind: str
+    status: CasePublicShowcaseStatus
+    title: str
+    summary: str
+    month_label: str | None = None
+    location_label: str | None = None
+    rating: int | None = None
 
 
 class CaseDetailResponse(CaseSummaryResponse):
@@ -300,6 +329,71 @@ async def get_case_endpoint(
         wait_state_description=case.wait_state_description,
         estimate_amount=case.estimate_amount,
         assigned_technician_id=case.assigned_technician_id,
+    )
+
+
+@router.post(
+    "/{case_id}/showcase/revoke",
+    response_model=CustomerShowcaseItem,
+    summary="Müşteri public vitrin iznini geri çeker",
+)
+async def revoke_case_showcase(
+    case_id: UUID,
+    payload: CustomerShowcaseRevokePayload,
+    user: CustomerDep,
+    db: DbDep,
+) -> CustomerShowcaseItem:
+    case = await case_repo.get_case(db, case_id)
+    if (
+        case is None
+        or case.deleted_at is not None
+        or case.customer_user_id != user.id
+    ):
+        raise HTTPException(status_code=404, detail={"type": "case_not_found"})
+    showcase = (
+        await db.execute(
+            select(CasePublicShowcase).where(
+                CasePublicShowcase.case_id == case.id,
+                CasePublicShowcase.customer_user_id == user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if showcase is None:
+        raise HTTPException(
+            status_code=404, detail={"type": "showcase_not_found"}
+        )
+    showcase = await case_public_showcases.revoke_for_actor(
+        db, showcase=showcase, actor="customer"
+    )
+    await append_event(
+        db,
+        case_id=case.id,
+        event_type=CaseEventType.STATUS_UPDATE,
+        title="Vitrin izni geri çekildi",
+        tone=CaseTone.WARNING,
+        actor_user_id=user.id,
+        context={"reason": payload.reason} if payload.reason else {},
+    )
+    await db.commit()
+    snapshot = dict(showcase.public_snapshot or {})
+    return CustomerShowcaseItem(
+        id=showcase.id,
+        case_id=showcase.case_id,
+        kind=showcase.kind.value,
+        status=showcase.status,
+        title=str(
+            case_public_showcases.snapshot_value(snapshot, "title")
+            or showcase.kind.value
+        ),
+        summary=str(
+            case_public_showcases.snapshot_value(snapshot, "summary")
+            or "Vaka özeti"
+        ),
+        month_label=case_public_showcases.snapshot_value(snapshot, "month_label"),
+        location_label=case_public_showcases.snapshot_value(
+            snapshot, "location_label"
+        ),
+        rating=case_public_showcases.snapshot_value(snapshot, "rating"),
     )
 
 

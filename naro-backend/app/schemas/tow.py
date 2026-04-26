@@ -55,6 +55,7 @@ class TowDispatchStageSchema(StrEnum):
     IN_TRANSIT = "in_transit"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    NO_CANDIDATE_FOUND = "no_candidate_found"
     TIMEOUT_CONVERTED_TO_POOL = "timeout_converted_to_pool"
     SCHEDULED_WAITING = "scheduled_waiting"
     BIDDING_OPEN = "bidding_open"
@@ -84,6 +85,10 @@ _STAGE_META: dict[TowDispatchStageSchema, tuple[str, str]] = {
     ),
     TowDispatchStageSchema.SEARCHING: (
         "Çekici aranıyor",
+        "dispatch",
+    ),
+    TowDispatchStageSchema.NO_CANDIDATE_FOUND: (
+        "Aday çekici bulunamadı",
         "dispatch",
     ),
     TowDispatchStageSchema.TIMEOUT_CONVERTED_TO_POOL: (

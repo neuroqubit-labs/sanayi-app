@@ -17,13 +17,15 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import text as _text
 
 from app.db.session import AsyncSessionLocal
-from app.models.case import TowDispatchStage, TowMode
+from app.models.case import ServiceCaseStatus, TowDispatchStage, TowMode
+from app.models.tow import TowDispatchResponse
 from app.repositories import tow as tow_repo
 from app.services.tow_dispatch import (
     compute_cancellation_fee,
@@ -103,6 +105,24 @@ def test_cancellation_fee_scheduled_buckets() -> None:
         TowDispatchStage.ARRIVED,
         locked_price=Decimal("2000"),
     ) == Decimal("2000")
+
+
+def test_cancellation_fee_no_candidate_found_is_zero() -> None:
+    assert compute_cancellation_fee(
+        TowMode.IMMEDIATE, TowDispatchStage.NO_CANDIDATE_FOUND
+    ) == Decimal("0")
+    assert compute_cancellation_fee(
+        TowMode.SCHEDULED, TowDispatchStage.NO_CANDIDATE_FOUND
+    ) == Decimal("0")
+
+
+def test_no_candidate_found_stage_contract_and_migration_value() -> None:
+    migration = (
+        "alembic/versions/20260426_0046_tow_no_candidate_found.py"
+    )
+    assert TowDispatchStage.NO_CANDIDATE_FOUND.value == "no_candidate_found"
+    with open(migration, encoding="utf-8") as migration_file:
+        assert "no_candidate_found" in migration_file.read()
 
 
 @pytest.mark.asyncio
@@ -203,6 +223,82 @@ async def test_initiate_dispatch_falls_back_when_redis_empty(monkeypatch) -> Non
 
     assert decision.technician_id == tech_id
     assert captured["candidate_ids"] is None
+
+
+@pytest.mark.asyncio
+async def test_transition_to_no_candidate_found_keeps_case_retryable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import tow_dispatch as dispatch_svc
+
+    async def fake_update_tow_stage_with_lock(*_args, **_kwargs):
+        return True
+
+    async def fake_append_event(*_args, **_kwargs):
+        return SimpleNamespace(id=uuid4())
+
+    monkeypatch.setattr(
+        dispatch_svc.tow_repo,
+        "update_tow_stage_with_lock",
+        fake_update_tow_stage_with_lock,
+    )
+    monkeypatch.setattr(dispatch_svc, "append_event", fake_append_event)
+
+    case = SimpleNamespace(id=uuid4(), status=ServiceCaseStatus.MATCHING)
+    tow_case = SimpleNamespace(tow_stage=TowDispatchStage.SEARCHING)
+
+    await dispatch_svc.transition_to_no_candidate_found(
+        object(), case, tow_case, uuid4()
+    )
+
+    assert tow_case.tow_stage == TowDispatchStage.NO_CANDIDATE_FOUND
+    assert case.status == ServiceCaseStatus.MATCHING
+
+
+@pytest.mark.asyncio
+async def test_decline_after_three_dispatch_attempts_moves_to_no_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import tow_dispatch as dispatch_svc
+
+    case = SimpleNamespace(id=uuid4())
+    tow_case = SimpleNamespace(tow_stage=TowDispatchStage.SEARCHING)
+    transition = AsyncMock(return_value=None)
+
+    async def fake_record_response(*_args, **_kwargs):
+        return SimpleNamespace(
+            technician_id=uuid4(),
+            attempt_order=3,
+        )
+
+    async def fake_release(*_args, **_kwargs):
+        return None
+
+    async def fake_list_attempts(*_args, **_kwargs):
+        return [uuid4(), uuid4(), uuid4()]
+
+    monkeypatch.setattr(dispatch_svc.tow_repo, "record_response", fake_record_response)
+    monkeypatch.setattr(
+        dispatch_svc.tow_repo, "release_technician_offer", fake_release
+    )
+    monkeypatch.setattr(
+        dispatch_svc.tow_repo, "list_attempt_technicians", fake_list_attempts
+    )
+    monkeypatch.setattr(
+        dispatch_svc, "transition_to_no_candidate_found", transition
+    )
+
+    decision = await dispatch_svc.record_dispatch_response(
+        object(),
+        case=case,
+        tow_case=tow_case,
+        attempt_id=uuid4(),
+        response=TowDispatchResponse.DECLINED,
+        actor_user_id=uuid4(),
+    )
+
+    assert decision is None
+    transition.assert_awaited_once()
 
 
 # ─── DB integration helpers (raw SQL to bypass pre-existing SAEnum bug) ─────

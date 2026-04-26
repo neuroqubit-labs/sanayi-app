@@ -25,15 +25,22 @@ from app.models.case_matching import (
     CaseTechnicianNotificationStatus,
 )
 from app.models.case_process import (
+    CaseActor,
     CaseApprovalKind,
     CaseApprovalPaymentState,
     CaseApprovalStatus,
+    CaseMilestoneStatus,
+    CaseTaskKind,
+    CaseTaskStatus,
+    CaseTaskUrgency,
 )
 from app.models.offer import CaseOfferStatus
 from app.schemas.case_dossier import (
     AppointmentSummary,
     CaseDossierResponse,
+    CaseMilestoneSummary,
     CaseShellSection,
+    CaseTaskSummary,
     CaseWaitState,
     MaintenanceDetail,
     MatchSummary,
@@ -106,6 +113,34 @@ def _timeline(
     )
 
 
+def _milestone() -> CaseMilestoneSummary:
+    return CaseMilestoneSummary(
+        id=uuid4(),
+        milestone_key="diagnosis",
+        title="Tespit",
+        description="Araç kontrol edilir.",
+        actor=CaseActor.TECHNICIAN,
+        status=CaseMilestoneStatus.ACTIVE,
+        order=20,
+    )
+
+
+def _task(*, milestone_key: str = "diagnosis") -> CaseTaskSummary:
+    return CaseTaskSummary(
+        id=uuid4(),
+        task_key=CaseTaskKind.SHARE_STATUS_UPDATE.value,
+        kind=CaseTaskKind.SHARE_STATUS_UPDATE,
+        title="Durum paylaş",
+        description="Müşteriye süreç bilgisini ilet.",
+        actor=CaseActor.TECHNICIAN,
+        status=CaseTaskStatus.ACTIVE,
+        urgency=CaseTaskUrgency.NOW,
+        cta_label="Güncelle",
+        helper_label="Kısa bir durum notu paylaş.",
+        milestone_key=milestone_key,
+    )
+
+
 def _dossier(
     *,
     role: ViewerRole,
@@ -117,6 +152,8 @@ def _dossier(
     matches: list[MatchSummary] | None = None,
     offers: list[OfferSummary] | None = None,
     timeline: list[TimelineEventSummary] | None = None,
+    milestones: list[CaseMilestoneSummary] | None = None,
+    tasks: list[CaseTaskSummary] | None = None,
 ) -> CaseDossierResponse:
     if kind == ServiceRequestKind.TOWING:
         kind_detail = TowingDetail(
@@ -195,6 +232,8 @@ def _dossier(
         ],
         payment_snapshot=PaymentSnapshot(estimate_amount=Decimal("1000.00")),
         tow_snapshot=tow_snapshot,
+        milestones=milestones or [],
+        tasks=tasks or [],
         timeline_summary=timeline or [],
         viewer=ViewerContext(role=role, has_offer_from_me=False),
     )
@@ -549,3 +588,35 @@ def test_pool_timeline_filter_only_allowed_events() -> None:
         CaseEventType.STATUS_UPDATE,
     ]
     assert redacted.timeline_summary[0].actor_user_id is None
+
+
+def test_dossier_response_can_carry_milestones_and_tasks() -> None:
+    milestone = _milestone()
+    task = _task(milestone_key=milestone.milestone_key)
+    dossier = _dossier(
+        role=ViewerRole.CUSTOMER,
+        viewer_user_id=uuid4(),
+        milestones=[milestone],
+        tasks=[task],
+    )
+
+    assert dossier.milestones[0].milestone_key == "diagnosis"
+    assert dossier.tasks[0].task_key == CaseTaskKind.SHARE_STATUS_UPDATE.value
+    assert dossier.tasks[0].milestone_key == "diagnosis"
+
+
+def test_pool_technician_keeps_milestones_but_tasks_are_hidden() -> None:
+    viewer = uuid4()
+    milestone = _milestone()
+    task = _task(milestone_key=milestone.milestone_key)
+    dossier = _dossier(
+        role=ViewerRole.POOL_TECHNICIAN,
+        viewer_user_id=viewer,
+        milestones=[milestone],
+        tasks=[task],
+    )
+
+    redacted = redact_dossier_for_viewer(dossier, viewer_user_id=viewer)
+
+    assert redacted.milestones == [milestone]
+    assert redacted.tasks == []

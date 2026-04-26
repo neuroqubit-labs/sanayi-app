@@ -41,6 +41,7 @@ _ALLOWED: dict[TowDispatchStage, frozenset[TowDispatchStage]] = {
     }),
     TowDispatchStage.SEARCHING: frozenset({
         TowDispatchStage.ACCEPTED,
+        TowDispatchStage.NO_CANDIDATE_FOUND,
         TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL,
         TowDispatchStage.CANCELLED,
         TowDispatchStage.PREAUTH_FAILED,
@@ -84,6 +85,10 @@ _ALLOWED: dict[TowDispatchStage, frozenset[TowDispatchStage]] = {
     }),
     TowDispatchStage.TIMEOUT_CONVERTED_TO_POOL: frozenset({
         TowDispatchStage.SCHEDULED_WAITING,
+        TowDispatchStage.CANCELLED,
+    }),
+    TowDispatchStage.NO_CANDIDATE_FOUND: frozenset({
+        TowDispatchStage.SEARCHING,
         TowDispatchStage.CANCELLED,
     }),
     TowDispatchStage.PREAUTH_STALE: frozenset({
@@ -303,6 +308,7 @@ def _sync_case_status(case: ServiceCase, stage: TowDispatchStage) -> None:
     if stage in {
         TowDispatchStage.SEARCHING,
         TowDispatchStage.PAYMENT_REQUIRED,
+        TowDispatchStage.NO_CANDIDATE_FOUND,
         TowDispatchStage.BIDDING_OPEN,
         TowDispatchStage.SCHEDULED_WAITING,
     }:

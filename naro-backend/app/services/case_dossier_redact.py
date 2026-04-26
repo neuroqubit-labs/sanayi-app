@@ -117,6 +117,7 @@ def _redact_pool_technician(
         for notification in dossier.notifications
         if notification.technician_user_id == viewer_user_id
     ]
+    dossier.tasks = []
 
     avg, count = compute_competitor_offer_average(
         dossier.offers, viewer_user_id=viewer_user_id

@@ -64,6 +64,8 @@ class TowDispatchStage(StrEnum):
     IN_TRANSIT = "in_transit"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    NO_CANDIDATE_FOUND = "no_candidate_found"
+    # Legacy/future offer-market states; V1 dispatch does not enter these.
     TIMEOUT_CONVERTED_TO_POOL = "timeout_converted_to_pool"
     SCHEDULED_WAITING = "scheduled_waiting"
     BIDDING_OPEN = "bidding_open"

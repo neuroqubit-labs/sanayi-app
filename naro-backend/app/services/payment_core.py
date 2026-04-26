@@ -864,7 +864,7 @@ async def _mark_tow_preauth_held(
     try:
         await tow_dispatch.initiate_dispatch(session, case, tow_case, redis=redis)
     except tow_dispatch.NoCandidateFoundError:
-        await tow_dispatch._transition_to_pool_offered(
+        await tow_dispatch.transition_to_no_candidate_found(
             session, case, tow_case, case.customer_user_id
         )
 
