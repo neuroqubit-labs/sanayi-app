@@ -1,3 +1,4 @@
+import { useCaseDossier } from "@naro/mobile-core";
 import {
   ActionSheetSurface,
   Avatar,
@@ -8,7 +9,6 @@ import {
   useNaroTheme,
   withAlphaHex,
 } from "@naro/ui";
-import { useCaseDossier } from "@naro/mobile-core";
 import { type Href, useRouter, useSegments } from "expo-router";
 import {
   CheckCircle2,

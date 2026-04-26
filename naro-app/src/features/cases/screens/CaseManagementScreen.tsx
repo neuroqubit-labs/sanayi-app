@@ -4,7 +4,6 @@ import {
   Button,
   Icon,
   Text,
-  TrustBadge,
   VehicleContextBar,
 } from "@naro/ui";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
@@ -38,10 +37,6 @@ import { AddAttachmentSheet } from "../components/AddAttachmentSheet";
 import { EditCaseNotesSheet } from "../components/EditCaseNotesSheet";
 import { SubtypeDetailCard } from "../components/SubtypeDetailCard";
 import { VehicleSnapshotCard } from "../components/VehicleSnapshotCard";
-import { useCanonicalCase } from "../hooks/useCanonicalCase";
-import { getCaseKindLabel } from "../presentation";
-
-// Extracted Management Components
 import { ManagementApprovalsSection } from "../components/management/ManagementApprovalsSection";
 import { MessagesPreviewSection, OffersPreviewSection } from "../components/management/ManagementContactSections";
 import { ManagementDocumentsSection } from "../components/management/ManagementDocumentsSection";
@@ -51,6 +46,7 @@ import { ManagementMatchingSection } from "../components/management/ManagementMa
 import { ManagementNotesSection } from "../components/management/ManagementNotesSection";
 import { ManagementProcessBridge } from "../components/management/ManagementProcessBridge";
 import { ManagementTowingSection } from "../components/management/ManagementTowingSection";
+import { useCanonicalCase } from "../hooks/useCanonicalCase";
 
 const INACTIVE_STATUSES = new Set<string>(["completed", "archived", "cancelled"]);
 

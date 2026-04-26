@@ -10,6 +10,7 @@ import {
     type LucideIcon,
 } from "lucide-react-native";
 import { Pressable, ScrollView, View } from "react-native";
+
 import { openMediaAsset } from "@/shared/media/openAsset";
 
 const ATTACHMENT_ICON: Record<string, LucideIcon> = {

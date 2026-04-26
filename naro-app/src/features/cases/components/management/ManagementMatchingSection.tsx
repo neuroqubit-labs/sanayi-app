@@ -1,6 +1,6 @@
 import { Button, Icon, Surface, Text } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
-import { Sparkles, Clock } from "lucide-react-native";
+import { Clock, Sparkles } from "lucide-react-native";
 import { View } from "react-native";
 
 interface ManagementMatchingSectionProps {
@@ -33,7 +33,7 @@ export function ManagementMatchingSection({
             </View>
             <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
                 {isMatching
-                    ? "Uygun ustalar senin için taranıyor. Çarşı'dan manuel de seçebilirsin."
+                    ? "Uygun ustalar bu vaka üzerinden hazırlanıyor. Bildirim ve teklifler vaka profilinde ilerler."
                     : "Teklifleri karşılaştır ve uygun olanıyla randevu al."}
             </Text>
             {!isMatching ? (
@@ -45,9 +45,11 @@ export function ManagementMatchingSection({
                 />
             ) : (
                 <Button
-                    label="Usta ara"
+                    label="Vaka profilini aç"
                     variant="outline"
-                    onPress={() => router.push("/(tabs)/carsi" as Href)}
+                    onPress={() =>
+                        router.push(`/(modal)/vaka-profili/${caseId}` as Href)
+                    }
                 />
             )}
         </Surface>

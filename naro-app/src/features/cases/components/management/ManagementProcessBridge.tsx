@@ -1,9 +1,10 @@
+import type { ServiceCaseStatus } from "@naro/domain";
 import { Icon, Text } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import { ChevronRight, Hourglass, Sparkles } from "lucide-react-native";
 import { Pressable, View } from "react-native";
+
 import { getCaseStatusLabel } from "../../presentation";
-import type { ServiceCaseStatus } from "@naro/domain";
 
 interface ManagementProcessBridgeProps {
     caseId: string;

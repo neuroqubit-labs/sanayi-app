@@ -225,7 +225,7 @@ function VehicleHeroCard({
     : null;
 
   return (
-    <View className="overflow-hidden rounded-[24px] border border-brand-500/20 bg-gradient-to-br from-brand-500/10 to-brand-500/5">
+    <View className="overflow-hidden rounded-[24px] border border-brand-500/20 bg-brand-500/10">
       {/* Top: araç icon + plaka hero */}
       <View className="flex-row items-center gap-4 px-5 pb-3 pt-5">
         <View className="h-14 w-14 items-center justify-center rounded-[18px] border border-brand-500/30 bg-brand-500/15">
@@ -348,9 +348,7 @@ function MatchCard({
     typeof match.score === "number"
       ? match.score
       : Number.parseFloat(match.score);
-  const scorePercent = Number.isFinite(scoreNum)
-    ? Math.round(scoreNum * 100)
-    : null;
+  const scorePercent = Number.isFinite(scoreNum) ? Math.round(scoreNum) : null;
 
   return (
     <View className="gap-2 rounded-[20px] border border-app-success/25 bg-app-success-soft px-4 py-3.5">

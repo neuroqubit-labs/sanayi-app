@@ -11,7 +11,6 @@ interface ManagementTowingSectionProps {
 }
 
 export function ManagementTowingSection({
-    caseId,
     linkedTowCaseIds,
     towEntryRoute,
     isActive,

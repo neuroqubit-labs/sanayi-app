@@ -1,7 +1,8 @@
+import type { ServiceCaseStatus, ServiceRequestKind } from "@naro/domain";
 import { StatusChip, Surface, Text, TrustBadge } from "@naro/ui";
 import { View } from "react-native";
+
 import { getCaseKindLabel, getCaseStatusLabel, getCaseStatusTone } from "../../presentation";
-import type { ServiceCaseStatus, ServiceRequestKind } from "@naro/domain";
 
 interface ManagementHeaderProps {
     kind: ServiceRequestKind;

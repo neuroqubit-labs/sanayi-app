@@ -1,3 +1,4 @@
+import { formatPhoneDisplay } from "@naro/mobile-core";
 import {
   Avatar,
   Button,
@@ -28,7 +29,6 @@ import { useMyCasesLive } from "@/features/cases/api";
 import { useUnreadNotificationCount } from "@/features/notifications";
 import { useMe } from "@/features/user";
 import { useVehicles, useVehicleStore } from "@/features/vehicles";
-import { formatPhoneDisplay } from "@naro/mobile-core";
 import { telemetry } from "@/runtime";
 import { useAuthStore } from "@/services/auth/store";
 

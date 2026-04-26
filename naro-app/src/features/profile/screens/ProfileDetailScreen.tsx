@@ -1,3 +1,4 @@
+import { formatPhoneDisplay } from "@naro/mobile-core";
 import {
   BackButton,
   Button,
@@ -29,7 +30,6 @@ import { Alert, Pressable, Switch, View } from "react-native";
 
 import { useNotificationPreferencesStore } from "@/features/notifications";
 import { useMe, useUpdateMe } from "@/features/user";
-import { formatPhoneDisplay } from "@naro/mobile-core";
 
 import { EditFieldSheet } from "../components/EditFieldSheet";
 import {

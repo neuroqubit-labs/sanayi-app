@@ -22,12 +22,13 @@ import {
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { getMissingRequiredAttachmentCategories } from "../caseCreationContract";
+
 import { CategoryTile } from "./components/CategoryTile";
 import { ComposerSection } from "./components/ComposerSection";
 import { EvidenceStepCard } from "./components/EvidenceStepCard";
 import { LocationPicker } from "./components/LocationPicker";
 import { QuestionDispatcher } from "./components/questionFields";
-import { getMissingRequiredAttachmentCategories } from "../caseCreationContract";
 import {
   MAINTENANCE_CATEGORY_LABEL,
   MAINTENANCE_PACKAGE_CATEGORIES,

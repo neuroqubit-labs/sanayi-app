@@ -14,13 +14,13 @@ import { AlertTriangle, Clock3, MessageCircle } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 
-import { useThreeDSFlow } from "@/features/billing/hooks";
 import {
   useCaseApprovals,
   useDecideApproval,
   useInitiateApprovalPayment,
 } from "@/features/approvals";
 import type { ApprovalResponse } from "@/features/approvals";
+import { useThreeDSFlow } from "@/features/billing/hooks";
 
 function parseDecimal(value: string | null | undefined): number | null {
   if (!value) return null;
