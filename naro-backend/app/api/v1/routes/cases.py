@@ -385,9 +385,10 @@ async def notify_technician_for_case(
         case_id=case.id,
         technician_id=payload.technician_id,
         status=notification.status,
-        match_badge=str(item.get("match_badge") or "Bu vakaya uygun"),
+        match_badge=str(item.get("match_badge") or "Ustaya bildirildi"),
         match_reason_label=str(
-            item.get("match_reason_label") or "Müşteri bu vakayı bildirdi"
+            item.get("match_reason_label")
+            or "Usta teklif gönderirse randevuya geçebilirsin"
         ),
     )
 

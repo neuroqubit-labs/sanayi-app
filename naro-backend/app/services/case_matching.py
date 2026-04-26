@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -19,9 +21,27 @@ from app.models.case_matching import (
     CaseTechnicianNotificationStatus,
 )
 from app.models.offer import CaseOffer, CaseOfferStatus
+from app.models.taxonomy import TaxonomyCity, TaxonomyDistrict
 from app.models.technician import ProviderType, TechnicianAvailability, TechnicianProfile
-from app.models.technician_signal import TechnicianServiceArea, TechnicianServiceDomain
+from app.models.technician_signal import (
+    TechnicianServiceArea,
+    TechnicianServiceDomain,
+    TechnicianWorkingDistrict,
+)
 from app.services.pool_matching import KIND_PROVIDER_MAP, kinds_for_provider
+
+_LOCATION_HINT_KEYS = {
+    "city",
+    "city_code",
+    "district",
+    "district_label",
+    "dropoff_label",
+    "location",
+    "location_label",
+    "pickup_label",
+    "service_city",
+    "service_district",
+}
 
 
 def technician_matches_case_kind(
@@ -75,7 +95,6 @@ async def upsert_match_for_profile(
                 "score": score,
                 "reason_codes": reason_codes,
                 "reason_label": reason_label,
-                "visibility_state": CaseTechnicianMatchVisibility.CANDIDATE,
                 "source": source,
                 "computed_at": datetime.now(UTC),
                 "invalidated_at": None,
@@ -142,11 +161,10 @@ async def notify_case_to_technician(
     if not profile_matches_case_kind(case.kind, profile):
         raise ValueError("technician_case_kind_mismatch")
 
-    match = await upsert_match_for_profile(
+    match = await get_match_for_technician(
         session,
-        case=case,
-        profile=profile,
-        source=CaseTechnicianMatchSource.CUSTOMER_NOTIFY,
+        case_id=case.id,
+        technician_user_id=technician_user_id,
     )
     stmt = (
         insert(CaseTechnicianNotification)
@@ -192,6 +210,24 @@ async def mark_notification_offer_created(
             responded_at=datetime.now(UTC),
         )
     )
+
+
+async def get_match_for_technician(
+    session: AsyncSession,
+    *,
+    case_id: UUID,
+    technician_user_id: UUID,
+) -> CaseTechnicianMatch | None:
+    stmt = (
+        select(CaseTechnicianMatch)
+        .where(
+            CaseTechnicianMatch.case_id == case_id,
+            CaseTechnicianMatch.technician_user_id == technician_user_id,
+            CaseTechnicianMatch.invalidated_at.is_(None),
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
 
 
 async def context_for_cases(
@@ -278,19 +314,17 @@ async def _score_match(
     score = Decimal("0.00")
     reason_codes: list[str] = []
     if profile_matches_case_kind(case.kind, profile):
-        score += Decimal("50.00")
+        score += Decimal("45.00")
         reason_codes.append("provider_type")
     if profile.availability != TechnicianAvailability.OFFLINE:
-        score += Decimal("15.00")
+        score += Decimal("10.00")
         reason_codes.append("availability")
-    has_area = await session.scalar(
-        select(TechnicianServiceArea.profile_id)
-        .where(TechnicianServiceArea.profile_id == profile.id)
-        .limit(1)
-    )
-    if has_area:
-        score += Decimal("15.00")
-        reason_codes.append("service_area")
+    area_reason_codes = await _area_reason_codes(session, case, profile)
+    if "city_match" in area_reason_codes:
+        score += Decimal("20.00")
+    if "district_match" in area_reason_codes:
+        score += Decimal("10.00")
+    reason_codes.extend(area_reason_codes)
     has_domain = await session.scalar(
         select(TechnicianServiceDomain.profile_id)
         .where(TechnicianServiceDomain.profile_id == profile.id)
@@ -301,13 +335,111 @@ async def _score_match(
         reason_codes.append("service_domain")
     if not reason_codes:
         reason_codes.append("manual")
+    score = min(score, Decimal("100.00")).quantize(Decimal("0.01"))
     label = _reason_label(reason_codes)
     return score, reason_codes, label
 
 
 def _reason_label(reason_codes: list[str]) -> str:
-    if "provider_type" in reason_codes and "service_area" in reason_codes:
-        return "Bu vaka türüne ve bölgeye uygun"
+    if "provider_type" in reason_codes and "district_match" in reason_codes:
+        return "Bu vaka türüne ve ilçeye uygun"
+    if "provider_type" in reason_codes and "city_match" in reason_codes:
+        return "Bu vaka türüne ve şehre uygun"
     if "provider_type" in reason_codes:
         return "Bu vaka türüne uygun"
     return "Müşteri bu vakayı bildirdi"
+
+
+async def _area_reason_codes(
+    session: AsyncSession,
+    case: ServiceCase,
+    profile: TechnicianProfile,
+) -> list[str]:
+    area = await session.get(TechnicianServiceArea, profile.id)
+    if area is None:
+        return []
+
+    location_text = _case_location_text(case)
+    if not location_text:
+        return ["service_area_configured"]
+
+    reasons: list[str] = []
+    city = await session.get(TaxonomyCity, area.city_code)
+    city_candidates = [area.city_code]
+    if city is not None:
+        city_candidates.append(city.label)
+    if _matches_any_location_candidate(location_text, city_candidates):
+        reasons.append("city_match")
+
+    district_ids: set[UUID] = set()
+    if area.primary_district_id is not None:
+        district_ids.add(area.primary_district_id)
+    district_ids.update(
+        (
+            await session.execute(
+                select(TechnicianWorkingDistrict.district_id).where(
+                    TechnicianWorkingDistrict.profile_id == profile.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if district_ids:
+        districts = (
+            await session.execute(
+                select(TaxonomyDistrict.label).where(
+                    TaxonomyDistrict.district_id.in_(district_ids)
+                )
+            )
+        ).scalars().all()
+        if _matches_any_location_candidate(location_text, list(districts)):
+            reasons.append("district_match")
+
+    return reasons or ["service_area_configured"]
+
+
+def _case_location_text(case: ServiceCase) -> str:
+    values: list[str] = []
+    if case.location_label:
+        values.append(case.location_label)
+    request_draft = case.request_draft if isinstance(case.request_draft, dict) else {}
+    for key, value in request_draft.items():
+        if key not in _LOCATION_HINT_KEYS:
+            continue
+        values.extend(_extract_location_strings(value))
+    return _normalize_text(" ".join(values))
+
+
+def _extract_location_strings(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        result: list[str] = []
+        for nested_value in value.values():
+            result.extend(_extract_location_strings(nested_value))
+        return result
+    if isinstance(value, (list, tuple)):
+        result: list[str] = []
+        for nested_value in value:
+            result.extend(_extract_location_strings(nested_value))
+        return result
+    return []
+
+
+def _matches_any_location_candidate(
+    location_text: str, candidates: list[str | None]
+) -> bool:
+    for candidate in candidates:
+        normalized = _normalize_text(candidate or "")
+        if len(normalized) >= 3 and normalized in location_text:
+            return True
+    return False
+
+
+def _normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    without_marks = "".join(
+        char for char in normalized if not unicodedata.combining(char)
+    )
+    return re.sub(r"\s+", " ", without_marks.casefold()).strip()

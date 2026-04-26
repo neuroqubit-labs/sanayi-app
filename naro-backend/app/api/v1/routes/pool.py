@@ -115,20 +115,16 @@ async def get_pool_feed(
         case_ids=[case.id for case in rows],
         technician_user_id=user.id,
     )
+    items = [
+        PoolCaseItem.model_validate(case).model_copy(
+            update=context.get(case.id, {})
+        )
+        for case in rows
+    ]
     return build_paginated(
-        [
-            PoolCaseItem.model_validate(
-                {
-                    **case.__dict__,
-                    **context.get(case.id, {}),
-                }
-            )
-            for case in rows
-        ],
+        items,
         limit=limit,
-        cursor_fn=lambda item: encode_cursor(
-            id_=item.id, sort_value=item.created_at
-        ),
+        cursor_fn=lambda item: encode_cursor(id_=item.id, sort_value=item.created_at),
     )
 
 

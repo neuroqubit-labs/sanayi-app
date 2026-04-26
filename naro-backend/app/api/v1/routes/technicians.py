@@ -368,7 +368,11 @@ async def get_me_case_notifications(
             match_badge=str(
                 context.get(case.id, {}).get("match_badge") or "Size bildirildi"
             ),
-            match_reason_label=match.reason_label if match else None,
+            match_reason_label=(
+                match.reason_label
+                if match
+                else "Müşteri bu vakayı özellikle bildirdi"
+            ),
             has_offer_from_me=bool(
                 context.get(case.id, {}).get("has_offer_from_me")
             ),

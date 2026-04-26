@@ -55,6 +55,7 @@ class CaseTechnicianMatch(UUIDPkMixin, TimestampMixin, Base):
             name="uq_case_technician_matches_case_tech",
         ),
         CheckConstraint("score >= 0", name="ck_case_technician_matches_score_nonneg"),
+        CheckConstraint("score <= 100", name="ck_case_technician_matches_score_max"),
     )
 
     case_id: Mapped[UUID] = mapped_column(
