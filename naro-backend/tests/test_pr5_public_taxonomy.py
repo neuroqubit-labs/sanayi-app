@@ -163,6 +163,7 @@ _PII_FORBIDDEN_FIELDS = {
 def _sample_public_view() -> TechnicianPublicView:
     return TechnicianPublicView(
         id=uuid4(),
+        user_id=uuid4(),
         display_name="Autopro İstanbul",
         tagline="BMW uzmanı",
         biography="15 yıl deneyim",
