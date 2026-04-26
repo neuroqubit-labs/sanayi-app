@@ -4,6 +4,7 @@ export * from "./vehicle";
 export * from "./job";
 export * from "./media";
 export * from "./approval";
+export * from "./case_dossier";
 export * from "./service-case";
 export * from "./taxonomy";
 export * from "./technician";

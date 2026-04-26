@@ -1,4 +1,5 @@
 export * from "./api";
+export * from "./api/case_dossier";
 export * from "./auth";
 export * from "./bootstrap";
 export * from "./env";
