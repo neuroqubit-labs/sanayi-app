@@ -13,10 +13,10 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.api.v1.router import api_router
-from app.api.v1.routes.cases import CaseEvidencePayload, StatusUpdatePayload
 from app.api.v1.routes import technicians
-from app.models.case_artifact import CaseAttachmentKind
+from app.api.v1.routes.cases import CaseEvidencePayload, StatusUpdatePayload
 from app.models.case import ServiceRequestKind
+from app.models.case_artifact import CaseAttachmentKind
 from app.models.insurance_claim import InsuranceClaimStatus, InsuranceCoverageKind
 from app.schemas.insurance_claim import InsuranceClaimSubmit
 

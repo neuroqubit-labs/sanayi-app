@@ -7,8 +7,8 @@ filtreleme yapmaz.
 
 from __future__ import annotations
 
-import re
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -29,7 +29,6 @@ from app.models.case_public_showcase import (
 from app.models.media import MediaAsset, MediaPurpose, MediaStatus, MediaVisibility
 from app.models.technician import TechnicianProfile
 from app.services.technician_admission import bump_role_config_version
-
 
 logger = logging.getLogger(__name__)
 

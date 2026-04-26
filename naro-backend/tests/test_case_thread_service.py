@@ -14,20 +14,20 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import select, text as _text
+from sqlalchemy import select
+from sqlalchemy import text as _text
 
 from app.db.session import AsyncSessionLocal
 from app.models.case import (
+    CaseOrigin,
     ServiceCase,
     ServiceCaseStatus,
     ServiceRequestKind,
     ServiceRequestUrgency,
-    CaseOrigin,
 )
 from app.models.case_communication import CaseMessage, CaseThread
 from app.models.user import User
 from app.services import case_thread as thread_svc
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────
 
@@ -341,7 +341,8 @@ async def test_soft_deleted_messages_excluded() -> None:
         # Soft delete
         msg = await db.get(CaseMessage, created.id)
         assert msg is not None
-        from datetime import UTC, datetime as _dt
+        from datetime import UTC
+        from datetime import datetime as _dt
 
         msg.deleted_at = _dt.now(UTC)
         await db.commit()

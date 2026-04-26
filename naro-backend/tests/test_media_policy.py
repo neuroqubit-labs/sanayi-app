@@ -9,7 +9,6 @@ from __future__ import annotations
 import pytest
 
 from app.models.media import MediaPurpose, MediaVisibility
-from app.services import media_policy
 from app.services.media_policy import (
     POLICY,
     PolicyViolationError,

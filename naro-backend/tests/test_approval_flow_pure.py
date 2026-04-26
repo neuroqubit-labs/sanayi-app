@@ -11,13 +11,13 @@ from uuid import uuid4
 import pytest
 
 from app.models.case_process import CaseApprovalKind
+from app.services import approval_flow
 from app.services.approval_flow import (
     ApprovalAlreadyActiveError,
     ApprovalNotFoundError,
     ApprovalNotPendingError,
     CompletionGateError,
 )
-from app.services import approval_flow
 
 
 def test_completion_gate_error_carries_missing_context() -> None:

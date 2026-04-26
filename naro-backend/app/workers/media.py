@@ -91,9 +91,11 @@ async def process_media_asset(_: dict[str, object], asset_id: str) -> None:
             asset.exif_stripped_at = datetime.now(UTC)
             asset.status = MediaStatus.READY
             await repo.update(asset)
+            await db.commit()
         except Exception:
             asset.status = MediaStatus.FAILED
             await repo.update(asset)
+            await db.commit()
             raise
 
 

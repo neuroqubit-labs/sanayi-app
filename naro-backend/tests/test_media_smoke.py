@@ -15,6 +15,7 @@ from app.models.media import MediaStatus
 from app.models.user import UserRole
 from app.repositories.media import MediaAssetRepository
 from app.repositories.user import UserRepository
+from app.workers.media import process_media_asset
 
 
 def _auth_headers(token: str) -> dict[str, str]:
@@ -139,10 +140,12 @@ async def test_media_worker_generates_preview_variants() -> None:
         asset = complete_response.json()["asset"]
         assert asset["status"] in {"processing", "ready"}
 
+        await process_media_asset({}, asset["id"])
+
         media_repo = MediaAssetRepository
         stored_asset = None
-        for _ in range(20):
-            await asyncio.sleep(1)
+        for _ in range(10):
+            await asyncio.sleep(0.1)
             async with AsyncSessionLocal() as db:
                 stored_asset = await media_repo(db).get_by_id(UUID(asset["id"]))
                 if (

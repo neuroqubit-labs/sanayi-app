@@ -14,7 +14,6 @@ from app.schemas.case_thread import (
 )
 from app.services.case_thread import detect_disintermediation
 
-
 # ─── Disintermediation regex: telefon + email ────────────────────────────
 
 

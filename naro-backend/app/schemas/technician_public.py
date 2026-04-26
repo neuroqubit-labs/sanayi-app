@@ -16,8 +16,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.media import MediaPurpose
 from app.models.case import ServiceRequestKind
+from app.models.media import MediaPurpose
 from app.models.technician import (
     GalleryItemKind,
     ProviderMode,

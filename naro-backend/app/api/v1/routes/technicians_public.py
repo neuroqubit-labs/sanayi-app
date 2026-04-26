@@ -32,12 +32,12 @@ from app.api.pagination import (
     encode_cursor,
 )
 from app.api.v1.deps import CurrentUserDep, DbDep, RedisDep, SettingsDep
-from app.models.media import MediaAsset, MediaStatus, MediaVisibility
 from app.models.case_public_showcase import (
     CasePublicShowcase,
     CasePublicShowcaseMedia,
     CasePublicShowcaseStatus,
 )
+from app.models.media import MediaAsset, MediaStatus, MediaVisibility
 from app.models.taxonomy import (
     TaxonomyBrand,
     TaxonomyCity,
@@ -69,10 +69,10 @@ from app.schemas.technician_public import (
     LocationSummary,
     OperationsSummary,
     ProofPreviewItem,
+    PublicAbout,
     PublicCaseShowcaseDetail,
     PublicCaseShowcaseMedia,
     PublicCaseShowcasePreview,
-    PublicAbout,
     PublicIdentitySummary,
     PublicMediaAsset,
     TechnicianFeedItem,

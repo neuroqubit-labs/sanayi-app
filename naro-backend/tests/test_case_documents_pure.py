@@ -24,7 +24,6 @@ from app.services.case_documents import (
     classify_document_kind,
 )
 
-
 # ─── Purpose → kind mapping ────────────────────────────────────────────
 
 

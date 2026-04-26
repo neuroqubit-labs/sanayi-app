@@ -22,13 +22,13 @@ from app.api.v1.routes.appointments import (
     AppointmentCounterPayload,
     AppointmentReasonPayload,
 )
-from app.schemas.appointment import AppointmentRequest
 from app.api.v1.routes.offers import (
     _KIND_OFFER_CAP,
     OfferSubmitPayload,
     OfferWithdrawPayload,
 )
 from app.models.case import ServiceRequestKind
+from app.schemas.appointment import AppointmentRequest
 
 # ─── Pagination cursor helpers ─────────────────────────────────────────────
 

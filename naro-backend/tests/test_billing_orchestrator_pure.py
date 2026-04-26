@@ -99,9 +99,11 @@ def test_get_psp_factory_switch(monkeypatch) -> None:  # type: ignore[no-untyped
     from app.core import config as config_mod
     from app.integrations.psp.iyzico import IyzicoPsp
 
-    # Mock path
-    monkeypatch.delenv("PSP_PROVIDER", raising=False)
-    monkeypatch.delenv("IYZICO_API_KEY", raising=False)
+    # Mock path: override .env explicitly so local sandbox keys do not leak
+    # into this pure factory test.
+    monkeypatch.setenv("PSP_PROVIDER", "mock")
+    monkeypatch.setenv("IYZICO_API_KEY", "")
+    monkeypatch.setenv("IYZICO_SECRET_KEY", "")
     config_mod.get_settings.cache_clear()  # type: ignore[attr-defined]
     psp, provider = _get_psp()
     assert isinstance(psp, MockPsp)
