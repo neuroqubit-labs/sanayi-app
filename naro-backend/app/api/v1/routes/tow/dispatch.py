@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -8,9 +9,10 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.v1.deps import DbDep, PspDep, RedisDep, TowTechnicianDep
 from app.core.config import get_settings
+from app.integrations.psp import Psp
 from app.models.case import ServiceCase, ServiceRequestKind, TowDispatchStage
 from app.models.case_subtypes import TowCase
-from app.models.tow import TowDispatchResponse
+from app.models.tow import TowDispatchResponse, TowSettlementStatus
 from app.repositories import tow as tow_repo
 from app.schemas.tow import (
     TowCaseSnapshot,
@@ -27,6 +29,7 @@ from ._guards import _ensure_stage_prerequisites
 from ._presenters import _build_snapshot
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -150,20 +153,44 @@ async def transition_tow_stage(
         ) from exc
 
     if target == TowDispatchStage.DELIVERED:
-        settlement = await tow_repo.get_settlement_by_case(db, case.id)
-        if settlement is not None and settlement.preauth_id is not None:
-            amount = (
-                settlement.quoted_amount
-                or settlement.cap_amount
-                or Decimal("0")
-            )
-            await payment_svc.capture_final(
-                db,
-                case=case,
-                actual_amount=amount,
-                psp=psp,
-                actor_user_id=tech.id,
-            )
+        await _capture_delivered_settlement_if_ready(
+            db,
+            case=case,
+            psp=psp,
+            actor_user_id=tech.id,
+        )
 
     await db.commit()
     return await _build_snapshot(db, case)
+
+
+async def _capture_delivered_settlement_if_ready(
+    db: DbDep,
+    *,
+    case: ServiceCase,
+    psp: Psp,
+    actor_user_id: UUID,
+) -> bool:
+    settlement = await tow_repo.get_settlement_by_case(db, case.id)
+    if settlement is None or settlement.preauth_id is None:
+        logger.info(
+            "tow delivered capture skipped: preauth missing",
+            extra={"case_id": str(case.id)},
+        )
+        return False
+    if settlement.state == TowSettlementStatus.FINAL_CHARGED:
+        logger.info(
+            "tow delivered capture skipped: already charged",
+            extra={"case_id": str(case.id), "settlement_id": str(settlement.id)},
+        )
+        return False
+
+    amount = settlement.quoted_amount or settlement.cap_amount or Decimal("0")
+    await payment_svc.capture_final(
+        db,
+        case=case,
+        actual_amount=amount,
+        psp=psp,
+        actor_user_id=actor_user_id,
+    )
+    return True

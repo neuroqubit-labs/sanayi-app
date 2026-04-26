@@ -36,6 +36,7 @@ from app.api.v1.deps import (
 )
 from app.api.v1.routes.billing import _get_psp
 from app.core.config import get_settings
+from app.domain.terminal_states import CASE_SINK, CASE_TERMINAL
 from app.models.case import ServiceCase
 from app.models.case_process import (
     CaseApproval,
@@ -189,6 +190,11 @@ async def request_approval_endpoint(
     case = await _load_case_or_404(db, case_id)
     if case.assigned_technician_id != user.id:
         raise HTTPException(status_code=403, detail={"type": "not_assigned_technician"})
+    if case.status in CASE_TERMINAL or case.status in CASE_SINK:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "case_terminal", "status": case.status.value},
+        )
     if (
         payload.kind in (CaseApprovalKind.PARTS_REQUEST, CaseApprovalKind.INVOICE)
         and not (payload.description or "").strip()

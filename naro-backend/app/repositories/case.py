@@ -233,7 +233,12 @@ async def list_cases_for_vehicle(
 ) -> list[ServiceCase]:
     stmt = (
         select(ServiceCase)
-        .where(ServiceCase.vehicle_id == vehicle_id)
+        .where(
+            and_(
+                ServiceCase.vehicle_id == vehicle_id,
+                ServiceCase.deleted_at.is_(None),
+            )
+        )
         .order_by(ServiceCase.created_at.desc())
     )
     return list((await session.execute(stmt)).scalars().all())

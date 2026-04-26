@@ -40,6 +40,7 @@ from app.api.v1.deps import (
     CurrentUserDep,
     DbDep,
 )
+from app.domain.terminal_states import CASE_SINK, CASE_TERMINAL
 from app.models.case import ServiceCase, ServiceCaseStatus, ServiceRequestKind
 from app.models.case_audit import CaseEventType, CaseTone
 from app.models.offer import CaseOffer, CaseOfferStatus
@@ -158,6 +159,11 @@ async def submit_offer_endpoint(
     if case is None or case.deleted_at is not None:
         raise HTTPException(
             status_code=404, detail={"type": "case_not_found"}
+        )
+    if case.status in CASE_TERMINAL or case.status in CASE_SINK:
+        raise HTTPException(
+            status_code=422,
+            detail={"type": "case_terminal", "status": case.status.value},
         )
 
     if case.status not in (
