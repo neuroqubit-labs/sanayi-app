@@ -14,13 +14,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case import ServiceCase, ServiceRequestKind
 from app.models.case_matching import (
+    CaseServiceTag,
+    CaseServiceTagSource,
     CaseTechnicianMatch,
     CaseTechnicianMatchSource,
     CaseTechnicianMatchVisibility,
     CaseTechnicianNotification,
     CaseTechnicianNotificationStatus,
 )
-from app.models.case_subtypes import MaintenanceCase, TowCase
+from app.models.case_subtypes import BreakdownCase, MaintenanceCase, TowCase
 from app.models.offer import CaseOffer, CaseOfferStatus
 from app.models.taxonomy import BrandTier, TaxonomyBrand, TaxonomyCity, TaxonomyDistrict
 from app.models.technician import ProviderType, TechnicianAvailability, TechnicianProfile
@@ -28,6 +30,7 @@ from app.models.technician_signal import (
     TechnicianBrandCoverage,
     TechnicianServiceArea,
     TechnicianServiceDomain,
+    TechnicianVehicleKindCoverage,
     TechnicianWorkingDistrict,
 )
 from app.models.vehicle import Vehicle, VehicleKind
@@ -79,11 +82,120 @@ MAINTENANCE_CATEGORY_DOMAINS: dict[str, set[str]] = {
     "package_sale_prep": {"aksesuar", "motor", "kaporta", "cam"},
 }
 
+BREAKDOWN_CATEGORY_DOMAINS: dict[str, set[str]] = {
+    "engine": {"motor"},
+    "electric": {"elektrik", "aku"},
+    "mechanic": {"motor", "fren"},
+    "climate": {"klima", "elektrik"},
+    "transmission": {"sanziman", "motor"},
+    "tire": {"lastik"},
+    "fluid": {"motor"},
+    "other": set(),
+}
 
-def _maintenance_category_domain_keys(category: str | None) -> set[str]:
+SYMPTOM_DOMAIN_KEYWORDS: dict[str, set[str]] = {
+    "aku": {"aku", "elektrik"},
+    "akü": {"aku", "elektrik"},
+    "battery": {"aku", "elektrik"},
+    "elektrik": {"elektrik"},
+    "far": {"elektrik"},
+    "klima": {"klima", "elektrik"},
+    "fren": {"fren"},
+    "lastik": {"lastik"},
+    "motor": {"motor"},
+    "hararet": {"motor"},
+    "sanziman": {"sanziman"},
+    "şanzıman": {"sanziman"},
+}
+
+PACKAGE_MAINTENANCE_CATEGORIES = {
+    "package_summer",
+    "package_winter",
+    "package_new_car",
+    "package_sale_prep",
+}
+
+
+def _maintenance_category_domain_keys(
+    category: str | None,
+    selected_items: list[str] | None = None,
+) -> set[str]:
     if not category:
         return set()
+    if category in PACKAGE_MAINTENANCE_CATEGORIES:
+        domains: set[str] = set()
+        for item in selected_items or []:
+            domains.update(MAINTENANCE_CATEGORY_DOMAINS.get(item, set()))
+        return domains
     return set(MAINTENANCE_CATEGORY_DOMAINS.get(category, set()))
+
+
+def _breakdown_domain_keys(
+    category: str | None,
+    symptoms: str | list[str] | None,
+) -> set[str]:
+    domains = set(BREAKDOWN_CATEGORY_DOMAINS.get(category or "", set()))
+    symptom_values = [symptoms] if isinstance(symptoms, str) else symptoms or []
+    normalized = " ".join(_normalize_text(value) for value in symptom_values)
+    for keyword, keyword_domains in SYMPTOM_DOMAIN_KEYWORDS.items():
+        if _normalize_text(keyword) in normalized:
+            domains.update(keyword_domains)
+    return domains
+
+
+def service_tag_keys_for_draft(draft: object) -> set[str]:
+    kind = getattr(draft, "kind", None)
+    if kind == ServiceRequestKind.MAINTENANCE:
+        category = getattr(getattr(draft, "maintenance_category", None), "value", None)
+        if category is None:
+            category = getattr(draft, "maintenance_category", None)
+        selected_items = list(getattr(draft, "maintenance_items", []) or [])
+        detail = getattr(draft, "maintenance_detail", None)
+        if isinstance(detail, dict):
+            raw_selected = detail.get("selected_items")
+            if isinstance(raw_selected, list):
+                selected_items.extend(
+                    item for item in raw_selected if isinstance(item, str)
+                )
+        return _maintenance_category_domain_keys(category, selected_items)
+    if kind == ServiceRequestKind.BREAKDOWN:
+        category = getattr(getattr(draft, "breakdown_category", None), "value", None)
+        if category is None:
+            category = getattr(draft, "breakdown_category", None)
+        return _breakdown_domain_keys(category, getattr(draft, "symptoms", None))
+    if kind == ServiceRequestKind.ACCIDENT:
+        return {"kaporta", "boya"}
+    return set()
+
+
+async def sync_case_service_tags(
+    session: AsyncSession,
+    *,
+    case_id: UUID,
+    tag_keys: set[str],
+    source: CaseServiceTagSource = CaseServiceTagSource.COMPOSER,
+) -> None:
+    if not tag_keys:
+        return
+    for tag_key in sorted(tag_keys):
+        stmt = (
+            insert(CaseServiceTag)
+            .values(
+                case_id=case_id,
+                tag_key=tag_key,
+                source=source.value,
+                confidence=Decimal("1.00"),
+            )
+            .on_conflict_do_update(
+                index_elements=["case_id", "tag_key"],
+                set_={
+                    "source": source.value,
+                    "confidence": Decimal("1.00"),
+                    "updated_at": datetime.now(UTC),
+                },
+            )
+        )
+        await session.execute(stmt)
 
 
 async def profile_matches_case_scope(
@@ -424,12 +536,34 @@ async def _case_required_domain_keys(
     session: AsyncSession,
     case: ServiceCase,
 ) -> set[str]:
-    if case.kind != ServiceRequestKind.MAINTENANCE:
-        return set()
-    subtype = await session.get(MaintenanceCase, case.id)
-    if subtype is None:
-        return set()
-    return _maintenance_category_domain_keys(subtype.maintenance_category)
+    tag_rows = (
+        await session.execute(
+            select(CaseServiceTag.tag_key).where(CaseServiceTag.case_id == case.id)
+        )
+    ).scalars().all()
+    if tag_rows:
+        return set(tag_rows)
+    if case.kind == ServiceRequestKind.MAINTENANCE:
+        subtype = await session.get(MaintenanceCase, case.id)
+        if subtype is None:
+            return set()
+        selected_items: list[str] = []
+        detail = subtype.maintenance_detail
+        if isinstance(detail, dict):
+            raw_selected = detail.get("selected_items")
+            if isinstance(raw_selected, list):
+                selected_items = [
+                    item for item in raw_selected if isinstance(item, str)
+                ]
+        return _maintenance_category_domain_keys(
+            subtype.maintenance_category, selected_items
+        )
+    if case.kind == ServiceRequestKind.BREAKDOWN:
+        subtype = await session.get(BreakdownCase, case.id)
+        if subtype is None:
+            return set()
+        return _breakdown_domain_keys(subtype.breakdown_category, subtype.symptoms)
+    return set()
 
 
 async def _vehicle_kind_matches_profile(
@@ -441,6 +575,15 @@ async def _vehicle_kind_matches_profile(
     vehicle = await session.get(Vehicle, case.vehicle_id)
     if vehicle is None or vehicle.vehicle_kind is None:
         return True
+    explicit_coverage = (
+        await session.execute(
+            select(TechnicianVehicleKindCoverage.vehicle_kind).where(
+                TechnicianVehicleKindCoverage.profile_id == profile.id
+            )
+        )
+    ).scalars().all()
+    if explicit_coverage:
+        return vehicle.vehicle_kind in set(explicit_coverage)
     if vehicle.vehicle_kind != VehicleKind.MOTOSIKLET:
         return True
     motorcycle_brand = await session.scalar(

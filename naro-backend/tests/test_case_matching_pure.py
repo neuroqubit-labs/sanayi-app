@@ -8,14 +8,18 @@ from app.models.case import ServiceRequestKind
 from app.models.case_matching import CaseTechnicianNotificationStatus
 from app.models.case_subtypes import TowCase
 from app.models.technician import ProviderType
+from app.models.vehicle import Vehicle, VehicleKind
 from app.services.case_matching import (
     MAX_CUSTOMER_NOTIFICATIONS_PER_CASE,
+    _breakdown_domain_keys,
     _case_location_text,
     _maintenance_category_domain_keys,
     _matches_any_location_candidate,
     _normalize_text,
     _reason_label,
+    _vehicle_kind_matches_profile,
     notify_case_to_technician,
+    service_tag_keys_for_draft,
     technician_matches_case_kind,
 )
 
@@ -73,6 +77,28 @@ def test_maintenance_category_domain_keys_are_specific() -> None:
         "elektrik",
     }
     assert "elektrik" not in _maintenance_category_domain_keys("glass_film")
+    assert _maintenance_category_domain_keys("package_summer") == set()
+    assert _maintenance_category_domain_keys("package_summer", ["glass_film"]) == {
+        "cam"
+    }
+
+
+def test_service_tag_keys_for_draft_use_typed_maintenance_items() -> None:
+    draft = SimpleNamespace(
+        kind=ServiceRequestKind.MAINTENANCE,
+        maintenance_category="package_summer",
+        maintenance_items=["glass_film"],
+        maintenance_detail={"selected_items": ["tire"]},
+    )
+
+    assert service_tag_keys_for_draft(draft) == {"cam", "lastik"}
+
+
+def test_breakdown_tags_use_category_and_symptoms() -> None:
+    assert _breakdown_domain_keys("electric", ["Akü bitmiş gibi"]) == {
+        "aku",
+        "elektrik",
+    }
 
 
 @pytest.mark.asyncio
@@ -155,6 +181,36 @@ async def test_notify_case_to_technician_allows_notification_without_match(
 
     assert notification.match_id is None
     assert notification.status == CaseTechnicianNotificationStatus.SENT
+
+
+@pytest.mark.asyncio
+async def test_vehicle_kind_coverage_blocks_motorcycle_for_auto_only_profile() -> None:
+    profile_id = uuid4()
+    case_id = uuid4()
+
+    class ExecuteResult:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return [VehicleKind.OTOMOBIL]
+
+    class FakeSession:
+        async def get(self, model, _id):
+            if model is Vehicle:
+                return SimpleNamespace(vehicle_kind=VehicleKind.MOTOSIKLET)
+            return None
+
+        async def execute(self, _stmt):
+            return ExecuteResult()
+
+    matches = await _vehicle_kind_matches_profile(
+        FakeSession(),
+        case=SimpleNamespace(id=case_id, vehicle_id=uuid4()),
+        profile=SimpleNamespace(id=profile_id),
+    )
+
+    assert matches is False
 
 
 @pytest.mark.asyncio

@@ -44,6 +44,43 @@ class CaseTechnicianNotificationStatus(StrEnum):
     EXPIRED = "expired"
 
 
+class CaseServiceTagSource(StrEnum):
+    COMPOSER = "composer"
+    SYSTEM = "system"
+
+
+class CaseServiceTag(UUIDPkMixin, TimestampMixin, Base):
+    """Typed service need extracted from the case composer.
+
+    This is the matching input read model. `request_draft` remains audit
+    snapshot only; matching reads these tags or typed subtype rows.
+    """
+
+    __tablename__ = "case_service_tags"
+    __table_args__ = (
+        UniqueConstraint("case_id", "tag_key", name="uq_case_service_tags_case_tag"),
+        CheckConstraint(
+            "confidence >= 0 AND confidence <= 1",
+            name="ck_case_service_tags_confidence",
+        ),
+        CheckConstraint(
+            "source IN ('composer','system')",
+            name="ck_case_service_tags_source",
+        ),
+    )
+
+    case_id: Mapped[UUID] = mapped_column(
+        ForeignKey("service_cases.id", ondelete="CASCADE"), nullable=False
+    )
+    tag_key: Mapped[str] = mapped_column(String(60), nullable=False)
+    source: Mapped[str] = mapped_column(
+        String(16), nullable=False, default=CaseServiceTagSource.COMPOSER.value
+    )
+    confidence: Mapped[Decimal] = mapped_column(
+        Numeric(3, 2), nullable=False, default=Decimal("1.00"), server_default="1.00"
+    )
+
+
 class CaseTechnicianMatch(UUIDPkMixin, TimestampMixin, Base):
     """System-computed "this technician fits this case" read model."""
 

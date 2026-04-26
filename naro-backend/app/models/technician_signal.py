@@ -30,6 +30,8 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, UUIDPkMixin
+from app.db.enums import pg_enum
+from app.models.vehicle import VehicleKind
 
 # ─── Usta × taxonomy many-to-many ─────────────────────────────────────────
 
@@ -117,6 +119,23 @@ class TechnicianBrandCoverage(Base):
         Boolean, nullable=False, default=False, server_default="false"
     )
     notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default="now()", nullable=False
+    )
+
+
+class TechnicianVehicleKindCoverage(Base):
+    __tablename__ = "technician_vehicle_kind_coverage"
+
+    profile_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("technician_profiles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    vehicle_kind: Mapped[VehicleKind] = mapped_column(
+        pg_enum(VehicleKind, name="vehicle_kind", create_type=False),
+        primary_key=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default="now()", nullable=False
     )

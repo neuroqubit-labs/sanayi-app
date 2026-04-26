@@ -304,6 +304,11 @@ async def create_case(
         # Faz 1c — subtype row insert (canonical case architecture)
         # Vehicle snapshot populate (immutable) + kind-specific payload
         await _insert_subtype_row(session, case, draft)
+        await case_matching.sync_case_service_tags(
+            session,
+            case_id=case.id,
+            tag_keys=case_matching.service_tag_keys_for_draft(draft),
+        )
         await workflow_seed.seed_blueprint(session, case.id, blueprint.value)
         await case_matching.generate_initial_matches(session, case=case)
 

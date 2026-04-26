@@ -53,6 +53,8 @@ from app.models.case_communication import (
     CaseThread,
 )
 from app.models.case_matching import (
+    CaseServiceTag,
+    CaseServiceTagSource,
     CaseTechnicianMatch,
     CaseTechnicianMatchSource,
     CaseTechnicianMatchVisibility,
@@ -140,6 +142,7 @@ from app.models.technician_signal import (
     TechnicianProcedureTag,
     TechnicianServiceArea,
     TechnicianServiceDomain,
+    TechnicianVehicleKindCoverage,
     TechnicianWorkingDistrict,
     TechnicianWorkingSchedule,
 )
@@ -211,6 +214,8 @@ __all__ = [
     "CaseRefund",
     "CaseRefundReason",
     "CaseRefundState",
+    "CaseServiceTag",
+    "CaseServiceTagSource",
     "CaseTask",
     "CaseTaskEvidenceLink",
     "CaseTaskKind",
@@ -276,6 +281,7 @@ __all__ = [
     "TechnicianSpecialty",
     "TechnicianSpecialtyKind",
     "TechnicianTowEquipmentLink",
+    "TechnicianVehicleKindCoverage",
     "TechnicianVerifiedLevel",
     "TechnicianWorkingDistrict",
     "TechnicianWorkingSchedule",
