@@ -39,6 +39,9 @@ import type {
 } from "../schemas/timeline";
 
 /**
+ * @deprecated V1.1 legacy adapter. New case profile surfaces must read the
+ * role-safe `case_dossier` contract through `useCaseDossier`.
+ *
  * Canonical case adapter — İş B iter 2 Chunk 2 (2026-04-23).
  *
  * BE canonical endpoint'lerinin birleşik okumasını mock `ServiceCase`
