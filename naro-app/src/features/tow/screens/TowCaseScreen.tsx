@@ -27,7 +27,6 @@ import {
   View,
 } from "react-native";
 
-import { TowBidsList } from "../components/TowBidsList";
 import { TowMapCanvas } from "../components/TowMapCanvas";
 import { TowOtpPanel } from "../components/TowOtpPanel";
 import { TowRatingPanel } from "../components/TowRatingPanel";
@@ -46,9 +45,7 @@ const SEARCHING_STAGES: TowDispatchStage[] = [
   "timeout_converted_to_pool",
 ];
 
-const BIDDING_STAGES: TowDispatchStage[] = [
-  "bidding_open",
-  "offer_accepted",
+const SCHEDULED_WAITING_STAGES: TowDispatchStage[] = [
   "scheduled_waiting",
 ];
 
@@ -60,7 +57,6 @@ export function TowCaseScreen() {
   );
   const cancel = useTowStore((s) => s.cancel);
   const verifyOtp = useTowStore((s) => s.verifyOtp);
-  const acceptBid = useTowStore((s) => s.acceptBid);
   const submitRating = useTowStore((s) => s.submitRating);
   const simulateTimeout = useTowStore((s) => s.__simulateTimeoutToPool);
 
@@ -123,7 +119,7 @@ export function TowCaseScreen() {
   const request = snapshot.request;
   const fare = request.fare_quote;
   const isSearching = SEARCHING_STAGES.includes(snapshot.stage);
-  const isBidding = BIDDING_STAGES.includes(snapshot.stage);
+  const isScheduledWaiting = SCHEDULED_WAITING_STAGES.includes(snapshot.stage);
   const hasTechnician = snapshot.assigned_technician !== null;
   const canShowOtp =
     snapshot.stage === "arrived" ||
@@ -192,7 +188,7 @@ export function TowCaseScreen() {
           </Text>
         </View>
 
-        {isBidding ? null : (
+        {isScheduledWaiting ? null : (
           <View className="mt-4 px-5">
             <TowMapCanvas
               stage={liveChannel.stage ?? snapshot.stage}
@@ -220,15 +216,11 @@ export function TowCaseScreen() {
             />
           ) : null}
 
-          {isBidding ? (
-            <TowBidsList
-              bids={snapshot.bids}
-              onAccept={(bidId) => acceptBid(snapshot.id, bidId)}
-              acceptedBidId={snapshot.accepted_bid_id}
-            />
+          {isScheduledWaiting ? (
+            <ScheduledTowWaitingCard />
           ) : null}
 
-          {hasTechnician && snapshot.assigned_technician && !isBidding ? (
+          {hasTechnician && snapshot.assigned_technician && !isScheduledWaiting ? (
             <TowTechnicianCard
               technician={snapshot.assigned_technician}
               etaLabel={
@@ -290,7 +282,7 @@ export function TowCaseScreen() {
 
       {!isTerminal ? (
         <View className="absolute inset-x-0 bottom-0 gap-2 border-t border-app-outline bg-app-bg px-5 pb-8 pt-4">
-          {isActiveStage(snapshot.stage) && !isBidding ? (
+          {isActiveStage(snapshot.stage) && !isScheduledWaiting ? (
             <Button
               label={hasTechnician ? "Operatörü ara" : "Takibi yenile"}
               size="lg"
@@ -323,6 +315,33 @@ export function TowCaseScreen() {
         </View>
       )}
     </Screen>
+  );
+}
+
+function ScheduledTowWaitingCard() {
+  return (
+    <Surface
+      variant="flat"
+      radius="lg"
+      className="gap-3 border-brand-500/30 bg-brand-500/10 px-4 py-4"
+    >
+      <View className="flex-row items-center gap-2">
+        <Icon icon={Package} size={14} color="#83a7ff" />
+        <Text variant="eyebrow" tone="accent">
+          Randevu bekleniyor
+        </Text>
+      </View>
+      <Text variant="label" tone="inverse">
+        Planlı çekici talebin sıraya alındı.
+      </Text>
+      <Text
+        variant="caption"
+        tone="muted"
+        className="text-app-text-muted text-[12px]"
+      >
+        Ödeme penceresi açıldığında canlı takip ekranı üzerinden devam edeceğiz.
+      </Text>
+    </Surface>
   );
 }
 

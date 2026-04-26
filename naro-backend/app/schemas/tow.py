@@ -239,17 +239,6 @@ class TowTechnicianProfileSchema(BaseModel):
     photo_url: str | None = None
 
 
-class TowBid(BaseModel):
-    id: UUID
-    technician: TowTechnicianProfileSchema
-    price_amount: Decimal
-    price_label: str
-    eta_window_label: str
-    equipment: TowEquipmentSchema
-    guarantee_label: str | None = None
-    submitted_at: datetime
-
-
 class TowEvidenceSchema(BaseModel):
     id: UUID
     case_id: UUID
@@ -386,18 +375,6 @@ class TowRatingInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     rating: Annotated[int, Field(ge=1, le=5)]
     review_note: str | None = None
-
-
-class TowBidSubmitInput(BaseModel):
-    """POST /tow/bids — scheduled mode usta teklifi."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    case_id: UUID
-    price_amount: Decimal
-    eta_minutes: int
-    equipment: TowEquipmentSchema
-    guarantee_label: str | None = None
 
 
 # ─── Responses ──────────────────────────────────────────────────────────────

@@ -1,6 +1,5 @@
 import type {
   LatLng,
-  TowBid,
   TowCaseSnapshot,
   TowDispatchAttempt,
   TowDispatchStage,
@@ -67,7 +66,6 @@ type TowStoreState = {
     code: string,
     purpose: "arrival" | "delivery",
   ) => { ok: boolean; snapshot: TowCaseSnapshot | null };
-  acceptBid: (caseId: string, bidId: string) => TowCaseSnapshot | null;
   submitEvidence: (
     caseId: string,
     kind: TowEvidenceKind,
@@ -95,7 +93,6 @@ const LOADING_DURATION_MS = 8_000;
 const TRANSIT_DURATION_MS = 45_000;
 const ARRIVAL_NEARBY_THRESHOLD_KM = 0.5;
 const ARRIVAL_REACHED_THRESHOLD_KM = 0.05;
-const BID_ARRIVAL_INTERVAL_MS = 4_000;
 
 const timers = new Map<string, CaseTimers>();
 
@@ -164,8 +161,6 @@ function buildInitialCase(
     route_points: [],
     eta_minutes: null,
     dispatch_attempts: [],
-    bids: [],
-    accepted_bid_id: null,
     evidence: [],
     otp_challenges: [],
     settlement_status: "pre_auth_holding",
@@ -180,34 +175,6 @@ function buildInitialCase(
 function toTowTechnicianProfile(seed: TowTechnicianSeed): TowTechnicianProfile {
   const { start_lat_lng: _start, avg_speed_kmh: _speed, ...profile } = seed;
   return profile;
-}
-
-function buildBid(
-  seed: TowTechnicianSeed,
-  pickup: LatLng,
-  attemptOrder: number,
-): TowBid {
-  const distance = haversineKm(seed.start_lat_lng, pickup);
-  const eta = etaMinutes(distance, seed.avg_speed_kmh);
-  const jitter = Math.round((Math.random() - 0.3) * 150);
-  const priceAmount = Math.round(1850 + distance * 60 + jitter);
-  const guaranteePool = [
-    "2 yıl donanım garantisi",
-    "Yatay platform · kuru zemin",
-    "Kasko uyumlu tutanak",
-    null,
-  ];
-  return {
-    id: nextId("bid"),
-    technician: toTowTechnicianProfile(seed),
-    price_amount: priceAmount,
-    price_label: `₺${priceAmount.toLocaleString("tr-TR")}`,
-    eta_window_label:
-      attemptOrder % 2 === 0 ? `${eta}-${eta + 15} dk` : `${eta} dk`,
-    equipment: seed.equipment,
-    guarantee_label: guaranteePool[attemptOrder % guaranteePool.length] ?? null,
-    submitted_at: nowIso(),
-  };
 }
 
 function buildDispatchAttempt(
@@ -458,27 +425,6 @@ export const useTowStore = create<TowStoreState>((set, get) => {
     }, GPS_TICK_MS);
   }
 
-  function startBidArrivals(caseId: string) {
-    const entry = ensureTimers(caseId);
-    const bidders = [...TOW_TECHNICIAN_POOL].sort(() => Math.random() - 0.5);
-    bidders.slice(0, 3).forEach((seed, index) => {
-      const handle = setTimeout(
-        () => {
-          const snap = get().getCase(caseId);
-          if (!snap || snap.stage !== "bidding_open") return;
-          if (!snap.request.pickup_lat_lng) return;
-          const bid = buildBid(seed, snap.request.pickup_lat_lng, index + 1);
-          setCase(caseId, (current) => ({
-            ...current,
-            bids: [...current.bids, bid],
-          }));
-        },
-        BID_ARRIVAL_INTERVAL_MS * (index + 1),
-      );
-      entry.stageTimeouts.push(handle);
-    });
-  }
-
   return {
     cases: [],
 
@@ -511,9 +457,8 @@ export const useTowStore = create<TowStoreState>((set, get) => {
         mode: "scheduled",
         fare_quote: buildFareQuote("scheduled", distance, false),
       };
-      const snap = buildInitialCase(request, "bidding_open");
+      const snap = buildInitialCase(request, "scheduled_waiting");
       set((state) => ({ cases: [snap, ...state.cases] }));
-      startBidArrivals(snap.id);
       return snap;
     },
 
@@ -574,42 +519,6 @@ export const useTowStore = create<TowStoreState>((set, get) => {
       return { ok: true, snapshot: updated };
     },
 
-    acceptBid: (caseId, bidId) => {
-      const snap = get().getCase(caseId);
-      if (!snap) return null;
-      const bid = snap.bids.find((b) => b.id === bidId);
-      if (!bid) return null;
-
-      const profile = bid.technician;
-      const updated = setCase(caseId, (current) => ({
-        ...current,
-        stage: "offer_accepted",
-        accepted_bid_id: bidId,
-        assigned_technician: profile,
-        request: {
-          ...current.request,
-          fare_quote: {
-            ...current.request.fare_quote,
-            locked_price: bid.price_amount,
-            cap_amount: bid.price_amount,
-          },
-        },
-      }));
-
-      const entry = ensureTimers(caseId);
-      for (const h of entry.stageTimeouts) clearTimeout(h);
-      entry.stageTimeouts = [];
-      entry.stageTimeouts.push(
-        setTimeout(() => {
-          setCase(caseId, (current) => ({
-            ...current,
-            stage: "scheduled_waiting",
-          }));
-        }, 1500),
-      );
-      return updated;
-    },
-
     submitEvidence: (caseId, kind, uploader, photo_url, caption = null) => {
       return setCase(caseId, (current) => ({
         ...current,
@@ -645,8 +554,10 @@ export const useTowStore = create<TowStoreState>((set, get) => {
         stage: "timeout_converted_to_pool",
       }));
       setTimeout(() => {
-        setCase(caseId, (current) => ({ ...current, stage: "bidding_open" }));
-        startBidArrivals(caseId);
+        setCase(caseId, (current) => ({
+          ...current,
+          stage: "scheduled_waiting",
+        }));
       }, 800);
       return updated;
     },

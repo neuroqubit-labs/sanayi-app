@@ -335,7 +335,7 @@ async def handle_parts_approval(
     *,
     case: ServiceCase,
     approval_id: UUID,
-    additional_amount: Decimal,
+    revision_amount: Decimal,
     reason: str,
     approved: bool,
     psp: Psp,
@@ -358,7 +358,7 @@ async def handle_parts_approval(
         return await psp.authorize_preauth(
             idempotency_key=idempotency_key,
             customer_token="",
-            amount=additional_amount,
+            amount=revision_amount,
             currency="TRY",
             case_id=str(case.id),
         )
@@ -371,7 +371,7 @@ async def handle_parts_approval(
         provider=provider,
         fn=_call_psp,
         request_payload={
-            "amount": str(additional_amount),
+            "amount": str(revision_amount),
             "approval_id": str(approval_id),
             "reason": reason,
         },

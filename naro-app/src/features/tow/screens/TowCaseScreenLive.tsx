@@ -76,7 +76,7 @@ function formatMoney(value: number | null): string {
  * - POST /tow/cases/{id}/rating (final)
  *
  * Scope dışı (V2):
- * - Scheduled tow bid list (BE stub)
+ * - Scheduled tow provider selection UI
  * - Live WS location overlay (polling yeterli pilot için)
  * - Evidence yükleme (teknisyen tarafında)
  */

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 
-from app.api.v1.deps import CurrentUserDep, CustomerDep, DbDep, PspDep, TowTechnicianDep
+from app.api.v1.deps import CurrentUserDep, CustomerDep, DbDep, PspDep
 from app.models.case import ServiceCase, ServiceRequestKind
 from app.models.case_subtypes import TowCase
 from app.models.tow import TowCancellationActor
@@ -118,30 +118,3 @@ async def submit_rating(
     case.request_draft = draft
     await db.commit()
     return {"case_id": str(case.id), "rating": payload.rating}
-
-@router.post(
-    "/bids",
-    summary="Scheduled tow bidding — teknisyen teklifi",
-)
-async def submit_bid(
-    _payload: dict[str, object],
-    _tech: TowTechnicianDep,
-    _db: DbDep,
-) -> dict[str, object]:
-    # V1 stub — scheduled mode bidding case_offers tablosuna bağlanır (Faz 10f detay)
-    return {"status": "pending", "message": "scheduled bidding wiring lands in 10f"}
-
-
-# ─── 14. Bid accept ─────────────────────────────────────────────────────────
-
-
-@router.post(
-    "/bids/{bid_id}/accept",
-    summary="Müşteri — locked_price bid kabul",
-)
-async def accept_bid(
-    bid_id: UUID,
-    _user: CustomerDep,
-    _db: DbDep,
-) -> dict[str, object]:
-    return {"bid_id": str(bid_id), "status": "accepted", "message": "10f integration pending"}

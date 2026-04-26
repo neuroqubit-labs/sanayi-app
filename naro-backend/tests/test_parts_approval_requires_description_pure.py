@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import inspect
+
 import pytest
 from pydantic import ValidationError
 
 from app.api.v1.routes.approvals import ApprovalRequestPayload
 from app.models.case_process import CaseApprovalKind
+from app.services import case_billing
 
 
 def _payload(
@@ -67,3 +70,10 @@ def test_completion_allows_missing_description() -> None:
 
     assert payload.kind == CaseApprovalKind.COMPLETION
     assert payload.description is None
+
+
+def test_parts_approval_billing_uses_revision_amount_name() -> None:
+    params = inspect.signature(case_billing.handle_parts_approval).parameters
+
+    assert "revision_amount" in params
+    assert "additional_amount" not in params

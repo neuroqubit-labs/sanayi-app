@@ -119,18 +119,6 @@ export const TowTechnicianProfileSchema = z.object({
 });
 export type TowTechnicianProfile = z.infer<typeof TowTechnicianProfileSchema>;
 
-export const TowBidSchema = z.object({
-  id: z.string(),
-  technician: TowTechnicianProfileSchema,
-  price_amount: z.number(),
-  price_label: z.string(),
-  eta_window_label: z.string(),
-  equipment: TowVehicleEquipmentSchema,
-  guarantee_label: z.string().nullable().default(null),
-  submitted_at: z.string(),
-});
-export type TowBid = z.infer<typeof TowBidSchema>;
-
 export const TowEvidenceKindSchema = z.enum([
   "customer_pre_state",
   "tech_arrival",
@@ -194,8 +182,6 @@ export const TowCaseSnapshotSchema = z.object({
   route_points: z.array(LatLngSchema).default([]),
   eta_minutes: z.number().int().nullable().default(null),
   dispatch_attempts: z.array(TowDispatchAttemptSchema).default([]),
-  bids: z.array(TowBidSchema).default([]),
-  accepted_bid_id: z.string().nullable().default(null),
   evidence: z.array(TowEvidenceSchema).default([]),
   otp_challenges: z.array(TowOtpChallengeSchema).default([]),
   settlement_status: TowSettlementStatusSchema.default("none"),
