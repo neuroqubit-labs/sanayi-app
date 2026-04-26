@@ -497,6 +497,33 @@ def test_viewer_context_can_send_offer_true_for_pool_technician_open_case() -> N
     )
 
 
+@pytest.mark.parametrize(
+    "case_status",
+    (
+        ServiceCaseStatus.COMPLETED,
+        ServiceCaseStatus.CANCELLED,
+        ServiceCaseStatus.ARCHIVED,
+    ),
+)
+def test_viewer_context_can_send_offer_false_when_terminal(
+    case_status: ServiceCaseStatus,
+) -> None:
+    viewer = uuid4()
+    dossier = _dossier(
+        role=ViewerRole.POOL_TECHNICIAN,
+        viewer_user_id=viewer,
+        status=case_status,
+        closed_at=NOW,
+    )
+
+    dossier.viewer.can_send_offer = can_pool_technician_send_offer(
+        case_status=dossier.shell.status,
+        has_offer_from_me=dossier.viewer.has_offer_from_me,
+    )
+
+    assert dossier.viewer.can_send_offer is False
+
+
 def test_pool_timeline_filter_only_allowed_events() -> None:
     viewer = uuid4()
     hidden_actor = uuid4()
@@ -504,9 +531,15 @@ def test_pool_timeline_filter_only_allowed_events() -> None:
         role=ViewerRole.POOL_TECHNICIAN,
         viewer_user_id=viewer,
         timeline=[
-            _timeline(event_type=CaseEventType.STATUS_UPDATE, actor_user_id=hidden_actor),
+            _timeline(
+                event_type=CaseEventType.STATUS_UPDATE,
+                actor_user_id=hidden_actor,
+            ),
             _timeline(event_type=CaseEventType.OFFER_RECEIVED, actor_user_id=viewer),
-            _timeline(event_type=CaseEventType.PAYMENT_CAPTURED, actor_user_id=hidden_actor),
+            _timeline(
+                event_type=CaseEventType.PAYMENT_CAPTURED,
+                actor_user_id=hidden_actor,
+            ),
         ],
     )
 
@@ -514,7 +547,5 @@ def test_pool_timeline_filter_only_allowed_events() -> None:
 
     assert [event.event_type for event in redacted.timeline_summary] == [
         CaseEventType.STATUS_UPDATE,
-        CaseEventType.OFFER_RECEIVED,
     ]
     assert redacted.timeline_summary[0].actor_user_id is None
-    assert redacted.timeline_summary[1].actor_user_id == viewer

@@ -11,6 +11,7 @@ from app.models.offer import ACTIVE_OFFER_STATUSES
 from app.schemas.case_dossier import (
     CaseDossierResponse,
     OfferSummary,
+    TimelineEventSummary,
     ViewerRole,
 )
 from app.schemas.review import mask_reviewer_name
@@ -103,15 +104,11 @@ def _redact_pool_technician(
             CaseTechnicianMatchVisibility.INVALIDATED,
         )
     ]
-    visible_match_ids = {match.id for match in own_matches}
-    dossier.viewer.other_match_count = len(
-        [
-            match
-            for match in dossier.matches
-            if match.id not in visible_match_ids
-            and match.technician_user_id != viewer_user_id
-            and match.visibility_state != CaseTechnicianMatchVisibility.INVALIDATED
-        ]
+    dossier.viewer.other_match_count = sum(
+        1
+        for match in dossier.matches
+        if match.technician_user_id != viewer_user_id
+        and match.visibility_state != CaseTechnicianMatchVisibility.INVALIDATED
     )
     dossier.matches = own_matches
 
@@ -139,13 +136,27 @@ def _redact_pool_technician(
     dossier.timeline_summary = [
         event
         for event in dossier.timeline_summary
-        if event.event_type == CaseEventType.STATUS_UPDATE
-        or event.actor_user_id == viewer_user_id
+        if _is_pool_timeline_event_visible(event, viewer_user_id=viewer_user_id)
     ]
     for event in dossier.timeline_summary:
         if event.actor_user_id != viewer_user_id:
             event.actor_user_id = None
     return dossier
+
+
+def _is_pool_timeline_event_visible(
+    event: TimelineEventSummary,
+    *,
+    viewer_user_id: UUID,
+) -> bool:
+    if event.event_type == CaseEventType.STATUS_UPDATE:
+        return True
+    notification_sent = getattr(CaseEventType, "CASE_NOTIFICATION_SENT", None)
+    return (
+        notification_sent is not None
+        and event.event_type == notification_sent
+        and event.actor_user_id == viewer_user_id
+    )
 
 
 def _redact_offer_for_pool(
