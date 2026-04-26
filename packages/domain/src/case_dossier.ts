@@ -183,13 +183,32 @@ export const CaseTechnicianMatchVisibilitySchema = z.enum([
   "invalidated",
 ]);
 
+export const MatchNotifyStateSchema = z.enum([
+  "available",
+  "already_notified",
+  "has_offer",
+  "limit_reached",
+  "not_compatible",
+]);
+export type MatchNotifyState = z.infer<typeof MatchNotifyStateSchema>;
+
 export const MatchSummarySchema = z.object({
   id: UuidSchema,
+  technician_profile_id: UuidSchema.nullable().default(null),
   technician_user_id: UuidSchema.nullable().default(null),
+  display_name: z.string().nullable().default(null),
+  tagline: z.string().nullable().default(null),
+  provider_type: z.string().nullable().default(null),
+  area_label: z.string().nullable().default(null),
+  verified_level: z.string().nullable().default(null),
+  avatar_asset_id: UuidSchema.nullable().default(null),
   score: DecimalWireSchema,
   reason_label: z.string(),
   match_badge: z.string().default("Bu vakaya uygun"),
   visibility_state: CaseTechnicianMatchVisibilitySchema,
+  can_notify: z.boolean().default(false),
+  notify_state: MatchNotifyStateSchema.default("not_compatible"),
+  notify_disabled_reason: z.string().nullable().default(null),
 });
 export type MatchSummary = z.infer<typeof MatchSummarySchema>;
 

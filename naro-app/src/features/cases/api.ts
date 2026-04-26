@@ -4,7 +4,7 @@ import type {
   ServiceRequestDraft,
   ServiceRequestKind,
 } from "@naro/domain";
-import { ApiError } from "@naro/mobile-core";
+import { ApiError, type ApiRequestOptions } from "@naro/mobile-core";
 import {
   useInfiniteQuery,
   useMutation,
@@ -100,7 +100,8 @@ export function attachTechnicianToCase(caseId: string, technicianId: string) {
 
 export type NotifyCaseToTechnicianVariables = {
   caseId: string;
-  technicianId: string;
+  technicianProfileId?: string;
+  technicianId?: string;
   note?: string | null;
 };
 
@@ -108,25 +109,32 @@ export function useNotifyCaseToTechnician() {
   return useMutation({
     mutationFn: async ({
       caseId,
+      technicianProfileId,
       technicianId,
       note = null,
     }: NotifyCaseToTechnicianVariables) => {
+      const targetId = technicianProfileId ?? technicianId;
+      if (!targetId) {
+        throw new ApiError("technician_profile_id_required", "parse", "local");
+      }
+      const body: ApiRequestOptions<unknown>["body"] = technicianProfileId
+        ? { technician_profile_id: technicianProfileId, note }
+        : { technician_id: targetId, note };
       const response = await apiClient(
         `/cases/${caseId}/notify-technicians`,
         {
           method: "POST",
-          body: {
-            technician_id: technicianId,
-            note,
-          },
+          body,
         },
       );
       return response as {
         notification_id: string;
         match_id: string | null;
         case_id: string;
+        technician_profile_id: string;
         technician_id: string;
         status: string;
+        notify_state: string;
       };
     },
     onSuccess: async () => {

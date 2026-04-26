@@ -41,6 +41,15 @@ from app.models.case_process import (
     CaseTaskUrgency,
 )
 from app.models.offer import CaseOfferStatus
+from app.models.technician import ProviderType, TechnicianVerifiedLevel
+
+
+class MatchNotifyState(StrEnum):
+    AVAILABLE = "available"
+    ALREADY_NOTIFIED = "already_notified"
+    HAS_OFFER = "has_offer"
+    LIMIT_REACHED = "limit_reached"
+    NOT_COMPATIBLE = "not_compatible"
 
 
 class ViewerRole(StrEnum):
@@ -169,11 +178,21 @@ class CaseDocumentSummary(BaseModel):
 
 class MatchSummary(BaseModel):
     id: UUID
+    technician_profile_id: UUID | None = None
     technician_user_id: UUID | None = None
+    display_name: str | None = None
+    tagline: str | None = None
+    provider_type: ProviderType | None = None
+    area_label: str | None = None
+    verified_level: TechnicianVerifiedLevel | None = None
+    avatar_asset_id: UUID | None = None
     score: Decimal
     reason_label: str
     match_badge: str = "Bu vakaya uygun"
     visibility_state: CaseTechnicianMatchVisibility
+    can_notify: bool = False
+    notify_state: MatchNotifyState = MatchNotifyState.NOT_COMPATIBLE
+    notify_disabled_reason: str | None = None
 
 
 class NotificationSummary(BaseModel):

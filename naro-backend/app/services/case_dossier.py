@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.terminal_states import CASE_SINK, CASE_TERMINAL
 from app.models.appointment import Appointment, AppointmentSource
-from app.models.case import ServiceCase, ServiceRequestKind
+from app.models.case import ServiceCase, ServiceCaseStatus, ServiceRequestKind
 from app.models.case_artifact import CaseAttachment, CaseDocument, CaseEvidenceItem
 from app.models.case_audit import CaseEvent, CaseTone
 from app.models.case_matching import (
     CaseTechnicianMatch,
+    CaseTechnicianMatchVisibility,
     CaseTechnicianNotification,
 )
 from app.models.case_process import CaseApproval, CaseMilestone, CaseTask
@@ -22,7 +23,7 @@ from app.models.case_subtypes import (
     MaintenanceCase,
     TowCase,
 )
-from app.models.offer import CaseOffer, CaseOfferStatus
+from app.models.offer import ACTIVE_OFFER_STATUSES, CaseOffer, CaseOfferStatus
 from app.models.payment import PaymentOrder, PaymentState
 from app.models.technician import TechnicianProfile
 from app.models.tow import TowFareSettlement
@@ -43,6 +44,7 @@ from app.schemas.case_dossier import (
     CaseTaskSummary,
     CaseWaitState,
     MaintenanceDetail,
+    MatchNotifyState,
     MatchSummary,
     NotificationSummary,
     OfferSummary,
@@ -97,6 +99,9 @@ async def assemble_dossier(
     matches = await _load_matches(session, case)
     notifications = await _load_notifications(session, case.id)
     offers = await _load_offers(session, case.id)
+    match_profiles_by_id, match_profiles_by_user_id = await _load_match_profiles(
+        session, matches
+    )
     appointment = await _load_appointment(session, case.id)
     approvals = await _load_approvals(session, case.id)
     attachments = await _load_attachments(session, case.id)
@@ -124,7 +129,21 @@ async def assemble_dossier(
         attachments=[_attachment_summary(item) for item in attachments],
         evidence=[_evidence_summary(item) for item in evidence],
         documents=[_document_summary(item) for item in documents],
-        matches=[_match_summary(item) for item in matches],
+        matches=[
+            _match_summary(
+                item,
+                case=case,
+                role=dossier_role,
+                profile=(
+                    match_profiles_by_id.get(item.technician_profile_id)
+                    if item.technician_profile_id
+                    else match_profiles_by_user_id.get(item.technician_user_id)
+                ),
+                notifications=notifications,
+                offers=offers,
+            )
+            for item in matches
+        ],
         notifications=[_notification_summary(item) for item in notifications],
         offers=[_offer_summary(item, users) for item in offers],
         appointment=_appointment_summary(appointment),
@@ -352,6 +371,38 @@ async def _load_related_users(
     return {user.id: user for user in rows.scalars().all()}
 
 
+async def _load_match_profiles(
+    session: AsyncSession,
+    matches: list[CaseTechnicianMatch],
+) -> tuple[dict[UUID, TechnicianProfile], dict[UUID, TechnicianProfile]]:
+    profile_ids = {
+        match.technician_profile_id
+        for match in matches
+        if match.technician_profile_id is not None
+    }
+    user_ids = {
+        match.technician_user_id
+        for match in matches
+        if match.technician_user_id is not None
+    }
+    if not profile_ids and not user_ids:
+        return {}, {}
+    stmt = select(TechnicianProfile).where(TechnicianProfile.deleted_at.is_(None))
+    if profile_ids and user_ids:
+        stmt = stmt.where(
+            (TechnicianProfile.id.in_(profile_ids))
+            | (TechnicianProfile.user_id.in_(user_ids))
+        )
+    elif profile_ids:
+        stmt = stmt.where(TechnicianProfile.id.in_(profile_ids))
+    else:
+        stmt = stmt.where(TechnicianProfile.user_id.in_(user_ids))
+    rows = list((await session.execute(stmt)).scalars().all())
+    return {profile.id: profile for profile in rows}, {
+        profile.user_id: profile for profile in rows
+    }
+
+
 async def _build_viewer_context(
     session: AsyncSession,
     *,
@@ -520,14 +571,89 @@ def _document_summary(item: CaseDocument) -> CaseDocumentSummary:
     )
 
 
-def _match_summary(item: CaseTechnicianMatch) -> MatchSummary:
+def _match_summary(
+    item: CaseTechnicianMatch,
+    *,
+    case: ServiceCase,
+    role: ViewerRole,
+    profile: TechnicianProfile | None,
+    notifications: list[CaseTechnicianNotification],
+    offers: list[CaseOffer],
+) -> MatchSummary:
+    can_notify, notify_state, disabled_reason = _match_notify_state(
+        item,
+        case=case,
+        role=role,
+        notifications=notifications,
+        offers=offers,
+    )
     return MatchSummary(
         id=item.id,
+        technician_profile_id=profile.id if profile is not None else item.technician_profile_id,
         technician_user_id=item.technician_user_id,
+        display_name=profile.display_name if profile is not None else None,
+        tagline=profile.tagline if profile is not None else None,
+        provider_type=profile.provider_type if profile is not None else None,
+        area_label=profile.area_label if profile is not None else None,
+        verified_level=profile.verified_level if profile is not None else None,
+        avatar_asset_id=profile.avatar_asset_id if profile is not None else None,
         score=item.score,
         reason_label=item.reason_label,
         visibility_state=item.visibility_state,
+        can_notify=can_notify,
+        notify_state=notify_state,
+        notify_disabled_reason=disabled_reason,
     )
+
+
+def _match_notify_state(
+    item: CaseTechnicianMatch,
+    *,
+    case: ServiceCase,
+    role: ViewerRole,
+    notifications: list[CaseTechnicianNotification],
+    offers: list[CaseOffer],
+) -> tuple[bool, MatchNotifyState, str | None]:
+    if (
+        role != ViewerRole.CUSTOMER
+        or item.visibility_state
+        in (
+            CaseTechnicianMatchVisibility.HIDDEN,
+            CaseTechnicianMatchVisibility.INVALIDATED,
+        )
+        or case.assigned_technician_id is not None
+        or case.status in CASE_TERMINAL
+        or case.status in CASE_SINK
+        or case.status
+        not in {*case_repo.POOL_VISIBLE_STATUSES, ServiceCaseStatus.OFFERS_READY}
+    ):
+        return False, MatchNotifyState.NOT_COMPATIBLE, "not_compatible"
+
+    active_offer = any(
+        offer.technician_id == item.technician_user_id
+        and offer.status in ACTIVE_OFFER_STATUSES
+        for offer in offers
+    )
+    if active_offer:
+        return False, MatchNotifyState.HAS_OFFER, "has_offer"
+
+    active_notification = any(
+        notification.technician_user_id == item.technician_user_id
+        and notification.status in case_matching.ACTIVE_NOTIFICATION_STATUSES
+        for notification in notifications
+    )
+    if active_notification:
+        return False, MatchNotifyState.ALREADY_NOTIFIED, "already_notified"
+
+    active_notification_count = sum(
+        1
+        for notification in notifications
+        if notification.status in case_matching.ACTIVE_NOTIFICATION_STATUSES
+    )
+    if active_notification_count >= case_matching.MAX_CUSTOMER_NOTIFICATIONS_PER_CASE:
+        return False, MatchNotifyState.LIMIT_REACHED, "case_notification_limit_reached"
+
+    return True, MatchNotifyState.AVAILABLE, None
 
 
 def _notification_summary(item: CaseTechnicianNotification) -> NotificationSummary:

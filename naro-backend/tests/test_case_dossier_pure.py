@@ -43,6 +43,7 @@ from app.schemas.case_dossier import (
     CaseTaskSummary,
     CaseWaitState,
     MaintenanceDetail,
+    MatchNotifyState,
     MatchSummary,
     NotificationSummary,
     OfferSummary,
@@ -55,6 +56,7 @@ from app.schemas.case_dossier import (
     ViewerRole,
 )
 from app.services import case_dossier
+from app.services.case_dossier import _match_summary
 from app.services.case_dossier_redact import (
     can_pool_technician_send_offer,
     compute_competitor_offer_average,
@@ -603,6 +605,92 @@ def test_dossier_response_can_carry_milestones_and_tasks() -> None:
     assert dossier.milestones[0].milestone_key == "diagnosis"
     assert dossier.tasks[0].task_key == CaseTaskKind.SHARE_STATUS_UPDATE.value
     assert dossier.tasks[0].milestone_key == "diagnosis"
+
+
+def test_match_summary_carries_public_card_fields_and_available_notify() -> None:
+    technician_user_id = uuid4()
+    profile_id = uuid4()
+    summary = _match_summary(
+        SimpleNamespace(
+            id=uuid4(),
+            technician_user_id=technician_user_id,
+            technician_profile_id=profile_id,
+            score=Decimal("84.00"),
+            reason_label="Cam filmi hizmetiyle uyumlu",
+            visibility_state=CaseTechnicianMatchVisibility.CANDIDATE,
+        ),
+        case=SimpleNamespace(
+            status=ServiceCaseStatus.MATCHING,
+            assigned_technician_id=None,
+        ),
+        role=ViewerRole.CUSTOMER,
+        profile=SimpleNamespace(
+            id=profile_id,
+            user_id=technician_user_id,
+            display_name="Cam Artı",
+            tagline="Cam filmi ve aksesuar",
+            provider_type="oto_aksesuar",
+            area_label="Kayseri / Kocasinan",
+            verified_level="verified",
+            avatar_asset_id=None,
+        ),
+        notifications=[],
+        offers=[],
+    )
+
+    assert summary.technician_profile_id == profile_id
+    assert summary.display_name == "Cam Artı"
+    assert summary.area_label == "Kayseri / Kocasinan"
+    assert summary.can_notify is True
+    assert summary.notify_state == MatchNotifyState.AVAILABLE
+
+
+def test_match_summary_marks_already_notified_and_offer_states() -> None:
+    technician_user_id = uuid4()
+    match = SimpleNamespace(
+        id=uuid4(),
+        technician_user_id=technician_user_id,
+        technician_profile_id=uuid4(),
+        score=Decimal("88.00"),
+        reason_label="Bu vaka türüne uygun",
+        visibility_state=CaseTechnicianMatchVisibility.CANDIDATE,
+    )
+    case = SimpleNamespace(
+        status=ServiceCaseStatus.MATCHING,
+        assigned_technician_id=None,
+    )
+
+    notified = _match_summary(
+        match,
+        case=case,
+        role=ViewerRole.CUSTOMER,
+        profile=None,
+        notifications=[
+            SimpleNamespace(
+                technician_user_id=technician_user_id,
+                status=CaseTechnicianNotificationStatus.SENT,
+            )
+        ],
+        offers=[],
+    )
+    offered = _match_summary(
+        match,
+        case=case,
+        role=ViewerRole.CUSTOMER,
+        profile=None,
+        notifications=[],
+        offers=[
+            SimpleNamespace(
+                technician_id=technician_user_id,
+                status=CaseOfferStatus.PENDING,
+            )
+        ],
+    )
+
+    assert notified.can_notify is False
+    assert notified.notify_state == MatchNotifyState.ALREADY_NOTIFIED
+    assert offered.can_notify is False
+    assert offered.notify_state == MatchNotifyState.HAS_OFFER
 
 
 def test_pool_technician_keeps_milestones_but_tasks_are_hidden() -> None:
