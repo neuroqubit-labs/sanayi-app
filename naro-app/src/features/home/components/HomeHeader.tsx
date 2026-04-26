@@ -9,11 +9,121 @@ import {
 } from "@naro/ui";
 import { Href, useRouter } from "expo-router";
 import { Bell, Search } from "lucide-react-native";
-import { View } from "react-native";
+import { useEffect, useRef, type ComponentProps } from "react";
+import { Animated, Easing, View } from "react-native";
 
 import { useUnreadNotificationCount } from "@/features/notifications";
 
 import { useHomeSummary } from "../api";
+
+type BadgeTone = NonNullable<ComponentProps<typeof TrustBadge>["tone"]>;
+
+const LIVE_DOT_COLOR: Record<BadgeTone, string> = {
+  accent: "#0ea5e9",
+  info: "#38bdf8",
+  warning: "#f59e0b",
+  success: "#22c55e",
+  critical: "#ef4444",
+  neutral: "#94a3b8",
+};
+
+function LiveDot({ tone }: { tone: BadgeTone }) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(opacity, {
+            toValue: 0.35,
+            duration: 750,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 750,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(scale, {
+            toValue: 1.35,
+            duration: 750,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 750,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity, scale]);
+
+  return (
+    <Animated.View
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: LIVE_DOT_COLOR[tone],
+        opacity,
+        transform: [{ scale }],
+      }}
+    />
+  );
+}
+
+function ProgressShimmer() {
+  const x = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(x, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [x]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: 0,
+        bottom: 0,
+        left: 0,
+        width: "40%",
+        backgroundColor: "rgba(255,255,255,0.35)",
+        opacity: x.interpolate({
+          inputRange: [0, 0.15, 0.85, 1],
+          outputRange: [0, 0.6, 0.6, 0],
+        }),
+        transform: [
+          {
+            translateX: x.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-80, 280],
+            }),
+          },
+        ],
+      }}
+    />
+  );
+}
 
 export function HomeHeader() {
   const router = useRouter();
@@ -36,13 +146,10 @@ export function HomeHeader() {
 
       {activeProcess ? (
         <ActiveProcessPinned
-          title={activeProcess.title}
           servisAd={activeProcess.servisAd}
+          title={activeProcess.title}
           status={activeProcess.status}
-          waitLabel={activeProcess.waitLabel}
-          priceLabel={activeProcess.priceLabel}
           nextStepLabel={activeProcess.nextStepLabel}
-          progressLabel={activeProcess.progressLabel}
           progressValue={activeProcess.progressValue}
           onPress={() => router.push(activeProcess.cardRoute as Href)}
           primaryLabel={activeProcess.primaryActionLabel}
@@ -137,73 +244,93 @@ function NotificationButton({ hasUnread, onPress }: NotificationButtonProps) {
 }
 
 type ActiveProcessPinnedProps = {
-  title: string;
   servisAd: string;
+  title: string;
   status: string;
-  waitLabel: string;
-  priceLabel: string;
   nextStepLabel: string;
-  progressLabel: string;
   progressValue: number;
   onPress: () => void;
   primaryLabel?: string;
   onPrimary?: () => void;
 };
 
+const STATUS_BADGE_TONE: Record<string, BadgeTone> = {
+  "Yeni teklif gelenler": "accent",
+  "Teklifler geldi": "accent",
+  "Teklifler geliyor": "accent",
+  "Eşleşme bekleniyor": "info",
+  "Çekici aranıyor": "info",
+  "Randevu bekleniyor": "warning",
+  "Randevu planlandı": "info",
+  "Çekici planlandı": "info",
+  "Servis sürüyor": "success",
+  "Çekici süreci sürüyor": "success",
+  "Parça onayın bekleniyor": "warning",
+  "Fatura onayın bekleniyor": "warning",
+};
+
+const LIVE_STATUSES = new Set([
+  "Yeni teklif gelenler",
+  "Teklifler geldi",
+  "Teklifler geliyor",
+  "Eşleşme bekleniyor",
+  "Çekici aranıyor",
+  "Servis sürüyor",
+  "Çekici süreci sürüyor",
+  "Parça onayın bekleniyor",
+  "Fatura onayın bekleniyor",
+]);
+
 function ActiveProcessPinned({
-  title,
   servisAd,
+  title,
   status,
-  waitLabel,
-  priceLabel,
   nextStepLabel,
-  progressLabel,
   progressValue,
   onPress,
   primaryLabel,
   onPrimary,
 }: ActiveProcessPinnedProps) {
+  const tone = STATUS_BADGE_TONE[status] ?? "info";
+  const isLive = LIVE_STATUSES.has(status);
+  const subtitle = title?.trim() && title.trim() !== servisAd ? title.trim() : "";
+
   return (
     <PressableCard
       accessibilityRole="button"
-      accessibilityLabel={`${title} vakasını aç`}
+      accessibilityLabel={`${servisAd} vakasını aç`}
       onPress={onPress}
       variant="elevated"
       radius="lg"
       className="gap-4 border-brand-500/30 bg-app-surface-2 px-4 py-4"
     >
-      <View className="flex-row flex-wrap items-center gap-2">
-        <TrustBadge label="İşlem devam ediyor" tone="accent" />
-        <TrustBadge label={waitLabel} tone="warning" />
+      <View className="flex-row items-center gap-2">
+        {isLive ? <LiveDot tone={tone} /> : null}
+        <TrustBadge label={status} tone={tone} />
       </View>
 
-      <View className="gap-1.5">
-        <Text variant="eyebrow" tone="subtle">
-          Şu an odağında
-        </Text>
+      <View className="gap-1">
         <Text variant="h3" tone="inverse">
           {servisAd}
         </Text>
-        <Text variant="caption" tone="muted" className="text-app-text-muted">
-          {title} · {status}
-        </Text>
+        {subtitle ? (
+          <Text variant="caption" tone="muted" className="text-app-text-muted">
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
 
-      <View className="gap-2">
-        <View className="h-1.5 rounded-full bg-app-surface-3">
+      <View className="gap-1.5">
+        <View className="h-1.5 overflow-hidden rounded-full bg-app-surface-3">
           <View
             className="h-1.5 rounded-full bg-brand-500"
             style={{ width: `${Math.max(6, progressValue)}%` }}
           />
+          {isLive ? <ProgressShimmer /> : null}
         </View>
         <Text variant="caption" tone="accent">
-          {progressLabel}
+          Sıradaki · {nextStepLabel}
         </Text>
-      </View>
-
-      <View className="flex-row gap-2">
-        <MetricPill value={priceLabel} label="Şu ana kadar" />
-        <MetricPill value={nextStepLabel} label="Sıradaki adım" />
       </View>
 
       {primaryLabel && onPrimary ? (

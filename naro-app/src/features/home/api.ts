@@ -118,23 +118,14 @@ function deriveActiveProcess(caseItem: CaseSummaryResponse): ActiveProcess {
 
   return {
     id: caseItem.id,
-    servisAd: isTowing ? "Aktif çekici araması" : caseItem.title || kindLabel,
+    servisAd: isTowing ? "Çekici araması" : kindLabel,
     title: isTowing
-      ? "Çekici araması arka planda sürüyor"
-      : caseItem.summary?.trim() || kindLabel,
+      ? "Arka planda sürüyor"
+      : caseItem.summary?.trim() || caseItem.title || "",
     status: statusLabel,
-    waitLabel: isTowing
-      ? caseItem.status === "matching"
-        ? "Canlı"
-        : statusLabel
-      : offerReady
-        ? "Yeni teklif"
-        : caseItem.status === "matching" ? "Sırada" : statusLabel,
     nextStepLabel,
     note: caseItem.location_label ?? "",
-    progressLabel: `%${progressValue} tamamlandı`,
     progressValue,
-    priceLabel: isTowing ? "Tavan ücret var" : "Tutar netleşmedi",
     cardRoute,
     primaryActionLabel: isTowing ? "Takibi aç" : primary?.label,
     primaryActionRoute: isTowing
