@@ -336,6 +336,7 @@ async def handle_parts_approval(
     case: ServiceCase,
     approval_id: UUID,
     additional_amount: Decimal,
+    reason: str,
     approved: bool,
     psp: Psp,
     provider: PaymentProvider = PaymentProvider.MOCK,
@@ -372,6 +373,7 @@ async def handle_parts_approval(
         request_payload={
             "amount": str(additional_amount),
             "approval_id": str(approval_id),
+            "reason": reason,
         },
     )
     if result.success:

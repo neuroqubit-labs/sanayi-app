@@ -24,7 +24,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -91,6 +91,14 @@ class ApprovalRequestPayload(BaseModel):
     delivery_report: dict[str, object] | None = None
     public_showcase_consent: bool = False
     public_showcase_media_ids: list[UUID] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _require_description_for_scope_revisions(self) -> ApprovalRequestPayload:
+        if self.kind in (CaseApprovalKind.PARTS_REQUEST, CaseApprovalKind.INVOICE):
+            cleaned = (self.description or "").strip()
+            if len(cleaned) < 10:
+                raise ValueError("description_required_min_10_chars")
+        return self
 
 
 class ApprovalDecidePayload(BaseModel):
@@ -194,14 +202,6 @@ async def request_approval_endpoint(
         raise HTTPException(
             status_code=422,
             detail={"type": "case_terminal", "status": case.status.value},
-        )
-    if (
-        payload.kind in (CaseApprovalKind.PARTS_REQUEST, CaseApprovalKind.INVOICE)
-        and not (payload.description or "").strip()
-    ):
-        raise HTTPException(
-            status_code=422,
-            detail={"type": "approval_description_required"},
         )
 
     try:
