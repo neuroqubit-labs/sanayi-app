@@ -18,6 +18,18 @@ FE açısından vaka omurgası canonical sözleşmeye bağlandı:
 
 **Sonuç:** FE de "ürün omurgası" yönünden doğru hatta. Kalan FE riskler **ikinci katman borçlar**: mock store kalıntısı (live route'lara karar üretmiyor), tow misc snapshot storage, eski customer/service profile ekran kalıntıları (legacy adapter `useCanonicalCase` deprecated marked).
 
+### Codex düzeltme notu — matching CTA gerçek durumu
+
+Bu audit ilk yazıldığında "Vakayı bildir" tarafı fazla iyimser kapanmıştı. Cihaz smoke sırasında şu drift görüldü: public usta profilinde FE, backend match sözleşmesi yerine gevşek profil/provider yorumuyla CTA gösterebiliyordu. Aşağıdaki düzeltmeler sonradan eklendi:
+
+- `db4f370` — `case_dossier.matches[]` gerçek usta kartı alanları ve `can_notify / notify_state` taşır.
+- `5ee2dd5` — `case_service_tags` + `technician_vehicle_kind_coverage` read-model eklendi; bakım/arıza typed seçimleri ve araç türü matching'in girdisi oldu.
+- `d1adb97` — Customer case profile ve public usta preview, `Vakayı bildir` kararını yalnız dossier match üzerinden verir.
+- `59465c2` — Bakım/arıza composer'da çekici sorusu explicit karar haline geldi; default `false` submit yolu kapandı.
+- `d12d9ef` — Service pool kartı `has_offer_from_me` ile tekrar teklif CTA'sını kilitler.
+
+Güncel sonuç: `Vakayı bildir` artık public profile'ın kendi tahminiyle değil, aktif vaka + backend match contract'ı ile çalışır. Kalan açık: customer home'daki genel "uygun usta" bandının hangi aktif vaka context'iyle besleneceği ayrıca cihaz smoke sonrası keskinleştirilmeli.
+
 ---
 
 ## 1. `case_dossier` Adapter Doğruluğu
@@ -154,7 +166,7 @@ Codex'in BE self-audit OM listesini FE perspektifinden yorumlama:
 | OM-14 | composer §2.2 | ✅ 3 flow reorder (Faz 8) |
 | OM-15 | naming gate | ✅ FE 0 hit |
 | OM-16 | preferred/assigned semantik | 🟡 FE engine.ts genel akışı doğru ama eski yorumlar olabilir; V1.1 cleanup |
-| OM-17 | match coverage kalitesi | 🟡 BE V1.1 borç |
+| OM-17 | match coverage kalitesi | 🟡 V1 temel düzeltildi: typed service tags + vehicle kind coverage var; gelişmiş skor/backfill V1.1 |
 | OM-18 | baseline | ✅ |
 
 ---
@@ -168,7 +180,7 @@ FE perspektifinden:
 3. **Mock store kalıntıları** — dev/seed seviyesinde, V1.1 cleanup hedefi
 4. **Tow misc snapshot storage** (kasko/rating) — typed tablolara taşıma (OM-02)
 5. **FE preferred_technician_id semantik** — engine.ts tracking yorumu küçük cleanup (OM-16)
-6. **Match coverage genişletme** — customer home active cases + uygun usta bandı canlı match verisiyle (OM-17 FE)
+6. **Customer home uygun usta bandı** — case profile ve public sheet düzeldi; home bandı tek aktif vaka context'iyle canlı dossier/match verisine bağlanmalı.
 
 ---
 
