@@ -29,6 +29,7 @@ import { Alert, ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCancelAppointment } from "@/features/appointments";
+import { useNotifyCaseToTechnician } from "@/features/cases/api";
 import { apiClient } from "@/runtime";
 
 /* ────────────────────────────────────────────────────────────
@@ -119,6 +120,42 @@ function offerStatusLabel(status: OfferSummary["status"]): {
       return { label: "Geri çekildi", tone: "neutral" };
     default:
       return { label: status, tone: "neutral" };
+  }
+}
+
+function providerTypeLabel(providerType: string | null | undefined): string | null {
+  switch (providerType) {
+    case "usta":
+      return "Servis";
+    case "oto_aksesuar":
+      return "Oto aksesuar";
+    case "oto_elektrik":
+      return "Oto elektrik";
+    case "kaporta_boya":
+      return "Kaporta boya";
+    case "lastik":
+      return "Lastik";
+    case "cekici":
+      return "Çekici";
+    default:
+      return null;
+  }
+}
+
+function notifyCtaLabel(
+  state: CaseDossierResponse["matches"][number]["notify_state"],
+) {
+  switch (state) {
+    case "available":
+      return "Vakayı bildir";
+    case "already_notified":
+      return "Bildirildi";
+    case "has_offer":
+      return "Teklif geldi";
+    case "limit_reached":
+      return "Bildirim limiti doldu";
+    default:
+      return "Uygun değil";
   }
 }
 
@@ -341,22 +378,47 @@ function OfferCard({ offer }: { offer: OfferSummary }) {
 /** Match card — score visualization */
 function MatchCard({
   match,
+  notifyPending,
+  onNotify,
 }: {
   match: CaseDossierResponse["matches"][number];
+  notifyPending: boolean;
+  onNotify: (match: CaseDossierResponse["matches"][number]) => void;
 }) {
   const scoreNum =
     typeof match.score === "number"
       ? match.score
       : Number.parseFloat(match.score);
   const scorePercent = Number.isFinite(scoreNum) ? Math.round(scoreNum) : null;
+  const providerLabel = providerTypeLabel(match.provider_type);
+  const canNotify = match.can_notify && Boolean(match.technician_profile_id);
+  const ctaLabel = notifyCtaLabel(match.notify_state);
 
   return (
-    <View className="gap-2 rounded-[20px] border border-app-success/25 bg-app-success-soft px-4 py-3.5">
+    <View className="gap-3 rounded-[20px] border border-app-success/25 bg-app-success-soft px-4 py-3.5">
       <View className="flex-row items-center justify-between">
-        <TrustBadge
-          label={match.match_badge ?? "Bu vakaya uygun"}
-          tone="success"
-        />
+        <View className="flex-1 flex-row items-center gap-2 pr-2">
+          <View className="h-10 w-10 items-center justify-center rounded-full border border-app-success/20 bg-app-success/10">
+            <Icon icon={Wrench} size={18} color="#2dd28d" />
+          </View>
+          <View className="flex-1 gap-0.5">
+            <Text variant="label" tone="inverse" className="text-[14px]">
+              {match.display_name ?? "Uygun servis"}
+            </Text>
+            {match.tagline || providerLabel || match.area_label ? (
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[11px]"
+                numberOfLines={1}
+              >
+                {[match.tagline, providerLabel, match.area_label]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+            ) : null}
+          </View>
+        </View>
         {scorePercent !== null ? (
           <View className="flex-row items-center gap-1.5 rounded-full bg-app-success/15 px-2.5 py-1">
             <Icon icon={Star} size={11} color="#2dd28d" />
@@ -370,9 +432,50 @@ function MatchCard({
           </View>
         ) : null}
       </View>
+      <View className="flex-row flex-wrap gap-2">
+        <TrustBadge
+          label={match.match_badge ?? "Bu vakaya uygun"}
+          tone="success"
+        />
+        {match.verified_level ? (
+          <TrustBadge
+            label={
+              match.verified_level === "premium"
+                ? "Premium"
+                : match.verified_level === "verified"
+                  ? "Doğrulanmış"
+                  : "Temel kayıt"
+            }
+            tone="info"
+          />
+        ) : null}
+      </View>
       <Text variant="caption" tone="muted" className="text-app-text-muted">
         {match.reason_label}
       </Text>
+      <Button
+        label={ctaLabel}
+        variant={canNotify ? "primary" : "outline"}
+        disabled={!canNotify}
+        loading={notifyPending && canNotify}
+        onPress={() => onNotify(match)}
+        fullWidth
+      />
+      {!canNotify && match.notify_disabled_reason ? (
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted text-center text-[11px]"
+        >
+          {match.notify_disabled_reason === "case_notification_limit_reached"
+            ? "Bu vaka için bildirim limiti doldu."
+            : match.notify_disabled_reason === "already_notified"
+              ? "Bu servis zaten bilgilendirildi."
+              : match.notify_disabled_reason === "has_offer"
+                ? "Bu servisten teklif geldi."
+                : "Bu kart şu an bildirim alamıyor."}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -473,6 +576,7 @@ export function CustomerCaseProfileScreen() {
     dossier?.appointment?.id ?? "",
     id ?? "",
   );
+  const notifyCase = useNotifyCaseToTechnician();
 
   if (!dossier) {
     return (
@@ -515,6 +619,22 @@ export function CustomerCaseProfileScreen() {
         },
       ],
     );
+  };
+  const handleNotifyMatch = async (
+    match: CaseDossierResponse["matches"][number],
+  ) => {
+    if (!match.can_notify || !match.technician_profile_id) return;
+    try {
+      await notifyCase.mutateAsync({
+        caseId: dossier.shell.id,
+        technicianProfileId: match.technician_profile_id,
+      });
+    } catch {
+      Alert.alert(
+        "Vaka bildirilemedi",
+        "Bu servis bu vaka için uygun olmayabilir veya bildirim limitine ulaşılmış olabilir.",
+      );
+    }
   };
 
   return (
@@ -600,7 +720,12 @@ export function CustomerCaseProfileScreen() {
           {dossier.matches.length > 0 ? (
             <View className="gap-2.5">
               {dossier.matches.map((match) => (
-                <MatchCard key={match.id} match={match} />
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  notifyPending={notifyCase.isPending}
+                  onNotify={handleNotifyMatch}
+                />
               ))}
             </View>
           ) : (

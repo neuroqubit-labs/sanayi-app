@@ -54,14 +54,17 @@ export function resolveTechnicianCta(opts: {
   activeCases: CaseSummaryResponse[];
   acceptingNewJobs: boolean;
   activeCaseMatchesTechnician?: boolean | null;
+  activeCaseCanNotify?: boolean | null;
+  activeCaseNotifyState?: string | null;
   activeCaseMatchReason?: string | null;
 }): TechnicianCta {
   const {
     technicianId,
-    providerType,
     activeCases,
     acceptingNewJobs,
     activeCaseMatchesTechnician,
+    activeCaseCanNotify,
+    activeCaseNotifyState,
     activeCaseMatchReason,
   } = opts;
 
@@ -92,8 +95,7 @@ export function resolveTechnicianCta(opts: {
     };
   }
 
-  const matches =
-    activeCaseMatchesTechnician ?? technicianMatchesCaseKind(activeCase.kind, providerType);
+  const matches = activeCaseMatchesTechnician === true;
   if (!matches) {
     return {
       mode: "mismatch",
@@ -105,6 +107,45 @@ export function resolveTechnicianCta(opts: {
         activeCase.kind === "towing"
           ? "Çekici vakası ayrı çağrı akışıyla ilerler."
           : "Mevcut aktif vakan bu ustanın uzmanlığıyla eşleşmiyor.",
+    };
+  }
+
+  if (activeCaseNotifyState === "already_notified") {
+    return {
+      mode: "ready",
+      caseId: activeCase.id,
+      primaryLabel: "Bildirildi",
+      primaryRoute: `/vaka/${activeCase.id}`,
+      primaryDisabled: true,
+      helperText: "Bu servis bu vaka için zaten bilgilendirildi.",
+    };
+  }
+
+  if (activeCaseNotifyState === "has_offer") {
+    return {
+      mode: "ready",
+      caseId: activeCase.id,
+      primaryLabel: "Teklifi gör",
+      primaryRoute: `/vaka/${activeCase.id}`,
+      primaryDisabled: false,
+      helperText: "Bu servisten teklif geldi.",
+    };
+  }
+
+  if (activeCaseNotifyState === "limit_reached" || activeCaseCanNotify === false) {
+    return {
+      mode: "ready",
+      caseId: activeCase.id,
+      primaryLabel:
+        activeCaseNotifyState === "limit_reached"
+          ? "Bildirim limiti doldu"
+          : "Bildirim kapalı",
+      primaryRoute: `/vaka/${activeCase.id}`,
+      primaryDisabled: true,
+      helperText:
+        activeCaseNotifyState === "limit_reached"
+          ? "Bu vaka için en fazla 3 servise bildirim gönderebilirsin."
+          : "Bu servis şu an bu vaka için bildirim alamıyor.",
     };
   }
 

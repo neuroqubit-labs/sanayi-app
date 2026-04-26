@@ -4,7 +4,11 @@ import type {
   ServiceRequestDraft,
   ServiceRequestKind,
 } from "@naro/domain";
-import { ApiError, type ApiRequestOptions } from "@naro/mobile-core";
+import {
+  ApiError,
+  invalidateCaseDossier,
+  type ApiRequestOptions,
+} from "@naro/mobile-core";
 import {
   useInfiniteQuery,
   useMutation,
@@ -137,8 +141,9 @@ export function useNotifyCaseToTechnician() {
         notify_state: string;
       };
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, variables) => {
       await invalidateCaseConsumers();
+      await invalidateCaseDossier(queryClient, variables.caseId);
     },
   });
 }

@@ -93,7 +93,8 @@ export function UstaPreviewSheet() {
   });
   const activeCaseMatch = dossierQuery.data?.matches.find(
     (match) =>
-      match.technician_user_id === profile?.user_id &&
+      (match.technician_profile_id === profile?.id ||
+        match.technician_user_id === profile?.user_id) &&
       match.visibility_state !== "hidden" &&
       match.visibility_state !== "invalidated",
   );
@@ -146,17 +147,19 @@ export function UstaPreviewSheet() {
         acceptingNewJobs: profile.accepting_new_jobs,
         activeCaseMatchesTechnician:
           activeCaseForDossier ? Boolean(activeCaseMatch) : null,
+        activeCaseCanNotify: activeCaseMatch?.can_notify ?? null,
+        activeCaseNotifyState: activeCaseMatch?.notify_state ?? null,
         activeCaseMatchReason: activeCaseMatch?.reason_label ?? null,
       })
     : null;
 
   const handlePrimary = async () => {
     if (!cta || cta.primaryDisabled || !cta.primaryRoute) return;
-    if (cta.mode === "ready" && cta.caseId && technicianId) {
+    if (cta.mode === "ready" && cta.caseId && activeCaseMatch?.can_notify) {
       try {
         await notifyCase.mutateAsync({
           caseId: cta.caseId,
-          technicianId,
+          technicianProfileId: profile?.id ?? technicianId ?? undefined,
         });
       } catch {
         Alert.alert(
