@@ -97,10 +97,12 @@ export function PoolReelsCardLive({
 
   const createdLabel = formatCreatedAt(caseItem.created_at);
   const estimateLabel = formatMoney(caseItem.estimate_amount);
+  const canSendOffer = !caseItem.has_offer_from_me;
 
   const openDetail = () => router.push(`/vaka/${caseItem.id}` as Href);
 
   const handlePrimary = () => {
+    if (!canSendOffer) return;
     openOfferSheet(caseItem.id);
   };
 
@@ -202,9 +204,10 @@ export function PoolReelsCardLive({
 
           <View className="mt-auto gap-2 pb-4 pt-2">
             <Button
-              label="Teklif ver"
+              label={canSendOffer ? "Teklif ver" : "Teklif verildi"}
               size="lg"
               fullWidth
+              disabled={!canSendOffer}
               onPress={handlePrimary}
             />
           </View>

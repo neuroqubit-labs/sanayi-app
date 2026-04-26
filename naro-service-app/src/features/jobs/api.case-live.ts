@@ -561,6 +561,7 @@ function buildRequestFromDetail(detail: CaseDetailResponse): ServiceRequestDraft
     vehicle_drivable:
       (subtype.vehicle_drivable as boolean | null | undefined) ?? null,
     towing_required: detail.kind === "towing",
+    towing_decision_made: detail.kind === "towing",
     pickup_preference:
       (subtype.pickup_preference as ServiceRequestDraft["pickup_preference"]) ??
       null,
