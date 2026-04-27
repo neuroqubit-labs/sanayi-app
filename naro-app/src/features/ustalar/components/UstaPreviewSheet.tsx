@@ -66,6 +66,7 @@ const ACTIVE_CASE_STATUSES = new Set([
  */
 export function UstaPreviewSheet() {
   const technicianId = useUstaPreviewStore((state) => state.technicianId);
+  const feedItem = useUstaPreviewStore((state) => state.feedItem);
   const close = useUstaPreviewStore((state) => state.close);
   const router = useRouter();
   const segments = useSegments();
@@ -98,6 +99,18 @@ export function UstaPreviewSheet() {
       match.visibility_state !== "hidden" &&
       match.visibility_state !== "invalidated",
   );
+  const feedContextMatchesProfile =
+    Boolean(feedItem && profile && feedItem.id === profile.id);
+  const feedContextMatchesCase =
+    feedContextMatchesProfile && activeCaseForDossier
+      ? feedItem?.is_case_compatible === true ||
+        feedItem?.compatibility_state === "notifyable" ||
+        feedItem?.compatibility_state === "compatible"
+      : null;
+  const canNotifyActiveCase =
+    activeCaseMatch?.can_notify ??
+    (feedContextMatchesProfile ? feedItem?.can_notify : null) ??
+    false;
 
   const isOpen = Boolean(technicianId);
   const routeKeyAtOpen = useRef<string | null>(null);
@@ -146,16 +159,24 @@ export function UstaPreviewSheet() {
         activeCases: myCases ?? [],
         acceptingNewJobs: profile.accepting_new_jobs,
         activeCaseMatchesTechnician:
-          activeCaseForDossier ? Boolean(activeCaseMatch) : null,
-        activeCaseCanNotify: activeCaseMatch?.can_notify ?? null,
-        activeCaseNotifyState: activeCaseMatch?.notify_state ?? null,
-        activeCaseMatchReason: activeCaseMatch?.reason_label ?? null,
+          activeCaseForDossier
+            ? (activeCaseMatch ? true : feedContextMatchesCase)
+            : null,
+        activeCaseCanNotify:
+          activeCaseMatch?.can_notify ??
+          (feedContextMatchesProfile ? feedItem?.can_notify : null),
+        activeCaseNotifyState:
+          activeCaseMatch?.notify_state ??
+          (feedContextMatchesProfile ? feedItem?.notify_state : null),
+        activeCaseMatchReason:
+          activeCaseMatch?.reason_label ??
+          (feedContextMatchesProfile ? feedItem?.match_reason_label : null),
       })
     : null;
 
   const handlePrimary = async () => {
     if (!cta || cta.primaryDisabled || !cta.primaryRoute) return;
-    if (cta.mode === "ready" && cta.caseId && activeCaseMatch?.can_notify) {
+    if (cta.mode === "ready" && cta.caseId && canNotifyActiveCase) {
       try {
         await notifyCase.mutateAsync({
           caseId: cta.caseId,
@@ -208,6 +229,9 @@ export function UstaPreviewSheet() {
             onOpenFull={openFullProfile}
             cta={cta}
             primaryPending={notifyCase.isPending}
+            contextLoading={Boolean(
+              activeCaseForDossier?.id && dossierQuery.isLoading,
+            )}
             onPrimary={() => {
               void handlePrimary();
             }}
@@ -223,6 +247,7 @@ type PreviewContentProps = {
   onOpenFull: () => void;
   cta: TechnicianCta | null;
   primaryPending: boolean;
+  contextLoading: boolean;
   onPrimary: () => void;
 };
 
@@ -231,6 +256,7 @@ function PreviewContent({
   onOpenFull,
   cta,
   primaryPending,
+  contextLoading,
   onPrimary,
 }: PreviewContentProps) {
   const { colors } = useNaroTheme();
@@ -257,7 +283,7 @@ function PreviewContent({
   const districtLabel = profile.location_summary.primary_district_label;
   const cityLabel = profile.location_summary.city_label;
   const radiusKm = profile.location_summary.service_radius_km;
-  const showHelper = Boolean(cta?.helperText && cta.mode !== "mismatch");
+  const showHelper = Boolean(cta?.helperText);
 
   return (
     <View className="gap-3">
@@ -420,31 +446,38 @@ function PreviewContent({
       <View className="gap-1.5">
         <Button
           label={
-            cta?.mode === "mismatch"
-              ? "Randevu alınamaz"
+            contextLoading
+              ? "Vaka eşleşmesi yükleniyor…"
               : cta?.primaryLabel ?? "—"
           }
           size="lg"
           fullWidth
-          disabled={!cta || cta.primaryDisabled || primaryPending}
+          disabled={
+            contextLoading ||
+            !cta ||
+            cta.primaryDisabled ||
+            primaryPending
+          }
           variant={
-            !cta || cta.primaryDisabled
+            contextLoading || !cta || cta.primaryDisabled
               ? "surface"
               : cta.mode === "ready"
                 ? "primary"
                 : "secondary"
           }
           className={
-            !cta || cta.primaryDisabled
+            contextLoading || !cta || cta.primaryDisabled
               ? "border-app-outline bg-app-surface-2 opacity-100"
               : undefined
           }
           labelClassName={
-            !cta || cta.primaryDisabled ? "text-app-text-muted" : undefined
+            contextLoading || !cta || cta.primaryDisabled
+              ? "text-app-text-muted"
+              : undefined
           }
           onPress={onPrimary}
         />
-        {showHelper ? (
+        {showHelper && !contextLoading ? (
           <Text
             variant="caption"
             tone="muted"

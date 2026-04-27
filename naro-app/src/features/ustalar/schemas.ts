@@ -207,6 +207,31 @@ export const TechnicianPublicViewSchema = z.object({
 });
 export type TechnicianPublicView = z.infer<typeof TechnicianPublicViewSchema>;
 
+export const TechnicianContextGroupSchema = z.enum(["primary", "other"]);
+export type TechnicianContextGroup = z.infer<
+  typeof TechnicianContextGroupSchema
+>;
+
+export const TechnicianCompatibilityStateSchema = z.enum([
+  "notifyable",
+  "compatible",
+  "vehicle_only",
+  "weak",
+  "incompatible",
+]);
+export type TechnicianCompatibilityState = z.infer<
+  typeof TechnicianCompatibilityStateSchema
+>;
+
+export const TechnicianNotifyStateSchema = z.enum([
+  "available",
+  "already_notified",
+  "has_offer",
+  "limit_reached",
+  "not_compatible",
+]);
+export type TechnicianNotifyState = z.infer<typeof TechnicianNotifyStateSchema>;
+
 export const TechnicianFeedItemSchema = z.object({
   id: z.string().uuid(),
   display_name: z.string(),
@@ -223,6 +248,22 @@ export const TechnicianFeedItemSchema = z.object({
   location_summary: LocationSummarySchema.default({}),
   proof_preview: z.array(ProofPreviewItemSchema).default([]),
   case_showcases: z.array(PublicCaseShowcasePreviewSchema).default([]),
+  context_score: z.coerce.number().default(0),
+  context_group: TechnicianContextGroupSchema.default("primary"),
+  context_tier: z.string().default("general"),
+  compatibility_state: TechnicianCompatibilityStateSchema.default("weak"),
+  match_badge: z.string().nullable().default(null),
+  notify_badge: z.string().nullable().default(null),
+  match_reason_label: z.string().nullable().default(null),
+  fit_signals: z.array(z.string()).default([]),
+  fit_badges: z.array(z.string()).default([]),
+  is_vehicle_compatible: z.boolean().default(true),
+  is_case_compatible: z.boolean().default(false),
+  can_notify: z.boolean().default(false),
+  notify_state: TechnicianNotifyStateSchema.default("not_compatible"),
+  notify_disabled_reason: z.string().nullable().default(null),
+  is_notified_to_me: z.boolean().default(false),
+  has_offer_from_me: z.boolean().default(false),
 });
 export type TechnicianFeedItem = z.infer<typeof TechnicianFeedItemSchema>;
 

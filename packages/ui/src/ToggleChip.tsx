@@ -1,4 +1,4 @@
-import { Pressable } from "react-native";
+import { GesturePressable as Pressable } from "./GesturePressable";
 
 import { Text } from "./Text";
 
@@ -14,6 +14,11 @@ export type ToggleChipProps = {
 const SIZE_CLASS = {
   sm: "px-3 py-1.5",
   md: "px-4 py-2.5",
+} as const;
+
+const TEXT_SIZE_CLASS = {
+  sm: "text-[12px] leading-[15px]",
+  md: "",
 } as const;
 
 export function ToggleChip({
@@ -45,7 +50,12 @@ export function ToggleChip({
     >
       <Text
         tone={selected ? "inverse" : "muted"}
-        className={selected ? "" : "text-app-text-muted"}
+        className={[
+          TEXT_SIZE_CLASS[size],
+          selected ? "" : "text-app-text-muted",
+        ]
+          .filter(Boolean)
+          .join(" ")}
       >
         {label}
       </Text>

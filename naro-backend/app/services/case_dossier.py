@@ -122,6 +122,25 @@ async def assemble_dossier(
         viewer_user_id=viewer_user_id,
         role=dossier_role,
     )
+    match_summaries: list[MatchSummary] = []
+    for match_item in matches:
+        match_profile = (
+            match_profiles_by_id.get(match_item.technician_profile_id)
+            if match_item.technician_profile_id
+            else match_profiles_by_user_id.get(match_item.technician_user_id)
+        )
+        match_summaries.append(
+            await _match_summary(
+                session,
+                match_item,
+                case=case,
+                role=dossier_role,
+                profile=match_profile,
+                notifications=notifications,
+                offers=offers,
+            )
+        )
+
     dossier = CaseDossierResponse(
         shell=_build_shell(case),
         vehicle=_build_vehicle(subtype),
@@ -129,21 +148,7 @@ async def assemble_dossier(
         attachments=[_attachment_summary(item) for item in attachments],
         evidence=[_evidence_summary(item) for item in evidence],
         documents=[_document_summary(item) for item in documents],
-        matches=[
-            _match_summary(
-                item,
-                case=case,
-                role=dossier_role,
-                profile=(
-                    match_profiles_by_id.get(item.technician_profile_id)
-                    if item.technician_profile_id
-                    else match_profiles_by_user_id.get(item.technician_user_id)
-                ),
-                notifications=notifications,
-                offers=offers,
-            )
-            for item in matches
-        ],
+        matches=match_summaries,
         notifications=[_notification_summary(item) for item in notifications],
         offers=[_offer_summary(item, users) for item in offers],
         appointment=_appointment_summary(appointment),
@@ -572,7 +577,8 @@ def _document_summary(item: CaseDocument) -> CaseDocumentSummary:
     )
 
 
-def _match_summary(
+async def _match_summary(
+    session: AsyncSession,
     item: CaseTechnicianMatch,
     *,
     case: ServiceCase,
@@ -581,12 +587,19 @@ def _match_summary(
     notifications: list[CaseTechnicianNotification],
     offers: list[CaseOffer],
 ) -> MatchSummary:
+    fit = (
+        await case_matching.evaluate_profile_fit(session, case=case, profile=profile)
+        if profile is not None
+        else None
+    )
+    compatibility_state = fit.compatibility_state if fit is not None else "compatible"
     can_notify, notify_state, disabled_reason = _match_notify_state(
         item,
         case=case,
         role=role,
         notifications=notifications,
         offers=offers,
+        compatibility_state=compatibility_state,
     )
     return MatchSummary(
         id=item.id,
@@ -599,7 +612,17 @@ def _match_summary(
         verified_level=profile.verified_level if profile is not None else None,
         avatar_asset_id=profile.avatar_asset_id if profile is not None else None,
         score=item.score,
+        context_score=fit.context_score if fit is not None else item.score,
+        context_group=fit.context_group if fit is not None else "primary",
+        context_tier=fit.context_tier if fit is not None else "case_fit",
+        compatibility_state=compatibility_state,
         reason_label=item.reason_label,
+        match_badge=fit.match_badge if fit is not None else "Bu vakaya uygun",
+        notify_badge=fit.notify_badge if fit is not None else None,
+        fit_signals=list(fit.fit_signals) if fit is not None else [],
+        fit_badges=list(fit.fit_badges) if fit is not None else [],
+        is_vehicle_compatible=fit.is_vehicle_compatible if fit is not None else True,
+        is_case_compatible=fit.is_case_compatible if fit is not None else True,
         visibility_state=item.visibility_state,
         can_notify=can_notify,
         notify_state=notify_state,
@@ -614,7 +637,10 @@ def _match_notify_state(
     role: ViewerRole,
     notifications: list[CaseTechnicianNotification],
     offers: list[CaseOffer],
+    compatibility_state: str,
 ) -> tuple[bool, MatchNotifyState, str | None]:
+    if compatibility_state != "notifyable":
+        return False, MatchNotifyState.NOT_COMPATIBLE, "not_compatible"
     if (
         role != ViewerRole.CUSTOMER
         or item.visibility_state

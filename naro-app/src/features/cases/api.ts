@@ -298,7 +298,8 @@ function draftToCreatePayload(
     preferred_window: draft.preferred_window ?? null,
     mileage_km: draft.mileage_km ?? null,
     preferred_technician_id: draft.preferred_technician_id ?? null,
-    towing_required: draft.towing_required ?? false,
+    towing_required:
+      kind === "accident" ? (draft.towing_required ?? false) : false,
   };
 
   // Tüm subtype-specific alanlar default'larla başla; aşağıda kind'a göre
@@ -364,7 +365,7 @@ function draftToCreatePayload(
         return {
           ...subtypeDefaults,
           symptoms: draft.symptoms ?? [],
-          vehicle_drivable: draft.vehicle_drivable ?? null,
+          vehicle_drivable: null,
           breakdown_category: draft.breakdown_category ?? null,
           on_site_repair: draft.on_site_repair ?? false,
           valet_requested: draft.valet_requested ?? false,
@@ -879,13 +880,14 @@ export function useTechnicianCaseAction(
     }
 
     return {
-      mode: "notify_case",
-      primaryLabel: "Vakayı Bildir",
+      mode: "open_case",
+      primaryLabel: "Vaka profilini aç",
       primaryRoute: `/vaka/${activeCase.id}`,
       disabled: false,
       attachOnPrimary: false,
       prefillOnPrimary: false,
-      description: "Bu vakayı ustaya bildir; usta teklif gönderirse randevuya geçersin.",
+      description:
+        "Bildirilebilir servis kararı backend match context'iyle vaka profilinde verilir.",
       kind,
       caseId: activeCase.id,
       offerId: null,

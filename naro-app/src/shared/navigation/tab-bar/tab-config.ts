@@ -27,7 +27,7 @@ export const CUSTOMER_TAB_META: Record<
     accessibilityLabel: "Kayıtlar sekmesi",
   },
   profil: {
-    label: "Profil",
-    accessibilityLabel: "Profil sekmesi",
+    label: "Hesap",
+    accessibilityLabel: "Hesap sekmesi",
   },
 };

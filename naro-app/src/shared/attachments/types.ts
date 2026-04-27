@@ -17,6 +17,8 @@ export type AttachmentDraft = CaseAttachment & {
 export type AttachmentUploadTarget = {
   purpose: MediaPurpose;
   ownerRef: string;
+  /** Let the caller accept local evidence immediately without blocking on S3. */
+  deferUpload?: boolean;
 };
 
 export type PickPhotoOptions = {

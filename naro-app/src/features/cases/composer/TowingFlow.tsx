@@ -3,7 +3,14 @@ import type {
   ServiceRequestUrgency,
   TowVehicleEquipment,
 } from "@naro/domain";
-import { FieldInput, Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
+import {
+  FieldInput,
+  GesturePressable as Pressable,
+  Icon,
+  StatusChip,
+  Text,
+  ToggleChip,
+} from "@naro/ui";
 import {
   AlertCircle,
   Calendar,
@@ -19,7 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { ComposerSection } from "./components/ComposerSection";
 import { LocationPicker } from "./components/LocationPicker";

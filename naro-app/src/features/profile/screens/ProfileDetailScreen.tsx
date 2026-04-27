@@ -1,7 +1,6 @@
 import { formatPhoneDisplay } from "@naro/mobile-core";
 import {
   BackButton,
-  Button,
   FlowSummaryRow,
   Icon,
   PlatformTrustCard,
@@ -494,13 +493,6 @@ export function ProfileDetailScreen() {
       ) : null}
 
       <SectionBody />
-
-      <Button
-        label="Profili kapat"
-        variant="outline"
-        fullWidth
-        onPress={() => router.back()}
-      />
     </Screen>
   );
 }

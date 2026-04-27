@@ -59,7 +59,7 @@ export function resolveTechnicianCta(opts: {
   activeCaseMatchReason?: string | null;
 }): TechnicianCta {
   const {
-    technicianId,
+    technicianId: _technicianId,
     activeCases,
     acceptingNewJobs,
     activeCaseMatchesTechnician,
@@ -88,7 +88,7 @@ export function resolveTechnicianCta(opts: {
     return {
       mode: "no_case",
       caseId: null,
-      primaryLabel: "Önce vaka aç",
+      primaryLabel: "Vaka oluştur",
       primaryRoute: `/(modal)/quick-actions`,
       primaryDisabled: false,
       helperText: "Randevu için önce bakım, arıza veya hasar vakası açmalısın.",
@@ -100,13 +100,13 @@ export function resolveTechnicianCta(opts: {
     return {
       mode: "mismatch",
       caseId: activeCase.id,
-      primaryLabel: "Uygun vaka oluştur",
-      primaryRoute: `/(modal)/usta-vaka/${technicianId}`,
-      primaryDisabled: false,
+      primaryLabel: "Bu vaka için uygun değil",
+      primaryRoute: `/vaka/${activeCase.id}`,
+      primaryDisabled: true,
       helperText:
         activeCase.kind === "towing"
           ? "Çekici vakası ayrı çağrı akışıyla ilerler."
-          : "Mevcut aktif vakan bu ustanın uzmanlığıyla eşleşmiyor.",
+          : "Mevcut aktif vakan bu servisin backend uyumluluk sinyalleriyle eşleşmiyor.",
     };
   }
 

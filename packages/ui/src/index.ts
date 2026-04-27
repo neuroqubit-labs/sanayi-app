@@ -144,6 +144,10 @@ export {
 export { FlowScreen, type FlowScreenProps } from "./FlowScreen";
 export { FlowSummaryRow, type FlowSummaryRowProps } from "./FlowSummaryRow";
 export {
+  GesturePressable,
+  type GesturePressableProps,
+} from "./GesturePressable";
+export {
   PhotoGrid,
   type PhotoGridProps,
   type PhotoGridItem,

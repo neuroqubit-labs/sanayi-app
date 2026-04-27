@@ -13,7 +13,9 @@ import {
 import { type Href, useRouter } from "expo-router";
 import {
   AlertTriangle,
+  CarFront,
   Heart,
+  Plus,
   Sparkles,
   Truck,
   Wrench,
@@ -92,7 +94,7 @@ const DISCOVERY_ITEMS: {
 export function QuickActionsScreen() {
   const router = useRouter();
   const { colors, scheme } = useNaroTheme();
-  const { data: activeVehicle } = useActiveVehicle();
+  const { data: activeVehicle, isLoading: isLoadingVehicle } = useActiveVehicle();
   const towEntry = useTowEntryRoute({
     vehicleId: activeVehicle?.id,
   });
@@ -119,6 +121,14 @@ export function QuickActionsScreen() {
     Math.min(height - 48, Math.max(360, height * 0.72)),
   );
 
+  const close = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)" as Href);
+  };
+
   const goTo = (route: Href) => {
     router.replace(route);
   };
@@ -128,6 +138,7 @@ export function QuickActionsScreen() {
       ? { ...action, route: towEntry.route }
       : action,
   );
+  const shouldShowAddVehicle = !isLoadingVehicle && !activeVehicle;
 
   return (
     <View className="flex-1 justify-end">
@@ -141,7 +152,7 @@ export function QuickActionsScreen() {
           accessibilityLabel="Kapat"
           className="flex-1"
           style={{ backgroundColor: colors.overlay, opacity: backdropOpacity }}
-          onPress={() => router.back()}
+          onPress={close}
         />
       </Animated.View>
 
@@ -221,6 +232,14 @@ export function QuickActionsScreen() {
                   4 işlem
                 </Text>
               </View>
+
+              {shouldShowAddVehicle ? (
+                <AddVehicleHero
+                  colors={colors}
+                  scheme={scheme}
+                  onPress={() => goTo("/arac/yeni" as Href)}
+                />
+              ) : null}
 
               <PrimaryActionsGrid
                 actions={primaryActions}
@@ -316,6 +335,74 @@ function PrimaryActionsGrid({
         </View>
       ))}
     </View>
+  );
+}
+
+function AddVehicleHero({
+  colors,
+  scheme,
+  onPress,
+}: {
+  colors: NaroThemePalette;
+  scheme: ThemeScheme;
+  onPress: () => void;
+}) {
+  const surface = withAlphaHex(colors.successSoft, scheme === "dark" ? 0.74 : 1);
+  const border = withAlphaHex(colors.success, scheme === "dark" ? 0.44 : 0.28);
+
+  return (
+    <PressableCard
+      variant="elevated"
+      radius="lg"
+      accessibilityRole="button"
+      accessibilityLabel="Aracını ekle"
+      onPress={onPress}
+      className="overflow-hidden bg-app-surface active:bg-app-surface-2"
+      style={{
+        backgroundColor: surface,
+        borderColor: border,
+        shadowColor: colors.success,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: scheme === "dark" ? 0.22 : 0.14,
+        shadowRadius: 18,
+        elevation: 6,
+      }}
+    >
+      <View className="flex-row items-center gap-4 px-4 py-4">
+        <View
+          className="h-14 w-14 items-center justify-center rounded-[20px]"
+          style={{ backgroundColor: withAlphaHex(colors.success, 0.18) }}
+        >
+          <GlassIconBadge
+            icon={CarFront}
+            color={colors.success}
+            surfaceColor={colors.successSoft}
+          />
+        </View>
+        <View className="min-w-0 flex-1 gap-1">
+          <Text
+            variant="h3"
+            tone="success"
+            className="text-[18px] leading-[22px]"
+          >
+            Aracını ekle
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[12px] leading-[17px]"
+          >
+            Bakım, hasar ve arıza akışları aracına göre hazırlanır.
+          </Text>
+        </View>
+        <View
+          className="h-10 w-10 items-center justify-center rounded-full"
+          style={{ backgroundColor: colors.success }}
+        >
+          <Plus size={18} color="#ffffff" />
+        </View>
+      </View>
+    </PressableCard>
   );
 }
 

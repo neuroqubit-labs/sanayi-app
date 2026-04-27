@@ -1,6 +1,6 @@
-import { Icon, Text } from "@naro/ui";
+import { GesturePressable as Pressable, Icon, Text } from "@naro/ui";
 import { Check, type LucideIcon } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 export type ServiceModeCardProps = {
   icon: LucideIcon;

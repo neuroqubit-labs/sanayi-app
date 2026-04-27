@@ -11,12 +11,15 @@ import { Href, useRouter } from "expo-router";
 import {
   AlertTriangle,
   ArrowRight,
+  CarFront,
   ChevronDown,
+  FileClock,
   Heart,
   SlidersHorizontal,
   Sparkles,
   Truck,
   Wrench,
+  type LucideIcon,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
@@ -31,11 +34,16 @@ import type { RecordItem, RecordsFeed } from "../types";
 const ARCHIVE_FILTERS = [
   { key: "all", label: "Tümü" },
   { key: "maintenance", label: "Bakım" },
-  { key: "damage", label: "Hasar" },
+  { key: "breakdown", label: "Arıza" },
+  { key: "accident", label: "Hasar" },
   { key: "towing", label: "Çekici" },
 ] as const;
 
 type FilterKey = (typeof ARCHIVE_FILTERS)[number]["key"];
+
+function recordMatchesFilter(item: RecordItem, filter: FilterKey) {
+  return filter === "all" || item.kind === filter;
+}
 
 const EMPTY_ACTIONS = [
   {
@@ -72,8 +80,22 @@ const EMPTY_ACTIONS = [
   },
 ];
 
-type EmptyAction = (typeof EMPTY_ACTIONS)[number] & {
+const ADD_VEHICLE_ACTION = {
+  key: "vehicle",
+  title: "Aracını ekle",
+  description: "Kayıtlar ve vaka önerileri araç profiline bağlanır",
+  route: "/arac/yeni" as Href,
+  icon: CarFront,
+  tone: "success" as const,
+};
+
+type EmptyAction = {
+  key: string;
+  title: string;
+  description: string;
   route: Href;
+  icon: LucideIcon;
+  tone: "accent" | "neutral" | "success" | "warning" | "critical" | "info";
 };
 
 export function RecordsScreen() {
@@ -87,24 +109,29 @@ export function RecordsScreen() {
     useRecordsFeed();
   const [filter, setFilter] = useState<FilterKey>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeVehicleLabel = activeVehicle
+    ? `${activeVehicle.plate} · ${activeVehicle.make} ${activeVehicle.model}`
+    : null;
+  const selectedFilterLabel =
+    ARCHIVE_FILTERS.find((item) => item.key === filter)?.label ?? "Tümü";
 
   const archiveItems = useMemo<RecordItem[]>(() => {
-    if (filter === "all") return feed.items;
-    if (filter === "damage") {
-      return feed.items.filter(
-        (item) => item.kind === "breakdown" || item.kind === "accident",
-      );
-    }
-    return feed.items.filter((item) => item.kind === filter);
+    return feed.items.filter((item) => recordMatchesFilter(item, filter));
   }, [feed.items, filter]);
+  const activeItems = useMemo<RecordItem[]>(() => {
+    return feed.activeRecords.filter((item) => recordMatchesFilter(item, filter));
+  }, [feed.activeRecords, filter]);
 
-  const totalActive = feed.activeRecords.length;
-  const totalCompleted = feed.items.length;
-  const isEmpty = totalActive === 0 && totalCompleted === 0;
-  const emptyActions: EmptyAction[] = EMPTY_ACTIONS.map((action) =>
-    action.key === "towing"
-      ? { ...action, route: towEntry.route }
-      : action,
+  const totalActive = activeItems.length;
+  const totalCompleted = archiveItems.length;
+  const allRecordsCount = feed.activeRecords.length + feed.items.length;
+  const isEmpty = allRecordsCount === 0;
+  const isFilterEmpty = !isEmpty && totalActive === 0 && totalCompleted === 0;
+  const emptyActions: EmptyAction[] = [
+    ...(activeVehicle ? [] : [ADD_VEHICLE_ACTION]),
+    ...EMPTY_ACTIONS,
+  ].map((action) =>
+    action.key === "towing" ? { ...action, route: towEntry.route } : action,
   );
   const guidanceActions: GuidanceAction[] = GUIDANCE_ACTIONS.map((action) =>
     action.key === "towing"
@@ -132,11 +159,7 @@ export function RecordsScreen() {
         ListHeaderComponent={
           <View className="gap-5 px-5 pb-4">
             <RecordsPillHeader
-              activeVehicleLabel={
-                activeVehicle
-                  ? `${activeVehicle.plate} · ${activeVehicle.make} ${activeVehicle.model}`
-                  : null
-              }
+              activeVehicleLabel={activeVehicleLabel}
               onOpenVehicleSwitcher={openVehicleSwitcher}
               filterActive={filter !== "all"}
               filtersOpen={filtersOpen}
@@ -157,9 +180,19 @@ export function RecordsScreen() {
               </View>
             ) : null}
 
+            {!isEmpty ? (
+              <RecordsDigest
+                activeCount={totalActive}
+                archiveCount={totalCompleted}
+                filterLabel={selectedFilterLabel}
+                activeVehicleLabel={activeVehicleLabel}
+              />
+            ) : null}
+
             {isEmpty ? (
               <EmptyState
                 actions={emptyActions}
+                activeVehicleLabel={activeVehicleLabel}
                 onAction={(route) => router.push(route as Href)}
               />
             ) : null}
@@ -170,7 +203,7 @@ export function RecordsScreen() {
                   <View className="flex-row items-center gap-2">
                     <View className="h-2 w-2 rounded-full bg-app-success" />
                     <Text variant="h3" tone="inverse">
-                      Devam eden işlemler
+                      Aktif vaka akışı
                     </Text>
                   </View>
                   <TrustBadge
@@ -179,8 +212,8 @@ export function RecordsScreen() {
                   />
                 </View>
                 <View className="gap-3">
-                  {feed.activeRecords.map((record) => (
-                    <RecordCard key={record.id} item={record} prominent />
+                  {activeItems.map((record) => (
+                    <RecordCard key={record.id} item={record} mode="active" />
                   ))}
                 </View>
               </View>
@@ -199,7 +232,10 @@ export function RecordsScreen() {
               </View>
             ) : null}
 
-            {!isEmpty && totalCompleted <= 1 ? (
+            {!isEmpty &&
+            filter === "all" &&
+            feed.activeRecords.length === 0 &&
+            feed.items.length <= 1 ? (
               <GuidanceCard
                 actions={guidanceActions}
                 onAction={(route) => router.push(route as Href)}
@@ -208,8 +244,7 @@ export function RecordsScreen() {
           </View>
         }
         ListEmptyComponent={
-          totalCompleted === 0 && !isEmpty ? null : totalCompleted > 0 &&
-            archiveItems.length === 0 ? (
+          isFilterEmpty ? (
             <Surface
               variant="flat"
               radius="lg"
@@ -359,7 +394,7 @@ function RecordsPillHeader({
             className="text-app-text-muted"
             numberOfLines={1}
           >
-            Bu araca ait kayıtlar
+            {activeVehicleLabel ? "Bu araca ait kayıtlar" : "Tüm araç kayıtları"}
           </Text>
         </View>
         <Icon icon={ChevronDown} size={16} color="#83a7ff" />
@@ -388,21 +423,96 @@ function RecordsPillHeader({
   );
 }
 
+function RecordsDigest({
+  activeCount,
+  archiveCount,
+  filterLabel,
+  activeVehicleLabel,
+}: {
+  activeCount: number;
+  archiveCount: number;
+  filterLabel: string;
+  activeVehicleLabel: string | null;
+}) {
+  return (
+    <Surface
+      variant="flat"
+      radius="lg"
+      className="gap-3 border-app-outline-strong bg-app-surface px-4 py-3.5"
+    >
+      <View className="flex-row items-center gap-2">
+        <View className="h-9 w-9 items-center justify-center rounded-full bg-brand-500/15">
+          <Icon icon={FileClock} size={17} color="#83a7ff" />
+        </View>
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text variant="label" tone="inverse">
+            Vaka günlüğü
+          </Text>
+          <Text
+            variant="caption"
+            tone="muted"
+            numberOfLines={1}
+            className="text-app-text-muted"
+          >
+            {activeVehicleLabel ?? "Araç seçilmeden tüm kayıtlar"} · {filterLabel}
+          </Text>
+        </View>
+      </View>
+      <View className="flex-row gap-2">
+        <DigestPill label="Aktif" value={`${activeCount}`} tone="success" />
+        <DigestPill label="Geçmiş" value={`${archiveCount}`} tone="info" />
+        <DigestPill label="Filtre" value={filterLabel} tone="neutral" />
+      </View>
+    </Surface>
+  );
+}
+
+function DigestPill({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "success" | "info" | "neutral";
+}) {
+  const toneClass =
+    tone === "success"
+      ? "bg-app-success-soft"
+      : tone === "info"
+        ? "bg-brand-500/10"
+        : "bg-app-surface-2";
+
+  return (
+    <View className={["flex-1 rounded-[16px] px-3 py-2", toneClass].join(" ")}>
+      <Text variant="label" tone="inverse" numberOfLines={1}>
+        {value}
+      </Text>
+      <Text variant="caption" tone="subtle" className="text-[11px]">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 function EmptyState({
   actions,
+  activeVehicleLabel,
   onAction,
 }: EmptyStateProps & {
   actions: EmptyAction[];
+  activeVehicleLabel: string | null;
 }) {
   return (
     <Surface variant="raised" radius="xl" className="gap-4 px-4 py-5">
       <View className="gap-2">
         <Text variant="h3" tone="inverse">
-          Şu an açık vaka yok
+          {activeVehicleLabel ? "Bu araç için kayıt yok" : "Henüz kayıt yok"}
         </Text>
         <Text tone="muted" className="text-app-text-muted">
-          Geçmiş işler, garanti izi ve faturalar güvende. Bir talep
-          başlattığında burada en üstte sabitlenecek.
+          {activeVehicleLabel
+            ? "Bu araçla ilk bakım, arıza, hasar veya çekici vakanı başlattığında burada kronoloji oluşacak."
+            : "Aracını ekleyip ilk vakayı başlattığında aktif süreçler ve geçmiş kayıtlar burada toplanacak."}
         </Text>
       </View>
       <View className="gap-3">

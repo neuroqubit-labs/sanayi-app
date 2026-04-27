@@ -101,6 +101,123 @@ def test_breakdown_tags_use_category_and_symptoms() -> None:
     }
 
 
+def test_breakdown_door_handle_tags_route_to_body_and_accessory() -> None:
+    tags = _breakdown_domain_keys("other", ["Arka kapı kolu kırıldı"])
+
+    assert {"aksesuar", "kaporta"} <= tags
+    assert "elektrik" not in tags
+
+
+def test_breakdown_climate_tags_keep_electric_climate_scope() -> None:
+    tags = _breakdown_domain_keys("climate", ["Klima soğutmuyor"])
+
+    assert {"klima", "elektrik"} <= tags
+    assert "kaporta" not in tags
+
+
+def test_service_tag_keys_ignore_request_draft_freeform_text() -> None:
+    """omurga §2.1 invariant: matching never reads request_draft."""
+    draft = SimpleNamespace(
+        kind=ServiceRequestKind.BREAKDOWN,
+        breakdown_category="other",
+        symptoms=["arka kapı kolu kırıldı"],
+        request_draft={
+            "category": "electric",
+            "symptoms": ["bambaska bir sey", "elektrik problemi"],
+            "notes": "ASLA OKUNMAMALI bu draft",
+        },
+    )
+
+    tags = service_tag_keys_for_draft(draft)
+
+    assert {"aksesuar", "kaporta"} <= tags
+    assert "elektrik" not in tags
+    assert "aku" not in tags
+
+
+def test_vw_kayseri_door_handle_pipeline_yields_body_and_accessory_tags() -> None:
+    """§7 senaryo: VW/Kayseri/kapı kolu → composer typed output kaporta+aksesuar üretir."""
+    draft = SimpleNamespace(
+        kind=ServiceRequestKind.BREAKDOWN,
+        breakdown_category="other",
+        symptoms=["Arka sol kapı kolu çıktı"],
+    )
+
+    tags = service_tag_keys_for_draft(draft)
+
+    assert {"aksesuar", "kaporta"} <= tags
+    assert "klima" not in tags
+    assert "elektrik" not in tags
+
+
+def test_accident_glass_damage_area_yields_glass_only() -> None:
+    draft = SimpleNamespace(kind=ServiceRequestKind.ACCIDENT, damage_area="glass")
+
+    tags = service_tag_keys_for_draft(draft)
+
+    assert tags == {"cam"}
+    assert "kaporta" not in tags
+
+
+def test_accident_door_damage_area_yields_body_paint_accessory() -> None:
+    draft = SimpleNamespace(kind=ServiceRequestKind.ACCIDENT, damage_area="door")
+
+    tags = service_tag_keys_for_draft(draft)
+
+    assert {"kaporta", "boya", "aksesuar"} <= tags
+
+
+def test_accident_missing_damage_area_falls_back_to_body_paint() -> None:
+    draft = SimpleNamespace(kind=ServiceRequestKind.ACCIDENT, damage_area=None)
+
+    tags = service_tag_keys_for_draft(draft)
+
+    assert tags == {"kaporta", "boya"}
+
+
+@pytest.mark.asyncio
+async def test_notify_rejects_glass_film_case_for_electric_only_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """§7 senaryo: cam filmi vakası elektrik-only servise bildirilemez."""
+    from app.services import case_matching
+
+    async def fake_get_profile_for_user(*_args, **_kwargs):
+        return SimpleNamespace(
+            id=uuid4(),
+            user_id=uuid4(),
+            provider_type=ProviderType.OTO_ELEKTRIK,
+            secondary_provider_types=[],
+        )
+
+    async def fake_evaluate_profile_fit(*_args, **_kwargs):
+        return SimpleNamespace(
+            is_vehicle_compatible=True,
+            is_case_compatible=False,
+            compatibility_state="incompatible",
+            reason_codes=["service_domain_mismatch"],
+        )
+
+    monkeypatch.setattr(
+        case_matching,
+        "_get_profile_for_user",
+        fake_get_profile_for_user,
+    )
+    monkeypatch.setattr(case_matching, "evaluate_profile_fit", fake_evaluate_profile_fit)
+
+    with pytest.raises(ValueError, match="technician_case_kind_mismatch"):
+        await notify_case_to_technician(
+            SimpleNamespace(),
+            case=SimpleNamespace(
+                id=uuid4(),
+                kind=ServiceRequestKind.MAINTENANCE,
+                maintenance_category="glass_film",
+            ),
+            customer_user_id=uuid4(),
+            technician_user_id=uuid4(),
+        )
+
+
 @pytest.mark.asyncio
 async def test_notify_case_to_technician_allows_notification_without_match(
     monkeypatch: pytest.MonkeyPatch,
@@ -163,14 +280,14 @@ async def test_notify_case_to_technician_allows_notification_without_match(
         fake_get_notification_for_technician,
     )
 
-    async def fake_profile_matches_case_scope(*_args, **_kwargs):
-        return True
+    async def fake_evaluate_profile_fit(*_args, **_kwargs):
+        return SimpleNamespace(
+            is_vehicle_compatible=True,
+            is_case_compatible=True,
+            compatibility_state="notifyable",
+        )
 
-    monkeypatch.setattr(
-        case_matching,
-        "profile_matches_case_scope",
-        fake_profile_matches_case_scope,
-    )
+    monkeypatch.setattr(case_matching, "evaluate_profile_fit", fake_evaluate_profile_fit)
 
     notification = await notify_case_to_technician(
         FakeSession(),
@@ -214,6 +331,33 @@ async def test_vehicle_kind_coverage_blocks_motorcycle_for_auto_only_profile() -
 
 
 @pytest.mark.asyncio
+async def test_vehicle_kind_missing_coverage_is_not_primary_compatible() -> None:
+    class ExecuteResult:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return []
+
+    class FakeSession:
+        async def get(self, model, _id):
+            if model is Vehicle:
+                return SimpleNamespace(vehicle_kind=VehicleKind.OTOMOBIL)
+            return None
+
+        async def execute(self, _stmt):
+            return ExecuteResult()
+
+    matches = await _vehicle_kind_matches_profile(
+        FakeSession(),
+        case=SimpleNamespace(id=uuid4(), vehicle_id=uuid4()),
+        profile=SimpleNamespace(id=uuid4()),
+    )
+
+    assert matches is False
+
+
+@pytest.mark.asyncio
 async def test_notify_case_to_technician_rejects_scope_mismatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -227,21 +371,59 @@ async def test_notify_case_to_technician_rejects_scope_mismatch(
             secondary_provider_types=[],
         )
 
-    async def fake_profile_matches_case_scope(*_args, **_kwargs):
-        return False
+    monkeypatch.setattr(
+        case_matching,
+        "_get_profile_for_user",
+        fake_get_profile_for_user,
+    )
+    async def fake_evaluate_profile_fit(*_args, **_kwargs):
+        return SimpleNamespace(
+            is_vehicle_compatible=True,
+            is_case_compatible=False,
+            compatibility_state="incompatible",
+        )
+
+    monkeypatch.setattr(case_matching, "evaluate_profile_fit", fake_evaluate_profile_fit)
+
+    with pytest.raises(ValueError, match="technician_case_kind_mismatch"):
+        await notify_case_to_technician(
+            SimpleNamespace(),
+            case=SimpleNamespace(id=uuid4(), kind=ServiceRequestKind.MAINTENANCE),
+            customer_user_id=uuid4(),
+            technician_user_id=uuid4(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_notify_case_to_technician_rejects_vehicle_kind_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import case_matching
+
+    async def fake_get_profile_for_user(*_args, **_kwargs):
+        return SimpleNamespace(
+            id=uuid4(),
+            user_id=uuid4(),
+            provider_type=ProviderType.USTA,
+            secondary_provider_types=[],
+        )
+
+    async def fake_evaluate_profile_fit(*_args, **_kwargs):
+        return SimpleNamespace(
+            is_vehicle_compatible=False,
+            is_case_compatible=False,
+            compatibility_state="incompatible",
+            reason_codes=["vehicle_kind_mismatch"],
+        )
 
     monkeypatch.setattr(
         case_matching,
         "_get_profile_for_user",
         fake_get_profile_for_user,
     )
-    monkeypatch.setattr(
-        case_matching,
-        "profile_matches_case_scope",
-        fake_profile_matches_case_scope,
-    )
+    monkeypatch.setattr(case_matching, "evaluate_profile_fit", fake_evaluate_profile_fit)
 
-    with pytest.raises(ValueError, match="technician_case_kind_mismatch"):
+    with pytest.raises(ValueError, match="vehicle_kind_mismatch"):
         await notify_case_to_technician(
             SimpleNamespace(),
             case=SimpleNamespace(id=uuid4(), kind=ServiceRequestKind.MAINTENANCE),
@@ -264,9 +446,6 @@ async def test_notify_case_to_technician_rejects_when_notification_limit_reached
             secondary_provider_types=[],
         )
 
-    async def fake_profile_matches_case_scope(*_args, **_kwargs):
-        return True
-
     async def fake_get_notification_for_technician(*_args, **_kwargs):
         return None
 
@@ -279,11 +458,14 @@ async def test_notify_case_to_technician_rejects_when_notification_limit_reached
         "_get_profile_for_user",
         fake_get_profile_for_user,
     )
-    monkeypatch.setattr(
-        case_matching,
-        "profile_matches_case_scope",
-        fake_profile_matches_case_scope,
-    )
+    async def fake_evaluate_profile_fit(*_args, **_kwargs):
+        return SimpleNamespace(
+            is_vehicle_compatible=True,
+            is_case_compatible=True,
+            compatibility_state="notifyable",
+        )
+
+    monkeypatch.setattr(case_matching, "evaluate_profile_fit", fake_evaluate_profile_fit)
     monkeypatch.setattr(
         case_matching,
         "get_notification_for_technician",

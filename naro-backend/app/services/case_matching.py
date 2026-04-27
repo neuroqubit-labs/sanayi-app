@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -24,10 +26,17 @@ from app.models.case_matching import (
 )
 from app.models.case_subtypes import BreakdownCase, MaintenanceCase, TowCase
 from app.models.offer import CaseOffer, CaseOfferStatus
-from app.models.taxonomy import BrandTier, TaxonomyBrand, TaxonomyCity, TaxonomyDistrict
+from app.models.taxonomy import (
+    BrandTier,
+    TaxonomyBrand,
+    TaxonomyCity,
+    TaxonomyDistrict,
+    TaxonomyServiceDomain,
+)
 from app.models.technician import ProviderType, TechnicianAvailability, TechnicianProfile
 from app.models.technician_signal import (
     TechnicianBrandCoverage,
+    TechnicianProcedureTag,
     TechnicianServiceArea,
     TechnicianServiceDomain,
     TechnicianVehicleKindCoverage,
@@ -36,12 +45,36 @@ from app.models.technician_signal import (
 from app.models.vehicle import Vehicle, VehicleKind
 from app.services.pool_matching import KIND_PROVIDER_MAP, kinds_for_provider
 
+logger = logging.getLogger(__name__)
+
 MAX_CUSTOMER_NOTIFICATIONS_PER_CASE = 3
 ACTIVE_NOTIFICATION_STATUSES = (
     CaseTechnicianNotificationStatus.SENT,
     CaseTechnicianNotificationStatus.SEEN,
     CaseTechnicianNotificationStatus.OFFER_CREATED,
 )
+
+
+@dataclass(slots=True)
+class ProfileFitResult:
+    context_score: Decimal
+    context_group: str
+    context_tier: str
+    compatibility_state: str
+    match_badge: str
+    notify_badge: str | None
+    match_reason_label: str
+    fit_signals: list[str] = field(default_factory=list)
+    fit_badges: list[str] = field(default_factory=list)
+    is_vehicle_compatible: bool = True
+    is_case_compatible: bool = False
+    reason_codes: list[str] = field(default_factory=list)
+    notify_state: str = "not_compatible"
+    notify_disabled_reason: str | None = None
+
+    @property
+    def can_notify(self) -> bool:
+        return self.compatibility_state == "notifyable" and self.notify_state == "available"
 
 
 def technician_matches_case_kind(
@@ -106,6 +139,16 @@ SYMPTOM_DOMAIN_KEYWORDS: dict[str, set[str]] = {
     "hararet": {"motor"},
     "sanziman": {"sanziman"},
     "şanzıman": {"sanziman"},
+    "kapı": {"aksesuar", "kaporta"},
+    "kapi": {"aksesuar", "kaporta"},
+    "kapı kolu": {"aksesuar", "kaporta"},
+    "kapi kolu": {"aksesuar", "kaporta"},
+    "kilit": {"aksesuar", "kaporta"},
+    "trim": {"aksesuar", "kaporta"},
+    "cam mekanizması": {"aksesuar", "kaporta"},
+    "cam mekanizmasi": {"aksesuar", "kaporta"},
+    "kaporta": {"kaporta", "boya"},
+    "tampon": {"kaporta", "boya"},
 }
 
 PACKAGE_MAINTENANCE_CATEGORIES = {
@@ -143,6 +186,23 @@ def _breakdown_domain_keys(
     return domains
 
 
+ACCIDENT_AREA_DOMAINS: dict[str, set[str]] = {
+    "front": {"kaporta", "boya"},
+    "rear": {"kaporta", "boya"},
+    "side": {"kaporta", "boya"},
+    "door": {"kaporta", "boya", "aksesuar"},
+    "glass": {"cam"},
+    "general": {"kaporta", "boya"},
+}
+
+
+def _accident_domain_keys(damage_area: str | None) -> set[str]:
+    if not damage_area:
+        return {"kaporta", "boya"}
+    key = damage_area.strip().lower()
+    return set(ACCIDENT_AREA_DOMAINS.get(key, {"kaporta", "boya"}))
+
+
 def service_tag_keys_for_draft(draft: object) -> set[str]:
     kind = getattr(draft, "kind", None)
     if kind == ServiceRequestKind.MAINTENANCE:
@@ -164,7 +224,10 @@ def service_tag_keys_for_draft(draft: object) -> set[str]:
             category = getattr(draft, "breakdown_category", None)
         return _breakdown_domain_keys(category, getattr(draft, "symptoms", None))
     if kind == ServiceRequestKind.ACCIDENT:
-        return {"kaporta", "boya"}
+        damage_area = getattr(draft, "damage_area", None)
+        if isinstance(damage_area, str):
+            return _accident_domain_keys(damage_area)
+        return _accident_domain_keys(None)
     return set()
 
 
@@ -204,14 +267,194 @@ async def profile_matches_case_scope(
     case: ServiceCase,
     profile: TechnicianProfile,
 ) -> bool:
-    if not await _vehicle_kind_matches_profile(session, case=case, profile=profile):
-        return False
-    if not profile_matches_case_kind(case.kind, profile):
-        return False
-    required_domains = await _case_required_domain_keys(session, case)
-    if not required_domains:
-        return True
-    return await _profile_has_any_domain(session, profile, required_domains)
+    fit = await evaluate_profile_fit(session, case=case, profile=profile)
+    return fit.compatibility_state == "notifyable"
+
+
+async def evaluate_profile_fit(
+    session: AsyncSession,
+    *,
+    profile: TechnicianProfile,
+    case: ServiceCase | None = None,
+    vehicle: Vehicle | None = None,
+) -> ProfileFitResult:
+    """Deterministic profile fit used by case matching and public discovery.
+
+    The hierarchy is intentionally explicit and boring: hard vehicle-kind scope,
+    case/service domain, brand/model, service area, then activity/trust. It never
+    reads request_draft; composer output must arrive as typed case fields or
+    case_service_tags.
+    """
+    if vehicle is None and case is not None:
+        vehicle = await session.get(Vehicle, case.vehicle_id)
+
+    score = Decimal("0.00")
+    reason_codes: list[str] = []
+    badges: list[str] = []
+    fit_signals: list[str] = []
+
+    vehicle_scope = await _vehicle_kind_scope(
+        session,
+        vehicle=vehicle,
+        profile=profile,
+    )
+    vehicle_compatible = vehicle_scope == "explicit_match"
+    if vehicle is not None and vehicle.vehicle_kind is not None:
+        if vehicle_compatible:
+            score += Decimal("25.00")
+            reason_codes.append("vehicle_kind")
+            badges.append("Araç tipi uygun")
+            fit_signals.append("vehicle_kind")
+        elif vehicle_scope == "missing_coverage":
+            reason_codes.append("vehicle_kind_missing_coverage")
+        else:
+            reason_codes.append("vehicle_kind_mismatch")
+
+    provider_ok = True
+    domain_ok = True
+    required_domains: set[str] = set()
+    domain_labels: list[str] = []
+    if case is not None:
+        if case.kind == ServiceRequestKind.TOWING:
+            provider_ok = False
+        else:
+            provider_ok = profile_matches_case_kind(case.kind, profile)
+        if provider_ok:
+            score += Decimal("20.00")
+            reason_codes.append("provider_type")
+            fit_signals.append("provider_type")
+        required_domains = await _case_required_domain_keys(session, case)
+        domain_ok = (
+            not required_domains
+            or await _profile_has_any_domain(session, profile, required_domains)
+        )
+        if domain_ok and required_domains:
+            score += Decimal("30.00")
+            reason_codes.append("service_domain")
+            fit_signals.append("service_domain")
+            domain_labels = await _domain_labels(session, required_domains)
+            badges.extend(domain_labels[:2])
+    else:
+        has_any_domain = bool(
+            await session.scalar(
+                select(TechnicianServiceDomain.profile_id)
+                .where(TechnicianServiceDomain.profile_id == profile.id)
+                .limit(1)
+            )
+        )
+        if has_any_domain:
+            score += Decimal("5.00")
+            reason_codes.append("service_domain")
+
+    brand_label = await _profile_brand_match_label(session, vehicle=vehicle, profile=profile)
+    if brand_label:
+        score += Decimal("15.00")
+        reason_codes.append("brand_match")
+        fit_signals.append("brand")
+        badges.append(f"{brand_label} uyumlu")
+
+    model_label = await _profile_model_match_label(session, vehicle=vehicle, profile=profile)
+    if model_label:
+        score += Decimal("8.00")
+        reason_codes.append("model_match")
+        fit_signals.append("model")
+        badges.append(f"{model_label} deneyimi")
+
+    if case is not None:
+        area_reason_codes = await _area_reason_codes(session, case, profile)
+        if "city_match" in area_reason_codes:
+            score += Decimal("10.00")
+            fit_signals.append("city")
+            badges.append("Şehir uyumlu")
+        if "district_match" in area_reason_codes:
+            score += Decimal("5.00")
+            fit_signals.append("district")
+            badges.append("Yakın bölge")
+        reason_codes.extend(area_reason_codes)
+
+    availability = getattr(profile, "availability", None)
+    if availability == TechnicianAvailability.AVAILABLE:
+        score += Decimal("5.00")
+        reason_codes.append("availability")
+    elif availability == TechnicianAvailability.BUSY:
+        score += Decimal("2.00")
+        reason_codes.append("busy")
+
+    verified_level = getattr(profile, "verified_level", None)
+    verified_value = getattr(verified_level, "value", verified_level)
+    if verified_value == "premium":
+        score += Decimal("5.00")
+        reason_codes.append("premium")
+    elif verified_value == "verified":
+        score += Decimal("3.00")
+        reason_codes.append("verified")
+
+    case_compatible = (
+        case is not None
+        and vehicle_compatible
+        and provider_ok
+        and domain_ok
+        and case.kind != ServiceRequestKind.TOWING
+    )
+    make_present = bool(_normalize_text(getattr(vehicle, "make", None)))
+    if not make_present and vehicle is not None and case is not None:
+        reason_codes.append("brand_unknown")
+    city_ok = case is None or "city_match" in reason_codes or not case.location_label
+    notifyable = (
+        case_compatible
+        and bool(required_domains)
+        and ("brand_match" in reason_codes or not make_present)
+        and city_ok
+    )
+    compatibility_state = _compatibility_state(
+        case=case,
+        vehicle_scope=vehicle_scope,
+        case_compatible=case_compatible,
+        notifyable=notifyable,
+        required_domains=required_domains,
+        reason_codes=reason_codes,
+    )
+    if case is None:
+        context_group = "primary" if compatibility_state in {"vehicle_only", "compatible"} else "other"
+    else:
+        context_group = "primary" if compatibility_state in {"notifyable", "compatible"} else "other"
+
+    context_tier = _context_tier(
+        case=case,
+        case_compatible=case_compatible,
+        vehicle_compatible=vehicle_compatible,
+        reason_codes=reason_codes,
+    )
+    score = max(Decimal("0.00"), min(score, Decimal("100.00"))).quantize(
+        Decimal("0.01")
+    )
+    match_badge = _match_badge(
+        case_compatible=case_compatible,
+        vehicle_compatible=vehicle_compatible,
+        compatibility_state=compatibility_state,
+    )
+    label = _fit_reason_label(
+        case=case,
+        domain_labels=domain_labels,
+        brand_label=brand_label,
+        vehicle_compatible=vehicle_compatible,
+        case_compatible=case_compatible,
+        reason_codes=reason_codes,
+    )
+    return ProfileFitResult(
+        context_score=score,
+        context_group=context_group,
+        context_tier=context_tier,
+        compatibility_state=compatibility_state,
+        match_badge=match_badge,
+        notify_badge="Bildirilebilir" if compatibility_state == "notifyable" else None,
+        match_reason_label=label,
+        fit_signals=_dedupe_preserve_order(fit_signals),
+        fit_badges=_dedupe_preserve_order(badges)[:5],
+        is_vehicle_compatible=vehicle_compatible,
+        is_case_compatible=case_compatible,
+        reason_codes=reason_codes or ["manual"],
+    )
 
 
 async def upsert_match_for_profile(
@@ -309,7 +552,31 @@ async def notify_case_to_technician(
     profile = await _get_profile_for_user(session, technician_user_id)
     if profile is None:
         raise ValueError("technician_profile_not_found")
-    if not await profile_matches_case_scope(session, case=case, profile=profile):
+    fit = await evaluate_profile_fit(session, case=case, profile=profile)
+    reason_codes = getattr(fit, "reason_codes", None) or []
+    if "vehicle_kind_mismatch" in reason_codes:
+        logger.warning(
+            "case_notify_rejected",
+            extra={
+                "case_id": str(case.id),
+                "technician_user_id": str(technician_user_id),
+                "reason": "vehicle_kind_mismatch",
+                "reason_codes": list(reason_codes),
+                "compatibility_state": fit.compatibility_state,
+            },
+        )
+        raise ValueError("vehicle_kind_mismatch")
+    if fit.compatibility_state != "notifyable":
+        logger.warning(
+            "case_notify_rejected",
+            extra={
+                "case_id": str(case.id),
+                "technician_user_id": str(technician_user_id),
+                "reason": "compatibility_not_notifyable",
+                "reason_codes": list(reason_codes),
+                "compatibility_state": fit.compatibility_state,
+            },
+        )
         raise ValueError("technician_case_kind_mismatch")
 
     existing_notification = await get_notification_for_technician(
@@ -497,39 +764,8 @@ async def _score_match(
     case: ServiceCase,
     profile: TechnicianProfile,
 ) -> tuple[Decimal, list[str], str]:
-    score = Decimal("0.00")
-    reason_codes: list[str] = []
-    if await _vehicle_kind_matches_profile(session, case=case, profile=profile):
-        score += Decimal("5.00")
-        reason_codes.append("vehicle_kind")
-    if profile_matches_case_kind(case.kind, profile):
-        score += Decimal("45.00")
-        reason_codes.append("provider_type")
-    if profile.availability != TechnicianAvailability.OFFLINE:
-        score += Decimal("10.00")
-        reason_codes.append("availability")
-    area_reason_codes = await _area_reason_codes(session, case, profile)
-    if "city_match" in area_reason_codes:
-        score += Decimal("20.00")
-    if "district_match" in area_reason_codes:
-        score += Decimal("10.00")
-    reason_codes.extend(area_reason_codes)
-    required_domains = await _case_required_domain_keys(session, case)
-    has_domain = await _profile_has_any_domain(session, profile, required_domains)
-    if not required_domains:
-        has_domain = await session.scalar(
-            select(TechnicianServiceDomain.profile_id)
-            .where(TechnicianServiceDomain.profile_id == profile.id)
-            .limit(1)
-        )
-    if has_domain:
-        score += Decimal("10.00")
-        reason_codes.append("service_domain")
-    if not reason_codes:
-        reason_codes.append("manual")
-    score = min(score, Decimal("100.00")).quantize(Decimal("0.01"))
-    label = _reason_label(reason_codes)
-    return score, reason_codes, label
+    fit = await evaluate_profile_fit(session, case=case, profile=profile)
+    return fit.context_score, fit.reason_codes, fit.match_reason_label
 
 
 async def _case_required_domain_keys(
@@ -573,8 +809,34 @@ async def _vehicle_kind_matches_profile(
     profile: TechnicianProfile,
 ) -> bool:
     vehicle = await session.get(Vehicle, case.vehicle_id)
+    return await _vehicle_kind_matches_vehicle(
+        session,
+        vehicle=vehicle,
+        profile=profile,
+    )
+
+
+async def _vehicle_kind_matches_vehicle(
+    session: AsyncSession,
+    *,
+    vehicle: Vehicle | None,
+    profile: TechnicianProfile,
+) -> bool:
+    return await _vehicle_kind_scope(
+        session,
+        vehicle=vehicle,
+        profile=profile,
+    ) == "explicit_match"
+
+
+async def _vehicle_kind_scope(
+    session: AsyncSession,
+    *,
+    vehicle: Vehicle | None,
+    profile: TechnicianProfile,
+) -> str:
     if vehicle is None or vehicle.vehicle_kind is None:
-        return True
+        return "unknown"
     explicit_coverage = (
         await session.execute(
             select(TechnicianVehicleKindCoverage.vehicle_kind).where(
@@ -583,9 +845,13 @@ async def _vehicle_kind_matches_profile(
         )
     ).scalars().all()
     if explicit_coverage:
-        return vehicle.vehicle_kind in set(explicit_coverage)
+        return (
+            "explicit_match"
+            if vehicle.vehicle_kind in set(explicit_coverage)
+            else "explicit_mismatch"
+        )
     if vehicle.vehicle_kind != VehicleKind.MOTOSIKLET:
-        return True
+        return "missing_coverage"
     motorcycle_brand = await session.scalar(
         select(TechnicianBrandCoverage.profile_id)
         .join(
@@ -598,7 +864,79 @@ async def _vehicle_kind_matches_profile(
         )
         .limit(1)
     )
-    return bool(motorcycle_brand)
+    return "explicit_match" if motorcycle_brand else "explicit_mismatch"
+
+
+async def _profile_brand_match_label(
+    session: AsyncSession,
+    *,
+    vehicle: Vehicle | None,
+    profile: TechnicianProfile,
+) -> str | None:
+    make = _normalize_text(vehicle.make if vehicle is not None else None)
+    if not make:
+        return None
+    rows = (
+        await session.execute(
+            select(
+                TechnicianBrandCoverage.brand_key,
+                TaxonomyBrand.label,
+            )
+            .join(
+                TaxonomyBrand,
+                TaxonomyBrand.brand_key == TechnicianBrandCoverage.brand_key,
+            )
+            .where(TechnicianBrandCoverage.profile_id == profile.id)
+        )
+    ).all()
+    for brand_key, label in rows:
+        if make in {
+            _normalize_text(brand_key),
+            _normalize_text(label),
+        }:
+            return str(label)
+    return None
+
+
+async def _profile_model_match_label(
+    session: AsyncSession,
+    *,
+    vehicle: Vehicle | None,
+    profile: TechnicianProfile,
+) -> str | None:
+    model = _normalize_text(vehicle.model if vehicle is not None else None)
+    if not model:
+        return None
+    tag_rows = (
+        await session.execute(
+            select(TechnicianProcedureTag.tag_normalized, TechnicianProcedureTag.tag)
+            .where(TechnicianProcedureTag.profile_id == profile.id)
+            .limit(50)
+        )
+    ).all()
+    for normalized, tag in tag_rows:
+        normalized_tag = _normalize_text(normalized or tag)
+        if model and (model in normalized_tag or normalized_tag in model):
+            return str(vehicle.model)
+    return None
+
+
+async def _domain_labels(
+    session: AsyncSession,
+    domain_keys: set[str],
+) -> list[str]:
+    if not domain_keys:
+        return []
+    rows = (
+        await session.execute(
+            select(
+                TaxonomyServiceDomain.domain_key,
+                TaxonomyServiceDomain.label,
+            ).where(TaxonomyServiceDomain.domain_key.in_(domain_keys))
+        )
+    ).all()
+    labels_by_key = {row[0]: row[1] for row in rows}
+    return [labels_by_key.get(key, key.replace("_", " ").title()) for key in sorted(domain_keys)]
 
 
 async def _profile_has_any_domain(
@@ -621,6 +959,12 @@ async def _profile_has_any_domain(
 
 
 def _reason_label(reason_codes: list[str]) -> str:
+    if "service_domain" in reason_codes and "brand_match" in reason_codes:
+        return "Hizmet ve marka uyumu güçlü"
+    if "service_domain" in reason_codes:
+        return "Bu hizmeti veriyor"
+    if "brand_match" in reason_codes:
+        return "Araç markana bakıyor"
     if "provider_type" in reason_codes and "district_match" in reason_codes:
         return "Bu vaka türüne ve ilçeye uygun"
     if "provider_type" in reason_codes and "city_match" in reason_codes:
@@ -628,6 +972,98 @@ def _reason_label(reason_codes: list[str]) -> str:
     if "provider_type" in reason_codes:
         return "Bu vaka türüne uygun"
     return "Müşteri bu vakayı bildirdi"
+
+
+def _context_tier(
+    *,
+    case: ServiceCase | None,
+    case_compatible: bool,
+    vehicle_compatible: bool,
+    reason_codes: list[str],
+) -> str:
+    if case_compatible and {"service_domain", "brand_match"} <= set(reason_codes):
+        return "exact_case_fit"
+    if case_compatible:
+        return "case_fit"
+    if vehicle_compatible and "brand_match" in reason_codes:
+        return "brand_fit"
+    if vehicle_compatible and case is None:
+        return "strong_vehicle_fit"
+    if "city_match" in reason_codes:
+        return "city_fit"
+    return "other"
+
+
+def _compatibility_state(
+    *,
+    case: ServiceCase | None,
+    vehicle_scope: str,
+    case_compatible: bool,
+    notifyable: bool,
+    required_domains: set[str],
+    reason_codes: list[str],
+) -> str:
+    if vehicle_scope in {"explicit_mismatch", "missing_coverage"}:
+        return "incompatible" if vehicle_scope == "explicit_mismatch" else "weak"
+    if case is None:
+        return "vehicle_only" if vehicle_scope in {"explicit_match", "unknown"} else "weak"
+    if notifyable:
+        return "notifyable"
+    if case_compatible and required_domains and "service_domain" in reason_codes:
+        return "compatible"
+    if case_compatible:
+        return "weak"
+    return "incompatible"
+
+
+def _match_badge(
+    *,
+    case_compatible: bool,
+    vehicle_compatible: bool,
+    compatibility_state: str,
+) -> str:
+    if compatibility_state == "notifyable":
+        return "Bu vakaya uygun"
+    if case_compatible:
+        return "Bu vakaya uygun"
+    if vehicle_compatible:
+        return "Aracına uygun"
+    return "Diğer seçenek"
+
+
+def _fit_reason_label(
+    *,
+    case: ServiceCase | None,
+    domain_labels: list[str],
+    brand_label: str | None,
+    vehicle_compatible: bool,
+    case_compatible: bool,
+    reason_codes: list[str],
+) -> str:
+    if case_compatible and domain_labels and brand_label:
+        return f"{domain_labels[0]} ve {brand_label} için uygun"
+    if case_compatible and domain_labels:
+        return f"{domain_labels[0]} hizmeti veriyor"
+    if brand_label:
+        return f"{brand_label} araçlara bakıyor"
+    if case_compatible:
+        return _reason_label(reason_codes)
+    if vehicle_compatible and case is None:
+        return "Aktif aracınla uyumlu"
+    if vehicle_compatible:
+        return "Araç tipi uyumlu, vaka konusu zayıf"
+    return "Bu bağlam için güçlü eşleşme değil"
+
+
+def _dedupe_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 async def _area_reason_codes(
@@ -704,7 +1140,9 @@ def _matches_any_location_candidate(
     return False
 
 
-def _normalize_text(value: str) -> str:
+def _normalize_text(value: str | None) -> str:
+    if not value:
+        return ""
     normalized = unicodedata.normalize("NFKD", value)
     without_marks = "".join(
         char for char in normalized if not unicodedata.combining(char)

@@ -1,5 +1,11 @@
 import type { CaseAttachment, CaseAttachmentKind } from "@naro/domain";
-import { Icon, PhotoGrid, Text, TrustBadge } from "@naro/ui";
+import {
+  GesturePressable as Pressable,
+  Icon,
+  PhotoGrid,
+  Text,
+  TrustBadge,
+} from "@naro/ui";
 import {
   AudioWaveform,
   Camera,
@@ -11,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { useAttachmentPicker } from "@/shared/attachments";
 import type { AttachmentDraft } from "@/shared/attachments";
@@ -59,6 +65,7 @@ export function EvidenceStepCard({
   const { pickPhoto, pickVideo, recordAudio, status } = useAttachmentPicker({
     purpose: "case_evidence_photo",
     ownerRef,
+    deferUpload: true,
   });
 
   const stepAttachments = useMemo(
@@ -141,7 +148,7 @@ export function EvidenceStepCard({
   const actions = buildActions(step.kinds);
 
   return (
-    <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-4">
+    <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-3.5">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-1">
           <View className="flex-row flex-wrap items-center gap-2">
@@ -149,9 +156,9 @@ export function EvidenceStepCard({
               {step.title}
             </Text>
             {step.required ? (
-              <TrustBadge label="Zorunlu" tone="warning" />
+              <TrustBadge label="Net teklif için" tone="warning" />
             ) : (
-              <TrustBadge label="Opsiyonel" tone="neutral" />
+              <TrustBadge label="İsteğe bağlı" tone="neutral" />
             )}
             {stepAttachments.length > 0 ? (
               <TrustBadge
@@ -162,7 +169,11 @@ export function EvidenceStepCard({
               />
             ) : null}
           </View>
-          <Text variant="caption" tone="muted" className="text-app-text-muted">
+          <Text
+            variant="caption"
+            tone="muted"
+            className="text-app-text-muted text-[13px] leading-[18px]"
+          >
             {step.hint}
           </Text>
         </View>
@@ -222,10 +233,16 @@ export function EvidenceStepCard({
                 accessibilityLabel={action.label}
                 onPress={() => handleAction(action.kind)}
                 disabled={status === "uploading"}
-                className="flex-1 min-w-[120px] flex-row items-center justify-center gap-2 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-3"
+                style={{ flexBasis: "31.5%", flexGrow: 1 }}
+                className="flex-row items-center justify-center gap-2 rounded-[16px] border border-app-outline bg-app-surface px-3 py-2.5 active:bg-app-surface-3"
               >
                 <Icon icon={action.icon} size={16} color="#83a7ff" />
-                <Text variant="label" tone="inverse" className="text-[13px]">
+                <Text
+                  variant="label"
+                  tone="inverse"
+                  numberOfLines={1}
+                  className="text-[13px]"
+                >
                   {action.label}
                 </Text>
               </Pressable>
@@ -236,7 +253,7 @@ export function EvidenceStepCard({
 
       {isBelowMin ? (
         <Text variant="caption" tone="warning">
-          En az {step.minPhotos} kanıt gerekli.
+          Bu ipucu için en az {step.minPhotos} dosya ekle.
         </Text>
       ) : null}
     </View>

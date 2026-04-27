@@ -1,5 +1,6 @@
-import type { AccidentReportMethod } from "@naro/domain";
+import type { AccidentReportMethod, DamageSeverity } from "@naro/domain";
 import {
+  GesturePressable as Pressable,
   Icon,
   StatusChip,
   Text,
@@ -14,17 +15,20 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  DoorOpen,
   FileBadge,
   FileText,
   IdCard,
   Image as ImageIcon,
+  Layers,
   ScrollText,
   ShieldCheck,
+  SquareDashedBottom,
   Truck,
   Users,
 } from "lucide-react-native";
 import { useState } from "react";
-import { Alert, Linking, Platform, Pressable, TextInput, View } from "react-native";
+import { Alert, Linking, Platform, TextInput, View } from "react-native";
 
 import { useTowEntryRoute } from "@/features/tow/entry";
 
@@ -82,6 +86,56 @@ const REPORT_LABEL: Record<AccidentReportMethod, string> = {
   e_devlet: "E-Devlet tutanağı",
   paper: "Kağıt tutanak",
   police: "Polis / jandarma raporu",
+};
+
+type DamageAreaValue =
+  | "front"
+  | "rear"
+  | "side"
+  | "door"
+  | "glass"
+  | "general";
+
+const DAMAGE_AREA_OPTIONS: {
+  value: DamageAreaValue;
+  label: string;
+  hint: string;
+  icon: typeof Truck;
+}[] = [
+  { value: "front", label: "Ön", hint: "Tampon, kaput, far", icon: ChevronUp },
+  { value: "rear", label: "Arka", hint: "Tampon, bagaj, stop", icon: ChevronDown },
+  { value: "side", label: "Yan", hint: "Çamurluk, marşpiyel", icon: SquareDashedBottom },
+  { value: "door", label: "Kapı / Aksesuar", hint: "Kapı kolu, ayna, fitil", icon: DoorOpen },
+  { value: "glass", label: "Cam", hint: "Ön / yan / arka cam", icon: ShieldCheck },
+  { value: "general", label: "Genel", hint: "Birden fazla bölge", icon: Layers },
+];
+
+const DAMAGE_AREA_LABEL: Record<DamageAreaValue, string> = Object.fromEntries(
+  DAMAGE_AREA_OPTIONS.map((option) => [option.value, option.label]),
+) as Record<DamageAreaValue, string>;
+
+const DAMAGE_SEVERITY_OPTIONS: {
+  value: DamageSeverity;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "minor",
+    label: "Hafif",
+    hint: "Çizik, küçük ezik veya lokal işlem",
+  },
+  {
+    value: "moderate",
+    label: "Orta",
+    hint: "Boya, parça onarımı veya değişim ihtimali",
+  },
+];
+
+const DAMAGE_SEVERITY_LABEL: Record<DamageSeverity, string> = {
+  minor: "Hafif",
+  moderate: "Orta",
+  major: "Ağır",
+  total_loss: "Pert",
 };
 
 const INSURANCE_BRANDS = [
@@ -209,38 +263,74 @@ function EmergencyPanelStep({
 }
 
 
-function AccidentKindStep({ draft, updateDraft }: ComposerStepRenderProps) {
+function AccidentEventStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const selectedMode: "single" | "multi" | null = draft.counterparty_note
     ? draft.counterparty_note.includes("Karşı taraf")
       ? "multi"
       : "single"
     : null;
   const vehicleCount = draft.counterparty_vehicle_count;
+  const selectedReport = draft.report_method;
 
   return (
-    <View className="gap-4">
-      <ComposerSection
-        title="Kaza türü"
-        description="Kazanın türünü seç; akışı buna göre kısaltıyoruz."
-      >
-        <View className="flex-row flex-wrap gap-2">
-          {COUNTERPARTY_OPTIONS.map((option) => (
-            <ToggleChip
-              key={option.value}
-              label={option.label}
-              selected={selectedMode === option.value}
-              onPress={() =>
-                updateDraft({
-                  counterparty_note:
-                    option.value === "multi"
-                      ? "Karşı taraf bilgisi toplanacak"
-                      : "Tek taraflı — karşı taraf yok",
-                  counterparty_vehicle_count:
-                    option.value === "multi" ? (vehicleCount ?? 2) : null,
-                })
-              }
-            />
-          ))}
+    <View className="gap-5">
+      <View className="gap-1">
+        <Text variant="h3" tone="inverse">
+          Olay bilgisi
+        </Text>
+        <Text
+          tone="muted"
+          className="text-app-text-muted text-[13px] leading-[18px]"
+        >
+          Karşı taraf ve tutanak durumunu sadece netleştiriyoruz.
+        </Text>
+      </View>
+
+      <ComposerSection title="Kaza türü">
+        <View className="gap-2.5">
+          {COUNTERPARTY_OPTIONS.map((option) => {
+            const selected = selectedMode === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={option.label}
+                onPress={() =>
+                  updateDraft({
+                    counterparty_note:
+                      option.value === "multi"
+                        ? "Karşı taraf bilgisi toplanacak"
+                        : "Tek taraflı — karşı taraf yok",
+                    counterparty_vehicle_count:
+                      option.value === "multi" ? (vehicleCount ?? 2) : null,
+                  })
+                }
+                className={[
+                  "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
+                  selected
+                    ? "border-brand-500 bg-brand-500/15"
+                    : "border-app-outline bg-app-surface",
+                ].join(" ")}
+              >
+                <View
+                  className={[
+                    "h-6 w-6 items-center justify-center rounded-full border",
+                    selected
+                      ? "border-brand-500 bg-brand-500"
+                      : "border-app-outline bg-app-surface-2",
+                  ].join(" ")}
+                >
+                  {selected ? (
+                    <Icon icon={Check} size={12} color="#ffffff" />
+                  ) : null}
+                </View>
+                <Text variant="label" tone="inverse" className="flex-1">
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </ComposerSection>
 
@@ -264,51 +354,62 @@ function AccidentKindStep({ draft, updateDraft }: ComposerStepRenderProps) {
         </ComposerSection>
       ) : null}
 
-      <ComposerSection
-        title="Kısa açıklama"
-        description="Durumu bir-iki cümleyle anlat — servisler önce bunu okuyor."
-      >
-        <TextInput
-          value={draft.summary}
-          onChangeText={(value) => updateDraft({ summary: value })}
-          placeholder="Örn: Kavşakta sağdan gelen araç ön tampona çarptı."
-          placeholderTextColor="#6f7b97"
-          multiline
-          textAlignVertical="top"
-          className={[INPUT_CLASS, "min-h-[92px] py-3"].join(" ")}
-        />
-      </ComposerSection>
-
-      <LocationPicker
-        value={draft.location_label}
-        onChange={(next) => updateDraft({ location_label: next })}
-        description="Kaza bölgesini doğru sinyallemek için konumun açılmalı."
-      />
-
-      <ComposerSection title="Aracın durumu">
-        <View className="flex-row flex-wrap gap-2">
-          <ToggleChip
-            label="Sürülebiliyor"
-            selected={draft.vehicle_drivable === true}
-            onPress={() =>
-              updateDraft({
-                towing_decision_made: true,
-                vehicle_drivable: true,
-                towing_required: false,
-              })
-            }
-          />
-          <ToggleChip
-            label="Sürülemiyor — yerinde"
-            selected={draft.vehicle_drivable === false}
-            onPress={() =>
-              updateDraft({
-                towing_decision_made: true,
-                vehicle_drivable: false,
-                towing_required: true,
-              })
-            }
-          />
+      <ComposerSection title="Tutanak">
+        <View className="gap-2.5">
+          {REPORT_OPTIONS.map((option) => {
+            const selected = selectedReport === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={option.title}
+                onPress={() =>
+                  updateDraft({
+                    report_method: selected ? null : option.value,
+                  })
+                }
+                className={[
+                  "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
+                  selected
+                    ? "border-brand-500 bg-brand-500/15"
+                    : "border-app-outline bg-app-surface",
+                ].join(" ")}
+              >
+                <View
+                  className={[
+                    "h-10 w-10 items-center justify-center rounded-[14px] border",
+                    selected
+                      ? "border-brand-500/40 bg-brand-500/20"
+                      : "border-app-outline bg-app-surface-2",
+                  ].join(" ")}
+                >
+                  <Icon
+                    icon={option.icon}
+                    size={18}
+                    color={selected ? "#0ea5e9" : "#83a7ff"}
+                  />
+                </View>
+                <View className="min-w-0 flex-1 gap-0.5">
+                  <Text variant="label" tone="inverse">
+                    {option.title}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    tone="muted"
+                    className="text-app-text-muted text-[12px] leading-[16px]"
+                  >
+                    {option.subtitle}
+                  </Text>
+                </View>
+                {selected ? (
+                  <View className="h-6 w-6 items-center justify-center rounded-full bg-brand-500">
+                    <Icon icon={Check} size={12} color="#ffffff" />
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
         </View>
       </ComposerSection>
     </View>
@@ -324,6 +425,24 @@ function AccidentPhotosStep({ draft, updateDraft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
+      <View className="gap-1">
+        <View className="flex-row items-center justify-between gap-3">
+          <Text variant="h3" tone="inverse">
+            Görsel ve not
+          </Text>
+          {photoCount > 0 ? (
+            <StatusChip label={`${photoCount} medya`} tone="success" />
+          ) : null}
+        </View>
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted text-[13px] leading-[18px]"
+        >
+          Hasarı gösteren birkaç kayıt ve kısa bir anlatım yeterli.
+        </Text>
+      </View>
+
       <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
         <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
           <Icon icon={Camera} size={18} color="#0ea5e9" />
@@ -334,14 +453,14 @@ function AccidentPhotosStep({ draft, updateDraft }: ComposerStepRenderProps) {
             tone="inverse"
             className="text-[15px] leading-[19px]"
           >
-            Adım adım fotoğraf
+            Usta için net görüntü
           </Text>
           <Text
             variant="caption"
             tone="muted"
             className="text-app-text-muted text-[12px] leading-[16px]"
           >
-            Panikleme — istediğin sırada çekebilirsin.
+            Genel açı ve yakın çekim eşleşmeyi hızlandırır.
           </Text>
         </View>
         <View className="items-end gap-0.5">
@@ -378,78 +497,200 @@ function AccidentPhotosStep({ draft, updateDraft }: ComposerStepRenderProps) {
           }
         />
       ))}
+
+      <ComposerSection
+        title="Kısa açıklama"
+        description="Görseli ekledikten sonra aklında kalan durumu yaz."
+      >
+        <TextInput
+          value={draft.summary}
+          onChangeText={(value) => updateDraft({ summary: value })}
+          placeholder="Örn: Sağ arka kapıda ezik ve kapı kolunda kırık var."
+          placeholderTextColor="#6f7b97"
+          multiline
+          textAlignVertical="top"
+          className={[INPUT_CLASS, "min-h-[96px] py-3"].join(" ")}
+        />
+      </ComposerSection>
     </View>
   );
 }
 
-function ReportStep({ draft, updateDraft }: ComposerStepRenderProps) {
-  const selected = draft.report_method;
+function AccidentDamageStep({ draft, updateDraft }: ComposerStepRenderProps) {
+  const selected = (draft.damage_area as DamageAreaValue | null | undefined) ?? null;
+  const selectedSeverity = draft.damage_severity;
 
   return (
-    <ComposerSection
-      title="Kaza tutanağı"
-      description="Hangi yöntemle tutanak tuttun? Sonradan da değiştirebilirsin."
-    >
-      <View className="gap-2">
-        {REPORT_OPTIONS.map((option) => {
-          const isActive = selected === option.value;
-          return (
-            <Pressable
-              key={option.value}
-              accessibilityRole="button"
-              accessibilityLabel={option.title}
-              onPress={() =>
-                updateDraft({
-                  report_method: isActive ? null : option.value,
-                })
-              }
-              className={[
-                "flex-row items-center gap-3 rounded-[22px] border px-4 py-3.5",
-                isActive
-                  ? "border-brand-500 bg-brand-500/15"
-                  : "border-app-outline bg-app-surface",
-              ].join(" ")}
-            >
-              <View
+    <View className="gap-5">
+      <View className="gap-1">
+        <Text variant="h3" tone="inverse">
+          Hasar bilgisi
+        </Text>
+        <Text
+          tone="muted"
+          className="text-app-text-muted text-[13px] leading-[18px]"
+        >
+          Bu seçimler vakanı doğru hasar ve kaporta uzmanlarına taşır.
+        </Text>
+      </View>
+
+      <ComposerSection title="Hasar bölgesi">
+        <View className="flex-row flex-wrap gap-3">
+          {DAMAGE_AREA_OPTIONS.map((option) => {
+            const isActive = selected === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={option.label}
+                onPress={() =>
+                  updateDraft({
+                    damage_area: isActive ? undefined : option.value,
+                  })
+                }
+                style={{ width: "48%" }}
                 className={[
-                  "h-10 w-10 items-center justify-center rounded-full border",
+                  "gap-3 rounded-[20px] border px-3.5 py-3.5 active:opacity-90",
                   isActive
-                    ? "border-brand-500/40 bg-brand-500/15"
-                    : "border-app-outline bg-app-surface-2",
+                    ? "border-brand-500 bg-brand-500/15"
+                    : "border-app-outline bg-app-surface",
                 ].join(" ")}
               >
-                <Icon
-                  icon={option.icon}
-                  size={18}
-                  color={isActive ? "#0ea5e9" : "#83a7ff"}
-                />
-              </View>
-              <View className="flex-1 gap-0.5">
-                <Text variant="label" tone="inverse">
-                  {option.title}
-                </Text>
-                <Text
-                  variant="caption"
-                  tone="muted"
-                  className="text-app-text-muted"
-                >
-                  {option.subtitle}
-                </Text>
-              </View>
-              {isActive ? (
-                <View className="h-6 w-6 items-center justify-center rounded-full bg-brand-500">
-                  <Icon icon={Check} size={12} color="#ffffff" />
+                <View className="flex-row items-start justify-between">
+                  <View
+                    className={[
+                      "h-11 w-11 items-center justify-center rounded-[15px] border",
+                      isActive
+                        ? "border-brand-500/40 bg-brand-500/20"
+                        : "border-app-outline bg-app-surface-2",
+                    ].join(" ")}
+                  >
+                    <Icon
+                      icon={option.icon}
+                      size={19}
+                      color={isActive ? "#0ea5e9" : "#83a7ff"}
+                    />
+                  </View>
+                  {isActive ? (
+                    <View className="h-6 w-6 items-center justify-center rounded-full bg-brand-500">
+                      <Icon icon={Check} size={12} color="#ffffff" />
+                    </View>
+                  ) : null}
                 </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </View>
-    </ComposerSection>
+                <View className="gap-0.5">
+                  <Text variant="label" tone="inverse" numberOfLines={1}>
+                    {option.label}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    tone="muted"
+                    numberOfLines={2}
+                    className="text-app-text-muted text-[12px] leading-[16px]"
+                  >
+                    {option.hint}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ComposerSection>
+
+      <ComposerSection title="Hasar seviyesi">
+        <View className="gap-2.5">
+          {DAMAGE_SEVERITY_OPTIONS.map((option) => {
+            const isActive = selectedSeverity === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isActive }}
+                accessibilityLabel={option.label}
+                onPress={() =>
+                  updateDraft({
+                    damage_severity: isActive ? null : option.value,
+                  })
+                }
+                className={[
+                  "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
+                  isActive
+                    ? "border-brand-500 bg-brand-500/15"
+                    : "border-app-outline bg-app-surface",
+                ].join(" ")}
+              >
+                <View
+                  className={[
+                    "h-6 w-6 items-center justify-center rounded-full border",
+                    isActive
+                      ? "border-brand-500 bg-brand-500"
+                      : "border-app-outline bg-app-surface-2",
+                  ].join(" ")}
+                >
+                  {isActive ? (
+                    <Icon icon={Check} size={12} color="#ffffff" />
+                  ) : null}
+                </View>
+                <View className="min-w-0 flex-1 gap-0.5">
+                  <Text variant="label" tone="inverse">
+                    {option.label}
+                  </Text>
+                  <Text
+                    variant="caption"
+                    tone="muted"
+                    className="text-app-text-muted text-[12px] leading-[16px]"
+                  >
+                    {option.hint}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ComposerSection>
+    </View>
   );
 }
 
-function DocumentsStep({ draft, updateDraft }: ComposerStepRenderProps) {
+function AccidentLocationStep({ draft, updateDraft }: ComposerStepRenderProps) {
+  return (
+    <View className="gap-4">
+      <View className="gap-1">
+        <Text variant="h3" tone="inverse">
+          Olay yeri
+        </Text>
+        <Text
+          tone="muted"
+          className="text-app-text-muted text-[13px] leading-[18px]"
+        >
+          Konum, yakın servis ve hasar uzmanlarını sıralamada ana sinyal olacak.
+        </Text>
+      </View>
+
+      <LocationPicker
+        value={draft.location_label}
+        onChange={(next) => updateDraft({ location_label: next })}
+        description="Kazanın olduğu veya aracın şu an bulunduğu konumu seç."
+      />
+
+      <View className="rounded-[20px] border border-app-info/30 bg-app-info-soft px-4 py-3.5">
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted leading-5"
+        >
+          Tam adres yoksa yaklaşık bölge de yeterli. Sonraki ekranda bilgileri
+          kontrol edip vakayı oluşturacaksın.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function DocumentsStep({
+  draft,
+  updateDraft,
+}: Pick<ComposerStepRenderProps, "draft" | "updateDraft">) {
   const isMulti = draft.counterparty_note?.includes("Karşı taraf") ?? false;
 
   const onAdd = (drafts: Parameters<typeof updateDraft>[0] extends never
@@ -529,7 +770,10 @@ function DocumentsStep({ draft, updateDraft }: ComposerStepRenderProps) {
   );
 }
 
-function InsuranceStep({ draft, updateDraft }: ComposerStepRenderProps) {
+function InsuranceStep({
+  draft,
+  updateDraft,
+}: Pick<ComposerStepRenderProps, "draft" | "updateDraft">) {
   return (
     <View className="gap-4">
       <ComposerSection
@@ -647,7 +891,7 @@ function BrandPicker({ selected, onSelect }: BrandPickerProps) {
   );
 }
 
-function ReviewStep({ draft }: ComposerStepRenderProps) {
+function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const photoCount = draft.attachments.filter((attachment) =>
     ACCIDENT_EVIDENCE_STEPS.some((step) =>
       attachment.id.startsWith(`${step.id}:`),
@@ -675,6 +919,9 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
           : ""
       }`
     : "Tek taraflı";
+  const damageSeverityLabel = draft.damage_severity
+    ? (DAMAGE_SEVERITY_LABEL[draft.damage_severity] ?? draft.damage_severity)
+    : "Seçilmedi";
 
   return (
     <View className="gap-4">
@@ -696,45 +943,37 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
             value={kazaTuruLabel}
           />
           <SummaryRow
-            label="Ambulans"
-            value={draft.ambulance_contacted ? "Çağrıldı" : "Çağrılmadı"}
-            tone={draft.ambulance_contacted ? "critical" : "neutral"}
+            label="Hasar bölgesi"
+            value={
+              draft.damage_area
+                ? DAMAGE_AREA_LABEL[draft.damage_area as DamageAreaValue] ??
+                  draft.damage_area
+                : "Seçilmedi"
+            }
+            tone={draft.damage_area ? "neutral" : "warning"}
           />
           <SummaryRow
-            label="Çekici"
-            value={draft.towing_required ? "Çağrıldı" : "Gerekli değil"}
-            tone={draft.towing_required ? "warning" : "neutral"}
+            label="Hasar seviyesi"
+            value={damageSeverityLabel}
+            tone={draft.damage_severity ? "neutral" : "warning"}
           />
-          <SummaryRow label="Fotoğraflar" value={`${photoCount} adet`} />
           <SummaryRow
             label="Tutanak"
             value={
               draft.report_method ? REPORT_LABEL[draft.report_method] : "Seçilmedi"
             }
+            tone={draft.report_method ? "neutral" : "warning"}
           />
           <SummaryRow
-            label="Eksik evrak"
-            value={totalMissing === 0 ? "Yok" : `${totalMissing} adet`}
-            tone={totalMissing > 0 ? "warning" : "success"}
+            label="Konum"
+            value={draft.location_label || "Seçilmedi"}
+            tone={draft.location_label ? "neutral" : "warning"}
           />
-          <SummaryRow
-            label="Kasko"
-            value={
-              draft.kasko_selected
-                ? draft.kasko_brand ?? "Kurum seçilmedi"
-                : "Kullanılmıyor"
-            }
-          />
-          <SummaryRow
-            label="Sigorta"
-            value={
-              draft.sigorta_selected
-                ? draft.sigorta_brand ?? "Kurum seçilmedi"
-                : "Kullanılmıyor"
-            }
-          />
+          <SummaryRow label="Medya" value={`${photoCount} dosya`} />
         </View>
       </View>
+
+      <InsuranceStep draft={draft} updateDraft={updateDraft} />
 
       <AccordionRow
         title="Fotoğraflar"
@@ -770,14 +1009,7 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
         icon={FileText}
         defaultOpen={false}
       >
-        <DocsGroup label="Kendi belgelerin" docs={OWN_DOCS} draft={draft} />
-        {isMulti ? (
-          <DocsGroup
-            label="Karşı taraf belgeleri"
-            docs={COUNTERPARTY_DOCS}
-            draft={draft}
-          />
-        ) : null}
+        <DocumentsStep draft={draft} updateDraft={updateDraft} />
       </AccordionRow>
 
       <AccordionRow
@@ -800,41 +1032,6 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
           ) : null}
         </View>
       </AccordionRow>
-    </View>
-  );
-}
-
-type DocsGroupProps = {
-  label: string;
-  docs: typeof OWN_DOCS;
-  draft: ComposerStepRenderProps["draft"];
-};
-
-function DocsGroup({ label, docs, draft }: DocsGroupProps) {
-  return (
-    <View className="gap-2">
-      <Text variant="eyebrow" tone="subtle">
-        {label}
-      </Text>
-      {docs.map((doc) => {
-        const added = draft.attachments.some((a) =>
-          a.id.startsWith(`${doc.id}:`),
-        );
-        return (
-          <View
-            key={doc.id}
-            className="flex-row items-center justify-between gap-3 rounded-[16px] border border-app-outline bg-app-surface px-3.5 py-3"
-          >
-            <Text variant="label" tone="inverse" className="flex-1">
-              {doc.title}
-            </Text>
-            <StatusChip
-              label={added ? "Eklendi" : "Eksik"}
-              tone={added ? "success" : "warning"}
-            />
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -912,7 +1109,7 @@ export const ACCIDENT_FLOW: ComposerFlow = {
   title: "Kaza bildirimi",
   description: "",
   progressVariant: "bar-thin",
-  submitLabel: "Kaza bildirimi gönder",
+  submitLabel: "Vakayı oluştur",
   steps: [
     {
       key: "emergency_panel",
@@ -924,45 +1121,13 @@ export const ACCIDENT_FLOW: ComposerFlow = {
       hideFooter: true,
     },
     {
-      key: "accident_kind",
-      title: "Temel bilgi",
-      description: "Tür, konum, araç durumu",
+      key: "accident_photos",
+      title: "Görsel ve not",
+      description: "Hasarı görünür hale getir",
       validate: (draft) => {
-        if (!draft.counterparty_note) {
-          return "Kaza türünü seç.";
-        }
-        if (
-          draft.counterparty_note.includes("Karşı taraf") &&
-          !draft.counterparty_vehicle_count
-        ) {
-          return "Araç sayısını seç.";
-        }
         if (!draft.summary.trim()) {
           return "Kısa bir açıklama yaz.";
         }
-        if (!draft.location_label.trim()) {
-          return "Konum bilgisi gerekli.";
-        }
-        if (draft.vehicle_drivable === null) {
-          return "Araç durumu seçilmeli.";
-        }
-        return null;
-      },
-      render: (props) => <AccidentKindStep {...props} />,
-    },
-    {
-      key: "report",
-      title: "Tutanak",
-      description: "Yöntem seç",
-      validate: (draft) =>
-        draft.report_method ? null : "Tutanak yöntemini seç.",
-      render: (props) => <ReportStep {...props} />,
-    },
-    {
-      key: "accident_photos",
-      title: "Fotoğraf",
-      description: "Hasarı görünür hale getir",
-      validate: (draft) => {
         const requiredMissing = ACCIDENT_EVIDENCE_STEPS.some((step) => {
           if (!step.required) return false;
           const count = draft.attachments.filter((attachment) =>
@@ -970,22 +1135,51 @@ export const ACCIDENT_FLOW: ComposerFlow = {
           ).length;
           return count < (step.minPhotos ?? 1);
         });
-        return requiredMissing ? "Zorunlu fotoğraf adımları eksik." : null;
+        if (requiredMissing) return "Zorunlu fotoğraf adımları eksik.";
+        return null;
       },
       render: (props) => <AccidentPhotosStep {...props} />,
     },
     {
-      key: "documents",
-      title: "Evrak",
-      description: "Ehliyet / ruhsat",
-      validate: () => null,
-      render: (props) => <DocumentsStep {...props} />,
-      optional: true,
+      key: "accident_event",
+      title: "Olay bilgisi",
+      description: "Taraf ve tutanak",
+      validate: (draft) => {
+        if (!draft.counterparty_note) return "Kaza türünü seç.";
+        if (
+          draft.counterparty_note.includes("Karşı taraf") &&
+          !draft.counterparty_vehicle_count
+        ) {
+          return "Araç sayısını seç.";
+        }
+        if (!draft.report_method) return "Tutanak yöntemini seç.";
+        return null;
+      },
+      render: (props) => <AccidentEventStep {...props} />,
     },
     {
-      key: "insurance",
-      title: "Sigorta",
-      description: "Kasko tercihi",
+      key: "accident_damage",
+      title: "Hasar bilgisi",
+      description: "Bölge ve seviye",
+      validate: (draft) => {
+        if (!draft.damage_area) return "Hasar bölgesini seç.";
+        if (!draft.damage_severity) return "Hasar seviyesini seç.";
+        return null;
+      },
+      render: (props) => <AccidentDamageStep {...props} />,
+    },
+    {
+      key: "accident_location",
+      title: "Konum",
+      description: "Olay yeri",
+      validate: (draft) =>
+        draft.location_label.trim() ? null : "Konum bilgisi gerekli.",
+      render: (props) => <AccidentLocationStep {...props} />,
+    },
+    {
+      key: "review",
+      title: "Önizleme",
+      description: "Son kontrol",
       validate: (draft) => {
         if (draft.kasko_selected && !draft.kasko_brand) {
           return "Kasko için kurum seç.";
@@ -995,14 +1189,6 @@ export const ACCIDENT_FLOW: ComposerFlow = {
         }
         return null;
       },
-      render: (props) => <InsuranceStep {...props} />,
-      optional: true,
-    },
-    {
-      key: "review",
-      title: "Önizleme",
-      description: "Son kontrol",
-      validate: () => null,
       render: (props) => <ReviewStep {...props} />,
       isTerminal: true,
     },

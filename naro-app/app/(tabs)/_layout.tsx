@@ -45,9 +45,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profil"
         options={{
-          title: "Profil",
+          title: "Hesap",
           tabBarAccessibilityLabel:
-            "Profil. Basılı tutarsan araç seçiciyi açar.",
+            "Hesap. Basılı tutarsan araç seçiciyi açar.",
         }}
         listeners={{
           tabLongPress: () => {

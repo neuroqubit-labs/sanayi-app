@@ -14,11 +14,11 @@ completed_jobs DESC, id tiebreaker. Mesafe V2.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
-from sqlalchemy import and_, case, exists, select
+from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import and_, case, exists, func, select
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,12 +32,14 @@ from app.api.pagination import (
     encode_cursor,
 )
 from app.api.v1.deps import CurrentUserDep, DbDep, RedisDep, SettingsDep
+from app.models.case_matching import CaseTechnicianNotification
 from app.models.case_public_showcase import (
     CasePublicShowcase,
     CasePublicShowcaseMedia,
     CasePublicShowcaseStatus,
 )
 from app.models.media import MediaAsset, MediaStatus, MediaVisibility
+from app.models.offer import ACTIVE_OFFER_STATUSES, CaseOffer
 from app.models.taxonomy import (
     TaxonomyBrand,
     TaxonomyCity,
@@ -60,8 +62,11 @@ from app.models.technician_signal import (
     TechnicianProcedureTag,
     TechnicianServiceArea,
     TechnicianServiceDomain,
+    TechnicianWorkingDistrict,
 )
 from app.models.user import User, UserApprovalStatus, UserRole, UserStatus
+from app.models.vehicle import UserVehicleLink, Vehicle
+from app.repositories import case as case_repo
 from app.schemas.technician_public import (
     BrandCoverageSignal,
     FitSummary,
@@ -79,6 +84,7 @@ from app.schemas.technician_public import (
     TechnicianPublicView,
     TrustSummary,
 )
+from app.services import case_matching
 from app.services.case_public_showcases import snapshot_value
 from app.services.taxonomy_cache import (
     PUBLIC_FEED_TTL_SECONDS,
@@ -90,6 +96,10 @@ from app.services.taxonomy_cache import (
 )
 
 router = APIRouter(prefix="/technicians/public", tags=["technicians-public"])
+
+OptionalDomainQuery = Annotated[str | None, Query(max_length=60)]
+OptionalDistrictQuery = Annotated[str | None, Query(max_length=80)]
+OptionalUuidQuery = Annotated[UUID | None, Query()]
 
 
 # Performance snapshot window — V1 için 30g
@@ -534,31 +544,167 @@ def _accepting_new_jobs(availability: TechnicianAvailability) -> bool:
     return availability == TechnicianAvailability.AVAILABLE
 
 
+async def _load_context_case_and_vehicle(
+    db: AsyncSession,
+    user: User,
+    *,
+    case_id: UUID | None,
+    vehicle_id: UUID | None,
+) -> tuple[Any | None, Vehicle | None]:
+    context_case = None
+    context_vehicle = None
+    if case_id is not None:
+        context_case = await case_repo.get_case(db, case_id)
+        if (
+            context_case is None
+            or context_case.deleted_at is not None
+            or context_case.customer_user_id != user.id
+        ):
+            raise HTTPException(
+                status_code=404,
+                detail={"type": "case_not_found"},
+            )
+        context_vehicle = await db.get(Vehicle, context_case.vehicle_id)
+        if vehicle_id is not None and context_case.vehicle_id != vehicle_id:
+            raise HTTPException(
+                status_code=422,
+                detail={"type": "case_vehicle_mismatch"},
+            )
+    elif vehicle_id is not None:
+        owned = await db.scalar(
+            select(UserVehicleLink.id).where(
+                UserVehicleLink.user_id == user.id,
+                UserVehicleLink.vehicle_id == vehicle_id,
+                UserVehicleLink.ownership_to.is_(None),
+            )
+        )
+        if owned is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"type": "vehicle_not_found"},
+            )
+        context_vehicle = await db.get(Vehicle, vehicle_id)
+        if context_vehicle is None or context_vehicle.deleted_at is not None:
+            raise HTTPException(
+                status_code=404,
+                detail={"type": "vehicle_not_found"},
+            )
+    return context_case, context_vehicle
+
+
+async def _notification_context(
+    db: AsyncSession,
+    *,
+    case_id: UUID | None,
+    profiles: list[TechnicianProfile],
+) -> dict[UUID, dict[str, object]]:
+    if case_id is None or not profiles:
+        return {}
+    user_ids = [profile.user_id for profile in profiles]
+    notifications = (
+        await db.execute(
+            select(CaseTechnicianNotification).where(
+                CaseTechnicianNotification.case_id == case_id,
+                CaseTechnicianNotification.technician_user_id.in_(user_ids),
+            )
+        )
+    ).scalars().all()
+    active_count = int(
+        await db.scalar(
+            select(func.count(CaseTechnicianNotification.id)).where(
+                CaseTechnicianNotification.case_id == case_id,
+                CaseTechnicianNotification.status.in_(
+                    case_matching.ACTIVE_NOTIFICATION_STATUSES
+                ),
+            )
+        )
+        or 0
+    )
+    offers = (
+        await db.execute(
+            select(CaseOffer.technician_id).where(
+                CaseOffer.case_id == case_id,
+                CaseOffer.technician_id.in_(user_ids),
+                CaseOffer.status.in_(ACTIVE_OFFER_STATUSES),
+            )
+        )
+    ).scalars().all()
+    ctx: dict[UUID, dict[str, object]] = {
+        profile.user_id: {
+            "is_notified_to_me": False,
+            "has_offer_from_me": False,
+            "notification_limit_reached": active_count
+            >= case_matching.MAX_CUSTOMER_NOTIFICATIONS_PER_CASE,
+        }
+        for profile in profiles
+    }
+    for notification in notifications:
+        ctx.setdefault(notification.technician_user_id, {})[
+            "is_notified_to_me"
+        ] = notification.status in case_matching.ACTIVE_NOTIFICATION_STATUSES
+    for technician_id in offers:
+        ctx.setdefault(technician_id, {})["has_offer_from_me"] = True
+    return ctx
+
+
+def _notify_state_for_feed(
+    *,
+    has_case_context: bool,
+    compatibility_state: str,
+    is_notified: bool,
+    has_offer: bool,
+    notification_limit_reached: bool,
+) -> tuple[bool, str, str | None]:
+    if not has_case_context or compatibility_state != "notifyable":
+        return False, "not_compatible", "not_compatible"
+    if has_offer:
+        return False, "has_offer", "has_offer"
+    if is_notified:
+        return False, "already_notified", "already_notified"
+    if notification_limit_reached:
+        return False, "limit_reached", "case_notification_limit_reached"
+    return True, "available", None
+
+
 @router.get(
     "/feed",
     response_model=PaginatedResponse[TechnicianFeedItem],
     summary="Public teknisyen feed — admission quick-check filter + tier sort",
 )
 async def get_public_feed(
-    _user: CurrentUserDep,
+    user: CurrentUserDep,
     db: DbDep,
     redis: RedisDep,
     settings: SettingsDep,
     cursor: CursorQuery = None,
     limit: LimitQuery = 20,
+    domain: OptionalDomainQuery = None,
+    brand: OptionalDomainQuery = None,
+    district: OptionalDistrictQuery = None,
+    vehicle_id: OptionalUuidQuery = None,
+    case_id: OptionalUuidQuery = None,
 ) -> PaginatedResponse[TechnicianFeedItem]:
+    context_case, context_vehicle = await _load_context_case_and_vehicle(
+        db,
+        user,
+        case_id=case_id,
+        vehicle_id=vehicle_id,
+    )
+    context_aware = any([context_case, context_vehicle, domain, brand, district])
+
     cache_key = public_feed_key(cursor=cursor, limit=limit)
-    cached_raw = await redis.get(cache_key)
-    if cached_raw is not None:
-        try:
-            payload_str = (
-                cached_raw if isinstance(cached_raw, str) else cached_raw.decode()
-            )
-            return PaginatedResponse[TechnicianFeedItem].model_validate_json(
-                payload_str
-            )
-        except Exception:
-            pass  # cache corrupt — fall through
+    if not context_aware:
+        cached_raw = await redis.get(cache_key)
+        if cached_raw is not None:
+            try:
+                payload_str = (
+                    cached_raw if isinstance(cached_raw, str) else cached_raw.decode()
+                )
+                return PaginatedResponse[TechnicianFeedItem].model_validate_json(
+                    payload_str
+                )
+            except Exception:
+                pass  # cache corrupt — fall through
 
     cursor_data = decode_cursor(cursor)
 
@@ -574,6 +720,12 @@ async def get_public_feed(
     service_area_exists = exists().where(
         TechnicianServiceArea.profile_id == TechnicianProfile.id
     )
+    domain_exists = exists().where(
+        TechnicianServiceDomain.profile_id == TechnicianProfile.id
+    )
+    brand_exists = exists().where(
+        TechnicianBrandCoverage.profile_id == TechnicianProfile.id
+    )
 
     conds = [
         TechnicianProfile.deleted_at.is_(None),
@@ -586,8 +738,23 @@ async def get_public_feed(
         service_domain_exists,
         service_area_exists,
     ]
+    if domain:
+        conds.append(
+            domain_exists.where(TechnicianServiceDomain.domain_key == domain)
+        )
+    if brand:
+        conds.append(
+            brand_exists.where(TechnicianBrandCoverage.brand_key == brand)
+        )
+    if district:
+        district_exists = exists().where(
+            TechnicianWorkingDistrict.profile_id == TechnicianProfile.id,
+            TechnicianWorkingDistrict.district_id == TaxonomyDistrict.district_id,
+            TaxonomyDistrict.label.ilike(f"%{district}%"),
+        )
+        conds.append(district_exists)
 
-    if cursor_data is not None:
+    if cursor_data is not None and not context_aware:
         last_sort = cursor_data.get("sort")
         last_id = cursor_data.get("id")
         if isinstance(last_sort, int) and isinstance(last_id, str):
@@ -604,14 +771,36 @@ async def get_public_feed(
         .join(User, User.id == TechnicianProfile.user_id)
         .where(and_(*conds))
         .order_by(tier_rank.desc(), TechnicianProfile.id.asc())
-        .limit(limit + 1)
+        .limit(200 if context_aware else limit + 1)
     )
     rows = list((await db.execute(stmt)).scalars().all())
 
     snapshots = await _load_snapshot_aggregates(db, [p.id for p in rows])
+    notification_context = await _notification_context(
+        db,
+        case_id=context_case.id if context_case is not None else None,
+        profiles=rows,
+    )
 
     items: list[TechnicianFeedItem] = []
     for p in rows:
+        fit = await case_matching.evaluate_profile_fit(
+            db,
+            profile=p,
+            case=context_case,
+            vehicle=context_vehicle,
+        )
+        nctx = notification_context.get(p.user_id, {})
+        is_notified = bool(nctx.get("is_notified_to_me"))
+        has_offer = bool(nctx.get("has_offer_from_me"))
+        notification_limit_reached = bool(nctx.get("notification_limit_reached"))
+        can_notify, notify_state, disabled_reason = _notify_state_for_feed(
+            has_case_context=context_case is not None,
+            compatibility_state=fit.compatibility_state,
+            is_notified=is_notified,
+            has_offer=has_offer,
+            notification_limit_reached=notification_limit_reached,
+        )
         snap = snapshots.get(p.id)
         rating_bayesian = snap[1] if snap else None
         rating_count = int(snap[2]) if snap else 0
@@ -636,20 +825,61 @@ async def get_public_feed(
                 location_summary=location,
                 proof_preview=proof_preview,
                 case_showcases=case_showcases,
+                context_score=fit.context_score,
+                context_group=fit.context_group,
+                context_tier=fit.context_tier,
+                compatibility_state=fit.compatibility_state,
+                match_badge=fit.match_badge,
+                notify_badge=fit.notify_badge,
+                match_reason_label=fit.match_reason_label,
+                fit_signals=fit.fit_signals,
+                fit_badges=fit.fit_badges,
+                is_vehicle_compatible=fit.is_vehicle_compatible,
+                is_case_compatible=fit.is_case_compatible,
+                can_notify=can_notify,
+                notify_state=notify_state,
+                notify_disabled_reason=disabled_reason,
+                is_notified_to_me=is_notified,
+                has_offer_from_me=has_offer,
             )
         )
 
-    paginated = build_paginated(
-        items,
-        limit=limit,
-        cursor_fn=lambda item: encode_cursor(
-            id_=item.id, sort_value=_VERIFIED_TIER_ORDER[item.verified_level]
-        ),
-    )
+    if context_aware:
+        items.sort(
+            key=lambda item: (
+                0 if item.context_group == "primary" else 1,
+                -float(item.context_score),
+                -_VERIFIED_TIER_ORDER[item.verified_level],
+                str(item.id),
+            )
+        )
+        start = 0
+        if cursor_data is not None and isinstance(cursor_data.get("id"), str):
+            cursor_id = str(cursor_data["id"])
+            for index, item in enumerate(items):
+                if str(item.id) == cursor_id:
+                    start = index + 1
+                    break
+        page_items = items[start : start + limit]
+        next_cursor = (
+            encode_cursor(id_=page_items[-1].id, sort_value="context")
+            if start + limit < len(items) and page_items
+            else None
+        )
+        paginated = PaginatedResponse(items=page_items, next_cursor=next_cursor)
+    else:
+        paginated = build_paginated(
+            items,
+            limit=limit,
+            cursor_fn=lambda item: encode_cursor(
+                id_=item.id, sort_value=_VERIFIED_TIER_ORDER[item.verified_level]
+            ),
+        )
 
-    await redis.set(
-        cache_key, paginated.model_dump_json(), ex=PUBLIC_FEED_TTL_SECONDS
-    )
+    if not context_aware:
+        await redis.set(
+            cache_key, paginated.model_dump_json(), ex=PUBLIC_FEED_TTL_SECONDS
+        )
     return paginated
 
 

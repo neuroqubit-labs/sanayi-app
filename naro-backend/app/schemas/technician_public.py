@@ -240,3 +240,19 @@ class TechnicianFeedItem(BaseModel):
     location_summary: LocationSummary = Field(default_factory=LocationSummary)
     proof_preview: list[ProofPreviewItem] = Field(default_factory=list)
     case_showcases: list[PublicCaseShowcasePreview] = Field(default_factory=list)
+    context_score: Decimal = Decimal("0.00")
+    context_group: str = "primary"
+    context_tier: str = "general"
+    compatibility_state: str = "weak"
+    match_badge: str | None = None
+    notify_badge: str | None = None
+    match_reason_label: str | None = None
+    fit_signals: list[str] = Field(default_factory=list)
+    fit_badges: list[str] = Field(default_factory=list)
+    is_vehicle_compatible: bool = True
+    is_case_compatible: bool = False
+    can_notify: bool = False
+    notify_state: str = "not_compatible"
+    notify_disabled_reason: str | None = None
+    is_notified_to_me: bool = False
+    has_offer_from_me: bool = False

@@ -1,14 +1,9 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
-import { useActiveCase } from "@/features/cases";
-import { useActiveVehicle } from "@/features/vehicles";
 import { apiClient } from "@/runtime";
 import { mockDelay } from "@/shared/lib/mock";
 
-import {
-  mockTechnicianMatchesByVehicle,
-  mockTechnicianProfiles,
-} from "./data/fixtures";
+import { mockTechnicianProfiles } from "./data/fixtures";
 import {
   BrandOutSchema,
   ServiceDomainOutSchema,
@@ -22,65 +17,11 @@ import {
   type PublicCaseShowcaseDetail,
   type TechnicianPublicView,
 } from "./schemas";
-import type { TechnicianMatch, TechnicianProfile } from "./types";
-
-const DEFAULT_VEHICLE_ID = "veh-bmw-34-abc-42";
-const DEFAULT_MATCHES =
-  mockTechnicianMatchesByVehicle[DEFAULT_VEHICLE_ID] ?? [];
-
-export function useTechnicianMatches() {
-  const { data: activeVehicle } = useActiveVehicle();
-  const { data: activeCase } = useActiveCase();
-  const vehicleId = activeVehicle?.id ?? DEFAULT_VEHICLE_ID;
-
-  return useQuery<TechnicianMatch[]>({
-    queryKey: ["technicians", "matches", vehicleId, activeCase?.id],
-    queryFn: async () => {
-      const matches =
-        mockTechnicianMatchesByVehicle[vehicleId] ?? DEFAULT_MATCHES;
-
-      if (!activeCase) {
-        return mockDelay(matches);
-      }
-
-      const enriched: TechnicianMatch[] = matches.map((technician) => {
-        const relatedOffer = activeCase.offers.find(
-          (offer) => offer.technician_id === technician.id,
-        );
-
-        if (!relatedOffer) {
-          return technician;
-        }
-
-        return {
-          ...technician,
-          reason:
-            relatedOffer.status === "accepted"
-              ? "Bu vakada secilen servis"
-              : relatedOffer.status === "shortlisted"
-                ? "Bu vaka icin shortlist'te"
-                : "Bu vaka icin teklif verdi",
-          availabilityLabel:
-            relatedOffer.status === "accepted"
-              ? "Aktif vaka"
-              : technician.availabilityLabel,
-          badges: [
-            ...technician.badges,
-            {
-              id: `case-${activeCase.id}`,
-              label: "Aktif vakada",
-              tone: relatedOffer.status === "accepted" ? "success" : "info",
-            },
-          ],
-        };
-      });
-
-      return mockDelay(enriched);
-    },
-  });
-}
+import type { TechnicianProfile } from "./types";
 
 export function useTechnicianProfile(technicianId: string) {
+  // Legacy mock-only profile used by old composer/review surfaces.
+  // Public profile and preview screens use useTechnicianPublicView.
   return useQuery<TechnicianProfile | null>({
     queryKey: ["technicians", "profile", technicianId],
     queryFn: () =>
@@ -98,6 +39,8 @@ type FeedFilters = {
   domain?: string;
   brand?: string;
   district?: string;
+  vehicleId?: string;
+  caseId?: string;
   cursor?: string;
   limit?: number;
 };
@@ -107,6 +50,8 @@ function buildFeedPath(filters: FeedFilters): string {
   if (filters.domain) params.set("domain", filters.domain);
   if (filters.brand) params.set("brand", filters.brand);
   if (filters.district) params.set("district", filters.district);
+  if (filters.vehicleId) params.set("vehicle_id", filters.vehicleId);
+  if (filters.caseId) params.set("case_id", filters.caseId);
   if (filters.cursor) params.set("cursor", filters.cursor);
   if (filters.limit) params.set("limit", String(filters.limit));
   const qs = params.toString();
@@ -122,6 +67,8 @@ export function useTechniciansFeed(filters: FeedFilters = {}) {
       filters.domain ?? null,
       filters.brand ?? null,
       filters.district ?? null,
+      filters.vehicleId ?? null,
+      filters.caseId ?? null,
       filters.cursor ?? null,
       filters.limit ?? 20,
     ],
@@ -150,6 +97,8 @@ export function useTechniciansInfiniteFeed(
       filters.domain ?? null,
       filters.brand ?? null,
       filters.district ?? null,
+      filters.vehicleId ?? null,
+      filters.caseId ?? null,
       limit,
     ] as const,
     initialPageParam: null as string | null,

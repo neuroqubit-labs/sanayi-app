@@ -188,8 +188,17 @@ class MatchSummary(BaseModel):
     verified_level: TechnicianVerifiedLevel | None = None
     avatar_asset_id: UUID | None = None
     score: Decimal
+    context_score: Decimal = Decimal("0.00")
+    context_group: str = "primary"
+    context_tier: str = "case_fit"
+    compatibility_state: str = "notifyable"
     reason_label: str
     match_badge: str = "Bu vakaya uygun"
+    notify_badge: str | None = None
+    fit_signals: list[str] = Field(default_factory=list)
+    fit_badges: list[str] = Field(default_factory=list)
+    is_vehicle_compatible: bool = True
+    is_case_compatible: bool = True
     visibility_state: CaseTechnicianMatchVisibility
     can_notify: bool = False
     notify_state: MatchNotifyState = MatchNotifyState.NOT_COMPATIBLE

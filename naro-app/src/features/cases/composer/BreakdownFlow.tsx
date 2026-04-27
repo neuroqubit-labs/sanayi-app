@@ -4,6 +4,7 @@ import type {
   ServiceRequestDraft,
 } from "@naro/domain";
 import {
+  GesturePressable as Pressable,
   Icon,
   StatusChip,
   Text,
@@ -13,19 +14,15 @@ import {
 import {
   AlertTriangle,
   Camera,
-  Car,
   Check,
-  ChevronDown,
-  ChevronUp,
+  CircleEllipsis,
   Home,
   Image as ImageIcon,
   KeySquare,
-  Sparkles,
-  Truck,
   type LucideIcon,
 } from "lucide-react-native";
-import { useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import type { ReactNode } from "react";
+import { TextInput, View } from "react-native";
 
 import { CategoryTile } from "./components/CategoryTile";
 import { ComposerSection } from "./components/ComposerSection";
@@ -75,55 +72,60 @@ function CategoryStep({ draft, updateDraft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
-      <Text
-        tone="muted"
-        className="text-app-text-muted text-[13px] leading-[18px]"
-      >
-        Ne oluyor? En baskın alanı seç — sonra belirtileri işaretle.
-      </Text>
+      {selected && template ? (
+        <SelectedCategoryHeader
+          category={BREAKDOWN_CATEGORIES.find((item) => item.id === selected)}
+          onClear={() =>
+            updateDraft({
+              breakdown_category: null,
+              symptoms: [],
+            })
+          }
+        />
+      ) : (
+        <>
+          <Text
+            tone="muted"
+            className="text-app-text-muted text-[15px] leading-[21px]"
+          >
+            En baskın alanı seç. Sonra birkaç belirtiyle ustaya net bir tablo
+            çıkaracağız.
+          </Text>
 
-      <View className="flex-row flex-wrap gap-3">
-        {BREAKDOWN_CATEGORIES.map((category) => (
-          <View key={category.id} style={{ width: "48%" }}>
-            <CategoryTile
-              icon={category.icon}
-              title={category.title}
-              subtitle={category.subtitle}
-              selected={selected === category.id}
-              onPress={() =>
-                updateDraft({
-                  breakdown_category:
-                    selected === category.id ? null : category.id,
-                  symptoms: selected === category.id ? draft.symptoms : [],
-                })
-              }
-            />
+          <View className="flex-row flex-wrap gap-3">
+            {BREAKDOWN_CATEGORIES.map((category) => (
+              <View key={category.id} style={{ width: "48%" }}>
+                <CategoryTile
+                  icon={category.icon}
+                  title={category.title}
+                  subtitle={category.subtitle}
+                  density="compact"
+                  selected={false}
+                  onPress={() =>
+                    updateDraft({
+                      breakdown_category: category.id,
+                      symptoms: [],
+                    })
+                  }
+                />
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
+        </>
+      )}
 
       {selected && template ? (
-        <View className="gap-4">
-          <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
-            <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
-              <Icon icon={template.hero.icon} size={18} color="#0ea5e9" />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text
-                variant="h3"
-                tone="inverse"
-                className="text-[15px] leading-[19px]"
-              >
-                {template.hero.title}
-              </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-muted text-[12px] leading-[16px]"
-              >
-                {template.hero.subtitle}
-              </Text>
-            </View>
+        <View className="gap-3">
+          <View className="gap-1">
+            <Text variant="h3" tone="inverse" className="text-[18px] leading-[23px]">
+              {template.hero.title}
+            </Text>
+            <Text
+              tone="muted"
+              className="text-app-text-muted text-[13px] leading-[18px]"
+            >
+              {template.hero.subtitle}
+            </Text>
           </View>
 
           {template.questions.map((question) => (
@@ -140,151 +142,66 @@ function CategoryStep({ draft, updateDraft }: ComposerStepRenderProps) {
   );
 }
 
-function VehicleStateStep({
-  draft,
-  updateDraft,
-}: ComposerStepRenderProps) {
-  const drivable = draft.vehicle_drivable;
-
+function SelectedCategoryHeader({
+  category,
+  onClear,
+}: {
+  category?: (typeof BREAKDOWN_CATEGORIES)[number];
+  onClear: () => void;
+}) {
+  const icon = category?.icon ?? CircleEllipsis;
   return (
-    <View className="gap-4">
-      <Text
-        tone="muted"
-        className="text-app-text-muted text-[13px] leading-[18px]"
+    <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/30 bg-brand-500/10 px-3.5 py-2.5">
+      <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
+        <Icon icon={icon} size={19} color="#0ea5e9" />
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text variant="caption" tone="accent" className="text-[11px] leading-[14px]">
+          Seçili alan
+        </Text>
+        <Text variant="h3" tone="inverse" className="text-[16px] leading-[20px]">
+          {category?.title ?? "Arıza"}
+        </Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Arıza kategorisini değiştir"
+        onPress={onClear}
+        className="rounded-full border border-app-outline bg-app-surface px-3 py-1.5 active:opacity-90"
       >
-        Aracın ne durumda? Buna göre teklifler + servis şekli yönleniyor.
-      </Text>
-
-      <ComposerSection title="Sürülebiliyor mu?">
-        <View className="gap-2">
-          <DrivableOption
-            title="Evet, sürülebiliyor"
-            subtitle="Aracı servise ben götürebilirim"
-            selected={drivable === true}
-            onPress={() =>
-              updateDraft({ vehicle_drivable: true })
-            }
-          />
-          <DrivableOption
-            title="Hayır, sürülemiyor"
-            subtitle="Son adımda çekici ihtiyacını belirleyeceksin"
-            selected={drivable === false}
-            onPress={() =>
-              updateDraft({ vehicle_drivable: false })
-            }
-          />
-        </View>
-      </ComposerSection>
-
-      <ComposerSection
-        title="Servis tercihlerin"
-        description="Talep — usta uygun bulursa karşılar. Dayatma değil."
-      >
-        <View className="gap-2.5">
-          <CheckPreferenceRow
-            icon={Home}
-            title="Yerinde onarım istiyorum"
-            subtitle="Mobil tamirci sana gelsin"
-            checked={draft.on_site_repair}
-            onPress={() =>
-              updateDraft({ on_site_repair: !draft.on_site_repair })
-            }
-          />
-          <CheckPreferenceRow
-            icon={KeySquare}
-            title="Vale servis istiyorum"
-            subtitle="Aracı alıp götürsün, onarıp getirsin"
-            checked={draft.valet_requested}
-            onPress={() =>
-              updateDraft({ valet_requested: !draft.valet_requested })
-            }
-          />
-        </View>
-      </ComposerSection>
-
+        <Text variant="caption" tone="accent">
+          Değiştir
+        </Text>
+      </Pressable>
     </View>
   );
 }
 
-type CheckPreferenceRowProps = {
+type ServicePreferenceCheckProps = {
   icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  checked: boolean;
-  onPress: () => void;
-};
-
-function CheckPreferenceRow({
-  icon,
-  title,
-  subtitle,
-  checked,
-  onPress,
-}: CheckPreferenceRowProps) {
-  return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
-      accessibilityLabel={title}
-      onPress={onPress}
-      className={[
-        "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
-        checked
-          ? "border-brand-500/40 bg-brand-500/10"
-          : "border-app-outline bg-app-surface",
-      ].join(" ")}
-    >
-      <View
-        className={[
-          "h-11 w-11 items-center justify-center rounded-[14px] border",
-          checked
-            ? "border-brand-500/40 bg-brand-500/20"
-            : "border-app-outline bg-app-surface-2",
-        ].join(" ")}
-      >
-        <Icon icon={icon} size={20} color={checked ? "#0ea5e9" : "#83a7ff"} />
-      </View>
-      <View className="flex-1 gap-0.5">
-        <Text variant="label" tone="inverse">
-          {title}
-        </Text>
-        <Text variant="caption" tone="muted" className="text-app-text-muted">
-          {subtitle}
-        </Text>
-      </View>
-      <View
-        className={[
-          "h-6 w-6 items-center justify-center rounded-[8px] border",
-          checked
-            ? "border-brand-500 bg-brand-500"
-            : "border-app-outline bg-app-surface",
-        ].join(" ")}
-      >
-        {checked ? <Icon icon={Check} size={14} color="#ffffff" /> : null}
-      </View>
-    </Pressable>
-  );
-}
-
-function DrivableOption({
-  title,
-  subtitle,
-  selected,
-  onPress,
-}: {
   title: string;
   subtitle: string;
   selected: boolean;
   onPress: () => void;
-}) {
+};
+
+function ServicePreferenceCheck({
+  icon,
+  title,
+  subtitle,
+  selected,
+  onPress,
+}: ServicePreferenceCheckProps) {
   return (
     <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
       accessibilityLabel={title}
       onPress={onPress}
+      style={{ width: "100%" }}
+      contentStyle={{ minHeight: 62 }}
       className={[
-        "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
+        "w-full flex-row items-center gap-3 rounded-[18px] border px-3.5 py-3 active:opacity-90",
         selected
           ? "border-brand-500/40 bg-brand-500/10"
           : "border-app-outline bg-app-surface",
@@ -292,29 +209,41 @@ function DrivableOption({
     >
       <View
         className={[
-          "h-10 w-10 items-center justify-center rounded-full border",
+          "h-8 w-8 items-center justify-center rounded-[12px] border",
           selected
             ? "border-brand-500/40 bg-brand-500/20"
             : "border-app-outline bg-app-surface-2",
         ].join(" ")}
       >
-        <Icon
-          icon={selected ? Check : Car}
-          size={18}
-          color={selected ? "#0ea5e9" : "#83a7ff"}
-        />
+        <Icon icon={icon} size={15} color={selected ? "#0ea5e9" : "#83a7ff"} />
       </View>
-      <View className="flex-1 gap-0.5">
-        <Text variant="label" tone="inverse">
+      <View className="min-w-0 flex-1 gap-0.5">
+        <Text
+          variant="label"
+          tone="inverse"
+          className="text-[13px] leading-[17px]"
+          numberOfLines={1}
+        >
           {title}
         </Text>
         <Text
           variant="caption"
           tone="muted"
-          className="text-app-text-muted text-[12px]"
+          className="text-app-text-muted text-[12px] leading-[16px]"
+          numberOfLines={2}
         >
           {subtitle}
         </Text>
+      </View>
+      <View
+        className={[
+          "h-5 w-5 items-center justify-center rounded-full border",
+          selected
+            ? "border-brand-500 bg-brand-500"
+            : "border-app-outline bg-app-surface-2",
+        ].join(" ")}
+      >
+        {selected ? <Icon icon={Check} size={10} color="#ffffff" /> : null}
       </View>
     </Pressable>
   );
@@ -357,7 +286,7 @@ function EvidenceStep({ draft, updateDraft }: ComposerStepRenderProps) {
             tone="muted"
             className="text-app-text-muted text-[12px] leading-[16px]"
           >
-            Kanıt tekliflerin kalitesini doğrudan etkiler. Ses kaydı da güçlü.
+            Fotoğraf veya ses, ustanın daha net teklif vermesine yardım eder.
           </Text>
         </View>
         <View className="items-end gap-0.5">
@@ -392,85 +321,119 @@ function EvidenceStep({ draft, updateDraft }: ComposerStepRenderProps) {
           }
         />
       ))}
-    </View>
-  );
-}
 
-function LogisticsStep({ draft, updateDraft }: ComposerStepRenderProps) {
-  const locationDescription =
-    draft.on_site_repair || draft.valet_requested
-      ? "Ustanın / vale servisinin geleceği adres"
-      : "Bulunduğun semt / ilçe";
-
-  return (
-    <View className="gap-4">
-      <Text
-        tone="muted"
-        className="text-app-text-muted text-[13px] leading-[18px]"
+      <ComposerSection
+        title="Kısa not"
+        description="Fotoğraf veya sesi eklerken aklına gelen detayı buraya yaz."
       >
-        Nerede ve ne zaman?
-      </Text>
-
-      <LocationPicker
-        value={draft.location_label}
-        onChange={(next) => updateDraft({ location_label: next })}
-        description={locationDescription}
-      />
-
-      <ComposerSection title="Zaman tercihi">
-        <View className="flex-row flex-wrap gap-2">
-          {PREFERRED_WINDOWS.map((window) => (
-            <ToggleChip
-              key={window}
-              label={window}
-              selected={draft.preferred_window === window}
-              onPress={() =>
-                updateDraft({
-                  preferred_window:
-                    draft.preferred_window === window ? undefined : window,
-                })
-              }
-            />
-          ))}
-        </View>
-      </ComposerSection>
-
-      <ComposerSection title="Öncelik tercihin?">
-        <View className="flex-row flex-wrap gap-2">
-          {PRICE_OPTIONS.map((option) => (
-            <ToggleChip
-              key={option.value}
-              label={option.label}
-              selected={draft.price_preference === option.value}
-              onPress={() =>
-                updateDraft({
-                  price_preference:
-                    draft.price_preference === option.value
-                      ? null
-                      : option.value,
-                })
-              }
-            />
-          ))}
-        </View>
-      </ComposerSection>
-
-      <ComposerSection title="Açıklama (opsiyonel)">
         <TextInput
           value={draft.notes ?? ""}
           onChangeText={(value) => updateDraft({ notes: value })}
-          placeholder="Ne zaman başladı, hangi koşullarda artıyor, daha önce müdahale oldu mu?"
+          placeholder="Ne zaman başladı, hangi durumda artıyor?"
           placeholderTextColor="#6f7b97"
           multiline
           textAlignVertical="top"
-          className={[INPUT_CLASS, "min-h-[110px] py-3"].join(" ")}
+          className={[INPUT_CLASS, "min-h-[82px] py-3"].join(" ")}
         />
       </ComposerSection>
     </View>
   );
 }
 
-function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
+function LogisticsStep({ draft, updateDraft }: ComposerStepRenderProps) {
+  return (
+    <View className="gap-3.5">
+      <LocationPicker
+        title="Adres"
+        value={draft.location_label}
+        onChange={(next) => updateDraft({ location_label: next })}
+        coord={draft.location_lat_lng ?? null}
+        onCoordChange={(next) => updateDraft({ location_lat_lng: next })}
+        description="Ustanın göreceği çalışma konumu"
+        compactAccessory={
+          <View className="gap-1.5">
+            <Text variant="caption" tone="subtle" className="text-[11px]">
+              Servis tercihi
+            </Text>
+            <View className="gap-2">
+              <ServicePreferenceCheck
+                icon={Home}
+                title="Yerinde tamir"
+                subtitle="Usta bulunduğun yere gelsin."
+                selected={draft.on_site_repair}
+                onPress={() =>
+                  updateDraft({ on_site_repair: !draft.on_site_repair })
+                }
+              />
+              <ServicePreferenceCheck
+                icon={KeySquare}
+                title="Vale"
+                subtitle="Aracı alıp onarım sonrası geri getirsin."
+                selected={draft.valet_requested}
+                onPress={() =>
+                  updateDraft({ valet_requested: !draft.valet_requested })
+                }
+              />
+            </View>
+          </View>
+        }
+        compact
+      />
+
+      <ComposerSection title="Zaman ve öncelik">
+        <View className="gap-3">
+          <View className="gap-2">
+            <Text variant="caption" tone="subtle">
+              Ne zaman uygun?
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {PREFERRED_WINDOWS.map((window) => (
+                <ToggleChip
+                  key={window}
+                  label={window}
+                  size="sm"
+                  selected={draft.preferred_window === window}
+                  onPress={() =>
+                    updateDraft({
+                      preferred_window:
+                        draft.preferred_window === window ? undefined : window,
+                    })
+                  }
+                />
+              ))}
+            </View>
+          </View>
+
+          <View className="gap-2">
+            <Text variant="caption" tone="subtle">
+              Teklifte ne öne çıksın?
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {PRICE_OPTIONS.map((option) => (
+                <ToggleChip
+                  key={option.value}
+                  label={option.label}
+                  size="sm"
+                  selected={draft.price_preference === option.value}
+                  onPress={() =>
+                    updateDraft({
+                      price_preference:
+                        draft.price_preference === option.value
+                          ? null
+                          : option.value,
+                    })
+                  }
+                />
+              ))}
+            </View>
+          </View>
+        </View>
+      </ComposerSection>
+    </View>
+  );
+}
+
+function ReviewStep({ draft }: ComposerStepRenderProps) {
   const category = draft.breakdown_category;
   const template = category ? BREAKDOWN_TEMPLATES[category] : null;
   const categoryLabel = category ? BREAKDOWN_CATEGORY_LABEL[category] : "—";
@@ -501,12 +464,10 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
     PRICE_OPTIONS.find((option) => option.value === draft.price_preference)
       ?.label ?? "Fark etmez";
   const severity = computeSeverityHint(draft);
-  const towingDesired = draft.towing_required;
-  const towingDecisionMade = draft.towing_decision_made;
 
   return (
-    <View className="gap-4">
-      <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
+    <View className="gap-3.5">
+      <View className="gap-4 rounded-[28px] border border-app-outline bg-app-surface px-5 py-5">
         <View className="flex-row flex-wrap items-center gap-2">
           <TrustBadge label="Önizleme" tone="info" />
           {severity !== "low" ? (
@@ -517,169 +478,61 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
             />
           ) : null}
         </View>
-        <SummaryRow label="Arıza tipi" value={categoryLabel} />
-        <SummaryRow
-          label="Belirtiler"
-          value={symptomsSummary}
-          tone={totalSymptomEntries === 0 ? "warning" : "neutral"}
+
+        <View className="gap-2">
+          <Text variant="h2" tone="inverse" className="text-[25px] leading-[31px]">
+            {categoryLabel}
+          </Text>
+          <Text
+            tone="muted"
+            className="text-app-text-muted text-[15px] leading-[21px]"
+          >
+            {symptomsSummary === "Seçilmedi"
+              ? "Seçtiğin bilgiler ustaya düzenli bir vaka dosyası olarak gönderilecek."
+              : symptomsSummary}
+          </Text>
+        </View>
+
+        <View className="flex-row flex-wrap gap-2">
+          <PreviewPill
+            label={draft.location_label ? "Konum hazır" : "Konum eksik"}
+            tone={draft.location_label ? "accent" : "warning"}
+          />
+          <PreviewPill
+            label={mediaCount > 0 ? `${mediaCount} medya` : "Medya yok"}
+            tone={mediaCount > 0 ? "success" : "neutral"}
+          />
+          <PreviewPill
+            label={draft.preferred_window ?? "Zaman esnek"}
+            tone="neutral"
+          />
+        </View>
+      </View>
+
+      <PreviewPanel title="Vaka dosyası">
+        <PreviewFact label="Arıza alanı" value={categoryLabel} />
+        <PreviewFact
+          label="Konum"
+          value={draft.location_label || "Konum belirtilmedi"}
+          tone={draft.location_label ? "neutral" : "warning"}
         />
-        <SummaryRow
-          label="Araç durumu"
-          value={
-            draft.vehicle_drivable === false
-              ? "Sürülemiyor"
-              : draft.vehicle_drivable === true
-                ? "Sürülebiliyor"
-                : "Belirtilmedi"
-          }
-          tone={draft.vehicle_drivable === false ? "warning" : "neutral"}
+        <PreviewFact
+          label="Zaman"
+          value={draft.preferred_window ?? "Esnek"}
         />
-        <SummaryRow
-          label="Medya"
-          value={mediaCount > 0 ? `${mediaCount} dosya` : "Yok"}
-        />
-        <SummaryRow
+        <PreviewFact
           label="Servis tercihi"
           value={servicePreferenceLabel}
           tone={hasAnyPreference ? "accent" : "neutral"}
         />
-        <SummaryRow
-          label="Konum"
-          value={draft.location_label || "—"}
-          tone={draft.location_label ? "neutral" : "warning"}
-        />
-        <SummaryRow
-          label="Zaman"
-          value={draft.preferred_window ?? "Belirtilmedi"}
-        />
-        <SummaryRow label="Öncelik" value={priceLabel} />
-      </View>
+        <PreviewFact label="Teklif önceliği" value={priceLabel} />
+      </PreviewPanel>
 
-      {/* Son karar: çekici ihtiyacı */}
-      <View className="gap-2">
-        <Text variant="eyebrow" tone="subtle">
-          Aracın taşınması gerekiyor mu?
-        </Text>
-        <View className="gap-2">
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ selected: towingDecisionMade && towingDesired === true }}
-            accessibilityLabel="Evet, çekici istiyorum"
-            onPress={() =>
-              updateDraft({
-                towing_decision_made: true,
-                towing_required: true,
-              })
-            }
-            className={[
-              "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
-              towingDecisionMade && towingDesired
-                ? "border border-app-warning/40 bg-app-warning-soft"
-                : "border border-app-outline bg-app-surface",
-            ].join(" ")}
-          >
-            <View
-              className={[
-                "h-11 w-11 items-center justify-center rounded-full",
-                towingDecisionMade && towingDesired
-                  ? "bg-app-warning/20"
-                  : "bg-app-surface-2",
-              ].join(" ")}
-            >
-              <Icon
-                icon={Truck}
-                size={22}
-                color={
-                  towingDecisionMade && towingDesired ? "#f5b33f" : "#83a7ff"
-                }
-              />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text
-                variant="h3"
-                tone={towingDecisionMade && towingDesired ? "warning" : "inverse"}
-                className="text-[15px]"
-              >
-                Evet, çekici istiyorum
-              </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-muted text-[12px] leading-[16px]"
-              >
-                Vaka oluşturulduktan sonra çekici çağırma ekranına yönlendirilirsin
-              </Text>
-            </View>
-          </Pressable>
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ selected: towingDecisionMade && towingDesired === false }}
-            accessibilityLabel="Hayır, çekici gerekmiyor"
-            onPress={() =>
-              updateDraft({
-                towing_decision_made: true,
-                towing_required: false,
-              })
-            }
-            className={[
-              "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
-              towingDecisionMade && towingDesired === false
-                ? "border border-brand-500/40 bg-brand-500/10"
-                : "border border-app-outline bg-app-surface",
-            ].join(" ")}
-          >
-            <View
-              className={[
-                "h-11 w-11 items-center justify-center rounded-full",
-                towingDecisionMade && towingDesired === false
-                  ? "bg-brand-500/20"
-                  : "bg-app-surface-2",
-              ].join(" ")}
-            >
-              <Icon
-                icon={Car}
-                size={22}
-                color={
-                  towingDecisionMade && towingDesired === false
-                    ? "#0ea5e9"
-                    : "#83a7ff"
-                }
-              />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text
-                variant="h3"
-                tone={
-                  towingDecisionMade && towingDesired === false
-                    ? "accent"
-                    : "inverse"
-                }
-                className="text-[15px]"
-              >
-                Hayır, gerekmiyor
-              </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-muted text-[12px] leading-[16px]"
-              >
-                Aracı kendim götüreceğim veya yerinde onarım istiyorum
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-      </View>
-
-      <AccordionRow
-        title="Tüm semptomlar"
-        count={totalSymptomEntries}
-        icon={Sparkles}
-        defaultOpen={false}
-      >
-        {symptomsByQuestion.length > 0 ? (
-          symptomsByQuestion.map((group) => (
+      {symptomsByQuestion.length > 0 ? (
+        <PreviewPanel title="Belirtiler">
+          {symptomsByQuestion.map((group) => (
             <View key={group.question.id} className="gap-2">
-              <Text variant="eyebrow" tone="subtle">
+              <Text variant="caption" tone="subtle" className="text-[11px]">
                 {group.question.title}
               </Text>
               <View className="flex-row flex-wrap gap-2">
@@ -692,49 +545,43 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
                 ))}
               </View>
             </View>
-          ))
-        ) : (
-          <Text tone="muted" className="text-app-text-muted">
-            Semptom seçilmemiş.
-          </Text>
-        )}
-      </AccordionRow>
+          ))}
+        </PreviewPanel>
+      ) : null}
 
-      <AccordionRow
-        title="Medya"
-        count={mediaCount}
-        icon={ImageIcon}
-        defaultOpen={false}
-      >
-        {evidenceSteps.map((step) => {
-          const count = draft.attachments.filter((attachment) =>
-            attachment.id.startsWith(`${step.id}:`),
-          ).length;
-          return (
-            <View
-              key={step.id}
-              className="flex-row items-center justify-between gap-3 rounded-[16px] border border-app-outline bg-app-surface px-3.5 py-3"
-            >
-              <Text variant="label" tone="inverse" className="flex-1">
-                {step.title}
-              </Text>
-              <StatusChip
-                label={`${count} adet`}
-                tone={count > 0 ? "success" : "neutral"}
-              />
-            </View>
-          );
-        })}
-      </AccordionRow>
+      {mediaCount > 0 ? (
+        <PreviewPanel title="Eklenen medya">
+          {evidenceSteps.map((step) => {
+            const count = draft.attachments.filter((attachment) =>
+              attachment.id.startsWith(`${step.id}:`),
+            ).length;
+            if (count === 0) return null;
+            return (
+              <View
+                key={step.id}
+                className="flex-row items-center justify-between gap-3 rounded-[16px] border border-app-outline bg-app-surface px-3.5 py-3"
+              >
+                <View className="flex-row items-center gap-2">
+                  <Icon icon={ImageIcon} size={15} color="#83a7ff" />
+                  <Text variant="label" tone="inverse">
+                    {step.title}
+                  </Text>
+                </View>
+                <StatusChip label={`${count} adet`} tone="success" />
+              </View>
+            );
+          })}
+        </PreviewPanel>
+      ) : null}
 
       {draft.notes ? (
-        <AccordionRow title="Açıklama" icon={Sparkles} defaultOpen>
+        <PreviewPanel title="Kısa not">
           <View className="rounded-[16px] border border-app-outline bg-app-surface px-4 py-3">
             <Text tone="muted" className="text-app-text-muted leading-5">
               {draft.notes}
             </Text>
           </View>
-        </AccordionRow>
+        </PreviewPanel>
       ) : null}
     </View>
   );
@@ -778,62 +625,79 @@ function resolveOptionLabel(
   return value;
 }
 
-type SummaryRowProps = {
+type PreviewTone = "neutral" | "success" | "warning" | "critical" | "accent";
+
+function PreviewPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <View className="gap-3 rounded-[24px] border border-app-outline bg-app-surface-2 px-4 py-4">
+      <Text variant="h3" tone="inverse" className="text-[17px] leading-[22px]">
+        {title}
+      </Text>
+      <View className="gap-2.5">{children}</View>
+    </View>
+  );
+}
+
+function PreviewFact({
+  label,
+  value,
+  tone = "neutral",
+}: {
   label: string;
   value: string;
-  tone?: "neutral" | "success" | "warning" | "critical" | "accent";
-};
-
-function SummaryRow({ label, value, tone = "neutral" }: SummaryRowProps) {
+  tone?: PreviewTone;
+}) {
   const valueTone: "inverse" | "success" | "warning" | "critical" | "accent" =
     tone === "neutral" ? "inverse" : tone;
   return (
-    <View className="flex-row items-center justify-between gap-3 border-b border-app-outline/60 pb-2 last:border-0 last:pb-0">
-      <Text variant="caption" tone="muted" className="text-app-text-muted">
+    <View className="gap-1 rounded-[17px] border border-app-outline bg-app-surface px-3.5 py-3">
+      <Text variant="caption" tone="subtle" className="text-[10px]">
         {label}
       </Text>
-      <Text variant="label" tone={valueTone}>
+      <Text
+        variant="label"
+        tone={valueTone}
+        className="text-[13px] leading-[17px]"
+      >
         {value}
       </Text>
     </View>
   );
 }
 
-type AccordionRowProps = {
-  title: string;
-  icon: LucideIcon;
-  count?: number;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-};
-
-function AccordionRow({
-  title,
-  icon,
-  count,
-  defaultOpen = false,
-  children,
-}: AccordionRowProps) {
-  const [open, setOpen] = useState(defaultOpen);
+function PreviewPill({
+  label,
+  tone = "neutral",
+}: {
+  label: string;
+  tone?: PreviewTone;
+}) {
+  const toneClass: Record<PreviewTone, string> = {
+    neutral: "border-app-outline bg-app-surface-2",
+    success: "border-app-success/30 bg-app-success-soft",
+    warning: "border-app-warning/30 bg-app-warning-soft",
+    critical: "border-app-critical/30 bg-app-critical-soft",
+    accent: "border-brand-500/30 bg-brand-500/10",
+  };
+  const textTone: "inverse" | "success" | "warning" | "critical" | "accent" =
+    tone === "neutral" ? "inverse" : tone;
 
   return (
-    <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-3.5">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={() => setOpen((prev) => !prev)}
-        className="flex-row items-center gap-3"
-      >
-        <View className="h-9 w-9 items-center justify-center rounded-full bg-app-surface-2">
-          <Icon icon={icon} size={16} color="#83a7ff" />
-        </View>
-        <Text variant="label" tone="inverse" className="flex-1">
-          {title}
-          {typeof count === "number" ? ` (${count})` : ""}
-        </Text>
-        <Icon icon={open ? ChevronUp : ChevronDown} size={18} color="#83a7ff" />
-      </Pressable>
-      {open ? <View className="gap-3 pt-1">{children}</View> : null}
+    <View
+      className={[
+        "rounded-full border px-3 py-1.5",
+        toneClass[tone],
+      ].join(" ")}
+    >
+      <Text variant="caption" tone={textTone} className="text-[11px]">
+        {label}
+      </Text>
     </View>
   );
 }
@@ -844,7 +708,7 @@ export const BREAKDOWN_FLOW: ComposerFlow = {
   title: "Arıza bildirimi",
   description: "",
   progressVariant: "bar-thin",
-  submitLabel: "Arıza bildirimimi gönder",
+  submitLabel: "Vakayı oluştur",
   steps: [
     {
       key: "breakdown_category",
@@ -858,16 +722,9 @@ export const BREAKDOWN_FLOW: ComposerFlow = {
       render: (props) => <CategoryStep {...props} />,
     },
     {
-      key: "breakdown_drivable",
-      title: "Araç durumu",
-      description: "Aracın ne durumda?",
-      validate: () => null,
-      render: (props) => <VehicleStateStep {...props} />,
-    },
-    {
       key: "breakdown_media",
-      title: "Kanıt",
-      description: "Usta için ipucu ekle",
+      title: "Fotoğraf ve ses",
+      description: "İstersen ustaya ipucu ekle",
       validate: () => null,
       render: (props) => <EvidenceStep {...props} />,
       optional: true,
@@ -884,10 +741,7 @@ export const BREAKDOWN_FLOW: ComposerFlow = {
       key: "breakdown_review",
       title: "Önizleme",
       description: "Son kontrol",
-      validate: (draft) =>
-        draft.towing_decision_made
-          ? null
-          : "Çekici gerekip gerekmediğini seç.",
+      validate: () => null,
       render: (props) => <ReviewStep {...props} />,
       isTerminal: true,
     },

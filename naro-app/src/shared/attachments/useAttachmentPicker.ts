@@ -44,6 +44,30 @@ function formatSize(bytes?: number): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
+function createLocalDraft(
+  pick: { uri: string; name?: string; mimeType?: string; sizeBytes?: number; durationSec?: number },
+  kind: CaseAttachmentKind,
+  title: string | undefined,
+  fallbackMime: string,
+  index: number,
+): AttachmentDraft {
+  return {
+    id: `local-${Date.now()}-${index}`,
+    kind,
+    title: title ?? pick.name ?? ATTACHMENT_KIND_LABEL[kind],
+    subtitle: pick.durationSec
+      ? `${pick.durationSec}s · ${formatSize(pick.sizeBytes)}`
+      : formatSize(pick.sizeBytes),
+    statusLabel: "Eklendi",
+    localUri: pick.uri,
+    remoteUri: pick.uri,
+    mimeType: pick.mimeType ?? fallbackMime,
+    sizeLabel: formatSize(pick.sizeBytes),
+    capturedAt: new Date().toISOString(),
+    asset: null,
+  };
+}
+
 export function useAttachmentPicker(target: AttachmentUploadTarget) {
   const [status, setStatus] = useState<PickerStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +96,23 @@ export function useAttachmentPicker(target: AttachmentUploadTarget) {
       setError(null);
 
       try {
+        if (target.deferUpload) {
+          let picks;
+          if (selection === "photo") {
+            picks = await picker.pickPhoto(pickOptions as never);
+          } else if (selection === "video") {
+            picks = await picker.pickVideo(pickOptions as never);
+          } else if (selection === "document" || selection === "audio") {
+            picks = await picker.pickDocument(pickOptions as never);
+          } else {
+            picks = await picker.recordAudio(pickOptions as never);
+          }
+          setStatus("idle");
+          return picks.map((pick, index) =>
+            createLocalDraft(pick, kind, title, fallbackMime, index),
+          );
+        }
+
         const outcome = await upload.pickAndUpload({
           purpose: target.purpose,
           ownerId: target.ownerRef,
@@ -127,7 +168,7 @@ export function useAttachmentPicker(target: AttachmentUploadTarget) {
         return [];
       }
     },
-    [target.ownerRef, target.purpose, upload],
+    [picker, target.deferUpload, target.ownerRef, target.purpose, upload],
   );
 
   const pickPhoto = useCallback(

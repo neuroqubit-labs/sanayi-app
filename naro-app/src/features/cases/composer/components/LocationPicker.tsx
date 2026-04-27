@@ -1,10 +1,12 @@
 import type { LatLng } from "@naro/domain";
 import {
+  GesturePressable as Pressable,
   Icon,
   StaticMapPreview,
   StatusChip,
   Text,
   useMapPicker,
+  useNaroTheme,
 } from "@naro/ui";
 import { type Href, useRouter } from "expo-router";
 import {
@@ -15,13 +17,21 @@ import {
   Pencil,
   Sparkles,
 } from "lucide-react-native";
-import { useCallback, useEffect, useId, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
+import { StyleSheet, TextInput, View } from "react-native";
+import NativeMapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 import {
   useMapPickerBridge,
   type MapPickerPurpose,
 } from "@/features/map-picker";
+import {
+  DEFAULT_PICKER_CENTER,
+  GOOGLE_DARK_MAP_STYLE,
+  hasGoogleMapKey,
+  toMapCoord,
+  toRegion,
+} from "@/features/map-picker/mapSurface";
 
 export type FrequentPlace = {
   id: string;
@@ -32,9 +42,11 @@ export type FrequentPlace = {
 };
 
 type Props = {
+  title?: string;
   value: string;
   onChange: (next: string) => void;
   description?: string;
+  compactAccessory?: ReactNode;
   frequentPlaces?: FrequentPlace[];
   /** Default handler full-screen map modal açar; caller override edebilir. */
   onOpenMapPicker?: () => void;
@@ -44,42 +56,26 @@ type Props = {
   onCoordChange?: (next: LatLng | null) => void;
   /** Modal purpose'u — pin rengi + başlık: pickup (default), dropoff, vb. */
   mapPurpose?: MapPickerPurpose;
+  /** Non-tow case composer'larında daha kısa, karar odaklı yüzey. */
+  compact?: boolean;
 };
 
-const DEFAULT_FREQUENT_PLACES: FrequentPlace[] = [
-  {
-    id: "home",
-    label: "Ev",
-    address: "Maslak Mah. Sarıyer / İstanbul",
-    kind: "home",
-    coord: { lat: 41.112, lng: 29.022 },
-  },
-  {
-    id: "work",
-    label: "İş",
-    address: "Levent 4. Lev · Beşiktaş / İstanbul",
-    kind: "work",
-    coord: { lat: 41.083, lng: 29.011 },
-  },
-  {
-    id: "previous-1",
-    label: "Önceki",
-    address: "AutoPro Servis · Güngören Sanayi",
-    kind: "previous",
-    coord: { lat: 41.028, lng: 28.889 },
-  },
-];
+const DEFAULT_FREQUENT_PLACES: FrequentPlace[] = [];
 
 export function LocationPicker({
+  title = "Konum",
   value,
   onChange,
   description,
+  compactAccessory,
   frequentPlaces = DEFAULT_FREQUENT_PLACES,
   onOpenMapPicker,
   coord = null,
   onCoordChange,
   mapPurpose = "pickup",
+  compact = false,
 }: Props) {
+  const { colors, scheme } = useNaroTheme();
   const [showManual, setShowManual] = useState(!value);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const router = useRouter();
@@ -132,6 +128,11 @@ export function LocationPicker({
     [picker, onChange, onCoordChange],
   );
 
+  const handleUseApproximate = useCallback(() => {
+    picker.clear();
+    onCoordChange?.(null);
+  }, [picker, onCoordChange]);
+
   // Default — modal'ı aç
   const handleOpenMap = useCallback(() => {
     if (onOpenMapPicker) {
@@ -158,11 +159,158 @@ export function LocationPicker({
     setPermissionDenied(false);
   }, [pendingResult, bridge, session, picker, onChange, onCoordChange]);
 
+  if (compact) {
+    const locationText =
+      value || picker.address?.address || "Konum seç veya semt gir";
+    const hasExactLocation = Boolean(picker.coord);
+
+    return (
+      <View className="gap-2.5 rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-3">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="flex-1 gap-1">
+            <Text variant="eyebrow" tone="subtle">
+              {title}
+            </Text>
+            {description ? (
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px] leading-[16px]"
+              >
+                {description}
+              </Text>
+            ) : null}
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Haritada değiştir"
+            onPress={handleOpenMap}
+            className="flex-row items-center gap-1.5 rounded-full border border-app-outline bg-app-surface px-2.5 py-1.5 active:bg-app-surface-2"
+          >
+            <Icon icon={Pencil} size={12} color="#83a7ff" />
+            <Text variant="caption" tone="inverse" className="text-[11px]">
+              Değiştir
+            </Text>
+          </Pressable>
+        </View>
+
+        <CompactMapPreview
+          coord={picker.coord}
+          label={picker.address?.short_label}
+          onPress={handleOpenMap}
+          googleReady={hasGoogleMapKey()}
+          markerColor={colors.success}
+          dark={scheme === "dark"}
+        />
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Konumu düzenle"
+          onPress={handleOpenMap}
+          className="flex-row items-center gap-3 rounded-[18px] border border-app-outline bg-app-surface px-3 py-3 active:bg-app-surface-2"
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-[13px] bg-brand-500/15">
+            <Icon icon={MapPin} size={17} color="#0ea5e9" />
+          </View>
+          <View className="min-w-0 flex-1 gap-0.5">
+            <Text variant="caption" tone="subtle" className="text-[10px]">
+              Seçili adres
+            </Text>
+            <Text
+              variant="label"
+              tone={value ? "inverse" : "muted"}
+              className={[
+                "text-[13px]",
+                value ? "" : "text-app-text-muted",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              numberOfLines={1}
+            >
+              {locationText}
+            </Text>
+          </View>
+        </Pressable>
+
+        <View className="gap-1.5">
+          <Text variant="caption" tone="subtle" className="text-[11px]">
+            Konum hassasiyeti
+          </Text>
+          <View className="flex-row rounded-[18px] border border-app-outline bg-app-surface p-1">
+            <LocationPrecisionChip
+              label="Yaklaşık konum"
+              selected={!hasExactLocation}
+              onPress={handleUseApproximate}
+            />
+            <LocationPrecisionChip
+              label="Tam konum"
+              selected={hasExactLocation}
+              onPress={handleOpenMap}
+            />
+          </View>
+        </View>
+
+        {compactAccessory ? <View>{compactAccessory}</View> : null}
+
+        <View className="flex-row flex-wrap items-center gap-1.5">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="GPS ile konumu doldur"
+            onPress={handleUseCurrent}
+            disabled={picker.gpsFetching}
+            className="flex-row items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-2.5 py-1.5 active:opacity-85"
+          >
+            <Icon icon={Navigation} size={12} color="#0ea5e9" />
+            <Text variant="caption" tone="accent" className="text-[11px]">
+              {picker.gpsFetching ? "Bulunuyor..." : "GPS ile doldur"}
+            </Text>
+          </Pressable>
+          {frequentPlaces.slice(0, 3).map((place) => (
+            <FrequentPlaceChip
+              key={place.id}
+              place={place}
+              onPress={() => handleSelectFrequent(place)}
+            />
+          ))}
+        </View>
+
+        {showManual || permissionDenied ? (
+          <View className="gap-1.5">
+            {permissionDenied ? (
+              <Pressable
+                onPress={picker.permission.openSettings}
+                accessibilityRole="button"
+                accessibilityLabel="Ayarlara git"
+              >
+                <StatusChip
+                  label="Konum izni verilmedi — ayarlara git"
+                  tone="warning"
+                />
+              </Pressable>
+            ) : null}
+            <TextInput
+              value={value}
+              onChangeText={onChange}
+              placeholder="Semt / ilçe — ör. Melikgazi / Kayseri"
+              placeholderTextColor="#6f7b97"
+              className="rounded-[16px] border border-app-outline bg-app-surface px-3.5 py-2.5 text-base text-app-text"
+            />
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
-    <View className="gap-3 rounded-[22px] border border-app-outline bg-app-surface-2 px-4 py-4">
+    <View
+      className={[
+        "gap-3 rounded-[22px] border border-app-outline bg-app-surface-2 px-4",
+        compact ? "py-3.5" : "py-4",
+      ].join(" ")}
+    >
       <View className="gap-1">
         <Text variant="eyebrow" tone="subtle">
-          Konum
+          {title}
         </Text>
         {description ? (
           <Text
@@ -184,7 +332,7 @@ export function LocationPicker({
       >
         {picker.coord ? (
           <StaticMapPreview
-            height={132}
+            height={compact ? 86 : 132}
             pins={[
               {
                 coord: picker.coord,
@@ -204,7 +352,12 @@ export function LocationPicker({
             }
           />
         ) : (
-          <View className="relative h-32 overflow-hidden rounded-[18px] border border-app-outline bg-app-surface">
+          <View
+            className={[
+              "relative overflow-hidden rounded-[18px] border border-app-outline bg-app-surface",
+              compact ? "h-24" : "h-32",
+            ].join(" ")}
+          >
             <View className="absolute inset-0 opacity-25">
               {Array.from({ length: 4 }).map((_, i) => (
                 <View
@@ -307,12 +460,172 @@ export function LocationPicker({
           <TextInput
             value={value}
             onChangeText={onChange}
-            placeholder="Semt / ilçe — ör. Maslak / Sarıyer"
+            placeholder="Semt / ilçe — ör. Melikgazi / Kayseri"
             placeholderTextColor="#6f7b97"
             className="rounded-[16px] border border-app-outline bg-app-surface px-3.5 py-2.5 text-base text-app-text"
           />
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function LocationPrecisionChip({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{ flex: 1 }}
+      className={[
+        "h-10 flex-1 items-center justify-center rounded-[14px] px-2 active:opacity-90",
+        selected ? "bg-brand-500" : "bg-transparent",
+      ].join(" ")}
+    >
+      <Text
+        variant="label"
+        tone={selected ? "neutral" : "muted"}
+        className={[
+          "text-center text-[11px] leading-[14px]",
+          selected ? "text-white" : "text-app-text-muted",
+        ].join(" ")}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function CompactMapPreview({
+  coord,
+  label,
+  onPress,
+  googleReady,
+  markerColor,
+  dark,
+}: {
+  coord: LatLng | null;
+  label?: string;
+  onPress: () => void;
+  googleReady: boolean;
+  markerColor: string;
+  dark: boolean;
+}) {
+  const center = coord ?? DEFAULT_PICKER_CENTER;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Haritada konumu seç"
+      onPress={onPress}
+      className="overflow-hidden rounded-[20px] border border-app-outline bg-app-surface active:opacity-90"
+    >
+      {googleReady ? (
+        <View className="h-[112px]" pointerEvents="none">
+          <NativeMapView
+            provider={PROVIDER_GOOGLE}
+            style={StyleSheet.absoluteFill}
+            initialRegion={toRegion(center, 14)}
+            region={toRegion(center, 14)}
+            customMapStyle={dark ? GOOGLE_DARK_MAP_STYLE : undefined}
+            showsCompass={false}
+            showsMyLocationButton={false}
+            toolbarEnabled={false}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            pitchEnabled={false}
+            rotateEnabled={false}
+          >
+            {coord ? (
+              <Marker
+                coordinate={toMapCoord(coord)}
+                title={label ?? "Seçili konum"}
+                pinColor={markerColor}
+              />
+            ) : null}
+          </NativeMapView>
+          <MapPreviewLabel hasExact={Boolean(coord)} label={label} />
+        </View>
+      ) : coord ? (
+        <StaticMapPreview
+          height={112}
+          pins={[
+            {
+              coord,
+              kind: "pickup",
+              label: label ?? "Seçili konum",
+            },
+          ]}
+          bottomCaption={
+            <Text
+              variant="caption"
+              tone="inverse"
+              className="text-[10px]"
+              numberOfLines={1}
+            >
+              {label ?? "Tam konum seçildi"}
+            </Text>
+          }
+        />
+      ) : (
+        <View className="relative h-[112px] overflow-hidden bg-app-surface">
+          <View className="absolute inset-0 opacity-25">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <View
+                key={`compact-h-${i}`}
+                className="absolute left-0 right-0 h-px bg-app-outline"
+                style={{ top: `${(i + 1) * 20}%` }}
+              />
+            ))}
+            {Array.from({ length: 4 }).map((_, i) => (
+              <View
+                key={`compact-v-${i}`}
+                className="absolute bottom-0 top-0 w-px bg-app-outline"
+                style={{ left: `${(i + 1) * 20}%` }}
+              />
+            ))}
+          </View>
+          <MapPreviewLabel hasExact={false} />
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+function MapPreviewLabel({
+  hasExact,
+  label,
+}: {
+  hasExact: boolean;
+  label?: string;
+}) {
+  return (
+    <View className="absolute bottom-2 left-2 right-2 items-center">
+      <View className="rounded-full border border-app-outline bg-app-surface/90 px-3 py-1.5">
+        <Text
+          variant="caption"
+          tone={hasExact ? "inverse" : "muted"}
+          className={[
+            "text-[11px]",
+            hasExact ? "" : "text-app-text-muted",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          numberOfLines={1}
+        >
+          {hasExact ? (label ?? "Tam konum seçildi") : "Tam konum için haritada seç"}
+        </Text>
+      </View>
     </View>
   );
 }

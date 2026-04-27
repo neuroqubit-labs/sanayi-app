@@ -3,24 +3,29 @@ import type {
   PricePreference,
   ServiceRequestDraft,
 } from "@naro/domain";
-import { FieldInput, Icon, StatusChip, Text, ToggleChip } from "@naro/ui";
 import {
-  Camera,
-  Car,
+  FieldInput,
+  GesturePressable as Pressable,
+  Icon,
+  StatusChip,
+  Text,
+  ToggleChip,
+} from "@naro/ui";
+import {
   Check,
   ChevronDown,
   ChevronUp,
+  CircleEllipsis,
   Home,
   Image as ImageIcon,
   Info,
   KeySquare,
   Sparkles,
   TrendingUp,
-  Truck,
   type LucideIcon,
 } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { getMissingRequiredAttachmentCategories } from "../caseCreationContract";
 
@@ -59,12 +64,33 @@ function summarizeServicePreferences(draft: ServiceRequestDraft): string {
   const parts: string[] = [];
   if (draft.on_site_repair) parts.push("Yerinde onarım");
   if (draft.valet_requested) parts.push("Vale servis");
-  if (parts.length === 0) return "Servise ben götüreceğim";
+  if (parts.length === 0) return "Belirtilmedi";
   return parts.join(" · ");
 }
 
-function CategoryStep({ draft, updateDraft }: ComposerStepRenderProps) {
+type MaintenanceCategoryMetaWithGroup = MaintenanceCategoryMeta & {
+  groupLabel: "Paket" | "Tek iş";
+};
+
+const MAINTENANCE_CATEGORY_GRID: MaintenanceCategoryMetaWithGroup[] = [
+  ...MAINTENANCE_PACKAGE_CATEGORIES.map((category) => ({
+    ...category,
+    groupLabel: "Paket" as const,
+  })),
+  ...MAINTENANCE_SINGLE_CATEGORIES.map((category) => ({
+    ...category,
+    groupLabel: "Tek iş" as const,
+  })),
+];
+
+function getCategoryMeta(category: MaintenanceCategory | null) {
+  if (!category) return null;
+  return MAINTENANCE_CATEGORY_GRID.find((entry) => entry.id === category) ?? null;
+}
+
+function ScopeStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const selected = draft.maintenance_category;
+  const selectedMeta = getCategoryMeta(selected);
 
   const pickCategory = (id: MaintenanceCategoryMeta["id"]) => {
     updateDraft({
@@ -73,133 +99,153 @@ function CategoryStep({ draft, updateDraft }: ComposerStepRenderProps) {
     });
   };
 
+  const template = selected ? MAINTENANCE_TEMPLATES[selected] : null;
+  const estimate = estimatePriceRange(draft);
+  const HeroIcon = template?.hero.icon;
+
   return (
     <View className="gap-5">
       <View className="gap-1">
         <Text variant="h3" tone="inverse">
-          Aracına ne yapılsın?
+          Bakım kapsamı
         </Text>
         <Text
           tone="muted"
           className="text-app-text-muted text-[12px] leading-[16px]"
         >
-          Paketler tek seferde birden çok iş alır. Tekli işler listeden.
+          Önce bakım türünü seç, sonra kapsamı netleştir.
         </Text>
       </View>
 
-      <View className="gap-3">
-        <Text variant="eyebrow" tone="subtle">
-          Paketler
-        </Text>
-        <View className="flex-row flex-wrap gap-3">
-          {MAINTENANCE_PACKAGE_CATEGORIES.map((category) => (
-            <View key={category.id} style={{ width: "48%" }}>
-              <CategoryTile
-                icon={category.icon}
-                title={category.title}
-                subtitle={category.subtitle}
-                selected={selected === category.id}
-                onPress={() => pickCategory(category.id)}
-              />
-            </View>
-          ))}
-        </View>
-      </View>
+      {selectedMeta ? (
+        <SelectedMaintenanceHeader
+          category={selectedMeta}
+          onClear={() =>
+            updateDraft({
+              maintenance_category: null,
+              maintenance_items: [],
+            })
+          }
+        />
+      ) : (
+        <>
+          <Text
+            tone="muted"
+            className="text-app-text-muted text-[15px] leading-[21px]"
+          >
+            En yakın bakım türünü seç. Sonraki seçimlerde kapsamı netleştireceğiz.
+          </Text>
+          <View className="flex-row flex-wrap gap-3">
+            {MAINTENANCE_CATEGORY_GRID.map((category) => (
+              <View key={category.id} style={{ width: "48%" }}>
+                <CategoryTile
+                  icon={category.icon}
+                  title={category.title}
+                  subtitle={category.subtitle}
+                  badge={category.groupLabel}
+                  selected={selected === category.id}
+                  onPress={() => pickCategory(category.id)}
+                />
+              </View>
+            ))}
+          </View>
+        </>
+      )}
 
-      <View className="gap-3">
-        <Text variant="eyebrow" tone="subtle">
-          Tek işler
-        </Text>
-        <View className="flex-row flex-wrap gap-3">
-          {MAINTENANCE_SINGLE_CATEGORIES.map((category) => (
-            <View key={category.id} style={{ width: "48%" }}>
-              <CategoryTile
-                icon={category.icon}
-                title={category.title}
-                subtitle={category.subtitle}
-                selected={selected === category.id}
-                onPress={() => pickCategory(category.id)}
-              />
+      {template && HeroIcon ? (
+        <View className="gap-4">
+          <View className="flex-row items-center gap-3 rounded-[20px] border border-app-outline bg-app-surface px-4 py-3.5">
+            <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-app-surface-2">
+              <Icon icon={HeroIcon} size={18} color="#83a7ff" />
             </View>
+            <View className="flex-1 gap-0.5">
+              <Text
+                variant="h3"
+                tone="inverse"
+                className="text-[15px] leading-[19px]"
+              >
+                {template.hero.title}
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted text-[12px] leading-[16px]"
+              >
+                {template.hero.subtitle}
+              </Text>
+            </View>
+          </View>
+
+          {template.questions.map((question) => (
+            <QuestionDispatcher
+              key={question.id}
+              question={question}
+              symptoms={draft.maintenance_items}
+              onChange={(next) => updateDraft({ maintenance_items: next })}
+            />
           ))}
+
+          {estimate ? (
+            <View className="gap-2 rounded-[22px] border border-app-success/30 bg-app-success-soft px-4 py-3.5">
+              <View className="flex-row items-center gap-2">
+                <Icon icon={TrendingUp} size={14} color="#2dd28d" />
+                <Text variant="eyebrow" tone="subtle">
+                  Tahmini fiyat aralığı
+                </Text>
+              </View>
+              <Text
+                variant="display"
+                tone="success"
+                className="text-[28px] leading-[32px]"
+              >
+                {estimate.label}
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted leading-5"
+              >
+                Kesin ücret usta teklifinden netleşir.
+              </Text>
+            </View>
+          ) : null}
         </View>
-      </View>
+      ) : null}
     </View>
   );
 }
 
-function DetailStep({ draft, updateDraft }: ComposerStepRenderProps) {
-  const category = draft.maintenance_category;
-  if (!category) {
-    return (
-      <View className="gap-2 rounded-[22px] border border-app-outline bg-app-surface px-4 py-4">
-        <Text tone="muted" className="text-app-text-muted">
-          Önce 1. adımda bir kategori seç.
+function SelectedMaintenanceHeader({
+  category,
+  onClear,
+}: {
+  category?: MaintenanceCategoryMetaWithGroup | null;
+  onClear: () => void;
+}) {
+  const icon = category?.icon ?? CircleEllipsis;
+  return (
+    <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/30 bg-brand-500/10 px-3.5 py-2.5">
+      <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
+        <Icon icon={icon} size={19} color="#0ea5e9" />
+      </View>
+      <View className="min-w-0 flex-1 gap-0.5">
+        <Text variant="caption" tone="accent" className="text-[11px] leading-[14px]">
+          {category?.groupLabel ?? "Seçili bakım"}
+        </Text>
+        <Text variant="h3" tone="inverse" className="text-[16px] leading-[20px]">
+          {category?.title ?? "Bakım"}
         </Text>
       </View>
-    );
-  }
-
-  const template = MAINTENANCE_TEMPLATES[category];
-  const HeroIcon = template.hero.icon;
-  const estimate = estimatePriceRange(draft);
-
-  return (
-    <View className="gap-4">
-      {/* Tek hero — eyebrow + title çift yazımı temizlendi, araç info satırı kaldırıldı */}
-      <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
-        <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
-          <Icon icon={HeroIcon} size={18} color="#0ea5e9" />
-        </View>
-        <View className="flex-1 gap-0.5">
-          <Text
-            variant="h3"
-            tone="inverse"
-            className="text-[15px] leading-[19px]"
-          >
-            {template.hero.title}
-          </Text>
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted text-[12px] leading-[16px]"
-          >
-            {template.hero.subtitle}
-          </Text>
-        </View>
-      </View>
-
-      {template.questions.map((question) => (
-        <QuestionDispatcher
-          key={question.id}
-          question={question}
-          symptoms={draft.maintenance_items}
-          onChange={(next) => updateDraft({ maintenance_items: next })}
-        />
-      ))}
-
-      {estimate ? (
-        <View className="gap-3 rounded-[24px] border border-app-success/30 bg-app-success-soft px-4 py-4">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
-              <Icon icon={TrendingUp} size={14} color="#2dd28d" />
-              <Text variant="eyebrow" tone="subtle">
-                Tahmini fiyat aralığı
-              </Text>
-            </View>
-            <Text variant="caption" tone="muted" className="text-app-text-subtle">
-              Referans
-            </Text>
-          </View>
-          <Text variant="display" tone="success" className="text-[30px] leading-[34px]">
-            {estimate.label}
-          </Text>
-          <Text variant="caption" tone="muted" className="text-app-text-muted leading-5">
-            Kesin ücret usta teklifinden netleşir. Seçimlerine göre bu aralık
-            güncellenir.
-          </Text>
-        </View>
-      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Bakım türünü değiştir"
+        onPress={onClear}
+        className="rounded-full border border-app-outline bg-app-surface px-3 py-1.5 active:opacity-90"
+      >
+        <Text variant="caption" tone="accent">
+          Değiştir
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -224,38 +270,26 @@ function MediaStep({ draft, updateDraft }: ComposerStepRenderProps) {
 
   return (
     <View className="gap-4">
-      <View className="flex-row items-center gap-3 rounded-[20px] border border-brand-500/25 bg-brand-500/10 px-4 py-3.5">
-        <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-brand-500/20">
-          <Icon icon={Camera} size={18} color="#0ea5e9" />
-        </View>
-        <View className="flex-1 gap-0.5">
+      <View className="gap-1">
+        <View className="flex-row items-center justify-between gap-3">
           <Text
             variant="h3"
             tone="inverse"
-            className="text-[15px] leading-[19px]"
+            className="text-[18px] leading-[23px]"
           >
-            Fotoğraf ve not ekle
+            Usta için ipucu
           </Text>
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-muted text-[12px] leading-[16px]"
-          >
-            Fotoğraf ve notlar teklifin kalitesini doğrudan etkiler.
-          </Text>
+          {mediaCount > 0 ? (
+            <StatusChip label={`${mediaCount} medya`} tone="success" />
+          ) : null}
         </View>
-        <View className="items-end gap-0.5">
-          <Text variant="label" tone="accent">
-            {mediaCount}
-          </Text>
-          <Text
-            variant="caption"
-            tone="muted"
-            className="text-app-text-subtle text-[10px]"
-          >
-            Medya
-          </Text>
-        </View>
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted text-[13px] leading-[18px]"
+        >
+          Fotoğraf, video, ses kaydı veya kısa not ekleyebilirsin.
+        </Text>
       </View>
 
       {evidence.map((step) => (
@@ -432,7 +466,7 @@ function CheckPreferenceRow({
   );
 }
 
-function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
+function ReviewStep({ draft }: ComposerStepRenderProps) {
   const [showPriceInfo, setShowPriceInfo] = useState(false);
   const category = draft.maintenance_category;
   const template = category ? MAINTENANCE_TEMPLATES[category] : null;
@@ -607,132 +641,6 @@ function ReviewStep({ draft, updateDraft }: ComposerStepRenderProps) {
         </AccordionRow>
       ) : null}
 
-      {/* Son karar: çekici ihtiyacı */}
-      <View className="gap-2">
-        <Text variant="eyebrow" tone="subtle">
-          Aracın servise taşınması gerekiyor mu?
-        </Text>
-        <View className="gap-2">
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{
-              selected:
-                draft.towing_decision_made && draft.towing_required === true,
-            }}
-            accessibilityLabel="Evet, çekici istiyorum"
-            onPress={() =>
-              updateDraft({
-                towing_decision_made: true,
-                towing_required: true,
-              })
-            }
-            className={[
-              "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
-              draft.towing_decision_made && draft.towing_required
-                ? "border border-app-warning/40 bg-app-warning-soft"
-                : "border border-app-outline bg-app-surface",
-            ].join(" ")}
-          >
-            <View
-              className={[
-                "h-11 w-11 items-center justify-center rounded-full",
-                draft.towing_decision_made && draft.towing_required
-                  ? "bg-app-warning/20"
-                  : "bg-app-surface-2",
-              ].join(" ")}
-            >
-              <Icon
-                icon={Truck}
-                size={22}
-                color={
-                  draft.towing_decision_made && draft.towing_required
-                    ? "#f5b33f"
-                    : "#83a7ff"
-                }
-              />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text
-                variant="h3"
-                tone={
-                  draft.towing_decision_made && draft.towing_required
-                    ? "warning"
-                    : "inverse"
-                }
-                className="text-[15px]"
-              >
-                Evet, çekici istiyorum
-              </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-muted text-[12px] leading-[16px]"
-              >
-                Vaka sonrası çekici çağırma ekranına yönlendirilirsin
-              </Text>
-            </View>
-          </Pressable>
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{
-              selected:
-                draft.towing_decision_made && draft.towing_required === false,
-            }}
-            accessibilityLabel="Hayır, çekici gerekmiyor"
-            onPress={() =>
-              updateDraft({
-                towing_decision_made: true,
-                towing_required: false,
-              })
-            }
-            className={[
-              "flex-row items-center gap-3 rounded-[22px] px-5 py-4 active:opacity-90",
-              draft.towing_decision_made && draft.towing_required === false
-                ? "border border-brand-500/40 bg-brand-500/10"
-                : "border border-app-outline bg-app-surface",
-            ].join(" ")}
-          >
-            <View
-              className={[
-                "h-11 w-11 items-center justify-center rounded-full",
-                draft.towing_decision_made && draft.towing_required === false
-                  ? "bg-brand-500/20"
-                  : "bg-app-surface-2",
-              ].join(" ")}
-            >
-              <Icon
-                icon={Car}
-                size={22}
-                color={
-                  draft.towing_decision_made && draft.towing_required === false
-                    ? "#0ea5e9"
-                    : "#83a7ff"
-                }
-              />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text
-                variant="h3"
-                tone={
-                  draft.towing_decision_made && draft.towing_required === false
-                    ? "accent"
-                    : "inverse"
-                }
-                className="text-[15px]"
-              >
-                Hayır, gerekmiyor
-              </Text>
-              <Text
-                variant="caption"
-                tone="muted"
-                className="text-app-text-muted text-[12px] leading-[16px]"
-              >
-                Aracı kendim götüreceğim veya yerinde onarım istiyorum
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-      </View>
     </View>
   );
 }
@@ -835,30 +743,24 @@ export const MAINTENANCE_FLOW: ComposerFlow = {
   title: "Bakım talebi oluştur",
   description: "",
   progressVariant: "bar-thin",
-  submitLabel: "Bakım talebimi gönder",
+  submitLabel: "Vakayı oluştur",
   steps: [
     {
-      key: "maintenance_category",
-      title: "Kategori",
-      description: "Aracına ne yapılsın?",
+      key: "maintenance_scope",
+      title: "Bakım kapsamı",
+      description: "Tür ve kapsam",
       validate: (draft) =>
-        draft.maintenance_category ? null : "Bir kategori seç.",
-      render: (props) => <CategoryStep {...props} />,
-    },
-    {
-      key: "maintenance_detail",
-      title: "Detay",
-      description: "Tercihlerini işaretle",
-      validate: (draft) =>
-        draft.maintenance_items.length === 0
-          ? "Kapsam seçimi bekleniyor."
-          : null,
-      render: (props) => <DetailStep {...props} />,
+        !draft.maintenance_category
+          ? "Bir bakım türü seç."
+          : draft.maintenance_items.length === 0
+            ? "Kapsam seçimi bekleniyor."
+            : null,
+      render: (props) => <ScopeStep {...props} />,
     },
     {
       key: "maintenance_media",
-      title: "Bağlam",
-      description: "Usta için bağlam ekle",
+      title: "Fotoğraf ve not",
+      description: "Usta için bağlam",
       validate: (draft) => {
         const missing = getMissingRequiredAttachmentCategories(
           "maintenance",
@@ -870,7 +772,7 @@ export const MAINTENANCE_FLOW: ComposerFlow = {
     },
     {
       key: "maintenance_logistics",
-      title: "Konum",
+      title: "Konum ve zaman",
       description: "Adres ve tercihler",
       validate: (draft) =>
         draft.location_label.trim().length >= 3 ? null : "Konum gerekli.",
@@ -880,10 +782,7 @@ export const MAINTENANCE_FLOW: ComposerFlow = {
       key: "maintenance_review",
       title: "Önizleme",
       description: "Son kontrol",
-      validate: (draft) =>
-        draft.towing_decision_made
-          ? null
-          : "Çekici gerekip gerekmediğini seç.",
+      validate: () => null,
       render: (props) => <ReviewStep {...props} />,
       isTerminal: true,
     },

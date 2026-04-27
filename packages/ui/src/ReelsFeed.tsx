@@ -28,6 +28,8 @@ export type ReelsFeedProps<T> = {
   onClear?: () => void;
   onEndReached?: () => void;
   isFetchingNextPage?: boolean;
+  onRefresh?: () => void;
+  refreshing?: boolean;
   loadingLabel?: string;
   footerLoadingLabel?: string;
   errorTitle?: string;
@@ -60,6 +62,8 @@ export function ReelsFeed<T>({
   onClear,
   onEndReached,
   isFetchingNextPage = false,
+  onRefresh,
+  refreshing = false,
   loadingLabel = "Yükleniyor…",
   footerLoadingLabel,
   errorTitle = "Liste yüklenemedi",
@@ -196,6 +200,8 @@ export function ReelsFeed<T>({
       windowSize={windowSize}
       removeClippedSubviews={false}
       getItemLayout={getItemLayout}
+      onRefresh={onRefresh}
+      refreshing={refreshing}
       ListFooterComponent={
         isFetchingNextPage ? (
           <View className="items-center py-4">

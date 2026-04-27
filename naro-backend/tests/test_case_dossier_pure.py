@@ -62,6 +62,7 @@ from app.services.case_dossier_redact import (
     compute_competitor_offer_average,
     redact_dossier_for_viewer,
 )
+from app.services.case_matching import ProfileFitResult
 
 NOW = datetime(2026, 4, 26, 12, 0, tzinfo=UTC)
 
@@ -607,10 +608,36 @@ def test_dossier_response_can_carry_milestones_and_tasks() -> None:
     assert dossier.tasks[0].milestone_key == "diagnosis"
 
 
-def test_match_summary_carries_public_card_fields_and_available_notify() -> None:
+def _notifyable_fit() -> ProfileFitResult:
+    return ProfileFitResult(
+        context_score=Decimal("84.00"),
+        context_group="primary",
+        context_tier="case_fit",
+        compatibility_state="notifyable",
+        match_badge="Bu vakaya uygun",
+        notify_badge="Bildirilebilir",
+        match_reason_label="Cam filmi hizmetiyle uyumlu",
+        fit_signals=["service_domain", "city"],
+        fit_badges=["Hizmet uyumu", "Şehir uyumlu"],
+        is_vehicle_compatible=True,
+        is_case_compatible=True,
+        reason_codes=["service_domain", "city_match"],
+    )
+
+
+@pytest.mark.asyncio
+async def test_match_summary_carries_public_card_fields_and_available_notify(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     technician_user_id = uuid4()
     profile_id = uuid4()
-    summary = _match_summary(
+    monkeypatch.setattr(
+        case_dossier.case_matching,
+        "evaluate_profile_fit",
+        AsyncMock(return_value=_notifyable_fit()),
+    )
+    summary = await _match_summary(
+        AsyncMock(),  # session — not used because evaluate_profile_fit is mocked
         SimpleNamespace(
             id=uuid4(),
             technician_user_id=technician_user_id,
@@ -641,16 +668,29 @@ def test_match_summary_carries_public_card_fields_and_available_notify() -> None
     assert summary.technician_profile_id == profile_id
     assert summary.display_name == "Cam Artı"
     assert summary.area_label == "Kayseri / Kocasinan"
+    assert summary.compatibility_state == "notifyable"
+    assert summary.context_group == "primary"
+    assert summary.notify_badge == "Bildirilebilir"
+    assert summary.fit_badges == ["Hizmet uyumu", "Şehir uyumlu"]
     assert summary.can_notify is True
     assert summary.notify_state == MatchNotifyState.AVAILABLE
 
 
-def test_match_summary_marks_already_notified_and_offer_states() -> None:
+@pytest.mark.asyncio
+async def test_match_summary_marks_already_notified_and_offer_states(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     technician_user_id = uuid4()
+    profile_id = uuid4()
+    monkeypatch.setattr(
+        case_dossier.case_matching,
+        "evaluate_profile_fit",
+        AsyncMock(return_value=_notifyable_fit()),
+    )
     match = SimpleNamespace(
         id=uuid4(),
         technician_user_id=technician_user_id,
-        technician_profile_id=uuid4(),
+        technician_profile_id=profile_id,
         score=Decimal("88.00"),
         reason_label="Bu vaka türüne uygun",
         visibility_state=CaseTechnicianMatchVisibility.CANDIDATE,
@@ -659,12 +699,23 @@ def test_match_summary_marks_already_notified_and_offer_states() -> None:
         status=ServiceCaseStatus.MATCHING,
         assigned_technician_id=None,
     )
+    profile = SimpleNamespace(
+        id=profile_id,
+        user_id=technician_user_id,
+        display_name="Bakım Artı",
+        tagline=None,
+        provider_type="usta",
+        area_label="Kayseri",
+        verified_level=None,
+        avatar_asset_id=None,
+    )
 
-    notified = _match_summary(
+    notified = await _match_summary(
+        AsyncMock(),
         match,
         case=case,
         role=ViewerRole.CUSTOMER,
-        profile=None,
+        profile=profile,
         notifications=[
             SimpleNamespace(
                 technician_user_id=technician_user_id,
@@ -673,11 +724,12 @@ def test_match_summary_marks_already_notified_and_offer_states() -> None:
         ],
         offers=[],
     )
-    offered = _match_summary(
+    offered = await _match_summary(
+        AsyncMock(),
         match,
         case=case,
         role=ViewerRole.CUSTOMER,
-        profile=None,
+        profile=profile,
         notifications=[],
         offers=[
             SimpleNamespace(

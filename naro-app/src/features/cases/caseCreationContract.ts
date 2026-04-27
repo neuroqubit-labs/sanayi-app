@@ -52,7 +52,6 @@ export const CASE_CREATION_CONTRACTS: Record<
       "preferred_window",
       "pickup_preference",
       "price_preference",
-      "towing_decision_made",
     ],
     backendRequiredFields: ["kind", "vehicle_id", "summary", "maintenance_category"],
     submitRoute: "/cases",

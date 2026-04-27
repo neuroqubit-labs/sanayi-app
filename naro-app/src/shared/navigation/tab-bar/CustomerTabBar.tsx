@@ -8,7 +8,13 @@ import {
 } from "@naro/ui";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
-import { ClipboardList, Home, Plus, Store, User } from "lucide-react-native";
+import {
+  CircleUserRound,
+  FileClock,
+  House,
+  Plus,
+  Store,
+} from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useActiveVehicle } from "@/features/vehicles";
@@ -66,7 +72,7 @@ export function CustomerTabBar({
             <VehicleProfileTabVisual
               vehicle={activeVehicle}
               focused={focused}
-              fallback={<Icon icon={User} size={18} color={iconColor} />}
+              fallback={<Icon icon={CircleUserRound} size={18} color={iconColor} />}
             />
           ) : (
             <Icon
@@ -122,12 +128,12 @@ export function CustomerTabBar({
 function iconForRoute(routeName: CustomerTabRouteName) {
   switch (routeName) {
     case "index":
-      return Home;
+      return House;
     case "carsi":
       return Store;
     case "kayitlar":
-      return ClipboardList;
+      return FileClock;
     case "profil":
-      return User;
+      return CircleUserRound;
   }
 }

@@ -1,6 +1,6 @@
-import { Icon, Text } from "@naro/ui";
+import { GesturePressable as Pressable, Icon, Text } from "@naro/ui";
 import { Check } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
 import { ComposerSection } from "../ComposerSection";
 
@@ -37,7 +37,7 @@ export function IconGridField({
               }
               style={{ width: "31.5%" }}
               className={[
-                "gap-2 rounded-[18px] border px-3 py-3 active:opacity-90",
+                "gap-2 rounded-[17px] border px-2.5 py-2.5 active:opacity-90",
                 isSelected
                   ? "border-brand-500 bg-brand-500/15"
                   : "border-app-outline bg-app-surface",
@@ -46,7 +46,7 @@ export function IconGridField({
               <View className="flex-row items-start justify-between">
                 <View
                   className={[
-                    "h-10 w-10 items-center justify-center rounded-[14px] border",
+                    "h-9 w-9 items-center justify-center rounded-[13px] border",
                     isSelected
                       ? "border-brand-500/40 bg-brand-500/20"
                       : "border-app-outline bg-app-surface-2",
@@ -54,7 +54,7 @@ export function IconGridField({
                 >
                   <Icon
                     icon={item.icon}
-                    size={18}
+                    size={17}
                     color={isSelected ? "#0ea5e9" : "#83a7ff"}
                   />
                 </View>
@@ -67,6 +67,7 @@ export function IconGridField({
               <Text
                 variant="caption"
                 tone="inverse"
+                numberOfLines={2}
                 className="text-[12px] leading-[14px]"
               >
                 {item.label}

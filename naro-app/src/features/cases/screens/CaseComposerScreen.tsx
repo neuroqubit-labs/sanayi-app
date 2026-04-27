@@ -1,4 +1,8 @@
-import type { ServiceRequestKind, TowVehicleEquipment } from "@naro/domain";
+import type {
+  ServiceRequestDraft,
+  ServiceRequestKind,
+  TowVehicleEquipment,
+} from "@naro/domain";
 import { ApiError } from "@naro/mobile-core";
 import {
   Avatar,
@@ -10,10 +14,30 @@ import {
   Text,
   TrustBadge,
 } from "@naro/ui";
-import { type Href, useLocalSearchParams, useRouter } from "expo-router";
-import { CarFront, ChevronDown, Plus } from "lucide-react-native";
+import {
+  type Href,
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
+import {
+  CarFront,
+  ChevronDown,
+  FileCheck2,
+  LogOut,
+  Plus,
+  Trash2,
+  X,
+  type LucideIcon,
+} from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import {
+  ActivityIndicator,
+  BackHandler,
+  Modal,
+  Pressable,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getMissingRequiredAttachmentCategories } from "@/features/cases/caseCreationContract";
@@ -27,11 +51,11 @@ import {
   useVehicleStore,
   useVehicleSwitcherStore,
 } from "@/features/vehicles";
-import { useDraftGuard } from "@/shared/navigation/useDraftGuard";
 
 import { useCreateCaseDraft, useSubmitCase } from "../api";
 import { getComposerFlow } from "../composer";
 import { TowCallComposer } from "../composer/TowCallComposer";
+import { ComposerScene } from "../composer/components/ComposerScene";
 import { getCaseKindLabel } from "../presentation";
 
 const KIND_VALUES: ServiceRequestKind[] = [
@@ -45,16 +69,19 @@ function isServiceRequestKind(value: string): value is ServiceRequestKind {
   return (KIND_VALUES as string[]).includes(value);
 }
 
-function hasMeaningfulDraft(draft: {
-  summary?: string;
-  location_label?: string;
-  attachments: { id: string }[];
-  symptoms: string[];
-  maintenance_items: string[];
-}) {
+function hasMeaningfulDraft(draft: ServiceRequestDraft) {
   if (draft.attachments.length > 0) return true;
   if (draft.symptoms.length > 0) return true;
   if (draft.maintenance_items.length > 0) return true;
+  if (draft.breakdown_category) return true;
+  if (draft.maintenance_category) return true;
+  if (draft.damage_area) return true;
+  if (draft.damage_severity) return true;
+  if (draft.report_method) return true;
+  if (draft.counterparty_note) return true;
+  if (draft.vehicle_drivable != null) return true;
+  if (draft.on_site_repair || draft.valet_requested) return true;
+  if (draft.towing_required) return true;
   if ((draft.summary ?? "").trim().length > 0) return true;
   if ((draft.location_label ?? "").trim().length > 0) return true;
   return false;
@@ -102,7 +129,6 @@ export function CaseComposerScreen() {
   );
   const [stepIndex, setStepIndex] = useState(0);
   const [towSubmitMessage, setTowSubmitMessage] = useState<string | null>(null);
-  const bypassDraftGuardRef = useRef(false);
   const freshTowDraftKeyRef = useRef<string | null>(null);
   const towEntry = useTowEntryRoute({
     vehicleId: activeVehicle?.id,
@@ -121,6 +147,7 @@ export function CaseComposerScreen() {
   const { data: draft, updateDraft, resetDraft } = useCreateCaseDraft(kind);
   const submitMutation = useSubmitCase(kind);
   const towFareQuote = useTowFareQuote();
+  const [exitSheetVisible, setExitSheetVisible] = useState(false);
   const resetTowSubmitErrors = useCallback(() => {
     setTowSubmitMessage(null);
     submitMutation.reset();
@@ -151,12 +178,31 @@ export function CaseComposerScreen() {
     : preferredTechnician
       ? `${flow.description} Talep ${preferredTechnician.name} önceliğiyle açılır.`
       : flow.description;
+  const hasDraftChanges = Boolean(draft && hasMeaningfulDraft(draft));
 
-  useDraftGuard({
-    enabled: kind !== "towing" && Boolean(draft && hasMeaningfulDraft(draft)),
-    shouldBypass: () => bypassDraftGuardRef.current,
-    onDiscard: () => resetDraft(),
-  });
+  useFocusEffect(
+    useCallback(() => {
+      if (kind === "towing") return undefined;
+
+      const subscription = BackHandler.addEventListener(
+        "hardwareBackPress",
+        () => {
+          if (exitSheetVisible) {
+            setExitSheetVisible(false);
+            return true;
+          }
+          if (stepIndex > 0) {
+            setStepIndex((index) => Math.max(0, index - 1));
+            return true;
+          }
+          setExitSheetVisible(true);
+          return true;
+        },
+      );
+
+      return () => subscription.remove();
+    }, [exitSheetVisible, kind, stepIndex]),
+  );
 
   useEffect(() => {
     if (kind !== "towing" || !activeVehicle?.id || !draft) return;
@@ -278,7 +324,7 @@ export function CaseComposerScreen() {
 
   const goBack = () => {
     if (stepIndex === 0) {
-      router.back();
+      requestExit();
       return;
     }
     setStepIndex((current) => Math.max(0, current - 1));
@@ -339,7 +385,6 @@ export function CaseComposerScreen() {
             parentCaseId: parentCaseId ?? null,
           },
         });
-        bypassDraftGuardRef.current = true;
         resetDraft();
         router.replace(
           (isImmediate
@@ -349,7 +394,6 @@ export function CaseComposerScreen() {
       } catch (err) {
         const existingCaseId = extractDuplicateOpenCaseId(err);
         if (existingCaseId) {
-          bypassDraftGuardRef.current = true;
           resetDraft();
           router.replace(`/cekici/${existingCaseId}` as Href);
           return;
@@ -361,9 +405,9 @@ export function CaseComposerScreen() {
       return;
     }
 
-    const towingHandoff = draft.towing_required;
+    const towingHandoff =
+      kind !== "breakdown" && kind !== "maintenance" && draft.towing_required;
     const createdCase = await submitMutation.mutateAsync();
-    bypassDraftGuardRef.current = true;
     resetDraft();
     if (towingHandoff) {
       router.replace(
@@ -375,8 +419,38 @@ export function CaseComposerScreen() {
   }
 
   const handleClose = () => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)" as Href);
   };
+
+  const requestExit = () => {
+    setExitSheetVisible(true);
+  };
+
+  const keepDraftAndExit = () => {
+    setExitSheetVisible(false);
+    handleClose();
+  };
+
+  const discardDraftAndExit = () => {
+    resetDraft();
+    setExitSheetVisible(false);
+    handleClose();
+  };
+
+  const exitSheet =
+    kind === "towing" ? null : (
+      <ComposerExitSheet
+        visible={exitSheetVisible}
+        hasDraftChanges={hasDraftChanges}
+        onCancel={() => setExitSheetVisible(false)}
+        onKeepDraft={keepDraftAndExit}
+        onDiscard={discardDraftAndExit}
+      />
+    );
 
   if (kind === "towing") {
     return (
@@ -400,16 +474,96 @@ export function CaseComposerScreen() {
     );
   }
 
+  if (kind === "breakdown" || kind === "maintenance" || kind === "accident") {
+    const poolLabel =
+      kind === "maintenance" ? "bakım" : kind === "accident" ? "hasar" : "arıza";
+    return (
+      <>
+        <ComposerScene
+        title={flow.title}
+        subtitle={flow.description}
+        vehicleLabel={activeVehicle.plate}
+        steps={flow.steps.map((step) => ({
+          key: step.key,
+          title: step.title,
+          description: step.description,
+        }))}
+        activeIndex={stepIndex}
+        onClose={requestExit}
+        onStepPress={(index) => setStepIndex(index)}
+        trailingAction={
+          <ComposerProgressBadge current={stepIndex + 1} total={flow.steps.length} />
+        }
+        primaryLabel={
+          isLastStep ? (flow.submitLabel ?? "Bildirimi gönder") : "Devam et"
+        }
+        onPrimary={goNext}
+        primaryLoading={submitMutation.isPending || towFareQuote.isPending}
+        primaryDisabled={Boolean(validationMessage)}
+        footerHidden={currentStep.hideFooter}
+        secondaryLabel={stepIndex === 0 ? "İptal" : "Geri"}
+        onSecondary={goBack}
+        helperText={
+          validationMessage
+            ? validationMessage
+            : isLastStep
+              ? preferredTechnician
+                ? canNotifyPreferredTechnician
+                  ? `${preferredTechnician.name} için vaka açılır; teklif geldiğinde randevuya geçersin.`
+                : `${preferredTechnician.name} için vaka açılır; teklif süreci vaka detayında ilerler.`
+                : `Gönderdiğinde ${poolLabel} havuzuna düşer ve ustalar tekliflerini gönderir.`
+              : undefined
+        }
+        helperTone={validationMessage ? "warning" : "subtle"}
+      >
+        {preferredTechnician ? (
+          <View className="rounded-[22px] border border-app-outline bg-app-surface px-4 py-3.5">
+            <View className="flex-row items-center gap-3">
+              <Avatar name={preferredTechnician.name} size="md" />
+              <View className="flex-1 gap-0.5">
+                <Text variant="label" tone="inverse">
+                  {preferredTechnician.name}
+                </Text>
+                <Text
+                  variant="caption"
+                  tone="muted"
+                  className="text-app-text-muted"
+                >
+                  {preferredTechnician.tagline}
+                </Text>
+              </View>
+              <TrustBadge label="Usta öncelikli" tone="info" />
+            </View>
+            <Text
+              variant="caption"
+              tone="muted"
+              className="mt-3 text-app-text-subtle leading-[18px]"
+            >
+              Bu talep önce bu servis bağlamında açılır. Gerekirse diğer
+              teklifleri daha sonra yine görebilirsin.
+            </Text>
+          </View>
+        ) : null}
+        {currentStep.render({ kind, draft, updateDraft, goNext })}
+        </ComposerScene>
+        {exitSheet}
+      </>
+    );
+  }
+
   return (
-    <FlowScreen
+    <>
+      <FlowScreen
       eyebrow={compactShell ? undefined : flow.eyebrow}
       title={compactShell ? flow.title : flow.title}
       description={screenDescription}
-      onBack={compactShell ? handleClose : goBack}
+      onBack={compactShell ? requestExit : goBack}
       backVariant={compactShell || stepIndex === 0 ? "close" : "back"}
       compact={compactShell}
       trailingAction={
-        compactShell ? <DraftSaveAction onPress={handleClose} /> : undefined
+        compactShell ? (
+          <ComposerProgressBadge current={stepIndex + 1} total={flow.steps.length} />
+        ) : undefined
       }
       progress={
         flow.steps.length <= 1 ? undefined : (
@@ -494,7 +648,9 @@ export function CaseComposerScreen() {
       </View>
 
       {currentStep.render({ kind, draft, updateDraft, goNext })}
-    </FlowScreen>
+      </FlowScreen>
+      {exitSheet}
+    </>
   );
 }
 
@@ -521,19 +677,172 @@ function VehiclePlateChip({
   );
 }
 
-function DraftSaveAction({ onPress }: { onPress: () => void }) {
-  // V1: "Taslak kaydet" pattern UI slot'u — gerçek persist sonraki brief'te.
-  // Şimdilik çıkış onayı gibi davranıyor (router.back).
+function ComposerProgressBadge({
+  current,
+  total,
+}: {
+  current: number;
+  total: number;
+}) {
+  return (
+    <View className="min-w-9 items-center rounded-full border border-app-outline bg-app-surface px-2.5 py-1">
+      <Text variant="caption" tone="subtle" className="text-[11px]">
+        {current}/{total}
+      </Text>
+    </View>
+  );
+}
+
+function ComposerExitSheet({
+  visible,
+  hasDraftChanges,
+  onCancel,
+  onKeepDraft,
+  onDiscard,
+}: {
+  visible: boolean;
+  hasDraftChanges: boolean;
+  onCancel: () => void;
+  onKeepDraft: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+    >
+      <View className="flex-1 justify-end bg-black/45 px-4 pb-4">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Vazgeç"
+          className="absolute inset-0"
+          onPress={onCancel}
+        />
+        <View className="gap-4 rounded-[28px] border border-app-outline bg-app-bg px-5 pb-5 pt-4">
+          <View className="items-center">
+            <View className="h-1 w-12 rounded-full bg-app-outline" />
+          </View>
+
+          <View className="flex-row items-start gap-3">
+            <View className="h-11 w-11 items-center justify-center rounded-[16px] bg-brand-500/15">
+              <Icon icon={FileCheck2} size={20} color="#0ea5e9" />
+            </View>
+            <View className="min-w-0 flex-1 gap-1">
+              <Text variant="h3" tone="inverse">
+                Çıkmadan önce
+              </Text>
+              <Text
+                variant="caption"
+                tone="muted"
+                className="text-app-text-muted leading-[18px]"
+              >
+                {hasDraftChanges
+                  ? "Bu vaka taslakta kalabilir ya da seçimleri temizleyip çıkabilirsin."
+                  : "Henüz kaydedilecek seçim yok. İstersen doğrudan çıkabilirsin."}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Vazgeç"
+              onPress={onCancel}
+              className="h-9 w-9 items-center justify-center rounded-full border border-app-outline bg-app-surface active:bg-app-surface-2"
+            >
+              <Icon icon={X} size={17} color="#83a7ff" />
+            </Pressable>
+          </View>
+
+          <View className="gap-2.5">
+            <ExitActionRow
+              icon={FileCheck2}
+              title="Taslak kaydet ve çık"
+              subtitle={
+                hasDraftChanges
+                  ? "Daha sonra kaldığın yerden devam et."
+                  : "Kaydedilecek seçim yok; güvenle çıkılır."
+              }
+              tone="accent"
+              onPress={onKeepDraft}
+            />
+            <ExitActionRow
+              icon={hasDraftChanges ? Trash2 : LogOut}
+              title={hasDraftChanges ? "Taslağı sil ve çık" : "Çık"}
+              subtitle={
+                hasDraftChanges
+                  ? "Bu vakadaki seçimleri temizle."
+                  : "Vaka oluşturmadan ekrana dön."
+              }
+              tone={hasDraftChanges ? "critical" : "neutral"}
+              onPress={onDiscard}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Vazgeç"
+              onPress={onCancel}
+              className="h-[52px] items-center justify-center rounded-[18px] border border-app-outline bg-app-surface px-4 py-3 active:bg-app-surface-2"
+            >
+              <Text variant="label" tone="inverse">
+                Vazgeç
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function ExitActionRow({
+  icon,
+  title,
+  subtitle,
+  tone,
+  onPress,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  tone: "accent" | "critical" | "neutral";
+  onPress: () => void;
+}) {
+  const iconColor =
+    tone === "critical" ? "#ef4444" : tone === "accent" ? "#0ea5e9" : "#83a7ff";
+  const toneClasses =
+    tone === "critical"
+      ? "border-app-critical/30 bg-app-critical-soft"
+      : tone === "accent"
+        ? "border-brand-500/30 bg-brand-500/10"
+        : "border-app-outline bg-app-surface";
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Taslak kaydet"
+      accessibilityLabel={title}
       onPress={onPress}
-      className="rounded-full border border-app-outline bg-app-surface px-3 py-1.5 active:bg-app-surface-2"
+      className={[
+        "flex-row items-center gap-3 rounded-[20px] border px-4 py-3.5 active:opacity-90",
+        toneClasses,
+      ].join(" ")}
     >
-      <Text variant="caption" tone="accent" className="text-[11px]">
-        Taslak kaydet
-      </Text>
+      <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-app-surface/80">
+        <Icon icon={icon} size={19} color={iconColor} />
+      </View>
+      <View className="min-w-0 flex-1 gap-0.5">
+        <Text
+          variant="label"
+          tone={tone === "critical" ? "critical" : "inverse"}
+        >
+          {title}
+        </Text>
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted text-[12px] leading-[16px]"
+        >
+          {subtitle}
+        </Text>
+      </View>
     </Pressable>
   );
 }

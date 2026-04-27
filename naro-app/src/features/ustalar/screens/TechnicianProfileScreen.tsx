@@ -1,3 +1,4 @@
+import { useCaseDossier } from "@naro/mobile-core";
 import {
   ActionSheetSurface,
   Avatar,
@@ -39,6 +40,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useMyCasesLive, useNotifyCaseToTechnician } from "@/features/cases/api";
 import { useFavoriteTechniciansStore } from "@/features/profile";
+import { apiClient } from "@/runtime";
 
 import { useTechnicianPublicView, useTechnicianShowcaseDetail } from "../api";
 import {
@@ -67,6 +69,16 @@ const TRUST_ICON = {
   certificates: BadgeCheck,
 } as const;
 
+const ACTIVE_CASE_STATUSES = new Set([
+  "matching",
+  "offers_ready",
+  "appointment_pending",
+  "scheduled",
+  "service_in_progress",
+  "parts_approval",
+  "invoice_approval",
+]);
+
 /**
  * Teknisyen tam profili — karar akışı:
  * Uyum -> Güven -> Kanıt -> Operasyon -> Hakkında -> CTA.
@@ -90,6 +102,15 @@ export function TechnicianProfileScreen() {
   );
   const { data: myCases } = useMyCasesLive();
   const notifyCase = useNotifyCaseToTechnician();
+  const activeCaseForDossier =
+    (myCases ?? [])
+      .filter((caseItem) => ACTIVE_CASE_STATUSES.has(caseItem.status))
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0] ??
+    null;
+  const dossierQuery = useCaseDossier(activeCaseForDossier?.id ?? "", {
+    apiClient,
+    enabled: Boolean(activeCaseForDossier?.id && technician?.user_id),
+  });
 
   const isFavorite = useFavoriteTechniciansStore((state) =>
     state.ids.includes(technicianId),
@@ -147,12 +168,24 @@ export function TechnicianProfileScreen() {
     technician.identity?.avatar_media?.preview_url ??
     technician.identity?.avatar_media?.download_url ??
     null;
+  const activeCaseMatch = dossierQuery.data?.matches.find(
+    (match) =>
+      (match.technician_profile_id === technician.id ||
+        match.technician_user_id === technician.user_id) &&
+      match.visibility_state !== "hidden" &&
+      match.visibility_state !== "invalidated",
+  );
 
   const cta = resolveTechnicianCta({
     technicianId: technician.id,
     providerType: activeType,
     activeCases: myCases ?? [],
     acceptingNewJobs: technician.accepting_new_jobs,
+    activeCaseMatchesTechnician:
+      activeCaseForDossier ? Boolean(activeCaseMatch) : null,
+    activeCaseCanNotify: activeCaseMatch?.can_notify ?? null,
+    activeCaseNotifyState: activeCaseMatch?.notify_state ?? null,
+    activeCaseMatchReason: activeCaseMatch?.reason_label ?? null,
   });
   const fitCopy = buildFitCopy(technician, cta);
   const fitSignals = buildFitSignals(technician);
@@ -160,7 +193,7 @@ export function TechnicianProfileScreen() {
   const operationItems = buildOperationItems(technician);
   const aboutText =
     technician.about?.biography ?? technician.biography ?? technician.tagline;
-  const showCtaHelper = Boolean(cta.helperText && cta.mode !== "mismatch");
+  const showCtaHelper = Boolean(cta.helperText);
 
   return (
     <Screen backgroundClassName="bg-app-bg" padded={false} className="flex-1">
@@ -356,9 +389,7 @@ export function TechnicianProfileScreen() {
 
         <View className="mx-4 gap-2">
           <Button
-            label={
-              cta.mode === "mismatch" ? "Randevu alınamaz" : cta.primaryLabel
-            }
+            label={cta.primaryLabel}
             variant={
               cta.primaryDisabled
                 ? "surface"
@@ -379,11 +410,11 @@ export function TechnicianProfileScreen() {
             }
             onPress={() => {
               if (cta.primaryDisabled || !cta.primaryRoute) return;
-              if (cta.mode === "ready" && cta.caseId) {
+              if (cta.mode === "ready" && cta.caseId && activeCaseMatch?.can_notify) {
                 void notifyCase
                   .mutateAsync({
                     caseId: cta.caseId,
-                    technicianId: technician.id,
+                    technicianProfileId: technician.id,
                   })
                   .then(() => {
                     router.push(cta.primaryRoute as Href);

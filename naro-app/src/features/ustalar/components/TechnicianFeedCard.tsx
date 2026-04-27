@@ -59,11 +59,13 @@ type ShowcaseTile = {
 export type TechnicianFeedCardProps = {
   item: TechnicianFeedItem;
   itemHeight?: number;
+  sectionTitle?: string;
 };
 
 export function TechnicianFeedCard({
   item,
   itemHeight,
+  sectionTitle,
 }: TechnicianFeedCardProps) {
   const router = useRouter();
   const { colors, scheme } = useNaroTheme();
@@ -111,7 +113,7 @@ export function TechnicianFeedCard({
 
   const openPreview = useUstaPreviewStore((state) => state.open);
   const closePreview = useUstaPreviewStore((state) => state.close);
-  const showPreview = () => openPreview(item.id);
+  const showPreview = () => openPreview(item.id, item);
   const openFullProfile = () => {
     closePreview();
     router.push(`/usta/${item.id}` as Href);
@@ -214,6 +216,49 @@ export function TechnicianFeedCard({
           </View>
         </View>
 
+        {sectionTitle ? (
+          <View
+            style={{
+              backgroundColor: withAlphaHex(
+                item.context_group === "primary"
+                  ? colors.info
+                  : colors.outlineStrong,
+                item.context_group === "primary" ? 0.18 : 0.22,
+              ),
+              borderColor: withAlphaHex(
+                item.context_group === "primary"
+                  ? colors.info
+                  : colors.outlineStrong,
+                0.45,
+              ),
+            }}
+            className="self-start flex-row items-center gap-1.5 rounded-full border px-3 py-1.5"
+          >
+            {item.context_group === "primary" ? (
+              <CheckCircle2
+                size={12}
+                color={colors.info}
+                strokeWidth={2.5}
+              />
+            ) : null}
+            <Text
+              variant="label"
+              className="text-[11px] uppercase tracking-[0.08em]"
+              style={{
+                color:
+                  item.context_group === "primary"
+                    ? colors.info
+                    : colors.textMuted,
+              }}
+              numberOfLines={1}
+            >
+              {sectionTitle}
+            </Text>
+          </View>
+        ) : null}
+
+        <ContextSignalRail item={item} colors={colors} scheme={scheme} />
+
         <ShowcaseBand
           colors={colors}
           height={showcaseHeight}
@@ -235,6 +280,129 @@ export function TechnicianFeedCard({
         />
       </View>
     </PressableCard>
+  );
+}
+
+type ContextChip = {
+  label: string;
+  tone: "success" | "info" | "warning" | "neutral";
+};
+
+function buildContextChips(item: TechnicianFeedItem): ContextChip[] {
+  const chips: ContextChip[] = [];
+  if (item.can_notify) {
+    chips.push({
+      label: item.notify_badge ?? "Bildirilebilir",
+      tone: "success",
+    });
+  } else if (item.notify_state === "already_notified") {
+    chips.push({ label: "Bildirildi", tone: "info" });
+  } else if (item.notify_state === "has_offer") {
+    chips.push({ label: "Teklif geldi", tone: "success" });
+  } else if (item.notify_state === "limit_reached") {
+    chips.push({ label: "Limit doldu", tone: "warning" });
+  } else if (item.context_group === "other") {
+    chips.push({ label: "Bu vaka için uygun değil", tone: "neutral" });
+  }
+
+  if (item.match_badge) {
+    chips.push({
+      label: item.match_badge,
+      tone: item.context_group === "primary" ? "info" : "neutral",
+    });
+  }
+
+  for (const badge of item.fit_badges.slice(0, 3)) {
+    chips.push({ label: badge, tone: "neutral" });
+  }
+
+  return chips.slice(0, 5);
+}
+
+function ContextSignalRail({
+  item,
+  colors,
+  scheme,
+}: {
+  item: TechnicianFeedItem;
+  colors: NaroThemePalette;
+  scheme: ThemeScheme;
+}) {
+  const chips = buildContextChips(item);
+  if (chips.length === 0 && !item.match_reason_label) return null;
+
+  return (
+    <View
+      className="gap-2 rounded-[18px] border px-3 py-2.5"
+      style={{
+        backgroundColor: withAlphaHex(
+          item.context_group === "primary" ? colors.infoSoft : colors.surface2,
+          scheme === "dark" ? 0.42 : 0.74,
+        ),
+        borderColor: withAlphaHex(
+          item.context_group === "primary" ? colors.info : colors.outlineStrong,
+          item.context_group === "primary" ? 0.24 : 0.36,
+        ),
+      }}
+    >
+      {item.match_reason_label ? (
+        <Text
+          variant="caption"
+          tone="muted"
+          className="text-app-text-muted text-[12px] leading-[16px]"
+          numberOfLines={2}
+        >
+          {item.match_reason_label}
+        </Text>
+      ) : null}
+      {chips.length > 0 ? (
+        <View className="flex-row flex-wrap gap-1.5">
+          {chips.map((chip) => (
+            <ContextChipPill
+              key={`${chip.label}-${chip.tone}`}
+              chip={chip}
+              colors={colors}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ContextChipPill({
+  chip,
+  colors,
+}: {
+  chip: ContextChip;
+  colors: NaroThemePalette;
+}) {
+  const color =
+    chip.tone === "success"
+      ? colors.success
+      : chip.tone === "warning"
+        ? colors.warning
+        : chip.tone === "info"
+          ? colors.info
+          : colors.textMuted;
+  return (
+    <View
+      className="rounded-full border px-2.5 py-1"
+      style={{
+        backgroundColor: withAlphaHex(color, 0.1),
+        borderColor: withAlphaHex(color, 0.24),
+      }}
+    >
+      <Text
+        variant="caption"
+        tone="muted"
+        className="text-[10px] leading-[13px]"
+        style={{ color }}
+        numberOfLines={1}
+      >
+        {chip.label}
+      </Text>
+    </View>
   );
 }
 

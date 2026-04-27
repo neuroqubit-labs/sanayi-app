@@ -193,6 +193,15 @@ export const MatchNotifyStateSchema = z.enum([
 ]);
 export type MatchNotifyState = z.infer<typeof MatchNotifyStateSchema>;
 
+export const CompatibilityStateSchema = z.enum([
+  "notifyable",
+  "compatible",
+  "vehicle_only",
+  "weak",
+  "incompatible",
+]);
+export type CompatibilityState = z.infer<typeof CompatibilityStateSchema>;
+
 export const MatchSummarySchema = z.object({
   id: UuidSchema,
   technician_profile_id: UuidSchema.nullable().default(null),
@@ -204,8 +213,17 @@ export const MatchSummarySchema = z.object({
   verified_level: z.string().nullable().default(null),
   avatar_asset_id: UuidSchema.nullable().default(null),
   score: DecimalWireSchema,
+  context_score: DecimalWireSchema.default("0.00"),
+  context_group: z.enum(["primary", "other"]).default("primary"),
+  context_tier: z.string().default("case_fit"),
+  compatibility_state: CompatibilityStateSchema.default("notifyable"),
   reason_label: z.string(),
   match_badge: z.string().default("Bu vakaya uygun"),
+  notify_badge: z.string().nullable().default(null),
+  fit_signals: z.array(z.string()).default([]),
+  fit_badges: z.array(z.string()).default([]),
+  is_vehicle_compatible: z.boolean().default(true),
+  is_case_compatible: z.boolean().default(true),
   visibility_state: CaseTechnicianMatchVisibilitySchema,
   can_notify: z.boolean().default(false),
   notify_state: MatchNotifyStateSchema.default("not_compatible"),

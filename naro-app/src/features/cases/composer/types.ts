@@ -3,11 +3,10 @@ import type { ReactElement } from "react";
 
 export type ComposerStepKey =
   | "emergency_panel"
-  | "accident_kind"
   | "accident_photos"
-  | "report"
-  | "documents"
-  | "insurance"
+  | "accident_event"
+  | "accident_damage"
+  | "accident_location"
   | "review"
   | "location"
   | "dropoff"
@@ -20,11 +19,7 @@ export type ComposerStepKey =
   | "breakdown_service"
   | "breakdown_review"
   | "breakdown_symptoms"
-  | "maintenance_type"
-  | "maintenance_items"
-  | "maintenance_preference"
-  | "maintenance_category"
-  | "maintenance_detail"
+  | "maintenance_scope"
   | "maintenance_media"
   | "maintenance_logistics"
   | "maintenance_review";

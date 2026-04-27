@@ -3,9 +3,9 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   View,
 } from "react-native";
+import { ScrollView } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BackButton, type BackButtonVariant } from "./BackButton";
@@ -121,8 +121,11 @@ export function FlowScreen({
 
         {scroll ? (
           <ScrollView
+            className="flex-1"
+            disableScrollViewPanResponder
             contentContainerClassName={bodyClass}
             contentContainerStyle={{
+              flexGrow: 1,
               // Klavye açıkken son input'un altında scroll alanı bırakıyoruz ki
               // odaklanan alan keyboard'un üstünde kalsın. Android'de footer
               // adjustResize ile yukarı kayarken bu extra padding alanı kritik.

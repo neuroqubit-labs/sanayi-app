@@ -1,5 +1,5 @@
 import type { CaseAttachment } from "@naro/domain";
-import { Icon, Text, TrustBadge } from "@naro/ui";
+import { GesturePressable as Pressable, Icon, Text, TrustBadge } from "@naro/ui";
 import {
   CheckCircle2,
   FileText,
@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 import { useMemo } from "react";
-import { Pressable, View } from "react-native";
+import { Pressable as NativePressable, View } from "react-native";
 
 import { useAttachmentPicker } from "@/shared/attachments";
 import type { AttachmentDraft } from "@/shared/attachments";
@@ -39,6 +39,7 @@ export function DocumentPickerRow({
   const { pickDocument, status } = useAttachmentPicker({
     purpose: "insurance_doc",
     ownerRef,
+    deferUpload: true,
   });
 
   const owned = useMemo(
@@ -113,7 +114,7 @@ export function DocumentPickerRow({
         ) : null}
       </View>
       {hasAttachment ? (
-        <Pressable
+        <NativePressable
           accessibilityRole="button"
           accessibilityLabel={`${title} kaldır`}
           onPress={(event) => {
@@ -126,7 +127,7 @@ export function DocumentPickerRow({
           className="h-8 w-8 items-center justify-center rounded-full border border-app-outline bg-app-surface"
         >
           <Icon icon={X} size={14} color="#6f7b97" />
-        </Pressable>
+        </NativePressable>
       ) : (
         <View className="h-8 w-8 items-center justify-center rounded-full border border-dashed border-app-outline bg-app-surface">
           <Icon icon={Plus} size={14} color="#83a7ff" />
