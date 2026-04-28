@@ -18,7 +18,7 @@ import {
   RefreshCcw,
   ShieldCheck,
 } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
 import { useBillingSummary, useInitiatePayment } from "../api";
@@ -84,16 +84,17 @@ export function PaymentInitiateScreen() {
 
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const initiate = useInitiatePayment(caseIdSafe);
-  // F-P0-3 (2026-04-23 lifecycle audit L1-P0-3): BE PREAUTH_FAILED
-  // durumunda kullanıcı vakaya döndüğünde idle UI "Ödemeyi başlat"
-  // gösteriyordu. Billing summary mount'ta kontrol edilip phase
-  // `failed`'e çekiliyor → "Farklı kartla tekrar dene" CTA. BE B-P0-3
-  // shipped olunca retry initiate BE ESTIMATE'e çeker ve yeni 3DS
-  // akışı başlar.
   const summaryQuery = useBillingSummary(caseIdSafe);
+  // BE PREAUTH_FAILED auto-detect: bir defalık tetiklenir. Retry kullanıcı
+  // tarafında "Farklı kartla tekrar dene" → start()'ı doğrudan çağırır;
+  // aksi halde idle ↔ failed döngüsüne girer (BE state retry initiate
+  // çağrılana kadar PREAUTH_FAILED'da kalır).
+  const autoFailHandledRef = useRef(false);
   useEffect(() => {
+    if (autoFailHandledRef.current) return;
     if (phase.kind !== "idle") return;
     if (summaryQuery.data?.billing_state === "preauth_failed") {
+      autoFailHandledRef.current = true;
       setPhase({
         kind: "failed",
         code: "card_declined",
@@ -106,8 +107,6 @@ export function PaymentInitiateScreen() {
     setPhase({ kind: "initiating" });
     try {
       const response: PaymentInitiateResponse = await initiate.mutateAsync();
-      // BE canonical flat: checkout_url her zaman döner. 3DS payment_id
-      // callback URL'den gelir (ThreeDSCallbackParams).
       setPhase({
         kind: "3ds",
         redirectUrl: response.checkout_url,
@@ -125,8 +124,8 @@ export function PaymentInitiateScreen() {
   }, [initiate]);
 
   const retry = useCallback(() => {
-    setPhase({ kind: "idle" });
-  }, []);
+    void start();
+  }, [start]);
 
   const redirectUrl = phase.kind === "3ds" ? phase.redirectUrl : null;
 

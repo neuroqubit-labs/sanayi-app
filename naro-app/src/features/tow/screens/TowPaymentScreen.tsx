@@ -117,11 +117,12 @@ export function TowPaymentScreen() {
   });
 
   const closePaymentStep = useCallback(() => {
-    void abandonPayment.mutateAsync().finally(() => {
-      flow.abandon();
-      void snapshotQuery.refetch();
+    flow.abandon();
+    void abandonPayment.mutateAsync().catch(() => {
+      // BE abandon idempotent; hata alsak bile FE flow zaten reset.
     });
-  }, [abandonPayment, flow, snapshotQuery]);
+    router.back();
+  }, [abandonPayment, flow, router]);
 
   const amountLabel =
     snapshotQuery.data?.payment?.amount_label ??

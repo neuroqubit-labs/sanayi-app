@@ -8,7 +8,7 @@ module.exports = {
     name: "Naro",
     slug: "naro-app",
     scheme: "naro",
-    version: "0.1.0",
+    version: "1.0.0",
     runtimeVersion: {
       policy: "appVersion",
     },

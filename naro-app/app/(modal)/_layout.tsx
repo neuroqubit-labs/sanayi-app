@@ -49,6 +49,13 @@ export default function ModalLayout() {
           animation: "slide_from_bottom",
         }}
       />
+      <Stack.Screen
+        name="cekici-odeme/[id]"
+        options={{
+          presentation: "fullScreenModal",
+          animation: "slide_from_bottom",
+        }}
+      />
     </Stack>
   );
 }
