@@ -26,7 +26,7 @@ export function ManagementHeader({
             className="gap-3 border-app-outline-strong bg-app-surface-2 px-4 py-4"
         >
             <View className="flex-row flex-wrap items-center gap-2">
-                <TrustBadge label={getCaseKindLabel(kind as any)} tone="accent" />
+                <TrustBadge label={getCaseKindLabel(kind)} tone="accent" />
                 <StatusChip
                     label={getCaseStatusLabel(status)}
                     tone={getCaseStatusTone(status)}
