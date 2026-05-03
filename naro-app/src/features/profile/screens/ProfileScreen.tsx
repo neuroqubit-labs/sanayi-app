@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Smartphone,
   Star,
+  Trash2,
   UserRound,
   type LucideIcon,
 } from "lucide-react-native";
@@ -38,6 +39,7 @@ import { useVehicles, useVehicleStore, type Vehicle } from "@/features/vehicles"
 import { telemetry } from "@/runtime";
 import { useAuthStore } from "@/services/auth/store";
 
+import { useDeleteAccount } from "../api/useDeleteAccount";
 import {
   APP_VERSION,
   FAVORITE_TECHNICIANS,
@@ -117,6 +119,39 @@ export function ProfileScreen() {
     );
   }
 
+  const deleteAccount = useDeleteAccount();
+
+  function onDeleteAccount() {
+    if (deleteAccount.isPending) return;
+    Alert.alert(
+      "Hesabı sil",
+      "Hesabını sildiğinde 30 gün boyunca geri alabilirsin (destek ile iletişim). 30 gün sonra tüm verilerin kalıcı olarak silinir. Devam etmek istiyor musun?",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        {
+          text: "Hesabı sil",
+          style: "destructive",
+          onPress: () => {
+            deleteAccount.mutate(undefined, {
+              onSuccess: async () => {
+                telemetry.track("account_delete_requested", { app: "customer" });
+                await clear();
+                router.replace("/(auth)/login");
+              },
+              onError: (error) => {
+                telemetry.captureError(error, { context: "account delete failed" });
+                Alert.alert(
+                  "Hesap silinemedi",
+                  "Bağlantı kurulamadı. Lütfen birazdan tekrar deneyin.",
+                );
+              },
+            });
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <Screen scroll backgroundClassName="bg-app-bg" className="gap-5 pb-28">
       <ProfileHeader
@@ -190,6 +225,16 @@ export function ProfileScreen() {
         fullWidth
         leftIcon={<Icon icon={LogOut} size={16} color="#ff6b6b" />}
         onPress={onLogout}
+      />
+
+      <Button
+        label={deleteAccount.isPending ? "Hesap siliniyor…" : "Hesabımı sil"}
+        variant="ghost"
+        size="md"
+        fullWidth
+        disabled={deleteAccount.isPending}
+        leftIcon={<Icon icon={Trash2} size={16} color="#ff6b6b" />}
+        onPress={onDeleteAccount}
       />
 
       <View className="items-center pt-2">

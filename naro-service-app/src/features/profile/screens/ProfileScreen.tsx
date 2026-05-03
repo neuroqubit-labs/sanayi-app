@@ -31,6 +31,7 @@ import {
   Sparkles,
   Star,
   Tag,
+  Trash2,
   Truck,
   Wrench,
 } from "lucide-react-native";
@@ -38,6 +39,7 @@ import { useState } from "react";
 import { Alert, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useDeleteAccount } from "@/features/profile/api/useDeleteAccount";
 import { CertificateSection } from "@/features/profile/components/CertificateSection";
 import {
   ProfileEditSheet,
@@ -235,6 +237,39 @@ export function ProfileScreen() {
         },
       },
     ]);
+  }
+
+  const deleteAccount = useDeleteAccount();
+
+  function onDeleteAccount() {
+    if (deleteAccount.isPending) return;
+    Alert.alert(
+      "Hesabı sil",
+      "Hesabını sildiğinde 30 gün boyunca geri alabilirsin (destek ile iletişim). 30 gün sonra tüm verilerin kalıcı olarak silinir. Devam etmek istiyor musun?",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        {
+          text: "Hesabı sil",
+          style: "destructive",
+          onPress: () => {
+            deleteAccount.mutate(undefined, {
+              onSuccess: async () => {
+                telemetry.track("account_delete_requested", { app: "service" });
+                await clear();
+                router.replace("/(auth)/login");
+              },
+              onError: (error) => {
+                telemetry.captureError(error, { context: "account delete failed" });
+                Alert.alert(
+                  "Hesap silinemedi",
+                  "Bağlantı kurulamadı. Lütfen birazdan tekrar deneyin.",
+                );
+              },
+            });
+          },
+        },
+      ],
+    );
   }
 
   const toggleAvailability = () => {
@@ -1122,11 +1157,19 @@ export function ProfileScreen() {
           </View>
         </ProfileSection>
 
-        <View className="px-4">
+        <View className="px-4 gap-2">
           <Button
             label="Çıkış yap"
             variant="outline"
             onPress={onLogout}
+            fullWidth
+          />
+          <Button
+            label={deleteAccount.isPending ? "Hesap siliniyor…" : "Hesabımı sil"}
+            variant="ghost"
+            disabled={deleteAccount.isPending}
+            leftIcon={<Icon icon={Trash2} size={16} color="#ff6b6b" />}
+            onPress={onDeleteAccount}
             fullWidth
           />
         </View>
