@@ -85,6 +85,9 @@ services:
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
+      # Cloudflare R2 ya da AWS-dışı S3-compat endpoint için. AWS S3 kullanıyorsan boş bırak.
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
       - key: S3_PRIVATE_BUCKET
         sync: false
       - key: S3_PUBLIC_BUCKET
@@ -172,6 +175,9 @@ services:
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      # Cloudflare R2 ya da AWS-dışı S3-compat endpoint için. AWS S3 kullanıyorsan boş bırak.
+      - key: AWS_S3_ENDPOINT_URL
         sync: false
       - key: S3_PRIVATE_BUCKET
         sync: false
