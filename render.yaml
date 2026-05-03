@@ -1,16 +1,23 @@
 # Naro Render Blueprint
 # ---------------------
-# 4 servis: web (FastAPI/uvicorn), worker (ARQ cron + processor), postgres, redis.
-# Apply: Render dashboard > Blueprints > New Blueprint Instance > select repo.
+# 3 servis: web (FastAPI/uvicorn), worker (ARQ cron + processor), redis.
+# Postgres harici — Supabase (Frankfurt) yönetir; bağlantı POSTGRES_*
+# env'leri ile elle girilir. Apply: Render > Blueprints > New Blueprint
+# Instance > select repo.
 #
 # Notlar:
-# - PostGIS extension: ilk deploy sonrası psql ile `CREATE EXTENSION IF NOT EXISTS
-#   postgis;` çalıştırılmalı (Render PostgreSQL postgis destekler ama default
-#   enable etmez). Migration'lar varsayar.
-# - sync: false olan env'ler dashboard'dan elle girilir (sırlar).
-# - DATABASE_URL backend'in beklediği POSTGRES_* parçalanmış formatta değil; bu
-#   yüzden POSTGRES_HOST/PORT/USER/PASSWORD/DB ayrı ayrı Postgres'ten çekiliyor.
-# - Sentry DSN opsiyonel; production'da ekle.
+# - Supabase pooler "Session mode" (port 5432) kullan. Transaction mode
+#   (port 6543) prepared statement cache'i kapatıyor; SQLAlchemy/asyncpg
+#   varsayılanları + Alembic DDL bunu sevmiyor.
+#     POSTGRES_HOST     = aws-0-eu-central-1.pooler.supabase.com
+#     POSTGRES_PORT     = 5432
+#     POSTGRES_USER     = postgres.<project_ref>
+#     POSTGRES_PASSWORD = <supabase_db_password>
+#     POSTGRES_DB       = postgres
+# - PostGIS extension: Supabase Dashboard > Database > Extensions >
+#   `postgis` toggle. Migration'lar varsayar.
+# - sync: false olan env'ler Render dashboard'dan elle girilir (sırlar).
+# - Sentry DSN opsiyonel; production'da gir.
 
 services:
   - type: web
@@ -86,26 +93,17 @@ services:
         sync: false
       - key: GOOGLE_MAPS_BACKEND_API_KEY
         sync: false
+      # Supabase Postgres — pooler session mode (port 5432).
       - key: POSTGRES_HOST
-        fromDatabase:
-          name: naro-postgres
-          property: host
+        sync: false
       - key: POSTGRES_PORT
-        fromDatabase:
-          name: naro-postgres
-          property: port
+        value: "5432"
       - key: POSTGRES_USER
-        fromDatabase:
-          name: naro-postgres
-          property: user
+        sync: false
       - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: naro-postgres
-          property: password
+        sync: false
       - key: POSTGRES_DB
-        fromDatabase:
-          name: naro-postgres
-          property: database
+        value: postgres
       - key: REDIS_HOST
         fromService:
           type: redis
@@ -181,26 +179,17 @@ services:
         sync: false
       - key: GOOGLE_MAPS_BACKEND_API_KEY
         sync: false
+      # Supabase Postgres — pooler session mode (port 5432).
       - key: POSTGRES_HOST
-        fromDatabase:
-          name: naro-postgres
-          property: host
+        sync: false
       - key: POSTGRES_PORT
-        fromDatabase:
-          name: naro-postgres
-          property: port
+        value: "5432"
       - key: POSTGRES_USER
-        fromDatabase:
-          name: naro-postgres
-          property: user
+        sync: false
       - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: naro-postgres
-          property: password
+        sync: false
       - key: POSTGRES_DB
-        fromDatabase:
-          name: naro-postgres
-          property: database
+        value: postgres
       - key: REDIS_HOST
         fromService:
           type: redis
@@ -218,10 +207,3 @@ services:
     plan: starter
     ipAllowList: []
     maxmemoryPolicy: noeviction
-
-databases:
-  - name: naro-postgres
-    region: frankfurt
-    plan: starter
-    postgresMajorVersion: "16"
-    ipAllowList: []
