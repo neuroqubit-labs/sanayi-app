@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict
 
 from app.api.v1.deps import CurrentUserDep, DbDep, OtpDep
+from app.middleware.rate_limit import get_limiter
 from app.models.auth_event import AuthEventType
 from app.models.auth_identity import AuthIdentityProvider
 from app.repositories.user import UserRepository
@@ -30,6 +31,7 @@ from app.services.token_rotation import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+limiter = get_limiter()
 
 
 class LogoutResponse(BaseModel):
@@ -46,11 +48,12 @@ def _extract_client(request: Request) -> tuple[str | None, str | None, str | Non
 
 
 @router.post("/otp/request", response_model=OtpRequestResponse)
+@limiter.limit("5/minute")
 async def request_otp(
+    request: Request,
     payload: OtpRequest,
     otp: OtpDep,
     db: DbDep,
-    request: Request,
 ) -> OtpRequestResponse:
     if payload.channel == "sms":
         if not payload.phone:
@@ -91,11 +94,12 @@ async def request_otp(
 
 
 @router.post("/otp/verify", response_model=OtpVerifyResponse)
+@limiter.limit("10/minute")
 async def verify_otp(
+    request: Request,
     payload: OtpVerify,
     otp: OtpDep,
     db: DbDep,
-    request: Request,
 ) -> OtpVerifyResponse:
     result = await otp.verify(delivery_id=payload.delivery_id, code=payload.code)
     ip, ua, device = _extract_client(request)
@@ -195,8 +199,9 @@ async def verify_otp(
 
 
 @router.post("/refresh", response_model=TokenPair)
+@limiter.limit("30/minute")
 async def refresh(
-    payload: RefreshRequest, db: DbDep, request: Request
+    request: Request, payload: RefreshRequest, db: DbDep
 ) -> TokenPair:
     ip, ua, _ = _extract_client(request)
     try:

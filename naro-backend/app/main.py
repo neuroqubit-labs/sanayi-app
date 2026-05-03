@@ -6,6 +6,9 @@ from contextlib import asynccontextmanager
 import redis.asyncio as redis
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.errors import register_exception_handlers
 from app.api.v1.router import api_router
@@ -13,8 +16,10 @@ from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.integrations.storage import build_storage_gateway
 from app.middleware.idempotency import IdempotencyMiddleware
+from app.middleware.rate_limit import get_limiter
 from app.middleware.request_id import RequestIdMiddleware
 from app.observability.metrics import render_metrics
+from app.observability.sentry import init_sentry
 
 _startup_logger = logging.getLogger("naro.startup")
 
@@ -56,6 +61,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    init_sentry(settings)
     app = FastAPI(
         title="Naro API",
         version="0.1.0",
@@ -81,6 +87,11 @@ def create_app() -> FastAPI:
 
     app.add_middleware(IdempotencyMiddleware, redis_factory=redis_factory)
     app.add_middleware(RequestIdMiddleware)
+
+    limiter = get_limiter()
+    app.state.limiter = limiter
+    app.add_middleware(SlowAPIMiddleware)
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     register_exception_handlers(app)
 

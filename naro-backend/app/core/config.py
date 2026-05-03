@@ -83,6 +83,16 @@ class Settings(BaseSettings):
     # QA tur 2 P1-4: offer expires_at default TTL (B-P1-6 cron filter için)
     offer_ttl_minutes: int = 15
 
+    # Crash reporting — production opsiyonel; DSN boşsa init bypass.
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
+    sentry_profiles_sample_rate: float = 0.0
+    sentry_release: str = ""
+
+    # Rate limit — test ortamında False; staging/prod'da True zorunlu.
+    rate_limit_enabled: bool = True
+    rate_limit_default: str = "120/minute"
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def database_url(self) -> str:

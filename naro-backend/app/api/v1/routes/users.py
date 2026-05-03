@@ -18,9 +18,10 @@ Hesap silme (App Store + Play 2024+ policy zorunlu):
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from app.api.v1.deps import CurrentUserDep, DbDep
+from app.middleware.rate_limit import get_limiter
 from app.repositories.user import UserRepository
 from app.repositories.user_push_token import UserPushTokenRepository
 from app.schemas.user import UserResponse, UserUpdate
@@ -35,6 +36,7 @@ from app.services.user_lifecycle import (
 )
 
 router = APIRouter(prefix="/users/me", tags=["users-me"])
+limiter = get_limiter()
 
 
 @router.get("", response_model=UserResponse)
@@ -109,7 +111,9 @@ async def delete_me(user: CurrentUserDep, db: DbDep) -> Response:
     response_model=PushTokenResponse,
     status_code=status.HTTP_200_OK,
 )
+@limiter.limit("10/minute")
 async def register_push_token(
+    request: Request,
     payload: PushTokenRegisterPayload,
     user: CurrentUserDep,
     db: DbDep,
