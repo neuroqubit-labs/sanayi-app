@@ -22,7 +22,12 @@ from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.v1.deps import CurrentUserDep, DbDep
 from app.repositories.user import UserRepository
+from app.repositories.user_push_token import UserPushTokenRepository
 from app.schemas.user import UserResponse, UserUpdate
+from app.schemas.user_push_token import (
+    PushTokenRegisterPayload,
+    PushTokenResponse,
+)
 from app.services.user_lifecycle import (
     UserAlreadyDeletedError,
     UserNotFoundError,
@@ -97,3 +102,30 @@ async def delete_me(user: CurrentUserDep, db: DbDep) -> Response:
 
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/push-tokens",
+    response_model=PushTokenResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def register_push_token(
+    payload: PushTokenRegisterPayload,
+    user: CurrentUserDep,
+    db: DbDep,
+) -> PushTokenResponse:
+    """Device push token kaydı (idempotent).
+
+    FE bootstrap'te (her launch'ta) bu endpoint çağrılır. (user_id, device_id)
+    unique → aynı cihazdan tekrar gelirse UPDATE; yeni cihazsa INSERT.
+    Push gönderme akışı (V1.1) bu tabloyu okur.
+    """
+    record = await UserPushTokenRepository(db).upsert(
+        user_id=user.id,
+        platform=payload.platform,
+        token=payload.token,
+        device_id=payload.device_id,
+        app_version=payload.app_version,
+    )
+    await db.commit()
+    return PushTokenResponse.model_validate(record)
