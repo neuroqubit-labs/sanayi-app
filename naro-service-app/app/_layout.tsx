@@ -16,6 +16,7 @@ import "../global.css";
 
 import { HasarSourceSheet } from "@/features/insurance-claim";
 import { TechnicianEvidenceUploadSheet } from "@/features/jobs/components/TechnicianEvidenceUploadSheet";
+import { usePushTokenRegistration } from "@/features/notifications";
 import { OfferSubmissionSheet } from "@/features/pool";
 import { useTechnicianProfileHydrator } from "@/features/technicians/api.live";
 import { useDispatchTakeover } from "@/features/tow";
@@ -49,6 +50,7 @@ function AuthGuard() {
 function RootShellContent() {
   useInitializeRuntime();
   useDispatchTakeover();
+  usePushTokenRegistration();
   // /technicians/me/profile + /me/certificates hydrate — auth hazır
   // olduğunda TechnicianProfileStore backend verisiyle doldurulur.
   // KYC admission gate cert listesinin DB'deki gerçek status'üne göre

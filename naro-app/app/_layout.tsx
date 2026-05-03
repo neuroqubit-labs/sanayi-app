@@ -9,6 +9,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import "../global.css";
 
+import { usePushTokenRegistration } from "@/features/notifications";
 import { UstaPreviewSheet } from "@/features/ustalar";
 import { VehicleSwitcherSheet } from "@/features/vehicles";
 import { telemetry, useAuthStore, useInitializeRuntime } from "@/runtime";
@@ -57,6 +58,7 @@ export default function RootLayout() {
 
 function RootShellContent() {
   useInitializeRuntime();
+  usePushTokenRegistration();
   const { colors } = useNaroTheme();
 
   useEffect(() => {

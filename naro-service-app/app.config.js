@@ -97,6 +97,13 @@ module.exports = {
             "Naro Servis, çekici görevlerinde anlık konumunu paylaşmak için konumunu kullanır.",
         },
       ],
+      [
+        "expo-notifications",
+        {
+          // Android channel auto-create + iOS background mode init.
+          // Yeni iş, randevu ve onay bildirimleri için.
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,

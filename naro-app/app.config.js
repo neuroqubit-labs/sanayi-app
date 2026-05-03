@@ -111,6 +111,14 @@ module.exports = {
             "Naro, çekici çağırırken alım konumunu seçmek için konumunuzu kullanır.",
         },
       ],
+      [
+        "expo-notifications",
+        {
+          // Android channel auto-create + iOS background mode init.
+          // icon ve color için ileride markalı asset eklenir; şu an
+          // expo-notifications default'larını kullanır.
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
