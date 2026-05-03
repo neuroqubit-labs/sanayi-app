@@ -4,6 +4,7 @@ from arq import cron
 from arq.connections import RedisSettings
 
 from app.core.config import get_settings
+from app.workers.account_deletion_purge import account_deletion_purge
 from app.workers.appointment_expiry import appointment_expiry_job
 from app.workers.billing_reconcile import billing_reconcile
 from app.workers.media import process_media_asset
@@ -70,6 +71,10 @@ class WorkerSettings:
         # F1.2 (2026-04-28): non-tow billing PREAUTH_REQUESTED stale recovery
         # (30 dk; webhook gelmediyse PREAUTH_FAILED'e çek, retry açık).
         cron(billing_reconcile, minute={4, 34}, unique=True),
+        # 2026-05-03: App Store + Play hesap silme policy. Günlük 03:00 UTC
+        # soft-deleted user'ları 30g grace sonrası hard-delete eder.
+        # V1 log-only (cascade audit + integration test sonrası gerçek silme).
+        cron(account_deletion_purge, hour={3}, minute={15}, unique=True),
     ]
     on_startup = startup
     on_shutdown = shutdown

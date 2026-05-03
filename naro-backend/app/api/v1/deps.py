@@ -80,6 +80,15 @@ async def get_current_user(
             detail="user not found",
         )
 
+    # Soft-deleted hesabın eski access token'ı (refresh revoke edilmiş ama
+    # JWT TTL henüz dolmamış) yine de API'a erişmesin — KVKK + App Store/Play
+    # policy gereği silinen hesap derhal API'dan kopmalı.
+    if user.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="account deleted",
+        )
+
     return user
 
 

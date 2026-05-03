@@ -1,22 +1,33 @@
-"""/users/me router — authenticated user's own profile (read + update).
+"""/users/me router — authenticated user's own profile (read + update + delete).
 
-- GET   /users/me  → UserResponse (id, phone, email, full_name, role, status, locale, ...)
-- PATCH /users/me  → UserResponse (partial update: full_name, email, locale)
+- GET    /users/me  → UserResponse (id, phone, email, full_name, role, status, locale, ...)
+- PATCH  /users/me  → UserResponse (partial update: full_name, email, locale)
+- DELETE /users/me  → 204 No Content (soft delete; 30g grace sonrası hard-delete worker)
 
 Phone değişikliği OTP-reverify akışında (ayrı endpoint olacak) yapılır —
 burada reddedilir. Role + status backend yönetir, caller değiştiremez.
 
 Register akışı için hazırlık (docs/audits/2026-04-24-register-login-schema-alignment.md):
 OTP verify sonrası client `PATCH /users/me { full_name, email? }` çağırır.
+
+Hesap silme (App Store + Play 2024+ policy zorunlu):
+- DELETE /users/me → soft_delete_user(self) → 204
+- Anonymize phone/email + revoke sessions + technician profile soft-delete
+- 30g grace sonrası hard-delete worker (workers/account_deletion_purge.py)
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.v1.deps import CurrentUserDep, DbDep
 from app.repositories.user import UserRepository
 from app.schemas.user import UserResponse, UserUpdate
+from app.services.user_lifecycle import (
+    UserAlreadyDeletedError,
+    UserNotFoundError,
+    soft_delete_user,
+)
 
 router = APIRouter(prefix="/users/me", tags=["users-me"])
 
@@ -52,3 +63,37 @@ async def patch_me(
     await db.commit()
     await db.refresh(user)
     return UserResponse.model_validate(user)
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+async def delete_me(user: CurrentUserDep, db: DbDep) -> Response:
+    """Self-service hesap silme.
+
+    Soft delete: users.deleted_at = NOW, phone/email anonymize, tüm aktif
+    session'lar revoke. Technician ise technician_profile.deleted_at de set.
+    30g grace sonrası hard-delete worker (account_deletion_purge) PII +
+    cascade'i temizler.
+
+    Idempotent: zaten silinmişse 410 Gone.
+    """
+    try:
+        await soft_delete_user(
+            db,
+            user.id,
+            reason="self_request",
+            actor_user_id=user.id,
+        )
+    except UserAlreadyDeletedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="account already deleted",
+        ) from exc
+    except UserNotFoundError as exc:
+        # CurrentUserDep zaten user'ı doğruladı; bu pratik olarak race ihtimali.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="user not found",
+        ) from exc
+
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
