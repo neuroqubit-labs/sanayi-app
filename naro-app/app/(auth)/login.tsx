@@ -1,10 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { normalizePhoneTR } from "@naro/mobile-core";
 import { Button, FormField, Screen, Text } from "@naro/ui";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Alert, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { z } from "zod";
 
 import { telemetry } from "@/runtime";
@@ -87,12 +87,7 @@ export default function LoginScreen() {
           Devam ederek{" "}
           <Pressable
             accessibilityRole="link"
-            onPress={() =>
-              Alert.alert(
-                "Kullanım koşulları",
-                "Naro Kullanım Koşulları'na git: profil → Kullanım ve gizlilik. Pilot sürümünde tam metin yakında eklenecek.",
-              )
-            }
+            onPress={() => router.push("/(modal)/legal?doc=terms" as Href)}
           >
             <Text tone="accent" className="text-[12px] underline">
               Kullanım koşulları
@@ -101,12 +96,7 @@ export default function LoginScreen() {
           {" ve "}
           <Pressable
             accessibilityRole="link"
-            onPress={() =>
-              Alert.alert(
-                "KVKK aydınlatma metni",
-                "Kişisel verilerinin nasıl işlendiği hakkında bilgi: profil → Kullanım ve gizlilik → KVKK aydınlatma. Pilot sürümünde tam metin yakında.",
-              )
-            }
+            onPress={() => router.push("/(modal)/legal?doc=kvkk" as Href)}
           >
             <Text tone="accent" className="text-[12px] underline">
               KVKK aydınlatma metnini

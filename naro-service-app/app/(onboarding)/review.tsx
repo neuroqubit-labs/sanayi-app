@@ -17,7 +17,7 @@ import {
   PROVIDER_TYPE_META,
   useTechnicianProfileStore,
 } from "@/features/technicians";
-import { telemetry } from "@/runtime";
+import { apiClient, telemetry } from "@/runtime";
 
 export default function ReviewStep() {
   const router = useRouter();
@@ -121,6 +121,16 @@ export default function ReviewStep() {
         await updateCapacity.mutateAsync(onboarding.capacity);
       } catch (err) {
         telemetry.captureError(err, { context: "capacity persist failed" });
+      }
+      // KVKK pasif kabul: login + onboarding'de gösterilen aydınlatma
+      // metnini onaylamış varsayılır; submit anında consent timestamp.
+      try {
+        await apiClient("/users/me", {
+          method: "PATCH",
+          body: { kvkk_consented_at: new Date().toISOString() },
+        });
+      } catch (err) {
+        telemetry.captureError(err, { context: "kvkk consent persist failed" });
       }
       reset();
       router.replace("/(onboarding)/pending");
