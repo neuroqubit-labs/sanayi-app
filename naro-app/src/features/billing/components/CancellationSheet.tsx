@@ -10,6 +10,8 @@ import {
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
 
+import { telemetry } from "@/runtime";
+
 import { useSubmitCancellation } from "../api";
 import { useCancellationFeeCompute, type CaseBillingStage } from "../hooks";
 import type { CancellationReason } from "../schemas";
@@ -60,7 +62,7 @@ export function CancellationSheet({
       onClose();
       onCancelled?.();
     } catch (err) {
-      console.warn("cancellation failed", err);
+      telemetry.captureError(err, { context: "cancellation failed" });
     }
   };
 

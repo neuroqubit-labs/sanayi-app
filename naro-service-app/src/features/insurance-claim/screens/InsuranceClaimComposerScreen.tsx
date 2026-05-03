@@ -39,6 +39,7 @@ import {
   INSURER_LIST,
   useTechnicianProfileStore,
 } from "@/features/technicians";
+import { telemetry } from "@/runtime";
 
 import { useSubmitTechnicianInsuranceClaim } from "../api";
 import { prefillFromCase } from "../hydrate";
@@ -127,7 +128,7 @@ export function InsuranceClaimComposerScreen() {
       Alert.alert("Dosya açıldı", `${claim.insurer} · ${claim.policy_number}`);
       router.replace(`/is/${claim.case_id}` as Href);
     } catch (err) {
-      console.warn("insurance claim submit failed", err);
+      telemetry.captureError(err, { context: "insurance claim submit failed" });
       Alert.alert(
         "Dosya açılamadı",
         "Vaka uygun değilse veya aktif dosya varsa işlem tamamlanmaz.",

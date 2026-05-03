@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 import { useCaseApprovals, useDecideApproval } from "@/features/approvals";
+import { telemetry } from "@/runtime";
 
 import { CompletionDecisionPanel } from "./CompletionDecisionPanel";
 
@@ -57,7 +58,7 @@ export function CompletionApprovalSheet({
       });
       onClose();
     } catch (err) {
-      console.warn("completion approve failed", err);
+      telemetry.captureError(err, { context: "completion approve failed" });
     }
   };
 
@@ -67,7 +68,7 @@ export function CompletionApprovalSheet({
       await submit.mutateAsync({ decision: "reject", note });
       onClose();
     } catch (err) {
-      console.warn("completion reject failed", err);
+      telemetry.captureError(err, { context: "completion reject failed" });
     }
   };
 

@@ -16,6 +16,7 @@ import {
   isPaymentAccountRequiredError,
   paymentAccountRequiredMessage,
 } from "@/features/technicians/paymentAccountErrors";
+import { telemetry } from "@/runtime";
 
 const SLOT_LABEL: Record<string, string> = {
   today: "Bugün",
@@ -59,7 +60,7 @@ export function AppointmentRequestDetailScreen() {
       setActionError(null);
       router.replace("/(tabs)/islerim");
     } catch (err) {
-      console.warn("appointment approve failed", err);
+      telemetry.captureError(err, { context: "appointment approve failed" });
       setActionError(
         isPaymentAccountRequiredError(err)
           ? paymentAccountRequiredMessage("Randevu vermek")
@@ -78,7 +79,7 @@ export function AppointmentRequestDetailScreen() {
       setActionError(null);
       router.back();
     } catch (err) {
-      console.warn("appointment decline failed", err);
+      telemetry.captureError(err, { context: "appointment decline failed" });
       setActionError("Randevu reddedilemedi. Tekrar dene.");
     }
   };

@@ -144,7 +144,7 @@ async function executeRefresh(): Promise<string | null> {
     await authState.setTokens(data.access_token, data.refresh_token);
     return data.access_token;
   } catch (err) {
-    console.warn("refreshAuthToken failed; logging out", err);
+    telemetry.captureError(err, { context: "refreshAuthToken failed; logging out" });
     await authState.setSession({ accessToken: null, refreshToken: null });
     return null;
   }

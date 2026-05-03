@@ -20,6 +20,7 @@ import {
   isPaymentAccountRequiredError,
   paymentAccountRequiredMessage,
 } from "@/features/technicians/paymentAccountErrors";
+import { telemetry } from "@/runtime";
 
 import { useOfferSheetStore } from "../offer-sheet-store";
 
@@ -136,7 +137,7 @@ export function OfferSubmissionSheet() {
       });
       close();
     } catch (err) {
-      console.warn("offer submit failed", err);
+      telemetry.captureError(err, { context: "offer submit failed" });
     }
   };
 

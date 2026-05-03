@@ -21,6 +21,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
+import { telemetry } from "@/runtime";
+
 import {
   useAbandonPayment,
   useBillingSummary,
@@ -119,7 +121,7 @@ export function PaymentInitiateScreen() {
         attempt: 1,
       });
     } catch (err) {
-      console.warn("payment initiate failed", err);
+      telemetry.captureError(err, { context: "payment initiate failed" });
       setPhase({
         kind: "failed",
         code: "network",

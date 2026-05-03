@@ -21,7 +21,7 @@ import {
   isPaymentAccountRequiredError,
   paymentAccountRequiredMessage,
 } from "@/features/technicians/paymentAccountErrors";
-import { apiClient } from "@/runtime";
+import { apiClient, telemetry } from "@/runtime";
 
 type StickyVariant =
   | { kind: "offer" }
@@ -265,7 +265,7 @@ export function CaseProfileScreen() {
       setActionError(null);
       router.replace("/(tabs)/islerim");
     } catch (err) {
-      console.warn("appointment approve failed", err);
+      telemetry.captureError(err, { context: "appointment approve failed" });
       setActionError(
         isPaymentAccountRequiredError(err)
           ? paymentAccountRequiredMessage("Randevu vermek")
@@ -283,7 +283,7 @@ export function CaseProfileScreen() {
       setActionError(null);
       router.back();
     } catch (err) {
-      console.warn("appointment decline failed", err);
+      telemetry.captureError(err, { context: "appointment decline failed" });
       setActionError("Randevu reddedilemedi. Tekrar dene.");
     }
   };

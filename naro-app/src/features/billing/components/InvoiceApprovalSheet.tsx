@@ -26,6 +26,7 @@ import {
 } from "@/features/approvals";
 import type { ApprovalResponse } from "@/features/approvals";
 import { useThreeDSFlow } from "@/features/billing/hooks";
+import { telemetry } from "@/runtime";
 
 function parseDecimal(value: string | null | undefined): number | null {
   if (!value) return null;
@@ -91,7 +92,7 @@ export function InvoiceApprovalSheet({
       });
       onClose();
     } catch (err) {
-      console.warn("invoice approve failed", err);
+      telemetry.captureError(err, { context: "invoice approve failed" });
     }
   };
 
@@ -110,7 +111,7 @@ export function InvoiceApprovalSheet({
       }
       setCheckoutUrl(response.checkout_url);
     } catch (err) {
-      console.warn("invoice payment failed", err);
+      telemetry.captureError(err, { context: "invoice payment failed" });
       setPaymentError("Online ödeme başlatılamadı. Diğer ödeme yöntemlerini seçebilirsin.");
     }
   };
@@ -125,7 +126,7 @@ export function InvoiceApprovalSheet({
       setDisputing(false);
       onClose();
     } catch (err) {
-      console.warn("invoice dispute failed", err);
+      telemetry.captureError(err, { context: "invoice dispute failed" });
     }
   };
 

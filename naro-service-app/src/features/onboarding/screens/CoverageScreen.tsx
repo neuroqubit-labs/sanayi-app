@@ -20,6 +20,8 @@ import {
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 
+import { telemetry } from "@/runtime";
+
 import { useUpdateCoverageMutation } from "../api/coverage";
 import {
   useBrandsQuery,
@@ -98,7 +100,7 @@ export default function CoverageScreen() {
       });
       router.push("/(onboarding)/review" as Href);
     } catch (err) {
-      console.warn("CoverageScreen submit failed", err);
+      telemetry.captureError(err, { context: "CoverageScreen submit failed" });
     }
   };
 

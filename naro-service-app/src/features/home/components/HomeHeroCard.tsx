@@ -19,6 +19,7 @@ import {
   DAMAGE_AREA_LABEL,
 } from "@/features/cases";
 import { useDeclineIncomingAppointment } from "@/features/jobs";
+import { telemetry } from "@/runtime";
 
 import { maskCustomerName } from "./helpers";
 
@@ -77,7 +78,7 @@ export function HomeHeroCard({ caseItem, totalPendingCount }: Props) {
         reason: "Usta müsait değil",
       });
     } catch (err) {
-      console.warn("appointment decline failed", err);
+      telemetry.captureError(err, { context: "appointment decline failed" });
     }
   };
 

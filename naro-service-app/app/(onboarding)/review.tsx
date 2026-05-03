@@ -17,6 +17,7 @@ import {
   PROVIDER_TYPE_META,
   useTechnicianProfileStore,
 } from "@/features/technicians";
+import { telemetry } from "@/runtime";
 
 export default function ReviewStep() {
   const router = useRouter();
@@ -114,17 +115,17 @@ export default function ReviewStep() {
           await updateSchedule.mutateAsync(onboarding.working_schedule);
         }
       } catch (err) {
-        console.warn("schedule persist failed", err);
+        telemetry.captureError(err, { context: "schedule persist failed" });
       }
       try {
         await updateCapacity.mutateAsync(onboarding.capacity);
       } catch (err) {
-        console.warn("capacity persist failed", err);
+        telemetry.captureError(err, { context: "capacity persist failed" });
       }
       reset();
       router.replace("/(onboarding)/pending");
     } catch (err) {
-      console.warn("onboarding submit failed", err);
+      telemetry.captureError(err, { context: "onboarding submit failed" });
       Alert.alert(
         "Kaydedilemedi",
         "Başvurun kaydedilemedi. Bağlantını kontrol edip tekrar dene.",

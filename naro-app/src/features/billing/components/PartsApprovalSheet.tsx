@@ -21,6 +21,7 @@ import {
 } from "@/features/approvals";
 import type { ApprovalResponse } from "@/features/approvals";
 import { useThreeDSFlow } from "@/features/billing/hooks";
+import { telemetry } from "@/runtime";
 
 function parseDecimal(value: string | null | undefined): number | null {
   if (!value) return null;
@@ -87,7 +88,7 @@ export function PartsApprovalSheet({
       });
       onClose();
     } catch (err) {
-      console.warn("parts approve failed", err);
+      telemetry.captureError(err, { context: "parts approve failed" });
     }
   };
 
@@ -106,7 +107,7 @@ export function PartsApprovalSheet({
       }
       setCheckoutUrl(response.checkout_url);
     } catch (err) {
-      console.warn("parts payment failed", err);
+      telemetry.captureError(err, { context: "parts payment failed" });
       setPaymentError("Online ödeme başlatılamadı. Diğer ödeme yöntemlerini seçebilirsin.");
     }
   };
@@ -122,7 +123,7 @@ export function PartsApprovalSheet({
       setRejecting(false);
       onClose();
     } catch (err) {
-      console.warn("parts reject failed", err);
+      telemetry.captureError(err, { context: "parts reject failed" });
     }
   };
 

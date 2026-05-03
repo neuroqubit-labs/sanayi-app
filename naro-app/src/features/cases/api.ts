@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 import { useTechnicianPublicView } from "@/features/ustalar/api";
 import { useActiveVehicle } from "@/features/vehicles";
 import type { Vehicle } from "@/features/vehicles/types";
-import { apiClient, useAuthStore } from "@/runtime";
+import { apiClient, telemetry, useAuthStore } from "@/runtime";
 import { mockDelay } from "@/shared/lib/mock";
 import { queryClient } from "@/shared/lib/query";
 
@@ -446,7 +446,7 @@ export function useSubmitCase(kind: ServiceRequestKind) {
         });
         response = CaseCreateResponseSchema.parse(raw);
       } catch (err) {
-        console.warn("useSubmitCase POST /cases failed", err);
+        telemetry.captureError(err, { context: "useSubmitCase POST /cases failed" });
         throw err instanceof Error ? err : new Error("case submit failed");
       }
 
