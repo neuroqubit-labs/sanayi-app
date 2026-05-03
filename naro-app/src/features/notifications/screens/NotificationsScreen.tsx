@@ -210,7 +210,7 @@ function EmptyState() {
       </View>
       <View className="items-center gap-1.5">
         <Text variant="h3" tone="inverse" className="text-center">
-          Şimdilik bir şey yok
+          Henüz bildirim yok
         </Text>
         <Text
           variant="caption"

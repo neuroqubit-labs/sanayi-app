@@ -143,10 +143,10 @@ function FeedEnd() {
         Akışın sonu
       </Text>
       <Text variant="h3" tone="inverse" className="text-center">
-        Şimdilik burası — yeni bir şey açmak ister misin?
+        Yeni bir şey açmak ister misin?
       </Text>
       <Text tone="muted" className="text-app-text-muted text-center">
-        Daha fazla rehber içeriği yakında.
+        Aracınla ilgili bir talep oluştur veya mevcut vakalarını takip et.
       </Text>
       <Button
         label="Yeni talep başlat"

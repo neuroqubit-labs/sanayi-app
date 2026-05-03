@@ -146,7 +146,7 @@ export function NotificationsScreen() {
             <Icon icon={Bell} size={22} color="#83a7ff" />
           </View>
           <Text variant="h3" tone="inverse" className="text-center">
-            Şimdilik bir şey yok
+            Henüz bildirim yok
           </Text>
           <Text tone="muted" className="text-center text-app-text-muted">
             Havuz, randevu ve onay hareketleri burada görünür.

@@ -10,7 +10,9 @@ import {
 import { useRouter } from "expo-router";
 import { MapPin, MapPinned, Truck } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
+
+import { telemetry } from "@/runtime";
 
 import { usePendingTowDispatch, useRespondDispatch } from "../api";
 
@@ -67,9 +69,14 @@ export function TowDispatchSheet() {
         response: "accepted",
       });
       router.replace(`/cekici/${incoming.case_id}`);
-    } catch {
-      // 409/404 dispatch attempt expire ya da race; kullanıcı mesaj
-      // görsün — şimdilik sheet açık kalıyor, timeout bu handle eder.
+    } catch (error) {
+      // 409/404 dispatch attempt expire ya da race; kullanıcıyı bilgilendir,
+      // sheet açık kalır (timeout cleanup devam eder).
+      telemetry.captureError(error, { context: "tow dispatch accept failed" });
+      Alert.alert(
+        "Görev alınamadı",
+        "Görev başka bir operatöre düşmüş ya da süresi dolmuş olabilir. Yeni bir çağrı geldiğinde bildireceğiz.",
+      );
     }
   };
 
@@ -80,8 +87,10 @@ export function TowDispatchSheet() {
           attempt_id: incoming.attempt_id,
           response: "declined",
         });
-      } catch {
-        // Backend decline kayıt edemese bile local store cleanup devam eder.
+      } catch (error) {
+        // Backend decline kayıt edemese bile local cleanup devam eder; yine
+        // de Sentry'e düşür ki dispatch reliability metrikleri tutarlı olsun.
+        telemetry.captureError(error, { context: "tow dispatch decline failed" });
       }
     }
     router.back();
