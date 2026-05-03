@@ -57,28 +57,69 @@ async def _check_redis() -> tuple[bool, str | None]:
             await client.aclose()
 
 
-def _expected_alembic_head() -> str | None:
-    """alembic/versions/ içindeki en son revision_id'yi heuristic olarak çıkar.
+def _alembic_versions_dir() -> Path | None:
+    """alembic/versions yolunu container/local/test'te robust bul.
 
-    Migration dosyası adı `<timestamp>_<idx>_<slug>.py` formatında; revision
-    field'ı dosya içinde `revision = "..."`. Tüm dosyaları tarayıp `down_revision`
-    set'inde olmayanı head sayarız. Hata yutulur — ready check sertleşmez.
+    Aramada öncelik:
+      1. NARO_ALEMBIC_VERSIONS env (override)
+      2. Bu dosyadan yukarı tırmanarak `alembic/versions` ilk eşleşme
+         (Container `/app/alembic/versions`, repo `naro-backend/alembic/versions`)
+      3. CWD altındaki `alembic/versions`
+    """
+
+    import os
+
+    explicit = os.environ.get("NARO_ALEMBIC_VERSIONS")
+    if explicit:
+        path = Path(explicit)
+        if path.is_dir():
+            return path
+
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        candidate = parent / "alembic" / "versions"
+        if candidate.is_dir():
+            return candidate
+
+    cwd_candidate = Path.cwd() / "alembic" / "versions"
+    if cwd_candidate.is_dir():
+        return cwd_candidate
+    return None
+
+
+def _expected_alembic_head() -> str | None:
+    """alembic/versions içindeki tek head revision_id'yi çıkar.
+
+    Migration dosyalarında `revision = "..."` ve `down_revision = "..."` alanları
+    parse edilir; başka revision'ın `down_revision`'ı olmayan = head. Birden çok
+    head varsa None döner — ready False değil "skipped" olur.
     """
 
     try:
-        versions = Path(__file__).resolve().parents[3] / "alembic" / "versions"
+        versions = _alembic_versions_dir()
+        if versions is None:
+            return None
+        import re
+
+        # Alembic 1.13+ migration template: `revision: str = "..."` (type annotated).
+        # Eski format `revision = "..."` da olabilir; ikisini de yakala.
+        rev_re = re.compile(r"^\s*revision(?:\s*:\s*[^=]+)?\s*=\s*[\"']([^\"']+)[\"']")
+        down_re = re.compile(r"^\s*down_revision(?:\s*:\s*[^=]+)?\s*=\s*(.+)")
         revisions: dict[str, str | None] = {}
         for path in versions.glob("*.py"):
             text_blob = path.read_text(encoding="utf-8", errors="ignore")
             rev: str | None = None
             down: str | None = None
             for line in text_blob.splitlines():
-                stripped = line.strip()
-                if stripped.startswith("revision = ") and rev is None:
-                    rev = stripped.split("=", 1)[1].strip().strip("\"'") or None
-                if stripped.startswith("down_revision = ") and down is None:
-                    raw = stripped.split("=", 1)[1].strip()
-                    down = None if raw == "None" else raw.strip("\"'") or None
+                if rev is None:
+                    m = rev_re.match(line)
+                    if m:
+                        rev = m.group(1)
+                if down is None:
+                    m = down_re.match(line)
+                    if m:
+                        raw = m.group(1).strip()
+                        down = None if raw == "None" else raw.strip("\"'") or None
             if rev:
                 revisions[rev] = down
         children = {d for d in revisions.values() if d}
