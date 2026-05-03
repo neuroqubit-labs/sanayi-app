@@ -55,6 +55,8 @@ services:
       POSTGRES_HOST: postgres
       REDIS_HOST: redis
       AWS_S3_ENDPOINT_URL: http://localstack:4566
+    # Dev override — Dockerfile CMD prod-safe (--reload yok); local'de hot reload.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "${API_PUBLISHED_PORT:-8000}:8000"
     volumes:

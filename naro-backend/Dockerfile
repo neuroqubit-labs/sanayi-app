@@ -20,4 +20,8 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Production default — uvicorn tek worker (Render Starter plan tek instance).
+# Worker servisi (ARQ) bu image'i ayrı process olarak çalıştırır:
+#   `arq app.workers.settings.WorkerSettings` (render.yaml > naro-worker).
+# Local dev için docker-compose `command:` ile --reload override eder.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
