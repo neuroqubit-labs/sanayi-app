@@ -1,8 +1,4 @@
-import type {
-  BreakdownCategory,
-  PricePreference,
-  ServiceRequestDraft,
-} from "@naro/domain";
+import type { BreakdownCategory, PricePreference } from "@naro/domain";
 import {
   GesturePressable as Pressable,
   Icon,

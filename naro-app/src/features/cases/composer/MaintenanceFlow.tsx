@@ -1,8 +1,4 @@
-import type {
-  MaintenanceCategory,
-  PricePreference,
-  ServiceRequestDraft,
-} from "@naro/domain";
+import type { MaintenanceCategory, PricePreference } from "@naro/domain";
 import {
   FieldInput,
   GesturePressable as Pressable,
