@@ -5,8 +5,9 @@ const iosGoogleMapsApiKey =
 
 // iOS PrivacyManifest (iOS 17+ zorunlu).
 // Required Reason API'ler — Apple "C&P" listesinden kullandığımız kategoriler.
-// Üçüncü taraf kütüphanelerin (Sentry, PostHog, react-native-maps) kendi
-// xcprivacy dosyaları zaten bundle içinde gelir; burası Naro app-level beyanı.
+// Her birinin "reasons" kodu Apple geliştirici dokümantasyonundan birebir
+// alınır. Üçüncü taraf kütüphanelerin (Sentry, PostHog) kendi xcprivacy
+// dosyaları zaten bundle içinde gelir; burası Naro app-level beyanıdır.
 const privacyManifests = {
   NSPrivacyTracking: false,
   NSPrivacyTrackingDomains: [],
@@ -35,10 +36,10 @@ const privacyManifests = {
 
 module.exports = {
   expo: {
-    name: "Naro",
-    slug: "naro-app",
-    scheme: "naro",
-    version: "1.0.0",
+    name: "Naro Service",
+    slug: "naro-service-app",
+    scheme: "naroservice",
+    version: "0.1.0",
     runtimeVersion: {
       policy: "appVersion",
     },
@@ -51,8 +52,7 @@ module.exports = {
     icon: "./assets/app-icons/light/appstore.png",
     ios: {
       supportsTablet: false,
-      bundleIdentifier: "com.naro.app",
-      associatedDomains: ["applinks:naro.com.tr"],
+      bundleIdentifier: "com.naro.service",
       config: {
         googleMapsApiKey: iosGoogleMapsApiKey,
       },
@@ -72,21 +72,7 @@ module.exports = {
           apiKey: androidGoogleMapsApiKey,
         },
       },
-      package: "com.naro.app",
-      intentFilters: [
-        {
-          action: "VIEW",
-          autoVerify: true,
-          data: [
-            {
-              scheme: "https",
-              host: "naro.com.tr",
-              pathPrefix: "/billing/",
-            },
-          ],
-          category: ["BROWSABLE", "DEFAULT"],
-        },
-      ],
+      package: "com.naro.service",
     },
     web: {
       bundler: "metro",
@@ -98,9 +84,9 @@ module.exports = {
         "expo-image-picker",
         {
           photosPermission:
-            "Naro, araç fotoğrafı ve hasar bildirimi için galerinize erişir.",
+            "Naro Servis, iş kanıtı fotoğrafı yüklemek için galerinize erişir.",
           cameraPermission:
-            "Naro, araç fotoğrafı ve hasar bildirimi için kamerayı kullanır.",
+            "Naro Servis, iş kanıtı fotoğrafı çekmek için kamerayı kullanır.",
         },
       ],
       "expo-document-picker",
@@ -108,7 +94,7 @@ module.exports = {
         "expo-location",
         {
           locationWhenInUsePermission:
-            "Naro, çekici çağırırken alım konumunu seçmek için konumunuzu kullanır.",
+            "Naro Servis, çekici görevlerinde anlık konumunu paylaşmak için konumunu kullanır.",
         },
       ],
     ],
