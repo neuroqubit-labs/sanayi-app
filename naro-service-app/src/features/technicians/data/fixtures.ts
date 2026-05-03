@@ -70,14 +70,17 @@ export const INITIAL_TECHNICIAN_PROFILE: TechnicianProfileState = {
       asset: null,
     },
   ],
+  // Initial state seed — BE hydrate (useTechnicianProfileHydrator) login
+  // sonrası gerçek değerleri override eder. Bundle'a sızabileceği için
+  // gerçekçi IBAN/email/adres yerine boş placeholder kullanılır.
   business: {
-    legal_name: "AutoPro Servis Otomotiv San. Tic. Ltd. Şti.",
-    tax_number: "3070***425",
-    address: "Maslak Mah. Sanayi Cad. No:42/A",
-    city_district: "Sarıyer / İstanbul",
-    iban: "TR21 0006 2000 1234 0006 2912 84",
-    phone: "+90 212 000 00 00",
-    email: "merhaba@autopro.com.tr",
+    legal_name: "",
+    tax_number: "",
+    address: "",
+    city_district: "",
+    iban: "",
+    phone: "",
+    email: "",
   },
   // Legacy — V2'de okunmuyor ama store kırılmasın diye tutuluyor
   working_hours: "Hafta içi 09:00–18:30 · Cumartesi 10:00–15:00",
