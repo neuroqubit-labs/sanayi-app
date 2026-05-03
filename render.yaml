@@ -48,7 +48,7 @@ services:
       - key: MAPS_PROVIDER
         value: google
       - key: SMS_PROVIDER
-        value: twilio
+        value: console
       - key: RATE_LIMIT_ENABLED
         value: "true"
       - key: RATE_LIMIT_DEFAULT
@@ -70,7 +70,7 @@ services:
       - key: IYZICO_WEBHOOK_SECRET
         sync: false
       - key: IYZICO_BASE_URL
-        value: https://api.iyzipay.com
+        value: https://sandbox-api.iyzipay.com
       - key: IYZICO_CALLBACK_URL
         sync: false
       - key: TWILIO_ACCOUNT_SID
@@ -137,7 +137,7 @@ services:
       - key: MAPS_PROVIDER
         value: google
       - key: SMS_PROVIDER
-        value: twilio
+        value: console
       - key: RATE_LIMIT_ENABLED
         value: "false"
       - key: JWT_SECRET
@@ -158,7 +158,7 @@ services:
       - key: IYZICO_WEBHOOK_SECRET
         sync: false
       - key: IYZICO_BASE_URL
-        value: https://api.iyzipay.com
+        value: https://sandbox-api.iyzipay.com
       - key: IYZICO_CALLBACK_URL
         sync: false
       - key: TWILIO_ACCOUNT_SID
