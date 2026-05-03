@@ -167,32 +167,15 @@ function inferFilename(source: MediaFileSource) {
 }
 
 async function readSourceBlob(source: MediaFileSource) {
-  if (typeof console !== "undefined" && console.warn) {
-    console.warn("[upload] readSourceBlob start", {
-      uriPrefix: source.uri.slice(0, 32),
-      protocol: source.uri.split(":")[0],
-    });
-  }
   try {
     const response = await fetch(source.uri);
-    if (typeof console !== "undefined" && console.warn) {
-      console.warn("[upload] readSourceBlob fetched", { ok: response.ok, status: response.status });
-    }
     if (!response.ok) {
       throw new Error(`failed to read local file ${response.status}`);
     }
 
     const blob = await response.blob();
-    if (typeof console !== "undefined" && console.warn) {
-      console.warn("[upload] readSourceBlob blob", { size: blob.size, type: blob.type });
-    }
     return blob;
   } catch (error) {
-    if (typeof console !== "undefined" && console.warn) {
-      console.warn("[upload] readSourceBlob error", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
     throw new MediaUploadError("Unable to prepare media file", "prepare", error);
   }
 }
@@ -212,9 +195,6 @@ export async function uploadAsset(params: {
 
   onProgress?.({ phase: "intent" });
 
-  if (typeof console !== "undefined" && console.warn) {
-    console.warn("[upload] createIntent start", { filename, mimeType, sizeBytes });
-  }
 
   let intent: z.infer<typeof UploadIntentResponseSchema>;
   try {
@@ -226,33 +206,12 @@ export async function uploadAsset(params: {
       size_bytes: sizeBytes,
       checksum_sha256: source.checksumSha256,
     });
-    if (typeof console !== "undefined" && console.warn) {
-      console.warn("[upload] createIntent ok", { uploadId: intent.upload_id });
-    }
   } catch (error) {
-    if (typeof console !== "undefined" && console.warn) {
-      console.warn("[upload] createIntent error", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
     throw new MediaUploadError("Unable to create upload intent", "intent", error);
   }
 
   onProgress?.({ phase: "transfer" });
 
-  if (typeof console !== "undefined" && console.warn) {
-    console.warn("[upload] transfer start", {
-      urlHost: (() => {
-        try {
-          return new URL(intent.upload_url).host;
-        } catch {
-          return intent.upload_url.slice(0, 48);
-        }
-      })(),
-      headerKeys: Object.keys(intent.upload_headers ?? {}),
-      blobSize: fileBlob.size,
-    });
-  }
 
   let transferResponse: Response;
   try {
@@ -261,18 +220,7 @@ export async function uploadAsset(params: {
       headers: intent.upload_headers,
       body: fileBlob,
     });
-    if (typeof console !== "undefined" && console.warn) {
-      console.warn("[upload] transfer response", {
-        ok: transferResponse.ok,
-        status: transferResponse.status,
-      });
-    }
   } catch (error) {
-    if (typeof console !== "undefined" && console.warn) {
-      console.warn("[upload] transfer network error", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
     throw new MediaUploadError("Unable to upload media file", "transfer", error);
   }
 
@@ -283,12 +231,6 @@ export async function uploadAsset(params: {
       bodyPreview = (await transferResponse.text()).slice(0, 400);
     } catch {
       /* ignore */
-    }
-    if (typeof console !== "undefined" && console.warn) {
-      console.warn("[upload] transfer http error", {
-        status: transferResponse.status,
-        bodyPreview,
-      });
     }
     throw new MediaUploadError(
       `Upload failed with status ${transferResponse.status}`,
@@ -414,9 +356,6 @@ export function createExpoMediaPickerAdapter(deps: {
       // result burada gelir. Bu check'i fresh launch'tan ÖNCE yapıyoruz.
       const recovered = await drainPendingResult(picker);
       if (recovered && recovered.length > 0) {
-        if (typeof console !== "undefined" && console.warn) {
-          console.warn("[picker] recovered pending result", recovered.length);
-        }
         return recovered;
       }
 
@@ -445,12 +384,6 @@ export function createExpoMediaPickerAdapter(deps: {
 
       // Tanılayıcı log — MIUI'da picker killed edilince sessizce boş dönüyordu.
       // Teyit sonrası çıkarılacak.
-      if (typeof console !== "undefined" && console.warn) {
-        console.warn("[picker] result", {
-          canceled: result.canceled ?? result.cancelled ?? null,
-          assetsLen: result.assets?.length ?? 0,
-        });
-      }
 
       if (result.canceled || result.cancelled) {
         // MIUI kill sonrası tekrar bir drain deneyelim — bazen result cancel

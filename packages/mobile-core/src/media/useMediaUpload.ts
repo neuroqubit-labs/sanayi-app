@@ -236,14 +236,6 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
 
       const policy = getMediaPolicy(input.purpose);
 
-      if (typeof console !== "undefined" && console.warn) {
-        console.warn("[upload] start", {
-          purpose: input.purpose,
-          ownerId: input.ownerId,
-          mime: input.source.mimeType,
-          size: input.source.sizeBytes,
-        });
-      }
 
       // Validation
       safeSet(setStatus, "validating");
@@ -255,9 +247,6 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
         input.durationSec,
       );
       if (validationError) {
-        if (typeof console !== "undefined" && console.warn) {
-          console.warn("[upload] validation failed", validationError);
-        }
         setErrorBoth(validationError);
         safeSet(setStatus, "error");
         return null;
@@ -312,31 +301,6 @@ export function useMediaUpload(deps: UseMediaUploadDeps): UseMediaUploadResult {
             source: workingSource,
           };
         } catch (err) {
-          if (typeof console !== "undefined" && console.warn) {
-            const cause = (err as { cause?: unknown }).cause;
-            const inner =
-              cause && typeof cause === "object" && "cause" in (cause as Record<string, unknown>)
-                ? (cause as { cause?: unknown }).cause
-                : undefined;
-            console.warn("[upload] attempt failed", {
-              tryNo,
-              kind: err instanceof MediaUploadError ? err.kind : "unknown",
-              message: err instanceof Error ? err.message : String(err),
-              causeKind:
-                cause && typeof cause === "object" && "kind" in (cause as Record<string, unknown>)
-                  ? (cause as { kind: string }).kind
-                  : undefined,
-              causeUrl:
-                cause && typeof cause === "object" && "url" in (cause as Record<string, unknown>)
-                  ? (cause as { url: string }).url
-                  : undefined,
-              causeStatus:
-                cause && typeof cause === "object" && "status" in (cause as Record<string, unknown>)
-                  ? (cause as { status: unknown }).status
-                  : undefined,
-              rootCause: inner instanceof Error ? `${inner.name}: ${inner.message}` : String(inner),
-            });
-          }
           if (canceledRef.current) {
             setErrorBoth({ code: "canceled", message: "Yükleme iptal edildi." });
             return null;
