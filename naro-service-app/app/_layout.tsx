@@ -19,7 +19,8 @@ import { TechnicianEvidenceUploadSheet } from "@/features/jobs/components/Techni
 import { OfferSubmissionSheet } from "@/features/pool";
 import { useTechnicianProfileHydrator } from "@/features/technicians/api.live";
 import { useDispatchTakeover } from "@/features/tow";
-import { useAuthStore, useInitializeRuntime } from "@/runtime";
+import { telemetry, useAuthStore, useInitializeRuntime } from "@/runtime";
+import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
 import { queryClient } from "@/shared/lib/query";
 
 /**
@@ -88,13 +89,15 @@ function RootShellContent() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <NaroThemeProvider>
-            <RootShellContent />
-          </NaroThemeProvider>
-        </SafeAreaProvider>
-      </QueryClientProvider>
+      <ErrorBoundary onError={(error, info) => telemetry.captureError(error, info)}>
+        <QueryClientProvider client={queryClient}>
+          <SafeAreaProvider>
+            <NaroThemeProvider>
+              <RootShellContent />
+            </NaroThemeProvider>
+          </SafeAreaProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

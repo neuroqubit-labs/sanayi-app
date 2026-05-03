@@ -11,7 +11,8 @@ import "../global.css";
 
 import { UstaPreviewSheet } from "@/features/ustalar";
 import { VehicleSwitcherSheet } from "@/features/vehicles";
-import { useAuthStore, useInitializeRuntime } from "@/runtime";
+import { telemetry, useAuthStore, useInitializeRuntime } from "@/runtime";
+import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
 import { queryClient } from "@/shared/lib/query";
 
 /**
@@ -41,13 +42,15 @@ function AuthGuard() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <NaroThemeProvider>
-            <RootShellContent />
-          </NaroThemeProvider>
-        </SafeAreaProvider>
-      </QueryClientProvider>
+      <ErrorBoundary onError={(error, info) => telemetry.captureError(error, info)}>
+        <QueryClientProvider client={queryClient}>
+          <SafeAreaProvider>
+            <NaroThemeProvider>
+              <RootShellContent />
+            </NaroThemeProvider>
+          </SafeAreaProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }
