@@ -31,6 +31,8 @@ Naro için aktif + potansiyel iş ortakları. Aşama ilerledikçe güncellenir.
 | P005 | Kayseri yerel gazete + haber sitesi | DAGITIM | L0 | Basın bülteni T-2; Kayseri Gündem + Kayseri365 + Haber Kayseri | — | Kanal H; editoryal, paid değil; "Kayseri'de ilk" açılış haberi |
 | P006 | Kayseri Oto Tamirciler Odası | SANAYI | L0 | Usta tedariği sırasında dolaylı temas | — | Kanal I; oda dergi + WhatsApp grubu duyurusu |
 | P007 | TÜVTÜRK Kayseri istasyonu | DAGITIM | L0 | Personele komisyon + kart dağıtımı pazarlığı | — | Kanal G; düşük hacim yüksek niyet |
+| P008 | Sigortam.net | SIGORTA | L0 | T+0 → T+7 B2B affiliate temas | — | Yol 1 aggregator affiliate (yıllık %2-5 prim komisyon); detay [monetizasyon/sigorta-yan-gelir-stratejisi.md](../monetizasyon/sigorta-yan-gelir-stratejisi.md) |
+| P009 | Hangisigortam | SIGORTA | L0 | Sigortam.net'le anlaşamazsak yedek temas | — | Yol 1 yedek; kurumsal partnership ekibi |
 
 _Not:_ Tüm Kayseri pilot adayları [../analiz/2026-04-21-kullanici-edinme-kanallari.md](../analiz/2026-04-21-kullanici-edinme-kanallari.md) Kademe 1-3 kanal çerçevesinden türedi. PO onayı sonrası aşamalar ilerler.
 

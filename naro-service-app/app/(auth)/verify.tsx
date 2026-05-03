@@ -42,6 +42,12 @@ export default function VerifyScreen() {
       // BE OtpVerifyResponse zenginleştirilmiş — ek round-trip yok.
       // is_new_user + profile_completed + approval_status ile routing matrisi.
       const res = await authApi.verifyOtp({ delivery_id: deliveryId, code: values.code });
+      if (res.role !== "technician") {
+        setSubmitError(
+          "Bu telefon müşteri hesabına bağlı. Servis hesabı telefonuyla giriş yap.",
+        );
+        return;
+      }
       await setTokens(res.access_token, res.refresh_token);
       // setApprovalStatus null kabul ediyor; UserApprovalStatus'tan
       // ApprovalStatus type'ına cast — domain UserApprovalStatusSchema =

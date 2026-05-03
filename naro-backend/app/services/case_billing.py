@@ -50,6 +50,14 @@ class KaskoReimbursementExcessError(ValueError):
     """I-BILL-8 ihlali — reimburse > approved amount."""
 
 
+class PaymentAbandonNotAllowedError(ValueError):
+    """Abandon yalnızca PREAUTH_REQUESTED veya ESTIMATE state'inde anlamlı.
+
+    PREAUTH_HELD/CAPTURED → para gerçek tutulu; iptal için
+    /cancel-billing kullanılmalı.
+    """
+
+
 # ─── Invariant guard'ları (pure — test'lenebilir) ──────────────────────────
 
 
@@ -237,6 +245,139 @@ async def initiate_payment(
         },
     )
     return cf
+
+
+async def _mark_pending_preauth_attempts_failed(
+    session: AsyncSession,
+    *,
+    case_id: UUID,
+    error_code: str,
+) -> int:
+    """Case'in tüm PENDING `authorize:*` idempotency kayıtlarını FAILED'e çek.
+
+    Hem customer abandon hem de reconcile worker tarafından kullanılır.
+    Aksi halde kullanıcı /payment/initiate'i tekrar çağırdığında stale
+    PENDING record nedeniyle ConcurrentOperationError tetiklenebilir.
+
+    Returns:
+        Marked-as-failed kayıt sayısı.
+    """
+    attempt_count = await idem_repo.count_authorize_attempts(session, case_id)
+    candidate_keys = [f"authorize:{case_id}:initial"]
+    for n in range(attempt_count):
+        candidate_keys.append(f"authorize:{case_id}:retry_{n}")
+    marked = 0
+    for key in candidate_keys:
+        record = await idem_repo.get_record(session, key)
+        if (
+            record is not None
+            and record.state == PaymentIdempotencyState.PENDING
+        ):
+            await idem_repo.mark_failed(
+                session,
+                idempotency_key=key,
+                error_code=error_code,
+            )
+            marked += 1
+    return marked
+
+
+async def abandon_pending_preauth(
+    session: AsyncSession,
+    *,
+    case: ServiceCase,
+) -> bool:
+    """Müşteri 3DS WebView'i finalize etmeden kapatınca pending pre-auth'u bırak.
+
+    State guard:
+    - PREAUTH_REQUESTED → ESTIMATE: idempotency kayıtları FAILED'e çekilir;
+      kullanıcı `/payment/initiate`'i retry_N yeni key'i ile tekrar tetikler.
+    - ESTIMATE → no-op (idempotent abandon — initiate hiç çağrılmamış).
+    - Diğer state (PREAUTH_HELD/CAPTURED/...) → PaymentAbandonNotAllowedError;
+      para gerçek tutulu/çekili, iptal için `/cancel-billing` kullanılmalı.
+
+    PSP void çağrısı yapılmaz: 3DS form'u finalize olmadığı için PSP tarafında
+    void edilebilecek bir authorization yoktur. Iyzico checkout form'u kendi
+    TTL'i ile düşer.
+
+    Returns:
+        True if state changed (PREAUTH_REQUESTED → ESTIMATE).
+        False if no-op (zaten ESTIMATE).
+    """
+    current = (
+        BillingState(case.billing_state)
+        if case.billing_state
+        else BillingState.ESTIMATE
+    )
+    if current == BillingState.ESTIMATE:
+        return False
+    if current != BillingState.PREAUTH_REQUESTED:
+        raise PaymentAbandonNotAllowedError(
+            f"abandon not allowed from billing_state={current.value}"
+        )
+
+    marked = await _mark_pending_preauth_attempts_failed(
+        session, case_id=case.id, error_code="CUSTOMER_ABANDONED"
+    )
+
+    await _transition_billing_state(session, case, BillingState.ESTIMATE)
+    await append_event(
+        session,
+        case_id=case.id,
+        event_type=CaseEventType.STATUS_UPDATE,
+        title="Ödeme adımı kullanıcı tarafından kapatıldı",
+        tone=CaseTone.WARNING,
+        context={
+            "reason": "customer_abandoned",
+            "abandoned_attempts": marked,
+        },
+    )
+    return True
+
+
+async def mark_preauth_timeout(
+    session: AsyncSession,
+    *,
+    case: ServiceCase,
+    stale_minutes: int,
+) -> bool:
+    """Reconcile worker callback — webhook gelmediyse PREAUTH_REQUESTED →
+    PREAUTH_FAILED.
+
+    Idempotency PENDING kayıtları FAILED'e çekilir; kullanıcı vakaya döndüğünde
+    PaymentInitiateScreen autoFailHandledRef ile "Kart reddedildi" UI gösterir
+    ve `/payment/initiate` retry_N anahtarıyla yeni 3DS başlatılır.
+
+    Returns:
+        True if state changed (PREAUTH_REQUESTED → PREAUTH_FAILED).
+        False if no-op (state başka hareket görmüş, idempotent skip).
+    """
+    current = (
+        BillingState(case.billing_state)
+        if case.billing_state
+        else BillingState.ESTIMATE
+    )
+    if current != BillingState.PREAUTH_REQUESTED:
+        return False  # idempotent — başka işlem state'i taşımış
+
+    marked = await _mark_pending_preauth_attempts_failed(
+        session, case_id=case.id, error_code="PREAUTH_TIMEOUT"
+    )
+
+    await _transition_billing_state(session, case, BillingState.PREAUTH_FAILED)
+    await append_event(
+        session,
+        case_id=case.id,
+        event_type=CaseEventType.STATUS_UPDATE,
+        title="Pre-auth callback gelmedi — yeniden denenebilir",
+        tone=CaseTone.WARNING,
+        context={
+            "reason": "preauth_timeout_no_callback",
+            "stale_minutes": stale_minutes,
+            "marked_failed_attempts": marked,
+        },
+    )
+    return True
 
 
 async def process_3ds_callback(

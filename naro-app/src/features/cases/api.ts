@@ -450,6 +450,17 @@ export function useSubmitCase(kind: ServiceRequestKind) {
         throw err instanceof Error ? err : new Error("case submit failed");
       }
 
+      // Draft reset post-submit — composer kapanır, taslak boşa düşer
+      // (yeniden açılırsa kullanıcı sıfırdan başlar). setQueryData ile
+      // cache anında fresh, invalidate ek refetch'i de tetikler.
+      const freshDraft = useCasesStore
+        .getState()
+        .resetDraft(kind, vehicleId);
+      queryClient.setQueryData(
+        ["cases", "draft", kind, vehicleId],
+        freshDraft,
+      );
+
       await invalidateCaseConsumers();
       return response;
     },

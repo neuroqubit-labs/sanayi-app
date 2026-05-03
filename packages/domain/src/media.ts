@@ -24,6 +24,11 @@ export const MediaPurposeSchema = z.enum([
 ]);
 export type MediaPurpose = z.infer<typeof MediaPurposeSchema>;
 
+const MediaPurposeWireSchema = z.preprocess(
+  (value) => (value === "technician_certificate" ? "technician_cert" : value),
+  MediaPurposeSchema,
+);
+
 // ───────── Owner kind — hangi entity'e bağlı ─────────
 
 export const MediaOwnerKindSchema = z.enum([
@@ -65,9 +70,9 @@ export type MediaDimensions = z.infer<typeof MediaDimensionsSchema>;
 
 export const MediaAssetSchema = z.object({
   id: z.string(),
-  purpose: MediaPurposeSchema,
-  owner_kind: MediaOwnerKindSchema,
-  owner_id: z.string(),
+  purpose: MediaPurposeWireSchema,
+  owner_kind: MediaOwnerKindSchema.nullable().default(null),
+  owner_id: z.string().nullable().default(null),
   visibility: MediaVisibilitySchema,
   status: MediaStatusSchema,
   mime_type: z.string(),

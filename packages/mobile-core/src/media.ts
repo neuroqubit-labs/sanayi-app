@@ -17,6 +17,10 @@ const MediaAssetEnvelopeSchema = z.object({
   asset: MediaAssetSchema,
 });
 
+function toBackendMediaPurpose(purpose: MediaPurpose) {
+  return purpose === "technician_cert" ? "technician_certificate" : purpose;
+}
+
 export type MediaApi = ReturnType<typeof createMediaApi>;
 
 export type MediaUploadProgress =
@@ -97,7 +101,10 @@ export function createMediaApi(apiClient: ApiClient) {
     }) =>
       apiClient("/media/uploads/intents", {
         method: "POST",
-        body: payload,
+        body: {
+          ...payload,
+          purpose: toBackendMediaPurpose(payload.purpose),
+        },
         parse: (value) => UploadIntentResponseSchema.parse(value),
       }),
     completeUpload: (uploadId: string, payload: { etag?: string; checksum_sha256?: string }) =>

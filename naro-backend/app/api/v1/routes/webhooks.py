@@ -133,10 +133,14 @@ async def iyzico_payment_webhook(
         or ""
     )
     if not payment_id or not conversation_id:
-        logger.warning(
-            "iyzico webhook missing paymentId/conversationId: keys=%s payload=%s",
-            sorted(payload.keys()),
-            _redact_payment_payload(payload),
+        # F1.7: log seviyesi error — log-based alerting (Loki/CloudWatch)
+        # ops dashboard'da görsün. Sentry BE init Faz 4'te eklenecek.
+        logger.error(
+            "iyzico_webhook_missing_identifiers",
+            extra={
+                "payload_keys": sorted(payload.keys()),
+                "payload_redacted": _redact_payment_payload(payload),
+            },
         )
         # Iyzico tolerate — ack et, sadece log
         return {"status": "received_incomplete"}
@@ -158,10 +162,15 @@ async def iyzico_payment_webhook(
                 psp=psp,  # type: ignore[arg-type]
             )
         elif not handled:
-            logger.warning(
-                "iyzico webhook unhandled payment callback: conversation_id=%s keys=%s",
-                conversation_id,
-                sorted(payload.keys()),
+            # F1.7: unhandled webhook = ops alarm seviyesi (gerçek müşteri ödemesi
+            # kaybolabilir). Log severity error; Sentry BE init Faz 4'te eklenecek.
+            logger.error(
+                "iyzico_webhook_unhandled_callback",
+                extra={
+                    "conversation_id": conversation_id,
+                    "payment_id": payment_id,
+                    "payload_keys": sorted(payload.keys()),
+                },
             )
             await db.commit()
             return {"status": "unhandled_payment_callback"}

@@ -1,49 +1,79 @@
 # Naro — Araç Servis Süper App
 
-## Vizyon
-Türkiye'de araç sahipleri ile servis sağlayıcıları (çekici, oto parçacı, bakımcı, motorcu, sanayi ustası vb.) uçtan uca eşleştiren, Uber + Yemeksepeti karışımı bir süper app. Tek bir müşteri uygulaması tüm servis türlerini işlevsel olarak kapsayacak; usta/servis tarafı tek bir uygulamada rolüne göre odaklanacak.
+## Ürün Kimliği
+Türkiye'de araç sahibi (müşteri) ile servis sağlayıcıyı (çekici, oto parçacı, bakımcı, motorcu, sanayi ustası) eşleştiren süper app. Düşük frekans (yılda ~5 ziyaret), yüksek güven ihtiyacı, disintermediation riski yüksek alan.
 
-## Sektörel Bağlam ve Zorluklar
-- Türkiye'de yıllardır denenmiş, kimse tam optimize edememiş bir alan — çok sayıda başarısız startup geçmişi var.
-- **Düşük kullanım frekansı:** Son kullanıcı kaza/çekici için yılda bir-iki kez karşılaşır; salt bu sebeple uygulama indirmez. Değer önerisi "ihtiyaç anında bulunabilir + güven" üzerine kurulmalı (pazarlama, SEO, offline kanallar, belki sigorta/servis anlaşmaları üzerinden dağıtım).
-- **Aradan çıkma (disintermediation) riski:** Kötü kurgu, usta ile müşterinin uygulamayı atlayıp doğrudan iletişime geçmesine yol açar. Kısıtlamalar ürün deneyimini bozmadan yapılmalı.
+İki kullanıcı tipi, iki ayrı app, ortak backend:
+- [naro-app/](naro-app/CLAUDE.md) — Müşteri (araç sahibi) RN/Expo app.
+- [naro-service-app/](naro-service-app/CLAUDE.md) — Servis sağlayıcı (atölye/usta/çekici) RN/Expo app.
+- [naro-backend/](naro-backend/CLAUDE.md) — FastAPI + Postgres + Redis + ARQ.
+- [packages/domain/](packages/domain/CLAUDE.md) — Cross-app Zod kontratı.
+- `packages/mobile-core/`, `packages/ui/` — paylaşılan istemci paketleri.
 
-## Hedef Kullanıcılar (tasarım personaları)
-- Panik/kaza anındaki endişeli genç kullanıcı — net, tek-butonlu, stressiz akış.
-- Aracını tanımayan, sanayiye aşina olmayan kadın kullanıcı — terminoloji/sorun tarifi yerine görsel + rehberli sihirbaz.
-- Okuma-yazması zayıf usta — minimum metin, ikon + ses + büyük dokunma alanları, sesli bildirim.
+## Auto-yüklü alt bağlam
+@naro-app/CLAUDE.md
+@naro-service-app/CLAUDE.md
+@naro-backend/CLAUDE.md
+@packages/domain/CLAUDE.md
 
-## Ürün Prensipleri
-- UX/UI altyapısı üründen önce gelir; akışlar sürekli optimize edilir.
-- Her kısıt (anti-disintermediation, KYC vb.) deneyimi bozmayacak şekilde tasarlanır.
-- Mobil-öncelikli. Web ikincil.
+## Canonical Kaynak (her iş öncesi)
+Davranış, naming, omurga **dokümandan okunur**, koddan tahmin edilmez:
 
-## Mimari — Mevcut Durum (2026-04)
-Monorepo, üç bağımsız proje. Auth scaffold çalışır durumda, feature katmanları boş.
+- [docs/naro-vaka-omurgasi.md](docs/naro-vaka-omurgasi.md) — anlatı (PO sesi).
+- [docs/naro-vaka-omurgasi-genisletilmis.md](docs/naro-vaka-omurgasi-genisletilmis.md) — sistem dili.
+- [docs/naro-domain-glossary.md](docs/naro-domain-glossary.md) — naming sözlüğü (canonical).
+- [docs/naro-urun-use-case-spec.md](docs/naro-urun-use-case-spec.md) — UC1-UC4 spec.
+- [docs/backend-is-mantigi-hiyerarsi.md](docs/backend-is-mantigi-hiyerarsi.md) — backend invariant + red flag.
 
-- **[naro-app/](naro-app/)** — Müşteri (araç sahibi). React Native 0.76 + Expo 52 + TypeScript + NativeWind + Expo Router + Zustand + TanStack Query + Zod + React Hook Form + expo-secure-store. Auth (OTP) + tabs scaffold; features boş.
-- **[naro-service-app/](naro-service-app/)** — Servis sağlayıcı. Aynı stack; ek olarak expo-document-picker, expo-image-picker. Auth + onboarding (KYC pending) scaffold; features boş.
-- **[naro-backend/](naro-backend/)** — FastAPI + Python 3.12 + async SQLAlchemy + Alembic + Pydantic v2 + ARQ (Redis) + Twilio/console SMS. PostgreSQL 16 + Redis 7. JWT + OTP auth. Customer/technician rolleri; technician `pending` → admin onay → active. Matching/jobs/earnings henüz yok.
-- **[legacy/](legacy/)** — Eski React + Vite web prototipleri (app/ ve usta-app/). Referans; zamanla silinecek.
-- **[docs/](docs/)** — Ürün ve tasarım dokümanları: vizyon, eşleştirme mimarisi, UX framework, reklam sistemi, AI prompt notları.
+## Naming Disiplini
+Yeni alias üretme. Önce sözlüğe bak; yetmiyorsa sözlüğe ekle, sonra kod yaz.
 
-İki mobil app arasında ortak kod yok — `api.ts`, `storage.ts`, query client duplicate. Shared workspace/package henüz kurulmadı; uzun vadede kurulması gerekecek.
+**Yasak terimler:**
+- UI/domain (`naro-app/**`, `naro-service-app/**`, `packages/**`): `extra_payment`, `additional_payment`, `additional_amount`, `bid` (UI'da; `bidder` gibi internal hariç).
+- Backend (`naro-backend/**`): `direct_request` (appointment source).
 
-## İki Ayrı App Kararı
-Müşteri ve servis sağlayıcı tamamen farklı mental model, farklı sıklık, farklı bildirim profili, farklı app store stratejisine (arama anahtar kelimeleri, açıklamalar) sahip. Tek app içinde rol-switch karmaşayı artırır ve store konumlandırmasını bozar. Bu yüzden iki ayrı app olarak devam ediyoruz.
+PreToolUse hook git commit'te yasak terim taraması yapar; yakalarsa commit bloklanır.
 
-## Açık Sorular / Sıradaki İşler
-- Uzun vadeli "gelişmiş app deneyimi" için mimari yol haritası — shared UI/design system, shared API client, shared domain tipleri.
-- Matching algoritması, KYC workflow, iş akışı (teklif → onay → gerçekleştirme → ödeme → puan) backend'de ve app'larda implement edilmeli.
-- Anti-disintermediation stratejisi: maskelenmiş iletişim, escrow, puan/reputation bağlama.
-- Offline/düşük-bağlantı deneyimi (çekici usta sahada).
+## Runtime Proof Kuralı
+typecheck + test + lint = **yapısal pencere**. Davranış kanıtı **çalışan cihazda**dır.
 
-## Geliştirme Yaklaşımı (2026-04-18 itibarıyla)
-**Arayüz önce, backend sonra.** Sıra:
-1. Mobil app ekranları + akışlar + state, **mock veriyle** uçtan uca kurulur (query fonksiyonları sahte array döner).
-2. Akışlar oturunca `@naro/domain` şemaları bu arayüzden türetilir — ekranın ihtiyacı olan alanlar, fazlası değil.
-3. Backend (DB, API, DTO, validasyon) domain şemalarından türetilir.
+"Tamam", "kapandı", "canonical oturdu" demeden önce: (a) typecheck temiz (b) test yeşil (c) cihazda primary akış çalıştı (d) logcat regression-free. (a)+(b) tek başına yetmez.
 
-Önceki plan (Faz 6 backend önce) iptal. Faz 3'teki `packages/domain` içindeki `Vehicle`, `Job`, `Quote` iskeletleri varsayım — arayüz netleşince baştan yazılacak. `packages/config` + `packages/ui` + `packages/domain/auth.ts` + `packages/domain/user.ts` sağlam kalır.
+Audit dokümanı "structural review only" diyorsa sonuç da "structural OK, runtime pending" olmalı.
 
-Kullanıcı rolü: müşteri (ürün sahibi) — ekranları o anlatır, AI uygular. Over-engineering yasak; "ileride lazım olur" gerekçesiyle kod yazılmaz.
+ADB device: `c249a4f`. Smoke playbook: `/smoke`.
+
+## Geliştirme Modu
+Ürün geliştirme modu — sabit launch tarihi yok. Vaka omurgası gibi temel kavramların oturması öncelik; gecikme kabul edilebilir.
+
+**Sıra:** mobil ekran mock'la uçtan uca → akış oturunca `@naro/domain` şemaları ekrandan türetilir → backend domain şemalardan türetilir.
+
+## Yasak Refleksler
+- "Şimdilik yeter, sonra düzeltiriz" — mimari borç biriktirme reddedilir.
+- "İleride lazım olur" gerekçesi ile kod yazma (over-engineering).
+- Yeni alias/synonym üretme — önce glossary.
+- typecheck'i runtime delili saymak.
+- Kod-içi yorumla niyet belgelemek (canonical docs ana kaynak).
+
+## İletişim
+Türkçe. Sakin, dürüst, kurucu tonu. Hype/jargon minimum.
+Kullanıcı ADHD; **kısa net özet + kademeli plan**, doc seli odağı kaybettirir, brief disiplinli olmalı.
+
+## Slash Skills
+Workflow gate'leri ve yapısal kontroller `.claude/skills/` altında:
+
+- `/be-test` — backend gate (pytest + ruff + alembic upgrade head)
+- `/fe-check` — frontend gate (paket başına tsc + repo-wide lint)
+- `/smoke` — cihaz smoke playbook (adb + logcat)
+- `/audit` — branch end-to-end audit (canonical drift + naming + invariant + runtime gap)
+- `/uc-walk` — müşteri app UC bazında ekran taraması
+- `/canli-hazirlik` — production readiness gate
+
+## Subagent (paralel/isolated context)
+Heavy iş veya bağımsız değerlendirme için `.claude/agents/`:
+
+- `glossary-auditor` — naming/sözlük drift okuyucu
+- `schema-parity` — domain ↔ backend schema ↔ ekran tip diff
+- `backend-invariant` — pre-merge backend §16/§17 self-check
+- `case-doc-drift` — vaka omurgası canonical vs kod
+- `smoke-runner` — adb + logcat smoke icra (`/smoke` bunu çağırır)

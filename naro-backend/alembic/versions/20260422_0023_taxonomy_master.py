@@ -349,7 +349,7 @@ def _seed_cities() -> None:
             sa.column("label", sa.String),
             sa.column("region", sa.String),
         ),
-        [{"city_code": c, "label": l, "region": r} for c, l, r in rows],
+        [{"city_code": c, "label": lbl, "region": r} for c, lbl, r in rows],
     )
 
 
@@ -402,7 +402,7 @@ def _seed_districts() -> None:
             sa.column("city_code", sa.String),
             sa.column("label", sa.String),
         ),
-        [{"city_code": c, "label": l} for c, l in rows],
+        [{"city_code": c, "label": lbl} for c, lbl in rows],
     )
 
 

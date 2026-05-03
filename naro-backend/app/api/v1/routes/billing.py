@@ -253,6 +253,39 @@ async def cancel_billing_endpoint(
     await db.commit()
 
 
+@customer_router.post(
+    "/{case_id}/payment/abandon",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="3DS WebView kapatma — pending pre-auth'u bırak (case owner)",
+)
+async def abandon_payment_endpoint(
+    case_id: UUID,
+    user: CustomerDep,
+    db: DbDep,
+) -> None:
+    """Müşteri 3DS WebView'i finalize etmeden kapatırsa pending pre-auth
+    attempt'i bırak; billing_state PREAUTH_REQUESTED → ESTIMATE'e döner ve
+    kullanıcı `/payment/initiate`'i retry_N anahtarıyla tekrar tetikleyebilir.
+
+    State guard yalnızca PREAUTH_REQUESTED veya ESTIMATE kabul eder. PREAUTH_HELD
+    veya sonrası para gerçek tutulu — iptal için `/cancel-billing` kullanılmalı.
+    """
+    case = await _load_case_or_404(db, case_id)
+    _assert_case_owner(case, user.id)
+    try:
+        await case_billing.abandon_pending_preauth(db, case=case)
+    except case_billing.PaymentAbandonNotAllowedError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "type": "payment_abandon_not_allowed",
+                "message": str(exc),
+            },
+        ) from exc
+    await db.commit()
+
+
 # ─── Technician endpoint ──────────────────────────────────────────────────
 
 

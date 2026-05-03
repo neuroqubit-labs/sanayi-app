@@ -38,6 +38,7 @@ import {
   type BreakdownTemplate,
 } from "./data/breakdownTemplates";
 import type { ComposerFlow, ComposerStepRenderProps } from "./types";
+import { summarizeServicePreferences } from "./utils/summary";
 
 const INPUT_CLASS =
   "rounded-[20px] border border-app-outline bg-app-surface px-4 py-3 text-base text-app-text";
@@ -57,14 +58,6 @@ const PRICE_OPTIONS: { value: PricePreference; label: string }[] = [
   { value: "cheap", label: "Ucuz olsun" },
   { value: "fast", label: "Hızlı olsun" },
 ];
-
-function summarizeServicePreferences(draft: ServiceRequestDraft): string {
-  const parts: string[] = [];
-  if (draft.on_site_repair) parts.push("Yerinde onarım");
-  if (draft.valet_requested) parts.push("Vale servis");
-  if (parts.length === 0) return "Servise ben götüreceğim";
-  return parts.join(" · ");
-}
 
 function CategoryStep({ draft, updateDraft }: ComposerStepRenderProps) {
   const selected = draft.breakdown_category;
@@ -457,7 +450,10 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
   const mediaCount = draft.attachments.filter((attachment) =>
     evidenceSteps.some((step) => attachment.id.startsWith(`${step.id}:`)),
   ).length;
-  const servicePreferenceLabel = summarizeServicePreferences(draft);
+  const servicePreferenceLabel = summarizeServicePreferences(
+    draft,
+    "Servise ben götüreceğim",
+  );
   const hasAnyPreference =
     draft.on_site_repair || draft.valet_requested;
   const priceLabel =

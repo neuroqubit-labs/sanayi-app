@@ -502,7 +502,7 @@ export const CaseServiceSnapshotSchema = z.object({
 });
 export type CaseServiceSnapshot = z.infer<typeof CaseServiceSnapshotSchema>;
 
-export const CaseWorkflowBlueprintSchema = z.enum([
+const CaseWorkflowBlueprintCanonicalSchema = z.enum([
   "damage_insured",
   "damage_uninsured",
   "maintenance_standard",
@@ -511,6 +511,12 @@ export const CaseWorkflowBlueprintSchema = z.enum([
   "towing_immediate",
   "towing_scheduled",
 ]);
+
+export const CaseWorkflowBlueprintSchema = z.preprocess(
+  (value) =>
+    value === "maintenance_standard_v1" ? "maintenance_standard" : value,
+  CaseWorkflowBlueprintCanonicalSchema,
+);
 export type CaseWorkflowBlueprint = z.infer<
   typeof CaseWorkflowBlueprintSchema
 >;

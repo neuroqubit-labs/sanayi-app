@@ -49,8 +49,15 @@ BILLING_TRANSITIONS: dict[BillingState, frozenset[BillingState]] = {
     BillingState.ESTIMATE: frozenset(
         {BillingState.PREAUTH_REQUESTED, BillingState.CANCELLED}
     ),
+    # F1.1 (2026-04-28): müşteri 3DS WebView'i finalize etmeden kapatırsa
+    # PREAUTH_REQUESTED → ESTIMATE abandon path'i. Idempotency kayıtları
+    # FAILED'e çekilir, kullanıcı yeniden initiate edebilir.
     BillingState.PREAUTH_REQUESTED: frozenset(
-        {BillingState.PREAUTH_HELD, BillingState.PREAUTH_FAILED}
+        {
+            BillingState.PREAUTH_HELD,
+            BillingState.PREAUTH_FAILED,
+            BillingState.ESTIMATE,
+        }
     ),
     BillingState.PREAUTH_HELD: frozenset(
         {

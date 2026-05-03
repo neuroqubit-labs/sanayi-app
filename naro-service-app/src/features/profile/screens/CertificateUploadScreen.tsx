@@ -17,9 +17,9 @@ import { FileText, Image as ImageIcon, Upload } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, Pressable, TextInput, View } from "react-native";
 
-import type { CertificateKindMeta } from "@/features/profile/components/CertificateSection";
-import { ALL_CERT_KINDS, CERT_KIND_META } from "@/features/profile/certCatalog";
 import { useOnboardingStore } from "@/features/onboarding";
+import { ALL_CERT_KINDS, CERT_KIND_META } from "@/features/profile/certCatalog";
+import type { CertificateKindMeta } from "@/features/profile/components/CertificateSection";
 import { useTechnicianProfileStore } from "@/features/technicians";
 import { useServiceMediaUpload } from "@/shared/media/useServiceMediaUpload";
 

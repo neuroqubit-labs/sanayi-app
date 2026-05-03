@@ -21,7 +21,11 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 
-import { useBillingSummary, useInitiatePayment } from "../api";
+import {
+  useAbandonPayment,
+  useBillingSummary,
+  useInitiatePayment,
+} from "../api";
 import { useThreeDSFlow } from "../hooks";
 import type { PaymentInitiateResponse } from "../schemas";
 
@@ -84,6 +88,7 @@ export function PaymentInitiateScreen() {
 
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const initiate = useInitiatePayment(caseIdSafe);
+  const abandon = useAbandonPayment(caseIdSafe);
   const summaryQuery = useBillingSummary(caseIdSafe);
   // BE PREAUTH_FAILED auto-detect: bir defalık tetiklenir. Retry kullanıcı
   // tarafında "Farklı kartla tekrar dene" → start()'ı doğrudan çağırır;
@@ -136,6 +141,12 @@ export function PaymentInitiateScreen() {
     },
     onFail: ({ code, message }) => {
       setPhase({ kind: "failed", code, message });
+      // F1.6: Webhook gelmeden FE timeout/abandon → BE'ye notify et,
+      // billing_state PREAUTH_REQUESTED'da takılmasın. Hata yutulur
+      // (BE 409 PREAUTH_HELD ise zaten doğru durum, ekran refetch eder).
+      if (code === "3ds_timeout" || code === "abandoned") {
+        abandon.mutate();
+      }
     },
   });
 

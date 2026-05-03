@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.media import MediaPurpose, MediaStatus, MediaVisibility, OwnerKind
 
@@ -41,6 +41,13 @@ class UploadIntentRequest(BaseModel):
     checksum_sha256: str | None = Field(default=None, min_length=32, max_length=128)
     dimensions: dict[str, int] | None = None
     duration_sec: int | None = Field(default=None, ge=0, le=3600)
+
+    @field_validator("purpose", mode="before")
+    @classmethod
+    def normalize_purpose_alias(cls, value: object) -> object:
+        if value == "technician_cert":
+            return MediaPurpose.TECHNICIAN_CERTIFICATE
+        return value
 
 
 class UploadIntentResponse(BaseModel):

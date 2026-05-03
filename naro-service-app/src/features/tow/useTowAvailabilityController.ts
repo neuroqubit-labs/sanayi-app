@@ -2,14 +2,15 @@ import * as Location from "expo-location";
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  isPaymentAccountRequiredError,
+  paymentAccountRequiredMessage,
+} from "@/features/technicians/paymentAccountErrors";
+
+import {
   useSetTowAvailability,
   useTowAvailability,
 } from "./api";
 import type { TowEquipment } from "./schemas";
-import {
-  isPaymentAccountRequiredError,
-  paymentAccountRequiredMessage,
-} from "@/features/technicians/paymentAccountErrors";
 
 const DEFAULT_EQUIPMENT: TowEquipment[] = ["flatbed"];
 const IDLE_HEARTBEAT_MS = 10 * 60 * 1000;

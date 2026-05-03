@@ -20,7 +20,6 @@ import sqlalchemy as sa
 
 from alembic import op
 
-
 revision: str = "20260424_0038"
 down_revision: str | None = "20260424_0037"
 branch_labels: Sequence[str] | None = None

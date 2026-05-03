@@ -44,6 +44,7 @@ import {
   type MaintenanceTemplate,
 } from "./data/maintenanceTemplates";
 import type { ComposerFlow, ComposerStepRenderProps } from "./types";
+import { summarizeServicePreferences } from "./utils/summary";
 
 const PREFERRED_WINDOWS = [
   "Bu hafta",
@@ -59,14 +60,6 @@ const PRICE_OPTIONS: { value: PricePreference; label: string }[] = [
   { value: "cheap", label: "Ucuz olsun" },
   { value: "fast", label: "Hızlı olsun" },
 ];
-
-function summarizeServicePreferences(draft: ServiceRequestDraft): string {
-  const parts: string[] = [];
-  if (draft.on_site_repair) parts.push("Yerinde onarım");
-  if (draft.valet_requested) parts.push("Vale servis");
-  if (parts.length === 0) return "Belirtilmedi";
-  return parts.join(" · ");
-}
 
 type MaintenanceCategoryMetaWithGroup = MaintenanceCategoryMeta & {
   groupLabel: "Paket" | "Tek iş";
@@ -482,7 +475,10 @@ function ReviewStep({ draft }: ComposerStepRenderProps) {
   const mediaCount = draft.attachments.filter((attachment) =>
     evidenceSteps.some((step) => attachment.id.startsWith(`${step.id}:`)),
   ).length;
-  const servicePreferenceLabel = summarizeServicePreferences(draft);
+  const servicePreferenceLabel = summarizeServicePreferences(
+    draft,
+    "Belirtilmedi",
+  );
   const hasAnyPreference = draft.on_site_repair || draft.valet_requested;
   const priceLabel =
     PRICE_OPTIONS.find((option) => option.value === draft.price_preference)

@@ -344,7 +344,7 @@ async def main() -> int:
         _check(
             accident_subtype.snapshot_make == "Ford"
             and accident_subtype.snapshot_model == "Focus",
-            f"accident snapshot make/model='Ford/Focus'",
+            "accident snapshot make/model='Ford/Focus'",
         )
         _check(
             accident_subtype.damage_severity == "moderate",

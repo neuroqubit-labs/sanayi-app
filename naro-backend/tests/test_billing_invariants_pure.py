@@ -370,6 +370,22 @@ def test_billing_transitions_paid_cannot_revert_to_preauth() -> None:
         )
 
 
+def test_billing_transitions_preauth_requested_abandon_to_estimate() -> None:
+    """F1.1 (2026-04-28): müşteri 3DS WebView'i finalize etmeden kapatınca
+    abandon path'i — PREAUTH_REQUESTED → ESTIMATE açık olmalı."""
+    assert_transition_allowed(
+        BillingState.PREAUTH_REQUESTED, BillingState.ESTIMATE
+    )
+
+
+def test_billing_transitions_preauth_held_cannot_abandon() -> None:
+    """Para gerçek tutulu — abandon yerine /cancel-billing kullanılmalı."""
+    with pytest.raises(InvalidBillingTransitionError):
+        assert_transition_allowed(
+            BillingState.PREAUTH_HELD, BillingState.ESTIMATE
+        )
+
+
 def test_terminal_states_contract() -> None:
     expected = frozenset({BillingState.SETTLED, BillingState.CANCELLED})
     assert expected == TERMINAL_BILLING_STATES

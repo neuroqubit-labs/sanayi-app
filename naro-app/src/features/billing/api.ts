@@ -41,6 +41,35 @@ export function useInitiatePayment(caseId: string) {
   });
 }
 
+// ─── Payment abandon (F1.1, BE 2026-04-28) ─────────────────────────────────
+
+/**
+ * 3DS WebView'i finalize etmeden kapatınca BE'ye abandon notify et:
+ * billing_state PREAUTH_REQUESTED → ESTIMATE'e döner ve idempotency
+ * PENDING kayıtları FAILED'e çekilir. Kullanıcı `/payment/initiate`'i
+ * retry_N anahtarıyla yeniden tetikleyebilir.
+ *
+ * BE 409 (`payment_abandon_not_allowed`) durumunda — para gerçek tutuluyor
+ * (PREAUTH_HELD/CAPTURED) — caller `/cancel-billing` flow'una yönlendirmeli.
+ */
+export function useAbandonPayment(caseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      await apiClient(`/cases/${caseId}/payment/abandon`, {
+        method: "POST",
+      });
+    },
+    onSettled: () => {
+      // Hata yutulsa da summary refetch — gerçek state BE'den okunsun
+      queryClient.invalidateQueries({
+        queryKey: ["billing", "summary", caseId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["cases"] });
+    },
+  });
+}
+
 // ─── Billing summary (brief §7) ────────────────────────────────────────────
 
 export function useBillingSummary(caseId: string) {

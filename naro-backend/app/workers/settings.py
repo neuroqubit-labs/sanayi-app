@@ -5,6 +5,7 @@ from arq.connections import RedisSettings
 
 from app.core.config import get_settings
 from app.workers.appointment_expiry import appointment_expiry_job
+from app.workers.billing_reconcile import billing_reconcile
 from app.workers.media import process_media_asset
 from app.workers.media_antivirus import media_antivirus_scan
 from app.workers.media_orphan_purge import media_orphan_purge
@@ -66,6 +67,9 @@ class WorkerSettings:
             minute={2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57},
             unique=True,
         ),
+        # F1.2 (2026-04-28): non-tow billing PREAUTH_REQUESTED stale recovery
+        # (30 dk; webhook gelmediyse PREAUTH_FAILED'e çek, retry açık).
+        cron(billing_reconcile, minute={4, 34}, unique=True),
     ]
     on_startup = startup
     on_shutdown = shutdown

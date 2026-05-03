@@ -42,10 +42,11 @@ def test_billing_customer_router_paths() -> None:
     paths = {
         r.path for r in billing_mod.customer_router.routes if hasattr(r, "path")
     }
-    # Customer 3 endpoint
+    # Customer 4 endpoint (F1.1 abandon eklendi 2026-04-28)
     assert "/cases/{case_id}/payment/initiate" in paths
     assert "/cases/{case_id}/billing/summary" in paths
     assert "/cases/{case_id}/cancel-billing" in paths
+    assert "/cases/{case_id}/payment/abandon" in paths
 
 
 def test_billing_technician_router_paths() -> None:

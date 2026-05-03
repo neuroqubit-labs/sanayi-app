@@ -1,6 +1,11 @@
 import { NaroThemeProvider, useNaroTheme } from "@naro/ui";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter, useSegments } from "expo-router";
+import {
+  Stack,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { useEffect } from "react";
@@ -26,14 +31,16 @@ import { queryClient } from "@/shared/lib/query";
 function AuthGuard() {
   const router = useRouter();
   const segments = useSegments();
+  const rootNavigationState = useRootNavigationState();
   const bootstrapState = useAuthStore((s) => s.bootstrapState);
 
   useEffect(() => {
+    if (!rootNavigationState?.key) return;
     if (bootstrapState !== "anonymous") return;
     const current = segments[0] ?? "";
     if (current === "(auth)" || current === "(onboarding)") return;
     router.replace("/(auth)/login");
-  }, [bootstrapState, segments, router]);
+  }, [bootstrapState, rootNavigationState?.key, segments, router]);
 
   return null;
 }
